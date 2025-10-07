@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card card-centered">
   <div class="logo-wrap">
-    <img src="/static/img/logo.svg" alt="Logo">
+    <img src="/static/img/logo.png" alt="Logo">
   </div>
   <h2 class="title">Confirmation d’inscription BTS</h2>
   <p class="subtitle">Merci de renseigner les informations nécessaires à la validation de votre inscription.</p>
@@ -27,6 +27,13 @@
         <option>MCO</option>
         <option>NDRC</option>
         <option>CI</option>
+      </select>
+    </label>
+    <label>Je souhaite suivre ma formation :
+      <select name="mode" required>
+        <option value="">-- Sélectionner --</option>
+        <option value="Présentiel">Présentiel</option>
+        <option value="Distanciel">100% en ligne (visioconférence)</option>
       </select>
     </label>
     <div class="actions">
