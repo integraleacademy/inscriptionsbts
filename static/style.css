@@ -17,36 +17,17 @@ body {
 
 .container { width: min(1200px, 95%); margin: 0 auto; }
 
-.site-header {
-  background: var(--white);
-  border-bottom: 1px solid var(--border);
+/* === Gros logo centré === */
+.logo-wrap {
+  text-align:center;
+  margin:20px 0;
 }
-.header-inner {
-  display:flex; align-items:center; justify-content:space-between;
-  padding: 12px 0;
-}
-
-/* === Header Brand === */
-.brand {
-  display:flex;
-  align-items:center;
-  gap:16px;          /* plus d’espace entre logo et texte */
-  font-weight:700;
-  font-size:20px;    /* texte plus grand */
-  color: var(--text);
-}
-.brand img {
-  height:60px;
-  max-height:70px;
-  width:auto;
-}
-.brand span {
-  line-height:1;     /* aligne verticalement le texte avec le logo */
+.big-logo img {
+  height:100px;     /* ✅ logo bien gros */
+  max-height:120px;
 }
 
-nav a { margin-left:16px; color: var(--text); text-decoration: none; }
-nav a:hover { text-decoration: underline; }
-
+/* Footer */
 .site-footer { border-top:1px solid var(--border); margin-top:40px; }
 .site-footer .container { padding: 16px 0; color: var(--muted); font-size:14px; }
 
@@ -60,9 +41,6 @@ nav a:hover { text-decoration: underline; }
 }
 .card-centered { max-width: 720px; margin: 26px auto; }
 .card-centered.small { max-width: 420px; }
-
-.logo-wrap { text-align:center; margin-bottom: 8px; }
-.logo-wrap img { height: 72px; }
 
 .title { text-align:center; margin:6px 0 8px 0; }
 .subtitle { text-align:center; color: var(--muted); margin:0 0 18px; }
@@ -129,6 +107,5 @@ nav a:hover { text-decoration: underline; }
 
 /* === Responsive === */
 @media (max-width: 600px) {
-  .brand img { height:40px; }  /* ✅ logo réduit sur mobile */
-  .brand { font-size:16px; }   /* texte plus petit sur mobile */
+  .big-logo img { height:70px; } /* ✅ logo réduit sur mobile */
 }
