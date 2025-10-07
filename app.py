@@ -121,22 +121,22 @@ def _mail_wrapper(title_html, body_html):
     </div>
     """
 
-def send_ack_mail(to_email, prenom, nom, bts):
+def send_ack_mail(to_email, prenom, nom, bts, mode):
     subject = "✅ Accusé de réception — Inscription BTS"
     title = '<h3 style="margin:0; font-size:18px; color:#000;">✅ Accusé de réception</h3>'
     body = f"""
       <p>Bonjour <b>{prenom} {nom}</b>,</p>
-      <p>Nous confirmons la bonne réception de votre demande d’inscription en <b>BTS {bts}</b>.</p>
+      <p>Nous confirmons la bonne réception de votre demande d’inscription en <b>BTS {bts}</b> ({mode}).</p>
       <p>Votre dossier est <b>en attente de validation</b>. Vous recevrez un e-mail dès que votre inscription sera validée.</p>
     """
     _send_html_mail(to_email, subject, _mail_wrapper(title, body))
 
-def send_valid_mail(to_email, prenom, nom, bts):
+def send_valid_mail(to_email, prenom, nom, bts, mode):
     subject = "🎉 Inscription validée — Intégrale Academy"
     title = '<h3 style="margin:0; font-size:18px; color:#000;">🎉 Inscription validée</h3>'
     body = f"""
       <p>Bonjour <b>{prenom} {nom}</b>,</p>
-      <p>Bonne nouvelle : votre inscription en <b>BTS {bts}</b> est <b>validée</b> ✅.</p>
+      <p>Bonne nouvelle : votre inscription en <b>BTS {bts}</b> ({mode}) est <b>validée</b> ✅.</p>
       <p>Nous allons vous envoyer par courrier votre <b>certificat de scolarité</b> et votre <b>carte étudiante</b>.</p>
     """
     _send_html_mail(to_email, subject, _mail_wrapper(title, body))
@@ -153,6 +153,7 @@ def _template_context(item):
         "MAIL": item.get("mail", ""),
         "TELEPHONE": item.get("tel", ""),
         "BTS": item.get("bts", ""),
+        "MODE": item.get("mode", ""),
         "DATE_DU_JOUR": today,
         "DATE_DEBUT": f"01/09/{year}",
         "DATE_FIN": f"31/07/{next_year}",
@@ -194,6 +195,7 @@ def submit():
         "mail": f.get("mail", "").strip(),
         "tel": f.get("tel", "").strip(),
         "bts": f.get("bts", "").strip(),
+        "mode": f.get("mode", "").strip(),
         "status": "EN ATTENTE DE VALIDATION",
         "logs": []
     }
@@ -203,7 +205,7 @@ def submit():
 
     try:
         if item["mail"] and EMAIL_PASSWORD:
-            send_ack_mail(item["mail"], item["prenom"], item["nom"], item["bts"])
+            send_ack_mail(item["mail"], item["prenom"], item["nom"], item["bts"], item["mode"])
             add_log(item, f"Mail accusé de réception envoyé à {item['mail']}")
             _save_data(data)
     except Exception as e:
@@ -251,7 +253,7 @@ def validate_inscription(id):
             r["status"] = "INSCRIPTION VALIDÉE"
             try:
                 if r.get("mail") and EMAIL_PASSWORD:
-                    send_valid_mail(r["mail"], r["prenom"], r["nom"], r["bts"])
+                    send_valid_mail(r["mail"], r["prenom"], r["nom"], r["bts"], r["mode"])
                     add_log(r, f"Mail validation envoyé à {r['mail']}")
             except Exception as e:
                 print("Erreur envoi mail validation:", e)
