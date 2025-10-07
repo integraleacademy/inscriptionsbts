@@ -95,3 +95,17 @@ nav a:hover { text-decoration: underline; }
 @media (max-width: 720px) {
   .form-grid { grid-template-columns: 1fr; }
 }
+
+.admin-table td .badge {
+  display:inline-block;
+  white-space:nowrap;
+  padding:6px 10px;
+  border-radius:14px;
+  font-weight:700;
+}
+
+.actions-col {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
