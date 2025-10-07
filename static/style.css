@@ -80,18 +80,17 @@ nav a:hover { text-decoration: underline; }
 
 .page-title { margin: 20px 0 6px; }
 
-/* === ADMIN TABLE === */
-.card-wide {
-  max-width: none;
-  margin-left: 0;
-  margin-right: 0;
+/* === ADMIN FULL WIDTH === */
+.admin-full {
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
-
-.admin-table {
+.admin-full table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: auto;
 }
+
 .admin-table th, .admin-table td {
   border-bottom:1px solid var(--border);
   padding: 12px 16px;
