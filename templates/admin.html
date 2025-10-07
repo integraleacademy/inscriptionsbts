@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2 class="page-title">Administration — Inscriptions BTS</h2>
+
+<div class="card">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Nom</th>
+        <th>Prénom</th>
+        <th>Email</th>
+        <th>Téléphone</th>
+        <th>BTS</th>
+        <th>Statut</th>
+        <th>Logs</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.nom }}</td>
+        <td>{{ r.prenom }}</td>
+        <td>{{ r.mail or '-' }}</td>
+        <td>{{ r.tel or '-' }}</td>
+        <td>{{ r.bts }}</td>
+        <td>
+          <span class="badge" style="background: {{ r.status|status_color }};">{{ r.status }}</span>
+        </td>
+        <td>
+          {% if r.logs %}
+            <details>
+              <summary>📜 Voir</summary>
+              <ul class="logs">
+                {% for log in r.logs %}
+                  <li>{{ log }}</li>
+                {% endfor %}
+              </ul>
+            </details>
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td class="actions-col">
+          {% if r.status != "INSCRIPTION VALIDÉE" %}
+          <form method="post" action="/validate/{{ r.id }}" class="inline-form">
+            <button class="btn-primary small">Valider ✅</button>
+          </form>
+          {% endif %}
+
+          <a class="btn-outline small" href="{{ url_for('certificat', id=r.id) }}">🖨️ Certificat</a>
+          <a class="btn-outline small" href="{{ url_for('lettre', id=r.id) }}">📄 Lettre</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
