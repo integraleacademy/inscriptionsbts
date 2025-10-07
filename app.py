@@ -24,8 +24,8 @@ BCC_EMAIL = os.environ.get("BCC_EMAIL")  # copie cachée facultative
 
 # Dossier des modèles Word
 DOCX_TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "templates_docx")
-CERTIFICAT_TEMPLATE = os.path.join(DOCX_TEMPLATES_DIR, "certificat_modele.docx")
-LETTRE_TEMPLATE = os.path.join(DOCX_TEMPLATES_DIR, "lettre_modele.docx")
+CERTIFICAT_PRESENTIEL_TEMPLATE = os.path.join(DOCX_TEMPLATES_DIR, "certificat_presentiel_modele.docx")
+CERTIFICAT_DISTANCIEL_TEMPLATE = os.path.join(DOCX_TEMPLATES_DIR, "certificat_distanciel_modele.docx")
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -103,7 +103,7 @@ def _mail_wrapper(title_html, body_html):
     <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; background:#f9f9f9; padding:20px;">
       <div style="background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
         <div style="text-align:center; padding:20px 20px 10px 20px;">
-          <img src="/static/img/logo.svg" alt="Logo"
+          <img src="https://integraleacademy.com/static/img/logo.png" alt="Logo"
                style="max-width:100px; height:auto; display:block; margin:auto;">
           <h2 style="color:#000; font-size:18px; margin:10px 0 0 0;">Intégrale Academy</h2>
         </div>
@@ -127,7 +127,7 @@ def send_ack_mail(to_email, prenom, nom, bts):
     body = f"""
       <p>Bonjour <b>{prenom} {nom}</b>,</p>
       <p>Nous confirmons la bonne réception de votre demande d’inscription en <b>BTS {bts}</b>.</p>
-      <p>Votre dossier est <b>en attente de validation</b>. Vous recevrez un e‑mail dès que votre inscription sera validée.</p>
+      <p>Votre dossier est <b>en attente de validation</b>. Vous recevrez un e-mail dès que votre inscription sera validée.</p>
     """
     _send_html_mail(to_email, subject, _mail_wrapper(title, body))
 
@@ -143,10 +143,9 @@ def send_valid_mail(to_email, prenom, nom, bts):
 
 def _template_context(item):
     today = datetime.now().strftime("%d/%m/%Y")
-    # année scolaire simple (ex: 2025-2026)
-    now = datetime.now()
-    year = now.year
-    next_year = year + 1
+    # année scolaire
+    year = datetime.now().year
+    next_year = year + 2
     annee_scolaire = f"{year}-{next_year}"
     return {
         "NOM": item.get("nom", ""),
@@ -155,7 +154,11 @@ def _template_context(item):
         "TELEPHONE": item.get("tel", ""),
         "BTS": item.get("bts", ""),
         "DATE_DU_JOUR": today,
+        "DATE_DEBUT": f"01/09/{year}",
+        "DATE_FIN": f"31/07/{next_year}",
         "ANNEE_SCOLAIRE": annee_scolaire,
+        "ANNEE_DEBUT": year,
+        "ANNEE_FIN": next_year
     }
 
 def _render_docx(template_path, context, filename):
@@ -198,7 +201,6 @@ def submit():
     data.append(item)
     _save_data(data)
 
-    # Mail automatique d'accusé de réception
     try:
         if item["mail"] and EMAIL_PASSWORD:
             send_ack_mail(item["mail"], item["prenom"], item["nom"], item["bts"])
@@ -260,24 +262,24 @@ def validate_inscription(id):
 # -----------------------
 # Génération DOCX
 # -----------------------
-@app.route("/certificat/<id>")
+@app.route("/certificat_presentiel/<id>")
 @require_admin
-def certificat(id):
+def certificat_presentiel(id):
     for r in _load_data():
         if r["id"] == id:
             ctx = _template_context(r)
-            filename = f"Certificat_{r.get('nom','')}_{r.get('prenom','')}.docx"
-            return _render_docx(CERTIFICAT_TEMPLATE, ctx, filename)
+            filename = f"Certificat_Presentiel_{r.get('nom','')}_{r.get('prenom','')}.docx"
+            return _render_docx(CERTIFICAT_PRESENTIEL_TEMPLATE, ctx, filename)
     abort(404)
 
-@app.route("/lettre/<id>")
+@app.route("/certificat_distanciel/<id>")
 @require_admin
-def lettre(id):
+def certificat_distanciel(id):
     for r in _load_data():
         if r["id"] == id:
             ctx = _template_context(r)
-            filename = f"Lettre_{r.get('nom','')}_{r.get('prenom','')}.docx"
-            return _render_docx(LETTRE_TEMPLATE, ctx, filename)
+            filename = f"Certificat_Distanciel_{r.get('nom','')}_{r.get('prenom','')}.docx"
+            return _render_docx(CERTIFICAT_DISTANCIEL_TEMPLATE, ctx, filename)
     abort(404)
 
 if __name__ == "__main__":
