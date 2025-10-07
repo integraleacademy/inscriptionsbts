@@ -109,3 +109,27 @@ nav a:hover { text-decoration: underline; }
   flex-wrap:wrap;
   gap:8px;
 }
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+.admin-table th, .admin-table td {
+  padding: 12px 16px;
+}
+
+.admin-table td .badge {
+  display:inline-block;
+  white-space:nowrap;
+  padding:6px 10px;
+  border-radius:14px;
+  font-weight:700;
+}
+
+.actions-col {
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
