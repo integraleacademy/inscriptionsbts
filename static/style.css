@@ -133,3 +133,10 @@ nav a:hover { text-decoration: underline; }
   gap:8px;
 }
 
+.card-wide {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+
