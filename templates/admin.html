@@ -48,8 +48,8 @@
           </form>
           {% endif %}
 
-          <a class="btn-outline small" href="{{ url_for('certificat', id=r.id) }}">🖨️ Certificat</a>
-          <a class="btn-outline small" href="{{ url_for('lettre', id=r.id) }}">📄 Lettre</a>
+          <a class="btn-outline small" href="{{ url_for('certificat_presentiel', id=r.id) }}">🖨️ Certificat Présentiel</a>
+          <a class="btn-outline small" href="{{ url_for('certificat_distanciel', id=r.id) }}">🖨️ Certificat Distanciel</a>
         </td>
       </tr>
       {% endfor %}
