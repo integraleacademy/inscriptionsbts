@@ -87,6 +87,7 @@ def _send_html_mail(to_email, subject, html):
         server.sendmail(FROM_EMAIL, recipients, msg.as_string())
 
 def _mail_wrapper(title_html, body_html):
+    logo_url = "https://inscriptionsbts.onrender.com/static/img/logo.png"
     assistance = """
       <div style="margin-top:20px; text-align:center;">
         <a href="https://assistance-alw9.onrender.com/"
@@ -103,8 +104,8 @@ def _mail_wrapper(title_html, body_html):
     <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; background:#f9f9f9; padding:20px;">
       <div style="background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
         <div style="text-align:center; padding:20px 20px 10px 20px;">
-          <img src="https://integraleacademy.com/static/img/logo.png" alt="Logo"
-               style="max-width:100px; height:auto; display:block; margin:auto;">
+          <img src="{logo_url}" alt="Logo"
+               style="max-width:120px; height:auto; display:block; margin:auto;">
           <h2 style="color:#000; font-size:18px; margin:10px 0 0 0;">Intégrale Academy</h2>
         </div>
         <div style="background:#F4C45A; padding:12px; text-align:center;">
@@ -120,6 +121,7 @@ def _mail_wrapper(title_html, body_html):
       </div>
     </div>
     """
+
 
 def send_ack_mail(to_email, prenom, nom, bts, mode):
     subject = "✅ Accusé de réception — Inscription BTS"
