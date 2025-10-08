@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.image import MIMEImage
 from docxtpl import DocxTemplate
 from io import BytesIO
 
@@ -70,12 +71,38 @@ def status_color(status):
     }
     return mapping.get(status, "gray")
 
+# -----------------------
+# Email utils
+# -----------------------
+def _attach_logo(related_part):
+    """Attache le logo en inline pour les mails (cid:logo_cid)."""
+    try:
+        logo_path = os.path.join(app.root_path, "static", "img", "logo.png")
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as f:
+                img = MIMEImage(f.read())
+                img.add_header("Content-ID", "<logo_cid>")
+                img.add_header("Content-Disposition", "inline", filename="logo.png")
+                related_part.attach(img)
+    except Exception as e:
+        print("⚠️ Impossible d’attacher le logo :", e)
+
 def _send_html_mail(to_email, subject, html):
-    msg = MIMEMultipart("alternative")
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = FROM_EMAIL
     msg["To"] = to_email
-    msg.attach(MIMEText(html, "html"))
+
+    # Partie "related" (pour inclure des images inline)
+    related = MIMEMultipart("related")
+    msg.attach(related)
+
+    alt = MIMEMultipart("alternative")
+    related.attach(alt)
+    alt.attach(MIMEText(html, "html", "utf-8"))
+
+    # ✅ attacher le logo
+    _attach_logo(related)
 
     recipients = [to_email]
     if BCC_EMAIL:
@@ -87,7 +114,6 @@ def _send_html_mail(to_email, subject, html):
         server.sendmail(FROM_EMAIL, recipients, msg.as_string())
 
 def _mail_wrapper(title_html, body_html):
-    logo_url = "https://inscriptionsbts.onrender.com/static/img/logo.png"
     assistance = """
       <div style="margin-top:20px; text-align:center;">
         <a href="https://assistance-alw9.onrender.com/"
@@ -104,7 +130,7 @@ def _mail_wrapper(title_html, body_html):
     <div style="font-family: Arial, sans-serif; max-width:600px; margin:auto; background:#f9f9f9; padding:20px;">
       <div style="background:#fff; border-radius:12px; box-shadow:0 2px 8px rgba(0,0,0,0.1); overflow:hidden;">
         <div style="text-align:center; padding:20px 20px 10px 20px;">
-          <img src="{logo_url}" alt="Logo"
+          <img src="cid:logo_cid" alt="Logo"
                style="max-width:120px; height:auto; display:block; margin:auto;">
           <h2 style="color:#000; font-size:18px; margin:10px 0 0 0;">Intégrale Academy</h2>
         </div>
@@ -122,6 +148,9 @@ def _mail_wrapper(title_html, body_html):
     </div>
     """
 
+# -----------------------
+# Email envoi accusés & validation
+# -----------------------
 def send_ack_mail(to_email, prenom, nom, bts, mode):
     subject = "✅ Accusé de réception — Inscription BTS"
     title = '<h3 style="margin:0; font-size:18px; color:#000;">✅ Accusé de réception</h3>'
@@ -142,6 +171,9 @@ def send_valid_mail(to_email, prenom, nom, bts, mode):
     """
     _send_html_mail(to_email, subject, _mail_wrapper(title, body))
 
+# -----------------------
+# Context DOCX
+# -----------------------
 def _template_context(item):
     today = datetime.now().strftime("%d/%m/%Y")
     year = datetime.now().year
