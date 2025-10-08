@@ -263,6 +263,16 @@ def validate_inscription(id):
             break
     return redirect(url_for("admin"))
 
+    @app.route("/delete/<id>", methods=["POST"])
+@require_admin
+def delete_inscription(id):
+    data = _load_data()
+    new_data = [r for r in data if r["id"] != id]  # on garde toutes sauf celle à supprimer
+    _save_data(new_data)
+    flash("Inscription supprimée.", "ok")
+    return redirect(url_for("admin"))
+
+
 # -----------------------
 # Génération DOCX
 # -----------------------
