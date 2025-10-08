@@ -52,6 +52,13 @@
 
           <a class="btn-outline small" href="{{ url_for('certificat_presentiel', id=r.id) }}">🖨️ Certificat Présentiel</a>
           <a class="btn-outline small" href="{{ url_for('certificat_distanciel', id=r.id) }}">🖨️ Certificat Distanciel</a>
+
+          <!-- 🔴 Bouton suppression -->
+          <form method="post" action="{{ url_for('delete_inscription', id=r.id) }}" 
+                onsubmit="return confirm('Confirmer la suppression de cette inscription ?');"
+                class="inline-form">
+            <button class="btn-outline small danger">🗑️ Supprimer</button>
+          </form>
         </td>
       </tr>
       {% endfor %}
