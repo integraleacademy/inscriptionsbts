@@ -122,7 +122,6 @@ def _mail_wrapper(title_html, body_html):
     </div>
     """
 
-
 def send_ack_mail(to_email, prenom, nom, bts, mode):
     subject = "✅ Accusé de réception — Inscription BTS"
     title = '<h3 style="margin:0; font-size:18px; color:#000;">✅ Accusé de réception</h3>'
@@ -145,7 +144,6 @@ def send_valid_mail(to_email, prenom, nom, bts, mode):
 
 def _template_context(item):
     today = datetime.now().strftime("%d/%m/%Y")
-    # année scolaire
     year = datetime.now().year
     next_year = year + 2
     annee_scolaire = f"{year}-{next_year}"
@@ -263,15 +261,14 @@ def validate_inscription(id):
             break
     return redirect(url_for("admin"))
 
-    @app.route("/delete/<id>", methods=["POST"])
+@app.route("/delete/<id>", methods=["POST"])
 @require_admin
 def delete_inscription(id):
     data = _load_data()
-    new_data = [r for r in data if r["id"] != id]  # on garde toutes sauf celle à supprimer
+    new_data = [r for r in data if r["id"] != id]
     _save_data(new_data)
     flash("Inscription supprimée.", "ok")
     return redirect(url_for("admin"))
-
 
 # -----------------------
 # Génération DOCX
