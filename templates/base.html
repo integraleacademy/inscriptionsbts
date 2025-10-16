@@ -5,11 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ title or "Intégrale Academy" }}</title>
 
-  {% if 'admin' in request.path %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
-  {% else %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-  {% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
 </head>
 <body>
   <header class="topbar">
