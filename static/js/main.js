@@ -1,33 +1,50 @@
 document.addEventListener('DOMContentLoaded', () => {
 
   // === Gestion fluide des onglets ===
-  document.querySelectorAll('.tabs button').forEach(btn => {
+  const tabButtons = document.querySelectorAll('.tabs button');
+  const tabs = document.querySelectorAll('.tab');
+  let currentStep = 0;
+
+  function showStep(index) {
+    tabs.forEach((tab, i) => {
+      tab.classList.toggle('active', i === index);
+      tab.style.display = i === index ? 'block' : 'none';
+      tabButtons[i].classList.toggle('active', i === index);
+    });
+    currentStep = index;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  tabButtons.forEach((btn, i) => {
     btn.addEventListener('click', () => {
-      const target = document.getElementById(btn.dataset.tab);
+      showStep(i);
+    });
+  });
 
-      // désactive les onglets actifs
-      document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab').forEach(tab => {
-        tab.classList.remove('active');
-        tab.style.opacity = '0';
-        tab.style.transform = 'translateY(20px)';
-        setTimeout(() => tab.style.display = 'none', 200);
-      });
+  showStep(0); // affiche la première étape au chargement
 
-      // active le bouton cliqué
-      btn.classList.add('active');
+  // === Boutons Étape suivante / précédente ===
+  document.querySelectorAll('.next').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const currentTab = tabs[currentStep];
+      const inputs = currentTab.querySelectorAll('input, select, textarea');
+      for (let input of inputs) {
+        if (!input.checkValidity()) {
+          input.reportValidity();
+          return; // stop si un champ est invalide
+        }
+      }
+      if (currentStep < tabs.length - 1) {
+        showStep(currentStep + 1);
+      }
+    });
+  });
 
-      // affiche le nouvel onglet avec une transition douce
-      setTimeout(() => {
-        target.style.display = 'block';
-        setTimeout(() => {
-          target.classList.add('active');
-          target.style.opacity = '1';
-          target.style.transform = 'translateY(0)';
-        }, 50);
-      }, 200);
-
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.querySelectorAll('.prev').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (currentStep > 0) {
+        showStep(currentStep - 1);
+      }
     });
   });
 
@@ -65,16 +82,43 @@ document.addEventListener('DOMContentLoaded', () => {
   const btsSelect = document.querySelector('select[name="bts"]');
   const mosBlock = document.getElementById('mosBlock');
   const mosAucun = document.getElementById('mosAucun');
-  const updateMOS = () => { mosBlock.style.display = (btsSelect && btsSelect.value === 'MOS') ? 'block' : 'none'; };
+  const updateMOS = () => { 
+    if (btsSelect && mosBlock)
+      mosBlock.style.display = (btsSelect.value === 'MOS') ? 'block' : 'none';
+  };
   if (btsSelect) {
     btsSelect.addEventListener('change', updateMOS);
     updateMOS();
   }
   document.querySelectorAll('input[name="mos_parcours"]').forEach(r => {
     r.addEventListener('change', () => {
-      mosAucun.style.display = (r.value === 'aucun' && r.checked) ? 'block' : 'none';
+      if (mosAucun)
+        mosAucun.style.display = (r.value === 'aucun' && r.checked) ? 'block' : 'none';
     });
   });
+
+  // === Validation fichiers PDF ===
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
+      for (const name of pdfOnlyFields) {
+        const input = form.querySelector(`input[name="${name}"]`);
+        if (input && input.files.length > 0) {
+          const file = input.files[0];
+          if (!file.name.toLowerCase().endsWith('.pdf')) {
+            e.preventDefault();
+            alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
+            return;
+          }
+        } else if (input && input.hasAttribute('required') && input.files.length === 0) {
+          e.preventDefault();
+          alert(`⚠️ Le champ "${name}" est obligatoire.`);
+          return;
+        }
+      }
+    });
+  }
 
   // === Gestion ADMIN (tableau) ===
   const table = document.querySelector('.admin-table');
@@ -121,71 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // === Navigation par étapes ===
-  const tabs = document.querySelectorAll('.tab');
-  const tabButtons = document.querySelectorAll('.tabs button');
-  let currentStep = 0;
-
-  function showStep(index) {
-    tabs.forEach((tab, i) => {
-      tab.classList.toggle('active', i === index);
-      tabButtons[i].classList.toggle('active', i === index);
-    });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
-
-  // Étape suivante
-  document.querySelectorAll('.next').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const currentTab = tabs[currentStep];
-      const inputs = currentTab.querySelectorAll('input, select, textarea');
-      for (let input of inputs) {
-        if (!input.checkValidity()) {
-          input.reportValidity();
-          return;
-        }
-      }
-      if (currentStep < tabs.length - 1) {
-        currentStep++;
-        showStep(currentStep);
-      }
-    });
-  });
-
-  // Étape précédente
-  document.querySelectorAll('.prev').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (currentStep > 0) {
-        currentStep--;
-        showStep(currentStep);
-      }
-    });
-  });
-
-  // === Validation fichiers PDF ===
-  const form = document.querySelector('form');
-  if (form) {
-    form.addEventListener('submit', (e) => {
-      const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
-      for (const name of pdfOnlyFields) {
-        const input = form.querySelector(`input[name="${name}"]`);
-        if (input && input.files.length > 0) {
-          const file = input.files[0];
-          if (!file.name.toLowerCase().endsWith('.pdf')) {
-            e.preventDefault();
-            alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
-            return;
-          }
-        } else if (input && input.hasAttribute('required') && input.files.length === 0) {
-          e.preventDefault();
-          alert(`⚠️ Le champ "${name}" est obligatoire.`);
-          return;
-        }
-      }
-    });
-  }
-
-}); // 👈 cette accolade ferme TOUT le DOMContentLoaded
+}); // 👈 fin du DOMContentLoaded
 
 
 // === Fonctions globales (hors DOMContentLoaded) ===
