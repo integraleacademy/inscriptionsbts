@@ -46,15 +46,17 @@ nav a:hover {
   color: #f4c45a;
 }
 
-/* --- Conteneur principal (public) --- */
+/* =======================================================
+   🧾 CONTENEUR FORMULAIRE PUBLIC
+   ======================================================= */
+
 .container {
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  background: white;
-  padding: 30px 40px;
-  border-radius: 0;
-  box-shadow: none;
+  max-width: 1100px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
 }
 
 h2 {
@@ -233,7 +235,6 @@ textarea {
   overflow-x: auto;
 }
 
-
 /* --- Barre d’outils --- */
 .toolbar {
   display: flex;
@@ -272,9 +273,10 @@ textarea {
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 14px;
+  font-size: 13px;
   margin-top: 10px;
   table-layout: auto;
+  white-space: nowrap;
 }
 
 .admin-table thead {
@@ -284,11 +286,10 @@ textarea {
 
 .admin-table th,
 .admin-table td {
-  padding: 12px 10px;
+  padding: 8px 6px;
   border: 1px solid #ddd;
   text-align: center;
   vertical-align: middle;
-  word-wrap: break-word;
 }
 
 .admin-table th {
@@ -423,23 +424,6 @@ tr.status-updated {
   animation: flashRow 1.5s ease;
 }
 
-/* ✅ TABLEAU COMPACT ET LISIBLE */
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  table-layout: auto;
-  white-space: nowrap;
-}
-
-.admin-table th,
-.admin-table td {
-  padding: 8px 6px;
-  border: 1px solid #ddd;
-  text-align: center;
-  vertical-align: middle;
-}
-
 /* ✅ Les étiquettes sur une seule ligne */
 .admin-table .etiquettes {
   display: flex;
@@ -461,7 +445,6 @@ tr.status-updated {
   transform: scale(1);
   cursor: pointer;
 }
-
 
 @keyframes flashRow {
   0% { background: #dfffd8; }
