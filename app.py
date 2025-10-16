@@ -74,8 +74,7 @@ def init_db():
     conn.commit()
     conn.close()
 
-@app.before_first_request
-def setup():
+with app.app_context():
     init_db()
 
 def log_event(candidat, type_, payload_dict):
