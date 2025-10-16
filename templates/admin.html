@@ -11,8 +11,12 @@
       <input type="text" name="q" placeholder="Rechercher (nom, prénom, mail, BTS...)" value="{{ request.args.get('q','') }}">
       <select name="bts">
         <option value="">BTS (tous)</option>
-        <option value="MOS">MOS</option><option value="MCO">MCO</option><option value="PI">PI</option>
-        <option value="CI">CI</option><option value="NDRC">NDRC</option><option value="CG">CG</option>
+        <option value="MOS">MOS</option>
+        <option value="MCO">MCO</option>
+        <option value="PI">PI</option>
+        <option value="CI">CI</option>
+        <option value="NDRC">NDRC</option>
+        <option value="CG">CG</option>
       </select>
       <select name="mode">
         <option value="">Mode (tous)</option>
@@ -64,13 +68,14 @@
         <td contenteditable="true" data-field="mode">{{ r.mode }}</td>
         <td contenteditable="true" data-field="tel">{{ r.tel }}</td>
         <td>
-          <select data-field="statut" class="status-select" style="background-color: var(--{{ r.statut or 'preinscription' }});">
+          <select data-field="statut" class="status-select" 
+                  style="background-color: var(--{{ r.statut or 'preinscription' }});">
             {% for key,label,color in statuts %}
               <option value="{{ key }}" {% if r.statut==key %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
         </td>
-        <td>
+        <td class="etiquettes">
           <label><input type="checkbox" class="chk" data-field="label_aps" {% if r.label_aps %}checked{% endif %}> APS</label>
           <label><input type="checkbox" class="chk" data-field="label_aut_ok" {% if r.label_aut_ok %}checked{% endif %}> AUT OK</label>
           <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
@@ -98,7 +103,9 @@
     <div style="margin-top:8px">
       <button id="saveCommentBtn" class="btn primary">💾 Enregistrer</button>
     </div>
-    <div class="modal-close"><button class="btn" onclick="closeActionsModal()">Fermer</button></div>
+    <div class="modal-close">
+      <button class="btn" onclick="closeActionsModal()">Fermer</button>
+    </div>
   </div>
 </div>
 
@@ -213,7 +220,5 @@ document.getElementById("saveCommentBtn").addEventListener("click", ()=>{
   showToast("💾 Commentaire enregistré", "#f4c45a");
 });
 </script>
-
-
 
 {% endblock %}
