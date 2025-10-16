@@ -135,7 +135,13 @@ document.querySelectorAll(".status-select").forEach(sel=>{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({id, value})
-    }).then(()=>sel.style.backgroundColor=getComputedStyle(document.documentElement).getPropertyValue('--'+value));
+    }).then(()=>{
+      sel.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--'+value);
+      // petit flash visuel
+      const tr = sel.closest("tr");
+      tr.classList.add("status-updated");
+      setTimeout(()=>tr.classList.remove("status-updated"),1200);
+    });
   });
 });
 
@@ -143,8 +149,28 @@ document.querySelectorAll(".status-select").forEach(sel=>{
 let currentId = null;
 function openActionsModal(id) {
   currentId = id;
-  document.getElementById("actionsModal").classList.remove("hidden");
+  const modal = document.getElementById("actionsModal");
+  modal.classList.remove("hidden");
   document.getElementById("printLink").href = "/admin/print/" + id;
+
+  // 🟠 Bouton RECONFIRMATION — mise à jour instantanée
+  const reconfirmBtn = document.getElementById("reconfirmBtn");
+  reconfirmBtn.onclick = async () => {
+    reconfirmBtn.disabled = true;
+    reconfirmBtn.textContent = "⏳ Envoi en cours...";
+    await fetch("/admin/reconfirm/" + id, { method: "POST" });
+    reconfirmBtn.textContent = "✅ Reconfirmation envoyée !";
+    reconfirmBtn.style.background = "#28a745";
+    // mise à jour visuelle du tableau sans reload :
+    const row = document.querySelector(`tr[data-id='${id}']`);
+    if (row) {
+      const select = row.querySelector(".status-select");
+      select.value = "reconf_en_cours";
+      select.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--reconf_en_cours');
+      row.classList.add("status-updated");
+      setTimeout(()=>row.classList.remove("status-updated"),1200);
+    }
+  };
 }
 function closeActionsModal() {
   document.getElementById("actionsModal").classList.add("hidden");
@@ -158,8 +184,9 @@ document.getElementById("saveCommentBtn").addEventListener("click", ()=>{
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({id:currentId, field:"commentaires", value})
   });
-  alert("Commentaire enregistré !");
+  alert("💾 Commentaire enregistré !");
 });
 </script>
+
 
 {% endblock %}
