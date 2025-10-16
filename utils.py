@@ -38,4 +38,5 @@ def sign_token(value: str) -> str:
 
 def make_signed_link(path: str, token: str) -> str:
     sig = sign_token(token)
-    return f"{BASE_URL}{path}?token={token}&sig={sig}"
+    base = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+    return f"{base}{path}?token={token}&sig={sig}"
