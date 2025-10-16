@@ -104,6 +104,31 @@
 
 <!-- 💾 JS INTERACTIF -->
 <script>
+// === Notification (toast) ===
+function showToast(message, color="#333") {
+  let toast = document.createElement("div");
+  toast.textContent = message;
+  toast.style.position = "fixed";
+  toast.style.bottom = "25px";
+  toast.style.right = "25px";
+  toast.style.background = color;
+  toast.style.color = "#fff";
+  toast.style.padding = "12px 18px";
+  toast.style.borderRadius = "8px";
+  toast.style.fontWeight = "600";
+  toast.style.boxShadow = "0 3px 8px rgba(0,0,0,0.25)";
+  toast.style.zIndex = "2000";
+  toast.style.opacity = "0";
+  toast.style.transition = "all 0.4s ease";
+  document.body.appendChild(toast);
+  setTimeout(()=>toast.style.opacity="1",100);
+  setTimeout(()=>{
+    toast.style.opacity="0";
+    setTimeout(()=>toast.remove(),400);
+  },3000);
+}
+
+// === Sauvegarde champ texte ===
 function saveField(id, field, value) {
   fetch("/admin/update-field", {
     method: "POST",
@@ -137,10 +162,10 @@ document.querySelectorAll(".status-select").forEach(sel=>{
       body: JSON.stringify({id, value})
     }).then(()=>{
       sel.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--'+value);
-      // petit flash visuel
       const tr = sel.closest("tr");
       tr.classList.add("status-updated");
       setTimeout(()=>tr.classList.remove("status-updated"),1200);
+      showToast("✅ Statut mis à jour");
     });
   });
 });
@@ -161,7 +186,7 @@ function openActionsModal(id) {
     await fetch("/admin/reconfirm/" + id, { method: "POST" });
     reconfirmBtn.textContent = "✅ Reconfirmation envoyée !";
     reconfirmBtn.style.background = "#28a745";
-    // mise à jour visuelle du tableau sans reload :
+
     const row = document.querySelector(`tr[data-id='${id}']`);
     if (row) {
       const select = row.querySelector(".status-select");
@@ -170,6 +195,7 @@ function openActionsModal(id) {
       row.classList.add("status-updated");
       setTimeout(()=>row.classList.remove("status-updated"),1200);
     }
+    showToast("📨 Mail de reconfirmation envoyé", "#28a745");
   };
 }
 function closeActionsModal() {
@@ -184,9 +210,10 @@ document.getElementById("saveCommentBtn").addEventListener("click", ()=>{
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({id:currentId, field:"commentaires", value})
   });
-  alert("💾 Commentaire enregistré !");
+  showToast("💾 Commentaire enregistré", "#f4c45a");
 });
 </script>
+
 
 
 {% endblock %}
