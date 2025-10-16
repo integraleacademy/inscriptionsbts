@@ -178,3 +178,172 @@ textarea {
   text-align: center;
   font-weight: 600;
 }
+
+/* =======================================================
+   🌈 STYLE FORMULAIRE – Pré-inscriptions BTS 2026
+   ======================================================= */
+
+/* --- Structure des onglets --- */
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 20px 0;
+  gap: 10px;
+}
+.tabs button {
+  background: #f4f4f4;
+  border: 2px solid transparent;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.25s ease;
+  color: #222;
+  font-size: 15px;
+}
+.tabs button.active {
+  background: #f4c45a;
+  color: #000;
+  border-color: #f4c45a;
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(244, 196, 90, 0.4);
+}
+.tabs button:hover:not(.active) {
+  background: #eee;
+}
+
+/* --- Animation fluide des étapes --- */
+.tab {
+  display: none;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+}
+.tab.active {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* --- Grille propre pour les champs --- */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  color: #333;
+}
+input, select, textarea {
+  padding: 8px 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  margin-top: 4px;
+  transition: border-color 0.2s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #f4c45a;
+  outline: none;
+  box-shadow: 0 0 5px rgba(244, 196, 90, 0.4);
+}
+
+/* --- Section d'aide --- */
+.notice {
+  background: #fffaf0;
+  border-left: 5px solid #f4c45a;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 25px;
+  font-size: 15px;
+}
+.notice ol {
+  margin: 10px 0 10px 25px;
+}
+.notice strong { color: #000; }
+.notice .help a {
+  color: #f4c45a;
+  font-weight: 600;
+  text-decoration: none;
+}
+.notice .help a:hover {
+  text-decoration: underline;
+}
+
+/* --- Bouton principal --- */
+.btn.primary {
+  background: #f4c45a;
+  border: none;
+  color: #000;
+  font-weight: 700;
+  padding: 12px 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+.btn.primary:hover {
+  background: #ffda77;
+  transform: scale(1.05);
+}
+.actions {
+  text-align: center;
+  margin-top: 30px;
+}
+
+/* --- Sous-blocs conditionnels (MOS, mineur, etc.) --- */
+.minor, .mos {
+  background: #f8f8f8;
+  border-left: 4px solid #f4c45a;
+  padding: 15px;
+  border-radius: 6px;
+  margin-top: 15px;
+}
+.minor h4, .mos h4 {
+  margin-top: 0;
+}
+
+/* --- Global --- */
+body {
+  background: #f8f8f8;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #222;
+  margin: 0;
+  padding: 0;
+}
+.container {
+  max-width: 1100px;
+  margin: auto;
+  background: #fff;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.topbar {
+  background: #111;
+  color: #fff;
+  padding: 15px 30px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.topbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.topbar nav a {
+  color: #f4c45a;
+  margin-left: 20px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.topbar nav a:hover {
+  text-decoration: underline;
+}
+
+
+
