@@ -1,27 +1,70 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 12px; }
-    h1 { font-size: 18px; }
-    .box { border:1px solid #ccc; padding:8px; margin-bottom:10px; }
-    .label { color:#555; font-weight:bold; }
-  </style>
+<meta charset="UTF-8">
+<style>
+body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; color: #222; }
+h1 { text-align: center; color: #111; border-bottom: 2px solid #f4c45a; padding-bottom: 6px; }
+.section { margin-bottom: 10px; }
+.label { color: #111; font-weight: bold; display: inline-block; width: 200px; }
+.box { border: 1px solid #ccc; padding: 6px; margin-bottom: 8px; border-radius: 5px; }
+</style>
 </head>
 <body>
-  <h1>Fiche candidat – {{ row.numero_dossier }}</h1>
-  <div class="box"><span class="label">Nom/Prénom :</span> {{ row.nom }} {{ row.prenom }}</div>
-  <div class="box"><span class="label">BTS :</span> {{ row.bts }} — <span class="label">Mode :</span> {{ row.mode }} — <span class="label">Statut :</span> {{ row.statut }}</div>
-  <div class="box"><span class="label">Email :</span> {{ row.email }} — <span class="label">Tel :</span> {{ row.tel }}</div>
+
+<h1>Fiche Candidat – {{ row.numero_dossier }}</h1>
+
+<div class="section">
+  <div class="box"><span class="label">Nom :</span> {{ row.nom }}</div>
+  <div class="box"><span class="label">Prénom :</span> {{ row.prenom }}</div>
+  <div class="box"><span class="label">Sexe :</span> {{ row.sexe }}</div>
+  <div class="box"><span class="label">Date de naissance :</span> {{ row.date_naissance }}</div>
+  <div class="box"><span class="label">Ville / CP / Pays de naissance :</span> {{ row.ville_naissance }} ({{ row.cp_naissance }}) {{ row.pays_naissance }}</div>
+  <div class="box"><span class="label">N° Sécurité sociale :</span> {{ row.num_secu }}</div>
+</div>
+
+<div class="section">
   <div class="box"><span class="label">Adresse :</span> {{ row.adresse }}, {{ row.cp }} {{ row.ville }}</div>
-  <div class="box">
-    <div><strong>Motivations :</strong> {{ row.projet_pourquoi }}</div>
-    <div><strong>Objectif :</strong> {{ row.projet_objectif }}</div>
-    <div><strong>Passions :</strong> {{ row.projet_passions }}</div>
+  <div class="box"><span class="label">E-mail :</span> {{ row.email }}</div>
+  <div class="box"><span class="label">Téléphone :</span> {{ row.tel }}</div>
+</div>
+
+<div class="section">
+  <div class="box"><span class="label">Formation souhaitée :</span> {{ row.bts }}</div>
+  <div class="box"><span class="label">Mode :</span> {{ row.mode }}</div>
+</div>
+
+<div class="section">
+  <div class="box"><span class="label">Baccalauréat :</span> {{ row.bac_status }} ({{ row.bac_type }}) {{ row.bac_autre }}</div>
+  <div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}Oui{% else %}Non{% endif %}</div>
+  <div class="box"><span class="label">Mineur :</span> {% if row.est_mineur %}Oui{% else %}Non{% endif %}
+    {% if row.est_mineur %}
+      <br><span class="label">Responsable légal :</span> {{ row.resp_prenom }} {{ row.resp_nom }} ({{ row.resp_email }} / {{ row.resp_tel }})
+    {% endif %}
   </div>
-  <div class="box"><span class="label">Étiquettes :</span> APS={{ row.label_aps }}, AUT OK={{ row.label_aut_ok }}, Chèque OK={{ row.label_cheque_ok }}</div>
+</div>
+
+{% if row.bts == "MOS" %}
+<div class="section">
+  <div class="box"><span class="label">Parcours sécurité :</span> {{ row.mos_parcours }}</div>
+  <div class="box"><span class="label">Formation APS souhaitée :</span> {% if row.aps_souhaitee %}Oui{% else %}Non{% endif %}
+    {% if row.aps_session %}<br><span class="label">Session :</span> {{ row.aps_session }}{% endif %}
+  </div>
+</div>
+{% endif %}
+
+<div class="section">
+  <div class="box"><strong>Pourquoi souhaitez-vous intégrer ce BTS ?</strong><br>{{ row.projet_pourquoi }}</div>
+  <div class="box"><strong>Quel est votre projet ?</strong><br>{{ row.projet_objectif }}</div>
+  <div class="box"><strong>Quelles sont vos passions ?</strong><br>{{ row.projet_passions }}</div>
+</div>
+
+<div class="section">
+  <div class="box"><span class="label">Statut :</span> {{ row.statut }}</div>
+  <div class="box"><span class="label">Étiquettes :</span> APS={{ row.label_aps }}, AUT={{ row.label_aut_ok }}, CHÈQUE={{ row.label_cheque_ok }}</div>
   <div class="box"><span class="label">Commentaires :</span> {{ row.commentaires }}</div>
-  <p><em>Imprimé le {{ now.strftime('%d/%m/%Y %H:%M') }}</em></p>
+</div>
+
+<p style="text-align:right"><em>Imprimé le {{ now.strftime('%d/%m/%Y %H:%M') }}</em></p>
 </body>
 </html>
