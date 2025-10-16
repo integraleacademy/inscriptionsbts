@@ -168,22 +168,65 @@ document.addEventListener('DOMContentLoaded', () => {
 }); // 👈 fin du DOMContentLoaded
 
 
+
 // === Fonctions globales (hors DOMContentLoaded) ===
 let currentRowId = null;
+
 function openActionsModal(id) {
   currentRowId = id;
   const modal = document.getElementById('actionsModal');
   modal.classList.remove('hidden');
   document.getElementById('printLink').setAttribute('href', '/admin/print/' + id);
-  document.getElementById('reconfirmBtn').onclick = async () => {
-    await fetch('/admin/reconfirm/' + id, { method: 'POST' });
-    alert('🔁 Reconfirmation envoyée et statut mis à jour.');
+
+  // 🟡 Bouton RECONFIRMATION
+  const reconfirmBtn = document.getElementById('reconfirmBtn');
+  reconfirmBtn.onclick = async () => {
+    try {
+      reconfirmBtn.disabled = true;
+      reconfirmBtn.textContent = "⏳ Envoi en cours...";
+      
+      // 1️⃣ Envoi du mail + MAJ du statut côté serveur
+      const res = await fetch('/admin/reconfirm/' + id, { method: 'POST' });
+      if (!res.ok) throw new Error("Erreur serveur");
+
+      // 2️⃣ Mise à jour immédiate du DOM
+      const row = document.querySelector(`tr[data-id='${id}']`);
+      if (row) {
+        const select = row.querySelector('.status-select');
+        if (select) {
+          select.value = "reconf_en_cours";
+          select.style.backgroundColor = getComputedStyle(document.documentElement)
+            .getPropertyValue('--reconf_en_cours');
+        }
+        // petit effet visuel pour montrer le changement
+        row.classList.add('status-updated');
+        setTimeout(() => row.classList.remove('status-updated'), 1500);
+      }
+
+      // 3️⃣ Feedback visuel sur le bouton
+      reconfirmBtn.textContent = "✅ Reconfirmation envoyée !";
+      reconfirmBtn.style.background = "#28a745";
+      setTimeout(() => {
+        reconfirmBtn.disabled = false;
+        reconfirmBtn.textContent = "🔁 Reconfirmation inscription";
+        reconfirmBtn.style.background = "";
+      }, 2500);
+
+    } catch (err) {
+      alert("❌ Erreur lors de la reconfirmation.");
+      console.error(err);
+      reconfirmBtn.disabled = false;
+    }
   };
+
+  // 🔴 Bouton SUPPRIMER
   document.getElementById('deleteBtn').onclick = async () => {
     if (!confirm('⚠️ Confirmer la suppression ?')) return;
     await fetch('/admin/delete/' + id, { method: 'POST' });
     location.reload();
   };
+
+  // 💬 Sauvegarde du commentaire
   document.getElementById('saveCommentBtn').onclick = async () => {
     const value = document.getElementById('commentBox').value;
     await fetch('/admin/update-field', {
@@ -194,6 +237,8 @@ function openActionsModal(id) {
     alert('💾 Commentaire enregistré.');
   };
 }
+
 function closeActionsModal() {
   document.getElementById('actionsModal').classList.add('hidden');
 }
+
