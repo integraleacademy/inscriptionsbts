@@ -1,4 +1,0 @@
-Flask==3.0.3
-python-dotenv==1.0.1
-pytz==2024.1
-docxtpl==0.16.7
