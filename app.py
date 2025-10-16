@@ -10,11 +10,22 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
 
-DATA_DIR = os.getenv("DATA_DIR", os.path.join(os.getcwd(), "data"))
-DB_PATH = os.path.join(DATA_DIR, "app.db")
-UPLOAD_DIR = os.path.join("static", "uploads")
+# =====================================================
+# 💾 CONFIGURATION DU STOCKAGE PERSISTANT (Render)
+# =====================================================
+
+# 📁 Dossier persistant (base de données et PDF)
+DATA_DIR = os.getenv("DATA_DIR", "/data")
 os.makedirs(DATA_DIR, exist_ok=True)
+
+# 📦 Base SQLite stockée sur le disque Render
+DB_PATH = os.path.join(DATA_DIR, "app.db")
+
+# 📂 Dossier des fichiers uploadés
+# ⚠️ Pour qu’ils soient persistants aussi, on les place dans /data/uploads
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")  # optional
 
