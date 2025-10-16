@@ -225,12 +225,14 @@ textarea {
 .admin-container {
   width: 100%;
   max-width: 100%;
-  margin: 0;
-  border-radius: 0;
-  padding: 25px 40px;
+  margin: 20px auto;
   background: #fff;
-  box-shadow: none;
+  padding: 20px 25px;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  overflow-x: auto;
 }
+
 
 /* --- Barre d’outils --- */
 .toolbar {
@@ -420,6 +422,46 @@ textarea {
 tr.status-updated {
   animation: flashRow 1.5s ease;
 }
+
+/* ✅ TABLEAU COMPACT ET LISIBLE */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: auto;
+  white-space: nowrap;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 8px 6px;
+  border: 1px solid #ddd;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* ✅ Les étiquettes sur une seule ligne */
+.admin-table .etiquettes {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.admin-table .etiquettes label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.admin-table input[type="checkbox"] {
+  transform: scale(1);
+  cursor: pointer;
+}
+
 
 @keyframes flashRow {
   0% { background: #dfffd8; }
