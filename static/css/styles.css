@@ -345,5 +345,163 @@ body {
   text-decoration: underline;
 }
 
+/* =======================================================
+   🎓 ADMINISTRATION – Intégrale Academy
+   ======================================================= */
+
+.admin-container {
+  max-width: 1200px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+}
+
+/* Barre d’outils */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  gap: 15px;
+}
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.filters input, .filters select {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+.exports .btn {
+  margin-left: 8px;
+}
+
+/* Tableau principal */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 14px;
+}
+.admin-table thead {
+  background: #111;
+  color: #fff;
+}
+.admin-table th, .admin-table td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: center;
+  vertical-align: middle;
+}
+.admin-table tr:nth-child(even) {
+  background: #fafafa;
+}
+.admin-table td[contenteditable="true"] {
+  background: #fff8e1;
+  cursor: text;
+}
+.admin-table td[contenteditable="true"]:focus {
+  outline: 2px solid #f4c45a;
+}
+
+/* Statuts colorés */
+.status-select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+.status-select option { color: #000; }
+:root {
+  --preinscription: #7d7d7d;
+  --validee: #007bff;
+  --confirmee: #f4c45a;
+  --reconf_en_cours: #ff8c00;
+  --reconfirmee: #28a745;
+  --annulee: #d9534f;
+}
+.status-select[value="preinscription"] { background: var(--preinscription); }
+.status-select[value="validee"] { background: var(--validee); }
+.status-select[value="confirmee"] { background: var(--confirmee); color:#111; }
+.status-select[value="reconf_en_cours"] { background: var(--reconf_en_cours); }
+.status-select[value="reconfirmee"] { background: var(--reconfirmee); }
+.status-select[value="annulee"] { background: var(--annulee); }
+
+/* Boutons */
+.btn.small {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.btn.danger {
+  background: #d9534f;
+  color: #fff;
+}
+.btn.danger:hover {
+  background: #c9302c;
+}
+
+/* Modale */
+.modal {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.modal.hidden { display: none; }
+.modal-content {
+  background: #fff;
+  padding: 25px;
+  border-radius: 10px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+}
+.modal-content h3 {
+  text-align: center;
+  margin-top: 0;
+  color: #111;
+  border-bottom: 3px solid #f4c45a;
+  padding-bottom: 8px;
+}
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.modal-actions .btn {
+  width: 100%;
+  justify-content: center;
+}
+.modal textarea {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  padding: 8px;
+  font-size: 14px;
+  resize: vertical;
+}
+
+/* Animation sur changement de statut */
+tr.status-updated {
+  animation: flashRow 1.5s ease;
+}
+@keyframes flashRow {
+  0% { background: #dfffd8; }
+  100% { background: transparent; }
+}
+
+
 
 
