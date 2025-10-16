@@ -1,10 +1,15 @@
+/* =======================================================
+   🌟 STYLES GLOBAUX
+   ======================================================= */
+
 body {
   font-family: "Segoe UI", Arial, sans-serif;
-  background: #f9f9f9;
+  background: #f8f8f8;
   margin: 0;
   color: #222;
 }
 
+/* --- Barre du haut --- */
 .topbar {
   background: #111;
   color: white;
@@ -41,13 +46,15 @@ nav a:hover {
   color: #f4c45a;
 }
 
+/* --- Conteneur principal (public) --- */
 .container {
-  max-width: 1100px;
-  margin: 40px auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
   background: white;
-  padding: 30px;
-  border-radius: 10px;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+  padding: 30px 40px;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 h2 {
@@ -58,132 +65,10 @@ h2 {
   margin-bottom: 25px;
 }
 
-.notice {
-  background: #fff8e1;
-  border: 1px solid #f4c45a;
-  padding: 15px;
-  border-radius: 10px;
-  margin-bottom: 20px;
-}
-
-.notice ol {
-  margin-left: 20px;
-}
-
-.notice strong {
-  color: #111;
-}
-
-.notice .help {
-  margin-top: 10px;
-  font-weight: 600;
-}
-
-.tabs {
-  display: flex;
-  flex-wrap: wrap;
-  margin-bottom: 15px;
-  border-bottom: 2px solid #f4c45a;
-}
-
-.tabs button {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  background: #eee;
-  cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
-}
-
-.tabs button.active {
-  background: #f4c45a;
-  color: #111;
-  border-bottom: 3px solid #111;
-}
-
-.tab {
-  display: none;
-}
-
-.tab.active {
-  display: block;
-  animation: fadeIn 0.4s;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 15px;
-}
-
-label {
-  font-weight: 600;
-  font-size: 14px;
-  display: flex;
-  flex-direction: column;
-}
-
-input, select, textarea {
-  padding: 8px;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  margin-top: 4px;
-  font-size: 14px;
-}
-
-textarea {
-  resize: vertical;
-}
-
-.btn {
-  background: #111;
-  color: white;
-  padding: 10px 18px;
-  border-radius: 6px;
-  border: none;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn.primary {
-  background: #f4c45a;
-  color: #111;
-}
-
-.btn:hover {
-  opacity: 0.85;
-}
-
-.actions {
-  text-align: center;
-  margin-top: 25px;
-}
-
-.flash-area {
-  margin-bottom: 15px;
-}
-
-.flash {
-  background: #f4c45a;
-  color: #111;
-  padding: 10px;
-  border-radius: 6px;
-  margin-bottom: 5px;
-  text-align: center;
-  font-weight: 600;
-}
-
 /* =======================================================
    🌈 STYLE FORMULAIRE – Pré-inscriptions BTS 2026
    ======================================================= */
 
-/* --- Structure des onglets --- */
 .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -191,6 +76,7 @@ textarea {
   margin: 20px 0;
   gap: 10px;
 }
+
 .tabs button {
   background: #f4f4f4;
   border: 2px solid transparent;
@@ -202,6 +88,7 @@ textarea {
   color: #222;
   font-size: 15px;
 }
+
 .tabs button.active {
   background: #f4c45a;
   color: #000;
@@ -209,17 +96,18 @@ textarea {
   transform: scale(1.05);
   box-shadow: 0 0 12px rgba(244, 196, 90, 0.4);
 }
+
 .tabs button:hover:not(.active) {
   background: #eee;
 }
 
-/* --- Animation fluide des étapes --- */
 .tab {
   display: none;
   opacity: 0;
   transform: translateY(20px);
   transition: all 0.3s ease;
 }
+
 .tab.active {
   display: block;
   opacity: 1;
@@ -232,12 +120,14 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 15px;
 }
+
 label {
   display: flex;
   flex-direction: column;
   font-weight: 600;
   color: #333;
 }
+
 input, select, textarea {
   padding: 8px 10px;
   border: 1px solid #ccc;
@@ -246,13 +136,18 @@ input, select, textarea {
   margin-top: 4px;
   transition: border-color 0.2s;
 }
+
 input:focus, select:focus, textarea:focus {
   border-color: #f4c45a;
   outline: none;
   box-shadow: 0 0 5px rgba(244, 196, 90, 0.4);
 }
 
-/* --- Section d'aide --- */
+textarea {
+  resize: vertical;
+}
+
+/* --- Notice explicative --- */
 .notice {
   background: #fffaf0;
   border-left: 5px solid #f4c45a;
@@ -261,20 +156,41 @@ input:focus, select:focus, textarea:focus {
   margin-bottom: 25px;
   font-size: 15px;
 }
+
 .notice ol {
   margin: 10px 0 10px 25px;
 }
-.notice strong { color: #000; }
+
+.notice strong {
+  color: #000;
+}
+
 .notice .help a {
   color: #f4c45a;
   font-weight: 600;
   text-decoration: none;
 }
+
 .notice .help a:hover {
   text-decoration: underline;
 }
 
-/* --- Bouton principal --- */
+/* --- Boutons --- */
+.btn {
+  background: #111;
+  color: white;
+  padding: 10px 18px;
+  border-radius: 6px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:hover {
+  opacity: 0.85;
+}
+
 .btn.primary {
   background: #f4c45a;
   border: none;
@@ -282,19 +198,14 @@ input:focus, select:focus, textarea:focus {
   font-weight: 700;
   padding: 12px 24px;
   border-radius: 8px;
-  cursor: pointer;
-  transition: background 0.3s ease, transform 0.2s ease;
 }
+
 .btn.primary:hover {
   background: #ffda77;
   transform: scale(1.05);
 }
-.actions {
-  text-align: center;
-  margin-top: 30px;
-}
 
-/* --- Sous-blocs conditionnels (MOS, mineur, etc.) --- */
+/* --- Blocs conditionnels (MOS, mineur, etc.) --- */
 .minor, .mos {
   background: #f8f8f8;
   border-left: 4px solid #f4c45a;
@@ -302,64 +213,26 @@ input:focus, select:focus, textarea:focus {
   border-radius: 6px;
   margin-top: 15px;
 }
+
 .minor h4, .mos h4 {
   margin-top: 0;
 }
 
-/* --- Global --- */
-body {
-  background: #f8f8f8;
-  font-family: 'Segoe UI', Arial, sans-serif;
-  color: #222;
-  margin: 0;
-  padding: 0;
-}
-.container {
-  max-width: 1100px;
-  margin: auto;
-  background: #fff;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-.topbar {
-  background: #111;
-  color: #fff;
-  padding: 15px 30px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.topbar .brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.topbar nav a {
-  color: #f4c45a;
-  margin-left: 20px;
-  text-decoration: none;
-  font-weight: 600;
-}
-.topbar nav a:hover {
-  text-decoration: underline;
-}
-
 /* =======================================================
-   🎓 ADMINISTRATION – Intégrale Academy (optimisée)
+   🎓 ADMINISTRATION – Intégrale Academy
    ======================================================= */
 
 .admin-container {
-  width: 95%;
-  max-width: 1700px;
-  margin: 40px auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  border-radius: 0;
+  padding: 25px 40px;
   background: #fff;
-  padding: 25px 30px;
-  border-radius: 12px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
-/* Barre d’outils */
+/* --- Barre d’outils --- */
 .toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -388,20 +261,18 @@ body {
   margin-left: 8px;
 }
 
-/* ✅ Boutons sans soulignement */
-.btn,
-a.btn {
+.btn, a.btn {
   text-decoration: none !important;
   display: inline-block;
 }
 
-/* 📊 Tableau ADMIN plein écran */
+/* --- Tableau admin --- */
 .admin-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
   margin-top: 10px;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
 .admin-table thead {
@@ -440,23 +311,7 @@ a.btn {
   outline: 2px solid #f4c45a;
 }
 
-/* Statuts colorés */
-.status-select {
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: none;
-  color: #fff;
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform 0.1s ease;
-}
-.status-select:hover {
-  transform: scale(1.05);
-}
-.status-select option {
-  color: #000;
-}
-
+/* --- Statuts colorés --- */
 :root {
   --preinscription: #7d7d7d;
   --validee: #007bff;
@@ -466,40 +321,47 @@ a.btn {
   --annulee: #d9534f;
 }
 
-.status-select[value="preinscription"] {
-  background: var(--preinscription);
-}
-.status-select[value="validee"] {
-  background: var(--validee);
-}
-.status-select[value="confirmee"] {
-  background: var(--confirmee);
-  color: #111;
-}
-.status-select[value="reconf_en_cours"] {
-  background: var(--reconf_en_cours);
-}
-.status-select[value="reconfirmee"] {
-  background: var(--reconfirmee);
-}
-.status-select[value="annulee"] {
-  background: var(--annulee);
+.status-select {
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: none;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s ease;
 }
 
-/* Boutons */
+.status-select:hover {
+  transform: scale(1.05);
+}
+
+.status-select option {
+  color: #000;
+}
+
+.status-select[value="preinscription"] { background: var(--preinscription); }
+.status-select[value="validee"] { background: var(--validee); }
+.status-select[value="confirmee"] { background: var(--confirmee); color: #111; }
+.status-select[value="reconf_en_cours"] { background: var(--reconf_en_cours); }
+.status-select[value="reconfirmee"] { background: var(--reconfirmee); }
+.status-select[value="annulee"] { background: var(--annulee); }
+
+/* --- Boutons secondaires --- */
 .btn.small {
   padding: 6px 10px;
   font-size: 13px;
 }
+
 .btn.danger {
   background: #d9534f;
   color: #fff;
 }
+
 .btn.danger:hover {
   background: #c9302c;
 }
 
-/* Modale */
+/* --- Modale --- */
 .modal {
   position: fixed;
   top: 0;
@@ -512,9 +374,11 @@ a.btn {
   justify-content: center;
   z-index: 1000;
 }
+
 .modal.hidden {
   display: none;
 }
+
 .modal-content {
   background: #fff;
   padding: 25px;
@@ -523,6 +387,7 @@ a.btn {
   max-width: 90%;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
+
 .modal-content h3 {
   text-align: center;
   margin-top: 0;
@@ -530,15 +395,18 @@ a.btn {
   border-bottom: 3px solid #f4c45a;
   padding-bottom: 8px;
 }
+
 .modal-actions {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+
 .modal-actions .btn {
   width: 100%;
   justify-content: center;
 }
+
 .modal textarea {
   width: 100%;
   border-radius: 8px;
@@ -548,20 +416,12 @@ a.btn {
   resize: vertical;
 }
 
-/* Animation sur changement de statut */
+/* --- Animation sur changement de statut --- */
 tr.status-updated {
   animation: flashRow 1.5s ease;
 }
+
 @keyframes flashRow {
-  0% {
-    background: #dfffd8;
-  }
-  100% {
-    background: transparent;
-  }
+  0% { background: #dfffd8; }
+  100% { background: transparent; }
 }
-
-
-
-
-
