@@ -1,10 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>🧩 Administration – Pré-inscriptions BTS 2026</h2>
+<h2>📋 Administration – Pré-inscriptions BTS 2026</h2>
 
 <div class="admin-container">
 
+  <!-- 🔎 BARRE D’OUTILS / FILTRES -->
   <div class="toolbar">
     <form method="get" action="{{ url_for('admin') }}" class="filters">
       <input type="text" name="q" placeholder="Rechercher (nom, prénom, mail, BTS...)" value="{{ request.args.get('q','') }}">
@@ -40,10 +41,125 @@
     </div>
   </div>
 
+  <!-- 📊 TABLEAU ADMIN -->
   <table class="admin-table">
     <thead>
       <tr>
         <th>Nom</th>
         <th>Prénom</th>
         <th>BTS</th>
-        <th>
+        <th>Mode</th>
+        <th>Téléphone</th>
+        <th>Statut</th>
+        <th>Étiquettes</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr data-id="{{ r.id }}">
+        <td contenteditable="true" data-field="nom">{{ r.nom }}</td>
+        <td contenteditable="true" data-field="prenom">{{ r.prenom }}</td>
+        <td contenteditable="true" data-field="bts">{{ r.bts }}</td>
+        <td contenteditable="true" data-field="mode">{{ r.mode }}</td>
+        <td contenteditable="true" data-field="tel">{{ r.tel }}</td>
+        <td>
+          <select data-field="statut" class="status-select" style="background-color: var(--{{ r.statut or 'preinscription' }});">
+            {% for key,label,color in statuts %}
+              <option value="{{ key }}" {% if r.statut==key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td>
+          <label><input type="checkbox" class="chk" data-field="label_aps" {% if r.label_aps %}checked{% endif %}> APS</label>
+          <label><input type="checkbox" class="chk" data-field="label_aut_ok" {% if r.label_aut_ok %}checked{% endif %}> AUT OK</label>
+          <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
+        </td>
+        <td><button class="btn small" onclick="openActionsModal('{{ r.id }}')">⋯</button></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+</div>
+
+<!-- ⚙️ MODALE D’ACTIONS -->
+<div id="actionsModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>Actions</h3>
+    <div class="modal-actions">
+      <a id="printLink" class="btn">🖨️ Imprimer la fiche (PDF)</a>
+      <button id="reconfirmBtn" class="btn">🔁 Reconfirmation inscription</button>
+      <button id="deleteBtn" class="btn danger">🗑️ Supprimer</button>
+    </div>
+    <hr>
+    <h4>Commentaires</h4>
+    <textarea id="commentBox" rows="4" placeholder="Ajouter / modifier un commentaire…"></textarea>
+    <div style="margin-top:8px">
+      <button id="saveCommentBtn" class="btn primary">💾 Enregistrer</button>
+    </div>
+    <div class="modal-close"><button class="btn" onclick="closeActionsModal()">Fermer</button></div>
+  </div>
+</div>
+
+<!-- 💾 JS INTERACTIF -->
+<script>
+function saveField(id, field, value) {
+  fetch("/admin/update-field", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({id, field, value})
+  });
+}
+
+// ✅ Sauvegarde auto sur modification
+document.querySelectorAll("[contenteditable]").forEach(el=>{
+  el.addEventListener("blur", ()=>{
+    const id = el.closest("tr").dataset.id;
+    saveField(id, el.dataset.field, el.textContent.trim());
+  });
+});
+
+document.querySelectorAll(".chk").forEach(chk=>{
+  chk.addEventListener("change", ()=>{
+    const id = chk.closest("tr").dataset.id;
+    saveField(id, chk.dataset.field, chk.checked ? 1 : 0);
+  });
+});
+
+document.querySelectorAll(".status-select").forEach(sel=>{
+  sel.addEventListener("change", ()=>{
+    const id = sel.closest("tr").dataset.id;
+    const value = sel.value;
+    fetch("/admin/update-status", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({id, value})
+    }).then(()=>sel.style.backgroundColor=getComputedStyle(document.documentElement).getPropertyValue('--'+value));
+  });
+});
+
+// ⚙️ Modale
+let currentId = null;
+function openActionsModal(id) {
+  currentId = id;
+  document.getElementById("actionsModal").classList.remove("hidden");
+  document.getElementById("printLink").href = "/admin/print/" + id;
+}
+function closeActionsModal() {
+  document.getElementById("actionsModal").classList.add("hidden");
+}
+
+// 💬 Commentaires
+document.getElementById("saveCommentBtn").addEventListener("click", ()=>{
+  const value = document.getElementById("commentBox").value;
+  fetch("/admin/update-field", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({id:currentId, field:"commentaires", value})
+  });
+  alert("Commentaire enregistré !");
+});
+</script>
+
+{% endblock %}
