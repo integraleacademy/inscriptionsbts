@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Pré‑inscriptions BTS 2026</h2>
+<div class="notice">
+  <p>Vous allez à présent compléter le dossier de pré‑inscription pour intégrer l’un de nos BTS à partir de septembre 2026.</p>
+  <ol>
+    <li>Vous complétez ce formulaire. Vous recevrez ensuite un accusé de réception avec votre <strong>numéro de dossier</strong>.</li>
+    <li>Dans un délai de 15 jours, nous étudierons votre dossier et vous recevrez par mail notre retour (<em>Avis favorable</em> ou <em>Avis défavorable</em>).</li>
+    <li>En cas d’avis favorable, vous devrez confirmer votre choix en cliquant sur <strong>« Je confirme mon inscription »</strong>.</li>
+    <li>Votre inscription sera alors confirmée et vous recevrez votre <strong>carte étudiante</strong> et votre <strong>certificat de scolarité</strong>.</li>
+  </ol>
+  <p class="help">Besoin d’aide ? <a href="https://assistance-alw9.onrender.com/" target="_blank">Cliquez ici</a> ou appelez le <strong>04 22 47 07 68</strong>.</p>
+</div>
+<form class="tabs-form" method="post" action="{{ url_for('submit') }}" enctype="multipart/form-data">
+  <div class="tabs">
+    <button type="button" data-tab="tab1" class="active">1. Infos générales</button>
+    <button type="button" data-tab="tab2">2. Formation souhaitée</button>
+    <button type="button" data-tab="tab3">3. Infos complémentaires</button>
+    <button type="button" data-tab="tab4">4. Projet motivé</button>
+    <button type="button" data-tab="tab5">5. Pièces justificatives</button>
+  </div>
+  <div id="tab1" class="tab active">
+    <div class="grid">
+      <label>Nom <input name="nom" required></label>
+      <label>Prénom <input name="prenom" required></label>
+      <label>Sexe
+        <select name="sexe" required>
+          <option value="">—</option>
+          <option>Homme</option>
+          <option>Femme</option>
+        </select>
+      </label>
+      <label>Date de naissance <input type="date" name="date_naissance" required></label>
+      <label>Ville de naissance <input name="ville_naissance" required></label>
+      <label>Code postal de naissance <input name="cp_naissance" required></label>
+      <label>Pays de naissance <input name="pays_naissance" required></label>
+      <label>Numéro de sécurité sociale (15 chiffres) <input name="num_secu" pattern="\d{15}" required></label>
+      <label>Email <input type="email" name="email" required></label>
+      <label>Confirmer l’email <input type="email" name="email_confirm" required></label>
+      <label>Téléphone portable (10 chiffres) <input name="tel" pattern="\d{10}" required></label>
+      <label>Adresse postale <input name="adresse" required></label>
+      <label>Code postal <input name="cp" required></label>
+      <label>Ville <input name="ville" required></label>
+      <input type="hidden" name="est_mineur" value="0">
+    </div>
+  </div>
+  <div id="tab2" class="tab">
+    <label>Formation souhaitée
+      <select name="bts" required>
+        <option value="">—</option>
+        <option value="MOS">BTS MOS (Sécurité)</option>
+        <option value="MCO">BTS MCO</option>
+        <option value="PI">BTS PI</option>
+        <option value="CI">BTS CI</option>
+        <option value="NDRC">BTS NDRC</option>
+        <option value="CG">BTS Comptabilité-Gestion</option>
+      </select>
+    </label>
+    <label>Modalité
+      <select name="mode" required>
+        <option value="">—</option>
+        <option value="presentiel">Présentiel (Puget-sur-Argens)</option>
+        <option value="distanciel">100% à distance (visioconférence)</option>
+      </select>
+    </label>
+  </div>
+  <div id="tab3" class="tab">
+    <div class="grid">
+      <label>Baccalauréat
+        <select name="bac_status" required>
+          <option value="">—</option>
+          <option>Oui</option>
+          <option>Non</option>
+          <option>Prévu en 2026</option>
+        </select>
+      </label>
+      <label>Type de bac
+        <select name="bac_type">
+          <option value="">—</option>
+          <option>Général</option>
+          <option>Technologique</option>
+          <option>Professionnel</option>
+          <option>Autre</option>
+        </select>
+      </label>
+      <label>Si “Autre”, préciser <input name="bac_autre"></label>
+      <label>Permis B
+        <select name="permis_b">
+          <option value="">—</option>
+          <option>Oui</option>
+          <option>Non</option>
+        </select>
+      </label>
+    </div>
+    <div class="minor" id="minorFields" style="display:none">
+      <h4>Responsable légal (si mineur)</h4>
+      <div class="grid">
+        <label>Nom <input name="resp_nom"></label>
+        <label>Prénom <input name="resp_prenom"></label>
+        <label>Email <input type="email" name="resp_email"></label>
+        <label>Téléphone <input name="resp_tel"></label>
+      </div>
+    </div>
+    <div class="mos" id="mosBlock" style="display:none">
+      <h4>BTS MOS – Pré‑requis</h4>
+      <p>Cochez une seule case :</p>
+      <label><input type="radio" name="mos_parcours" value="bacpro_ms"> Je suis titulaire d’un Bac Pro MS</label>
+      <label><input type="radio" name="mos_parcours" value="bacpro_ms_2026"> Je passe mon Bac Pro MS en 2026</label>
+      <label><input type="radio" name="mos_parcours" value="carte_cnaps"> Je suis déjà titulaire d’une carte professionnelle CNAPS</label>
+      <label><input type="radio" name="mos_parcours" value="aucun"> Aucun de ces cas</label>
+      <div id="mosAucun" style="display:none">
+        <p>Pour accéder au <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>, vous devez être titulaire d’une <strong>carte professionnelle CNAPS</strong>.
+        Plus d’infos <a target="_blank" href="https://www.canva.com/design/DAFyt9PCLzk/crHFPARJiocR1wDYdodMJw/view?utm_content=DAFyt9PCLzk&utm_campaign=designshare&utm_medium=link&utm_source=editor">ici</a>.
+        Formation au tarif <strong>950 € (apprenti)</strong> au lieu de <strong>1650 €</strong>. Le chèque sera envoyé après confirmation (encaissé le 1er jour).</p>
+        <p>Choix obligatoire :</p>
+        <label><input type="checkbox" name="aps_souhaitee"> Je souhaite m’inscrire à la formation agent de sécurité privée prévue du <strong>8 juillet au 12 août 2026</strong>.</label>
+        <input type="hidden" name="aps_session" value="8 juillet → 12 août 2026">
+      </div>
+    </div>
+  </div>
+  <div id="tab4" class="tab">
+    <label>Pourquoi souhaitez-vous intégrer ce BTS ?
+      <textarea name="projet_pourquoi" rows="4" required></textarea>
+    </label>
+    <label>Quel est votre projet ?
+      <textarea name="projet_objectif" rows="4" required></textarea>
+    </label>
+    <label>Quelles sont vos passions ?
+      <textarea name="projet_passions" rows="4" required></textarea>
+    </label>
+  </div>
+  <div id="tab5" class="tab">
+    <div class="grid">
+      <label>Carte d’identité / Passeport (PDF/JPG/PNG, plusieurs) <input type="file" name="ci" multiple></label>
+      <label>Photo d’identité (capture caméra possible) <input type="file" name="photo" accept="image/*"></label>
+      <label>Carte Vitale (PDF/JPG/PNG) <input type="file" name="carte_vitale"></label>
+      <label>CV (PDF) <input type="file" name="cv" accept="application/pdf"></label>
+      <label>Lettre de motivation (PDF) <input type="file" name="lm" accept="application/pdf"></label>
+    </div>
+  </div>
+  <div class="actions"><button class="btn primary">Envoyer ma pré‑inscription</button></div>
+</form>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Logs</h2>
+<table class="admin-table">
+  <thead><tr><th>Date</th><th>Type</th><th>Dossier</th><th>Payload</th></tr></thead>
+  <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.created_at }}</td>
+        <td>{{ r.type }}</td>
+        <td>{{ r.numero_dossier }}</td>
+        <td><pre>{{ r.payload }}</pre></td>
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

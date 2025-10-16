@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: bts-preinscriptions-2026
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:10000 app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: MAIL_SMTP_HOST
+        value: smtp.gmail.com
+      - key: MAIL_SMTP_PORT
+        value: "587"
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        value: ecole@integraleacademy.com
+      - key: BASE_URL
+        value: https://your-render-app.onrender.com
+      - key: ADMIN_PASSWORD
+        sync: false
+    autoDeploy: true
+    healthCheckPath: /health
+    disk:
+      name: data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

@@ -1,0 +1,35 @@
+:root{--brand:#111;--accent:#F4C45A}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,system-ui,Arial,sans-serif;background:#f7f7f8;color:#111}
+.topbar{display:flex;align-items:center;justify-content:space-between;background:var(--brand);color:#fff;padding:12px 20px}
+.topbar a{color:#fff;margin-left:12px;text-decoration:none;opacity:.9}
+.topbar a:hover{opacity:1}
+.container{max-width:1100px;margin:20px auto;padding:0 16px}
+.notice{background:#fff;border:1px solid #eee;border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.help{margin-top:6px}
+.tabs{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.tabs button{padding:8px 10px;border:1px solid #ddd;background:#fff;border-radius:8px;cursor:pointer}
+.tabs button.active{background:var(--accent);color:#111;border-color:#d9ac3f}
+.tab{display:none;background:#fff;border:1px solid #eee;border-radius:10px;padding:16px}
+.tab.active{display:block}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+label{display:flex;flex-direction:column;font-weight:600;font-size:14px}
+input,select,textarea{margin-top:6px;padding:10px 12px;border:1px solid #ccc;border-radius:8px;font-size:14px;background:#fff}
+textarea{resize:vertical}
+.actions{margin-top:12px}
+.btn{display:inline-block;border:1px solid #ccc;border-radius:8px;padding:8px 12px;background:#fff;cursor:pointer;text-decoration:none}
+.btn.primary{background:#0b5ed7;color:#fff;border-color:#0b5ed7}
+.btn.danger{background:#c62828;color:#fff;border-color:#c62828}
+.card{background:#fff;border:1px solid #eee;border-radius:10px;padding:16px}
+.flash-area{margin-bottom:10px}
+.flash.error{background:#fdecea;color:#c62828;border:1px solid #f5c9c9;padding:10px;border-radius:8px}
+.admin-table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden}
+.admin-table th,.admin-table td{border-bottom:1px solid #eee;padding:10px;vertical-align:top}
+.admin-table th{background:#fafafa;text-align:left}
+.toolbar{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:10px;flex-wrap:wrap}
+.filters{display:flex;gap:8px;flex-wrap:wrap}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center}
+.modal.hidden{display:none}
+.modal-content{background:#fff;border-radius:12px;max-width:600px;width:100%;padding:16px}
+.modal-actions{display:flex;gap:8px;flex-wrap:wrap}
+@media (max-width:800px){.grid{grid-template-columns:1fr}}

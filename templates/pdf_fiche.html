@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 12px; }
+    h1 { font-size: 18px; }
+    .box { border:1px solid #ccc; padding:8px; margin-bottom:10px; }
+    .label { color:#555; font-weight:bold; }
+  </style>
+</head>
+<body>
+  <h1>Fiche candidat – {{ row.numero_dossier }}</h1>
+  <div class="box"><span class="label">Nom/Prénom :</span> {{ row.nom }} {{ row.prenom }}</div>
+  <div class="box"><span class="label">BTS :</span> {{ row.bts }} — <span class="label">Mode :</span> {{ row.mode }} — <span class="label">Statut :</span> {{ row.statut }}</div>
+  <div class="box"><span class="label">Email :</span> {{ row.email }} — <span class="label">Tel :</span> {{ row.tel }}</div>
+  <div class="box"><span class="label">Adresse :</span> {{ row.adresse }}, {{ row.cp }} {{ row.ville }}</div>
+  <div class="box">
+    <div><strong>Motivations :</strong> {{ row.projet_pourquoi }}</div>
+    <div><strong>Objectif :</strong> {{ row.projet_objectif }}</div>
+    <div><strong>Passions :</strong> {{ row.projet_passions }}</div>
+  </div>
+  <div class="box"><span class="label">Étiquettes :</span> APS={{ row.label_aps }}, AUT OK={{ row.label_aut_ok }}, Chèque OK={{ row.label_cheque_ok }}</div>
+  <div class="box"><span class="label">Commentaires :</span> {{ row.commentaires }}</div>
+  <p><em>Imprimé le {{ now.strftime('%d/%m/%Y %H:%M') }}</em></p>
+</body>
+</html>

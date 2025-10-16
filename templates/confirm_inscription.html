@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Confirmer mon inscription</h2>
+<div class="card">
+  <p><strong>Numéro de dossier :</strong> {{ row.numero_dossier }}</p>
+  <p><strong>Nom/Prénom :</strong> {{ row.nom }} {{ row.prenom }}</p>
+  <p><strong>BTS :</strong> {{ row.bts }} — <strong>Mode :</strong> {{ row.mode }}</p>
+</div>
+<form method="post">
+  <input type="hidden" name="token" value="{{ token }}">
+  <input type="hidden" name="sig" value="{{ sig }}">
+  <label><input type="checkbox" name="c1"> Je confirme que ces informations sont exactes</label><br>
+  <label><input type="checkbox" name="c2"> Je confirme que je souhaite m’inscrire en BTS {{ row.bts }}, en {{ 'présentiel' if row.mode=='presentiel' else 'distanciel' }} au sein de votre école</label><br>
+  <label><input type="checkbox" name="c3"> Je m’engage à intégrer cette formation à partir du mois de septembre 2026</label><br>
+  <button class="btn primary" style="margin-top:10px">Valider</button>
+</form>
+{% endblock %}
