@@ -346,16 +346,17 @@ body {
 }
 
 /* =======================================================
-   🎓 ADMINISTRATION – Intégrale Academy
+   🎓 ADMINISTRATION – Intégrale Academy (optimisée)
    ======================================================= */
 
 .admin-container {
-  max-width: 1200px;
+  width: 95%;
+  max-width: 1700px;
   margin: 40px auto;
   background: #fff;
-  padding: 30px;
+  padding: 25px 30px;
   border-radius: 12px;
-  box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
 }
 
 /* Barre d’outils */
@@ -364,48 +365,77 @@ body {
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
   gap: 15px;
 }
+
 .filters {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+  align-items: center;
 }
-.filters input, .filters select {
+
+.filters input,
+.filters select {
   padding: 8px 10px;
   border-radius: 6px;
   border: 1px solid #ccc;
   font-size: 14px;
 }
+
 .exports .btn {
   margin-left: 8px;
 }
 
-/* Tableau principal */
+/* ✅ Boutons sans soulignement */
+.btn,
+a.btn {
+  text-decoration: none !important;
+  display: inline-block;
+}
+
+/* 📊 Tableau ADMIN plein écran */
 .admin-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
   font-size: 14px;
+  margin-top: 10px;
+  table-layout: fixed;
 }
+
 .admin-table thead {
   background: #111;
   color: #fff;
 }
-.admin-table th, .admin-table td {
-  padding: 10px;
+
+.admin-table th,
+.admin-table td {
+  padding: 12px 10px;
   border: 1px solid #ddd;
   text-align: center;
   vertical-align: middle;
+  word-wrap: break-word;
 }
+
+.admin-table th {
+  background: #111;
+  color: #fff;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 13px;
+  border-top: none;
+}
+
 .admin-table tr:nth-child(even) {
-  background: #fafafa;
+  background: #fdfbf6;
 }
+
 .admin-table td[contenteditable="true"] {
   background: #fff8e1;
   cursor: text;
 }
+
 .admin-table td[contenteditable="true"]:focus {
   outline: 2px solid #f4c45a;
 }
@@ -418,8 +448,15 @@ body {
   color: #fff;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.1s ease;
 }
-.status-select option { color: #000; }
+.status-select:hover {
+  transform: scale(1.05);
+}
+.status-select option {
+  color: #000;
+}
+
 :root {
   --preinscription: #7d7d7d;
   --validee: #007bff;
@@ -428,12 +465,26 @@ body {
   --reconfirmee: #28a745;
   --annulee: #d9534f;
 }
-.status-select[value="preinscription"] { background: var(--preinscription); }
-.status-select[value="validee"] { background: var(--validee); }
-.status-select[value="confirmee"] { background: var(--confirmee); color:#111; }
-.status-select[value="reconf_en_cours"] { background: var(--reconf_en_cours); }
-.status-select[value="reconfirmee"] { background: var(--reconfirmee); }
-.status-select[value="annulee"] { background: var(--annulee); }
+
+.status-select[value="preinscription"] {
+  background: var(--preinscription);
+}
+.status-select[value="validee"] {
+  background: var(--validee);
+}
+.status-select[value="confirmee"] {
+  background: var(--confirmee);
+  color: #111;
+}
+.status-select[value="reconf_en_cours"] {
+  background: var(--reconf_en_cours);
+}
+.status-select[value="reconfirmee"] {
+  background: var(--reconfirmee);
+}
+.status-select[value="annulee"] {
+  background: var(--annulee);
+}
 
 /* Boutons */
 .btn.small {
@@ -451,22 +502,26 @@ body {
 /* Modale */
 .modal {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
 }
-.modal.hidden { display: none; }
+.modal.hidden {
+  display: none;
+}
 .modal-content {
   background: #fff;
   padding: 25px;
   border-radius: 10px;
   width: 400px;
   max-width: 90%;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
 }
 .modal-content h3 {
   text-align: center;
@@ -498,9 +553,14 @@ tr.status-updated {
   animation: flashRow 1.5s ease;
 }
 @keyframes flashRow {
-  0% { background: #dfffd8; }
-  100% { background: transparent; }
+  0% {
+    background: #dfffd8;
+  }
+  100% {
+    background: transparent;
+  }
 }
+
 
 
 
