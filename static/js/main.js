@@ -242,3 +242,50 @@ function closeActionsModal() {
   document.getElementById('actionsModal').classList.add('hidden');
 }
 
+// === 🔄 Actualisation automatique des statuts dans l'admin ===
+async function refreshAdminStatuses() {
+  try {
+    const table = document.querySelector(".admin-table");
+    if (!table) return; // on n'est pas sur la page admin
+
+    // Récupère les données actuelles depuis la base (JSON)
+    const res = await fetch("/admin/export.json");
+    if (!res.ok) return;
+    const data = await res.json();
+
+    // Crée un dictionnaire id -> statut pour mise à jour rapide
+    const map = {};
+    for (const c of data) map[c.id] = c.statut;
+
+    // Parcourt le tableau affiché et met à jour les statuts
+    table.querySelectorAll("tr[data-id]").forEach(tr => {
+      const id = tr.dataset.id;
+      const select = tr.querySelector(".status-select");
+      if (select && map[id] && select.value !== map[id]) {
+        select.value = map[id];
+        select.style.backgroundColor =
+          getComputedStyle(document.documentElement)
+            .getPropertyValue(`--${map[id]}`) || "#999";
+
+        // petit effet visuel pour signaler la mise à jour
+        tr.classList.add("status-updated");
+        setTimeout(() => tr.classList.remove("status-updated"), 1200);
+      }
+    });
+
+    // (Optionnel) Affiche la dernière heure de synchro si un élément existe
+    const syncLabel = document.getElementById("lastSync");
+    if (syncLabel) {
+      const now = new Date();
+      syncLabel.textContent = `🔄 Dernière mise à jour : ${now.toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}`;
+    }
+
+  } catch (err) {
+    console.error("Erreur lors du rafraîchissement des statuts :", err);
+  }
+}
+
+// Lancement automatique toutes les 30 secondes
+setInterval(refreshAdminStatuses, 30000);
+
+
