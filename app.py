@@ -145,7 +145,7 @@ def submit():
     cand_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
 
-    def b(v): return 1 if v in ("on","true","1","yes") else 0
+    def b(v): return 1 if v in ("on", "true", "1", "yes") else 0
 
     fichiers_ci = save_files("ci")
     fichiers_photo = save_files("photo")
@@ -170,37 +170,47 @@ def submit():
         projet_pourquoi, projet_objectif, projet_passions,
         fichiers_ci, fichiers_photo, fichiers_carte_vitale, fichiers_cv, fichiers_lm,
         statut, label_aps, label_aut_ok, label_cheque_ok,
-        token_confirm, token_confirm_exp, token_reconfirm, token_reconfirm_exp,
+        token_confirm, token_confirm_exp,
+        token_reconfirm, token_reconfirm_exp,
         commentaires
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         cand_id, numero, now, now,
-        form.get("nom","").strip(), form.get("prenom","").strip(), form.get("sexe",""),
-        form.get("date_naissance",""), form.get("ville_naissance",""), form.get("cp_naissance",""), form.get("pays_naissance",""),
-        form.get("num_secu",""), form.get("email",""), form.get("tel",""),
-        form.get("adresse",""), form.get("cp",""), form.get("ville",""),
-        form.get("bts",""), form.get("mode",""),
-        form.get("bac_status",""), form.get("bac_type",""), form.get("bac_autre",""),
-        b(form.get("permis_b")), b(form.get("est_mineur")), form.get("resp_nom",""), form.get("resp_prenom",""), form.get("resp_email",""), form.get("resp_tel",""),
-        form.get("mos_parcours",""), b(form.get("aps_souhaitee")), form.get("aps_session",""),
-        form.get("projet_pourquoi",""), form.get("projet_objectif",""), form.get("projet_passions",""),
-        json.dumps(fichiers_ci), json.dumps(fichiers_photo), json.dumps(fichiers_carte_vitale), json.dumps(fichiers_cv), json.dumps(fichiers_lm),
+        form.get("nom", "").strip(), form.get("prenom", "").strip(), form.get("sexe", ""),
+        form.get("date_naissance", ""), form.get("ville_naissance", ""), form.get("cp_naissance", ""), form.get("pays_naissance", ""),
+        form.get("num_secu", ""), form.get("email", ""), form.get("tel", ""),
+        form.get("adresse", ""), form.get("cp", ""), form.get("ville", ""),
+        form.get("bts", ""), form.get("mode", ""),
+        form.get("bac_status", ""), form.get("bac_type", ""), form.get("bac_autre", ""),
+        b(form.get("permis_b")), b(form.get("est_mineur")),
+        form.get("resp_nom", ""), form.get("resp_prenom", ""), form.get("resp_email", ""), form.get("resp_tel", ""),
+        form.get("mos_parcours", ""), b(form.get("aps_souhaitee")), form.get("aps_session", ""),
+        form.get("projet_pourquoi", ""), form.get("projet_objectif", ""), form.get("projet_passions", ""),
+        json.dumps(fichiers_ci), json.dumps(fichiers_photo),
+        json.dumps(fichiers_carte_vitale), json.dumps(fichiers_cv), json.dumps(fichiers_lm),
         "preinscription", 1 if form.get("aps_souhaitee") else 0, 0, 0,
-        token_confirm, token_confirm_exp, "", "",
-        ""
+        token_confirm, token_confirm_exp,
+        "", "",   # 🧩 colonnes manquantes ajoutées : token_reconfirm, token_reconfirm_exp
+        ""        # commentaires
     ))
     conn.commit()
 
-    candidat = {"id": cand_id, "numero_dossier": numero, "email": form.get("email",""), "prenom": form.get("prenom","")}
+    # --- Logs et mails
+    candidat = {
+        "id": cand_id,
+        "numero_dossier": numero,
+        "email": form.get("email", ""),
+        "prenom": form.get("prenom", "")
+    }
     log_event(candidat, "PREINSCRIPTION_RECU", {"email": candidat["email"]})
 
-    html = render_template("mail_accuse.html", prenom=form.get("prenom",""), numero=numero)
-    send_mail(form.get("email",""), "Nous avons bien reçu votre pré‑inscription", html)
-    log_event(candidat, "MAIL_ENVOYE", {"type":"accuse_reception"})
+    html = render_template("mail_accuse.html", prenom=form.get("prenom", ""), numero=numero)
+    send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription", html)
+    log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
-    admin_html = render_template("mail_admin_notif.html", numero=numero, nom=form.get("nom",""), prenom=form.get("prenom",""))
-    from_addr = os.getenv("MAIL_FROM","ecole@integraleacademy.com")
-    send_mail(from_addr, f"[ADMIN] Nouvelle pré‑inscription {numero}", admin_html)
+    admin_html = render_template("mail_admin_notif.html", numero=numero, nom=form.get("nom", ""), prenom=form.get("prenom", ""))
+    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
+    send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
     return render_template("submit_ok.html", title="Merci", numero=numero)
 
