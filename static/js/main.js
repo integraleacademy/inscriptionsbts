@@ -121,7 +121,72 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // === Navigation par étapes ===
+  const tabs = document.querySelectorAll('.tab');
+  const tabButtons = document.querySelectorAll('.tabs button');
+  let currentStep = 0;
+
+  function showStep(index) {
+    tabs.forEach((tab, i) => {
+      tab.classList.toggle('active', i === index);
+      tabButtons[i].classList.toggle('active', i === index);
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // Étape suivante
+  document.querySelectorAll('.next').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const currentTab = tabs[currentStep];
+      const inputs = currentTab.querySelectorAll('input, select, textarea');
+      for (let input of inputs) {
+        if (!input.checkValidity()) {
+          input.reportValidity();
+          return;
+        }
+      }
+      if (currentStep < tabs.length - 1) {
+        currentStep++;
+        showStep(currentStep);
+      }
+    });
+  });
+
+  // Étape précédente
+  document.querySelectorAll('.prev').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (currentStep > 0) {
+        currentStep--;
+        showStep(currentStep);
+      }
+    });
+  });
+
+  // === Validation fichiers PDF ===
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
+      for (const name of pdfOnlyFields) {
+        const input = form.querySelector(`input[name="${name}"]`);
+        if (input && input.files.length > 0) {
+          const file = input.files[0];
+          if (!file.name.toLowerCase().endsWith('.pdf')) {
+            e.preventDefault();
+            alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
+            return;
+          }
+        } else if (input && input.hasAttribute('required') && input.files.length === 0) {
+          e.preventDefault();
+          alert(`⚠️ Le champ "${name}" est obligatoire.`);
+          return;
+        }
+      }
+    });
+  }
+
 }); // 👈 cette accolade ferme TOUT le DOMContentLoaded
+
 
 // === Fonctions globales (hors DOMContentLoaded) ===
 let currentRowId = null;
