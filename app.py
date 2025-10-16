@@ -74,8 +74,10 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Initialisation de la base de données au démarrage de l'application
 with app.app_context():
     init_db()
+
 
 def log_event(candidat, type_, payload_dict):
     conn = db()
