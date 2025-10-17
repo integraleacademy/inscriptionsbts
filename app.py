@@ -220,15 +220,37 @@ with app.app_context():
 
 
 
+import time
+import sqlite3
+
 def log_event(candidat, type_, payload_dict):
-    conn = db()
-    cur = conn.cursor()
     cid = candidat["id"] if isinstance(candidat, dict) else candidat
     nd = candidat.get("numero_dossier","") if isinstance(candidat, dict) else ""
-    cur.execute("INSERT INTO logs (id, candidat_id, numero_dossier, type, payload, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-                (str(uuid.uuid4()), cid, nd, type_, json.dumps(payload_dict, ensure_ascii=False), datetime.now().isoformat()))
-    conn.commit()
-    conn.close()
+    payload = json.dumps(payload_dict, ensure_ascii=False)
+    attempt = 0
+    while attempt < 5:
+        try:
+            conn = db()
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO logs (id, candidat_id, numero_dossier, type, payload, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (str(uuid.uuid4()), cid, nd, type_, payload, datetime.now().isoformat())
+            )
+            conn.commit()
+            conn.close()
+            return
+        except sqlite3.OperationalError as e:
+            if "locked" in str(e).lower():
+                attempt += 1
+                print(f"⚠️ DB verrouillée (tentative {attempt}/5), nouvelle tentative dans 0.3s…")
+                time.sleep(0.3)
+            else:
+                print("❌ Erreur log_event :", e)
+                break
+        except Exception as e:
+            print("❌ Erreur inattendue log_event :", e)
+            break
+
 
 def get_counter_for_today(conn):
     cur = conn.cursor()
