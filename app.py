@@ -632,6 +632,8 @@ def admin_files_mark():
             ("docs_non_conformes", token, exp, json.dumps({"filename": fname, "admin_id": session.get('admin_ok', 'admin')}), cid)
         )
 
+
+
         # 🔗 lien de remplacement
         link = make_signed_link("/replace-file", token)
         html = render_template(
@@ -642,7 +644,6 @@ def admin_files_mark():
         )
         send_mail(row.get("email", ""), "Document non conforme – veuillez le remplacer", html)
         log_event(row, "MAIL_ENVOYE", {"type": "doc_non_conforme", "file": fname})
-
 
     conn.commit()
     conn.close()
