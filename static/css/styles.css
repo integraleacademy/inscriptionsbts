@@ -448,3 +448,62 @@ tr.status-updated {
   0% { background: #dfffd8; }
   100% { background: transparent; }
 }
+
+/* =======================================================
+   🧩 CORRECTIONS FORMULAIRE PUBLIC (index)
+   ======================================================= */
+
+/* ✅ Rétablir la mise en page fluide et centrée */
+.container {
+  max-width: 1000px;
+  margin: 40px auto;
+  background: #fff;
+  padding: 40px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+/* ✅ Aligner correctement les boutons d’étape */
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 30px;
+}
+
+.actions .btn {
+  min-width: 180px;
+}
+
+/* ✅ Rendre l’image d’exemple visible */
+.notice img,
+#photoExample,
+.example-photo {
+  max-width: 220px;
+  height: auto;
+  display: inline-block;
+  margin-top: 10px;
+}
+
+/* ✅ Corriger le bloc d’aide sur les photos */
+.photo-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.photo-help img {
+  max-width: 220px;
+  border-radius: 6px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+}
+
+/* ✅ Empêcher les éléments du formulaire de se compresser */
+.grid label,
+.grid input,
+.grid select,
+.grid textarea {
+  min-width: 0;
+}
+
