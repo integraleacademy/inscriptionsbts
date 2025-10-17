@@ -278,15 +278,16 @@ textarea {
    ======================================================= */
 
 .admin-container {
-  width: 100%;
-  max-width: 1400px;
+  width: 95vw; /* prend presque toute la largeur visible */
+  max-width: 1800px;
   margin: 30px auto;
   background: #fff;
-  padding: 20px 30px;
+  padding: 25px 40px;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
   overflow-x: auto;
 }
+
 
 /* --- Barre d’outils --- */
 .toolbar {
