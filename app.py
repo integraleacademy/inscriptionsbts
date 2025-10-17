@@ -811,6 +811,17 @@ def data_json():
         print("❌ Erreur /data.json :", e)
         return json.dumps({"error": str(e)}), 500, {"Access-Control-Allow-Origin": "*"}
 
+# =====================================================
+# 👁️ ROUTE : Prévisualiser une pièce justificative
+# =====================================================
+@app.route("/uploads/<path:filename>")
+def preview_upload(filename):
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    if not os.path.exists(file_path):
+        abort(404)
+    return send_file(file_path)
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
