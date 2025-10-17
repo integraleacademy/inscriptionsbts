@@ -202,103 +202,95 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // === Bloc MOS (déplacé depuis index.html) ===
-  const btsSelect = document.querySelector('select[name="bts"]');
-  const mosSection = document.getElementById('mos-section');
-  const mosExplication = document.getElementById('mos-explication');
-  const blocBacAutre = document.getElementById('bloc-bac-autre');
-  const blocApsSession = document.getElementById('bloc-aps-session');
-
-  if (btsSelect) {
-    btsSelect.addEventListener('change', () => {
-      if (btsSelect.value === 'MOS') {
-        mosSection.style.display = 'block';
-      } else {
-        mosSection.style.display = 'none';
-        mosExplication.style.display = 'none';
-        blocBacAutre.style.display = 'none';
-      }
-    });
-  }
-
-  // --- Si "Aucun de ces cas" est coché ---
-  document.addEventListener('change', (e) => {
-    if (e.target.name === 'bac_status') {
-      if (e.target.value === 'autre') {
-        mosExplication.style.display = 'block';
-        blocBacAutre.style.display = 'block';
-      } else {
-        blocBacAutre.style.display = 'none';
-        if (e.target.value === 'carte_cnaps') {
-          mosExplication.style.display = 'none';
-        }
-      }
-    }
-    if (e.target.name === 'aps_souhaitee') {
-      blocApsSession.style.display = e.target.checked ? 'block' : 'none';
-    }
-  });
-
   // === Sélection visuelle du mode (présentiel / distanciel) ===
-const modeBtns = document.querySelectorAll('.mode-btn');
-modeBtns.forEach(btn => {
-  btn.addEventListener('click', () => {
-    modeBtns.forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
   });
-});
 
   // === 📎 Gestion des pièces justificatives (modale admin) ===
-const filesModal = document.getElementById("filesModal");
-if (filesModal) {
+  const filesModal = document.getElementById("filesModal");
+  if (filesModal) {
 
-  // 📦 Télécharger toutes les pièces
-  const downloadAllBtn = document.getElementById("downloadAllBtn");
-  if (downloadAllBtn) {
-    downloadAllBtn.addEventListener("click", () => {
-      if (!window.currentId) return;
-      window.open(`/admin/files/download/${window.currentId}`, "_blank");
+    // 📦 Télécharger toutes les pièces
+    const downloadAllBtn = document.getElementById("downloadAllBtn");
+    if (downloadAllBtn) {
+      downloadAllBtn.addEventListener("click", () => {
+        if (!window.currentId) return;
+        window.open(`/admin/files/download/${window.currentId}`, "_blank");
+      });
+    }
+
+    // ✅ / ❌ Marquer une pièce conforme ou non conforme
+    filesModal.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".btn.small");
+      if (!btn) return;
+      const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
+      const filename = btn.dataset.filename;
+      if (!window.currentId || !filename) return;
+
+      btn.textContent = "⏳...";
+      btn.disabled = true;
+
+      const res = await fetch("/admin/files/mark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: window.currentId, filename, decision })
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        showToast(
+          decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+          decision === "conforme" ? "#28a745" : "#d9534f"
+        );
+
+        if (decision === "non_conforme") {
+          await refreshCandidateStatus(window.currentId);
+        }
+
+        setTimeout(() => openFilesModal(window.currentId), 800);
+      } else {
+        alert("Erreur : " + (data.error || "inconnue"));
+        btn.disabled = false;
+        btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
+      }
     });
   }
 
-  // ✅ / ❌ Marquer une pièce conforme ou non conforme
-  filesModal.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".btn.small");
-    if (!btn) return;
-    const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
-    const filename = btn.dataset.filename;
-    if (!window.currentId || !filename) return;
+}); // fin du DOMContentLoaded
 
-    // Animation rapide du bouton
-    btn.textContent = "⏳...";
-    btn.disabled = true;
 
-    const res = await fetch("/admin/files/mark", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: window.currentId,
-        filename,
-        decision
-      })
-    });
-
-    const data = await res.json();
-    if (data.ok) {
-      btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
-      btn.style.opacity = 0.6;
-      showToast(decision === "conforme" ? "✅ Document marqué conforme" : "❌ Document non conforme",
-        decision === "conforme" ? "#28a745" : "#d9534f");
-      // recharge la liste pour refléter l’état
-      setTimeout(() => openFilesModal(window.currentId), 800);
-    } else {
-      alert("Erreur lors de la mise à jour du document.");
-      btn.disabled = false;
-    }
+// === Toast notification ===
+function showToast(msg, color="#333") {
+  const t=document.createElement("div");
+  t.textContent=msg;
+  Object.assign(t.style,{
+    position:"fixed",bottom:"20px",right:"20px",background:color,color:"#fff",
+    padding:"10px 16px",borderRadius:"8px",fontWeight:"600",boxShadow:"0 3px 8px rgba(0,0,0,.3)",
+    zIndex:"9999",opacity:"0",transition:"opacity .3s"
   });
+  document.body.appendChild(t);
+  setTimeout(()=>t.style.opacity="1",50);
+  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},2500);
 }
 
-  
 
-
-}); // 👈 fin du DOMContentLoaded
+// === Rafraîchit le statut du dossier ===
+async function refreshCandidateStatus(id) {
+  const row = document.querySelector(`tr[data-id='${id}']`);
+  if (!row) return;
+  const res = await fetch(`/admin/status/${id}`);
+  const data = await res.json();
+  if (data.ok && data.statut) {
+    const select = row.querySelector(".status-select");
+    if (select) {
+      select.value = data.statut;
+      select.style.background = "black";
+      select.style.color = "white";
+    }
+  }
+}
