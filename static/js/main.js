@@ -116,24 +116,7 @@ document.querySelectorAll('.prev').forEach(btn => {
   };
   if (birth) { birth.addEventListener('change', updateMinor); }
 
-  // === Bloc MOS ===
-  const btsSelect = document.querySelector('select[name="bts"]');
-  const mosBlock = document.getElementById('mosBlock');
-  const mosAucun = document.getElementById('mosAucun');
-  const updateMOS = () => { 
-    if (btsSelect && mosBlock)
-      mosBlock.style.display = (btsSelect.value === 'MOS') ? 'block' : 'none';
-  };
-  if (btsSelect) {
-    btsSelect.addEventListener('change', updateMOS);
-    updateMOS();
-  }
-  document.querySelectorAll('input[name="mos_parcours"]').forEach(r => {
-    r.addEventListener('change', () => {
-      if (mosAucun)
-        mosAucun.style.display = (r.value === 'aucun' && r.checked) ? 'block' : 'none';
-    });
-  });
+
 
   // === Validation fichiers PDF ===
   const form = document.querySelector('form');
@@ -202,6 +185,44 @@ document.querySelectorAll('.prev').forEach(btn => {
       });
     });
   }
+
+  // === Bloc MOS (déplacé depuis index.html) ===
+const btsSelect = document.querySelector('select[name="bts"]');
+const mosSection = document.getElementById('mos-section');
+const mosExplication = document.getElementById('mos-explication');
+const blocBacAutre = document.getElementById('bloc-bac-autre');
+const blocApsSession = document.getElementById('bloc-aps-session');
+
+if (btsSelect) {
+  btsSelect.addEventListener('change', () => {
+    if (btsSelect.value === 'MOS') {
+      mosSection.style.display = 'block';
+    } else {
+      mosSection.style.display = 'none';
+      mosExplication.style.display = 'none';
+      blocBacAutre.style.display = 'none';
+    }
+  });
+}
+
+// --- Si "Aucun de ces cas" est coché ---
+document.addEventListener('change', (e) => {
+  if (e.target.name === 'bac_status') {
+    if (e.target.value === 'autre') {
+      mosExplication.style.display = 'block';
+      blocBacAutre.style.display = 'block';
+    } else {
+      blocBacAutre.style.display = 'none';
+      if (e.target.value === 'carte_cnaps') {
+        mosExplication.style.display = 'none';
+      }
+    }
+  }
+  if (e.target.name === 'aps_souhaitee') {
+    blocApsSession.style.display = e.target.checked ? 'block' : 'none';
+  }
+});
+
 
 }); // 👈 fin du DOMContentLoaded
 
