@@ -58,15 +58,13 @@
     name="num_secu"
     id="num_secu"
     type="text"
-    inputmode="numeric"
-    pattern="\d{15}"
+    inputmode="text"
     maxlength="15"
-    minlength="15"
     required
-    placeholder="Ex : 298054321234567"
-    oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,15); verifierNumSecu();"
+    placeholder="Ex : 2842A12345678946"
+    oninput="this.value = this.value.toUpperCase().replace(/[^0-9AB]/g, '').slice(0,15); verifierNumSecu();"
   >
-  <small id="numSecuHelp" style="color:#666;font-size:13px;">15 chiffres attendus (pas d'espaces ni de lettres)</small>
+  <small id="numSecuHelp" style="color:#666;font-size:13px;">15 caractères attendus (chiffres ou A/B pour la Corse)</small>
 </label>
 
 
