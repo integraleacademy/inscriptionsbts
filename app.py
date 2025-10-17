@@ -638,7 +638,6 @@ def admin_files_mark():
     verif = load_verif_docs(row)
     verif[fname] = decision
 
-    # mise à jour base
     cur = conn.cursor()
     cur.execute(
         "UPDATE candidats SET verif_docs=?, updated_at=? WHERE id=?",
@@ -647,16 +646,14 @@ def admin_files_mark():
 
     # si non conforme → mail + statut
     if decision == "non_conforme":
+        print("⚠️ DEBUG : document non conforme détecté :", fname)
         token = new_token()
         exp = (datetime.now() + timedelta(days=7)).isoformat()
         cur.execute(
             "UPDATE candidats SET statut=?, replace_token=?, replace_token_exp=?, replace_meta=? WHERE id=?",
-            ("docs_non_conformes", token, exp, json.dumps({"filename": fname, "admin_id": session.get('admin_ok', 'admin')}), cid)
+            ("incomplet", token, exp, json.dumps({"filename": fname, "admin_id": session.get('admin_ok', 'admin')}), cid)
         )
 
-
-
-        # 🔗 lien de remplacement
         link = make_signed_link("/replace-file", token)
         html = render_template(
             "mail_doc_non_conforme.html",
@@ -670,7 +667,9 @@ def admin_files_mark():
     conn.commit()
     conn.close()
     log_event(row, "DOC_MARK", {"file": fname, "decision": decision})
+    print("✅ DOC_MARK effectué pour", fname)
     return jsonify({"ok": True})
+
 
 @app.route("/admin/status/<cid>")
 def admin_status(cid):
