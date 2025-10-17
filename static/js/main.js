@@ -224,15 +224,33 @@ document.addEventListener('change', (e) => {
 });
 
 // === 🔢 Barre de progression (liée aux onglets) ===
+// === 🔢 Barre de progression (liée aux onglets) — avec pourcentage animé ===
 function updateProgressBar(index) {
   const progress = document.getElementById("progressBar");
   const info = document.getElementById("progressInfo");
   if (!progress || !info) return;
 
-  const targetPercent = ((index + 1) / tabs.length) * 100;
-  progress.style.width = targetPercent + "%";
-  info.textContent = `Étape ${index + 1} sur ${tabs.length}`;
+  const total = tabs.length;
+  const targetPercent = ((index + 1) / total) * 100;
+  const currentWidth = parseFloat(progress.style.width) || 0;
+  const step = (targetPercent - currentWidth) / 20; // vitesse animation
+  let currentPercent = currentWidth;
+
+  const animate = () => {
+    currentPercent += step;
+    if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
+      currentPercent = targetPercent;
+    } else {
+      requestAnimationFrame(animate);
+    }
+
+    progress.style.width = currentPercent + "%";
+    info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(currentPercent)} % complété`;
+  };
+
+  animate();
 }
+
 
 }); // 👈 fin du DOMContentLoaded
 
