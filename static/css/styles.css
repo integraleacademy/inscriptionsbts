@@ -743,5 +743,25 @@ tr.status-updated { animation: flashRow 1.5s ease; }
   color: white;
 }
 
+/* === Pleine largeur pour l'administration === */
+.admin-full {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  background: #f3f3f3;
+}
+
+.admin-wrapper {
+  width: 96%;
+  max-width: 1900px;
+  margin: 30px auto;
+  background: #fff;
+  border-radius: 12px;
+  padding: 30px 40px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+}
+
+
 
 
