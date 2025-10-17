@@ -282,6 +282,22 @@ document.addEventListener("click", async (e) => {
   }
 });
 
+  // 🕵️ Rafraîchit le statut du dossier après marquage non conforme
+async function refreshCandidateStatus(id) {
+  const row = document.querySelector(`tr[data-id='${id}']`);
+  if (!row) return;
+  const res = await fetch(`/admin/status/${id}`);
+  const data = await res.json();
+  if (data.ok && data.statut) {
+    const select = row.querySelector(".status-select");
+    if (select) {
+      select.value = data.statut;
+      select.style.background = "black";
+      select.style.color = "white";
+    }
+  }
+}
+
 
 </script>
 
