@@ -226,8 +226,9 @@ function openFilesModal(id) {
 
           </div>
           <div class="file-actions">
-            <button class="btn small ok" ${f.status==="conforme"?"disabled":""} onclick="markDoc('${f.filename}','conforme')">✅ Conforme</button>
-            <button class="btn small danger" ${f.status==="non_conforme"?"disabled":""} onclick="markDoc('${f.filename}','non_conforme')">❌ Non conforme</button>
+            <button class="btn small ok" data-filename="${f.filename}" ${f.status==="conforme"?"disabled":""}>✅ Conforme</button>
+            <button class="btn small danger" data-filename="${f.filename}" ${f.status==="non_conforme"?"disabled":""}>❌ Non conforme</button>
+
           </div>
         `;
         list.appendChild(div);
