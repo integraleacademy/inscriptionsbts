@@ -352,4 +352,10 @@ function openFilesModal(id) {
     });
 }
 
+function closeFilesModal() {
+  const modal = document.getElementById("filesModal");
+  if (modal) modal.classList.add("hidden");
+}
+
+
 
