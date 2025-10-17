@@ -36,10 +36,40 @@
           </select>
         </label>
         <label>Date de naissance <input type="date" name="date_naissance" required></label>
+        <!-- Bloc Responsable Légal (caché par défaut) -->
+<div id="bloc-resp-legal" style="display:none; margin-top:20px; background:#fff8e1; padding:15px; border-left:4px solid #f4c45a; border-radius:8px;">
+  <h4>👨‍👩‍👧 Informations du responsable légal</h4>
+  <p style="font-size:14px; color:#555;">⚠️ Vous êtes mineur(e) à la date d’inscription — merci d’indiquer les coordonnées du responsable légal :</p>
+  
+  <div class="grid">
+    <label>Nom du responsable légal <input name="resp_nom"></label>
+    <label>Prénom du responsable légal <input name="resp_prenom"></label>
+    <label>Email du responsable légal <input type="email" name="resp_email"></label>
+    <label>Téléphone du responsable légal <input name="resp_tel" pattern="\d{10}"></label>
+  </div>
+  <input type="hidden" name="est_mineur" id="est_mineur" value="0">
+</div>
+
         <label>Ville de naissance <input name="ville_naissance" required></label>
         <label>Code postal de naissance <input name="cp_naissance" required></label>
         <label>Pays de naissance <input name="pays_naissance" required></label>
-        <label>Numéro de sécurité sociale <input name="num_secu" pattern="\d{15}" required></label>
+<label>Numéro de sécurité sociale
+  <input 
+    name="num_secu"
+    id="num_secu"
+    type="text"
+    inputmode="numeric"
+    pattern="\d{15}"
+    maxlength="15"
+    minlength="15"
+    required
+    placeholder="Ex : 298054321234567"
+    oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,15); verifierNumSecu();"
+  >
+  <small id="numSecuHelp" style="color:#666;font-size:13px;">15 chiffres attendus (pas d'espaces ni de lettres)</small>
+</label>
+
+
         <label>Email <input type="email" name="email" required></label>
         <label>Confirmer l’email <input type="email" name="email_confirm" required></label>
         <label>Téléphone portable <input name="tel" pattern="\d{10}" required></label>
@@ -272,5 +302,100 @@ document.addEventListener('change', (e) => {
 
   </form>
 </div>
+
+<script>
+// --- Détection automatique de la majorité ---
+const dateNaissanceInput = document.querySelector('input[name="date_naissance"]');
+const blocResp = document.getElementById('bloc-resp-legal');
+const champMineur = document.getElementById('est_mineur');
+
+function calculerAge(dateStr) {
+  const today = new Date();
+  const birth = new Date(dateStr);
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+}
+
+dateNaissanceInput.addEventListener('change', () => {
+  const val = dateNaissanceInput.value;
+  if (!val) return;
+  const age = calculerAge(val);
+  if (age < 18) {
+    blocResp.style.display = 'block';
+    champMineur.value = '1';
+    // rendant les champs obligatoires si mineur
+    blocResp.querySelectorAll('input').forEach(i => i.required = true);
+  } else {
+    blocResp.style.display = 'none';
+    champMineur.value = '0';
+    blocResp.querySelectorAll('input').forEach(i => i.required = false);
+  }
+});
+</script>
+
+<script>
+// --- Vérification complète du numéro de sécu ---
+function verifierNumSecu() {
+  const input = document.getElementById("num_secu");
+  const help = document.getElementById("numSecuHelp");
+  const val = input.value.trim();
+
+  // Nettoyer la saisie (ne garder que les chiffres)
+  const digits = val.replace(/\D/g, "");
+
+  if (digits.length !== 15) {
+    help.textContent = "❌ Numéro invalide — 15 chiffres attendus";
+    help.style.color = "red";
+    input.style.borderColor = "red";
+    return false;
+  }
+
+  // Séparer le corps du NIR et la clé
+  const corps = digits.slice(0, 13);
+  const clef = parseInt(digits.slice(13, 15));
+
+  // Calcul de la clé de contrôle
+  // ⚠️ Attention : on doit gérer le dépassement de 32 bits -> utiliser BigInt
+  try {
+    const calc = 97n - (BigInt(corps) % 97n);
+    const cleCalc = Number(calc);
+    if (cleCalc === clef) {
+      help.textContent = "✅ Numéro valide (clé de contrôle correcte)";
+      help.style.color = "green";
+      input.style.borderColor = "#28a745";
+      return true;
+    } else {
+      help.textContent = "❌ Numéro invalide — clé de contrôle incorrecte";
+      help.style.color = "red";
+      input.style.borderColor = "red";
+      return false;
+    }
+  } catch (e) {
+    help.textContent = "❌ Format invalide — chiffres incorrects";
+    help.style.color = "red";
+    input.style.borderColor = "red";
+    return false;
+  }
+}
+
+// --- Bloquer si le numéro n’est pas cohérent ---
+document.addEventListener("click", (e) => {
+  if (e.target.classList.contains("next")) {
+    const numSecu = document.getElementById("num_secu");
+    if (!verifierNumSecu()) {
+      e.preventDefault();
+      alert("⚠️ Merci de vérifier votre numéro de sécurité sociale (clé de contrôle incorrecte).");
+      numSecu.focus();
+    }
+  }
+});
+</script>
+
+
+
 
 {% endblock %}
