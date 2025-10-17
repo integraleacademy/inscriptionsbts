@@ -305,35 +305,69 @@
       </div>
     </div>
 
-    <!-- 📎 Étape 5 -->
-    <div id="tab5" class="tab">
-      <div class="grid">
-        <label>Carte d’identité / Passeport (1 fichier obligatoire) <input type="file" name="ci" accept="application/pdf,image/*" required></label>
-        <label>Deuxième page / verso (facultatif) <input type="file" name="ci2" accept="application/pdf,image/*"></label>
-        <div class="photo-block">
-  <h4>📸 Photo d’identité</h4>
-  <div class="photo-inner">
-    <div class="photo-upload">
-      <label>Importer votre photo :
-        <input type="file" name="photo" accept="image/*" required>
-      </label>
+<!-- 📎 Étape 5 -->
+<div id="tab5" class="tab">
+
+  <h3 style="text-align:center; color:#111; border-bottom:3px solid #f4c45a; padding-bottom:8px; margin-bottom:25px;">
+    📎 Pièces justificatives à transmettre
+  </h3>
+
+  <div class="grid">
+
+    <!-- 🪪 Carte d’identité / Passeport -->
+    <div class="justif-block">
+      <h4>🪪 Carte d’identité / Passeport</h4>
+      <div class="justif-inner">
+        <label>Recto (obligatoire)
+          <input type="file" name="ci" accept="application/pdf,image/*" required>
+        </label>
+        <label>Verso (facultatif)
+          <input type="file" name="ci2" accept="application/pdf,image/*">
+        </label>
+      </div>
     </div>
-    <div class="photo-example">
-      <img src="{{ url_for('static', filename='photo-exemple.png') }}" alt="Exemples de photos" />
-      <p><span class="ok">✅ Photo nette, fond neutre</span> — <span class="no">❌ Pas de selfie ni d’arrière-plan visible</span></p>
+
+    <!-- 📸 Photo d’identité -->
+    <div class="photo-block">
+      <h4>📸 Photo d’identité</h4>
+      <div class="photo-inner">
+        <div class="photo-upload">
+          <label>Importer votre photo :
+            <input type="file" name="photo" accept="image/*" required>
+          </label>
+        </div>
+        <div class="photo-example">
+          <img src="{{ url_for('static', filename='photo-exemple.png') }}" alt="Exemples de photos" />
+          <p><span class="ok">✅ Photo nette, fond neutre</span> — <span class="no">❌ Pas de selfie ni d’arrière-plan visible</span></p>
+        </div>
+      </div>
     </div>
+
+    <!-- 💳 Carte Vitale -->
+    <div class="justif-block">
+      <h4>💳 Carte Vitale (PDF uniquement)</h4>
+      <label><input type="file" name="carte_vitale" accept="application/pdf" required></label>
+    </div>
+
+    <!-- 📄 CV -->
+    <div class="justif-block">
+      <h4>📄 CV (PDF)</h4>
+      <label><input type="file" name="cv" accept="application/pdf" required></label>
+    </div>
+
+    <!-- 🖋️ Lettre de motivation -->
+    <div class="justif-block">
+      <h4>🖋️ Lettre de motivation (PDF)</h4>
+      <label><input type="file" name="lm" accept="application/pdf" required></label>
+    </div>
+
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn prev">⬅️ Étape précédente</button>
+    <button class="btn primary" type="submit">✅ Envoyer ma pré-inscription</button>
   </div>
 </div>
-
-        <label>Carte Vitale (PDF uniquement) <input type="file" name="carte_vitale" accept="application/pdf" required></label>
-        <label>CV (PDF) <input type="file" name="cv" accept="application/pdf" required></label>
-        <label>Lettre de motivation (PDF) <input type="file" name="lm" accept="application/pdf" required></label>
-      </div>
-      <div class="actions">
-        <button type="button" class="btn prev">⬅️ Étape précédente</button>
-        <button class="btn primary" type="submit">✅ Envoyer ma pré-inscription</button>
-      </div>
-    </div>
 
    
 
