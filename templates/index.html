@@ -3,6 +3,14 @@
 
 <div class="form-container">
   <h2>📝 Pré-inscriptions BTS 2026</h2>
+  
+  <!-- 🔢 Barre de progression -->
+<div class="progress-container">
+  <div class="progress-bar" id="progressBar"></div>
+</div>
+
+  <div class="progress-info" id="progressInfo">Étape 1 sur 5</div>
+
 
   <div class="notice">
     <p>Vous allez compléter votre dossier de pré-inscription pour intégrer l’un de nos BTS à partir de septembre 2026.</p>
@@ -407,7 +415,20 @@ let currentStep = 0;
 function showTab(index) {
   formTabs.forEach((tab, i) => tab.classList.toggle("active", i === index));
   tabs.forEach((btn, i) => btn.classList.toggle("active", i === index));
+
+  // 🟡 Met à jour la barre de progression
+  const progress = document.getElementById("progressBar");
+  if (progress) {
+    const percent = ((index + 1) / formTabs.length) * 100;
+    progress.style.width = percent + "%";
+      const info = document.getElementById("progressInfo");
+  if (info) {
+    info.textContent = `Étape ${index + 1} sur ${formTabs.length}`;
+  }
+
+  }
 }
+
 
 // --- Fonction pour valider une étape ---
 function validateStep(stepIndex) {
