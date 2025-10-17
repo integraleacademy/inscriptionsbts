@@ -43,6 +43,54 @@ def db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def normalize_nir(nir: str) -> str:
+    """Remplace 2A/2B et retire espaces."""
+    if not nir:
+        return ""
+    nir = nir.strip().upper().replace(" ", "")
+    nir = nir.replace("2A", "19").replace("2B", "18")
+    return "".join(ch for ch in nir if ch.isdigit())
+
+def validate_nir(nir_raw, date_naissance_str, sexe_str):
+    """Valide le NIR (clé + cohérence date + sexe). Gère Corse & DOM-TOM."""
+    digits = normalize_nir(nir_raw)
+    if len(digits) != 15:
+        return False, "Le numéro de sécurité sociale doit comporter 15 chiffres."
+
+    # Vérif clé
+    try:
+        corps, cle = digits[:13], int(digits[13:15])
+        calc = 97 - (int(corps) % 97)
+        if calc != cle:
+            return False, "Clé de contrôle du NIR incorrecte."
+    except Exception:
+        return False, "Format du NIR invalide."
+
+    # Cohérence date
+    if date_naissance_str:
+        try:
+            annee = int(date_naissance_str[:4])
+            mois = int(date_naissance_str[5:7])
+            yy_expected = str(annee)[-2:]
+            mm_expected = f"{mois:02d}"
+            yy, mm = digits[1:3], digits[3:5]
+
+            if yy != yy_expected:
+                return False, f"L'année ({yy}) ne correspond pas à la date ({yy_expected})."
+
+            if mm.isdigit() and 1 <= int(mm) <= 12 and mm != mm_expected:
+                return False, f"Le mois ({mm}) ne correspond pas au mois de naissance ({mm_expected})."
+        except Exception:
+            return False, "Date de naissance invalide."
+
+    # Cohérence sexe
+    s = int(digits[0])
+    sexe_str = (sexe_str or "").lower()
+    if (sexe_str.startswith("h") and s != 1) or (sexe_str.startswith("f") and s != 2):
+        return False, "Le sexe indiqué ne correspond pas au NIR."
+
+    return True, ""
+
 def init_db():
     conn = db()
     cur = conn.cursor()
@@ -152,6 +200,17 @@ def submit():
     cur = conn.cursor()
     counter = get_counter_for_today(conn)
     numero = dossier_number(counter=counter)
+
+    # ici ton bloc NIR ↓
+    nir = form.get("num_secu", "")
+    date_naiss = form.get("date_naissance", "")
+    sexe = form.get("sexe", "")
+    ok, msg = validate_nir(nir, date_naiss, sexe)
+    if not ok:
+        flash(msg, "error")
+        return redirect(request.referrer or url_for("index"))
+
+
 
     cand_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
