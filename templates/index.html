@@ -181,44 +181,7 @@
   </div>
 </div>
 
-<script>
-// --- Afficher automatiquement la section MOS ---
-const btsSelect = document.querySelector('select[name="bts"]');
-const mosSection = document.getElementById('mos-section');
-const mosExplication = document.getElementById('mos-explication');
-const blocBacAutre = document.getElementById('bloc-bac-autre');
-const blocApsSession = document.getElementById('bloc-aps-session');
 
-if (btsSelect) {
-  btsSelect.addEventListener('change', () => {
-    if (btsSelect.value === 'MOS') {
-      mosSection.style.display = 'block';
-    } else {
-      mosSection.style.display = 'none';
-      mosExplication.style.display = 'none';
-      blocBacAutre.style.display = 'none';
-    }
-  });
-}
-
-// --- Si "Aucun de ces cas" est coché ---
-document.addEventListener('change', (e) => {
-  if (e.target.name === 'bac_status') {
-    if (e.target.value === 'autre') {
-      mosExplication.style.display = 'block';
-      blocBacAutre.style.display = 'block';
-    } else {
-      blocBacAutre.style.display = 'none';
-      if (e.target.value === 'carte_cnaps') {
-        mosExplication.style.display = 'none';
-      }
-    }
-  }
-  if (e.target.name === 'aps_souhaitee') {
-    blocApsSession.style.display = e.target.checked ? 'block' : 'none';
-  }
-});
-</script>
 
   <!-- Boutons d'étape -->
   <div class="actions">
