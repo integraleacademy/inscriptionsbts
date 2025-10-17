@@ -493,5 +493,63 @@ tr.status-updated { animation: flashRow 1.5s ease; }
   font-weight: 600;
 }
 
+/* =======================================================
+   🗂️ Bloc pièces justificatives harmonisé
+   ======================================================= */
+
+/* --- Encadré général harmonisé pour chaque document --- */
+.justif-block {
+  background: #fffaf0;
+  border-left: 5px solid #f4c45a;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 15px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.justif-block h4 {
+  margin-top: 0;
+  color: #222;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.justif-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.justif-inner label {
+  font-weight: 600;
+  color: #333;
+}
+
+/* --- Réorganisation plus fluide du bloc Pièces --- */
+#tab5 .grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 25px;
+}
+
+/* --- Ajustement spécifique pour la photo et autres blocs --- */
+.photo-block,
+.justif-block {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.photo-block:hover,
+.justif-block:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+/* --- Responsive --- */
+@media (max-width: 700px) {
+  #tab5 .grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 
 
