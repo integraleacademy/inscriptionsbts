@@ -222,7 +222,8 @@ function openFilesModal(id) {
         div.innerHTML = `
           <div class="file-header">
             <strong>${f.label}</strong><br>
-            <a href="/data/uploads/${f.filename}" target="_blank" rel="noopener noreferrer">${f.filename}</a>
+            <a href="/uploads/${f.filename}" target="_blank" rel="noopener noreferrer">${f.filename}</a>
+
 
           </div>
           <div class="file-actions">
@@ -244,29 +245,43 @@ function closeFilesModal() {
   document.getElementById("filesModal").classList.add("hidden");
 }
 
-// 📩 Marquer une pièce comme conforme / non conforme
-function markDoc(filename, decision) {
-  if (!currentId) return;
-  fetch("/admin/files/mark", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({id: currentId, filename, decision})
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.ok) {
-      showToast(decision==="conforme" ? "✅ Document conforme" : "❌ Document non conforme",
-        decision==="conforme" ? "#28a745" : "#d9534f");
-      openFilesModal(currentId); // recharge la liste
-    }
-  });
-}
+
 
 // 📦 Télécharger toutes les pièces
 document.getElementById("downloadAllBtn").addEventListener("click", ()=>{
   if (!currentId) return;
   window.open(`/admin/files/download/${currentId}`, "_blank");
 });
+
+  // ✅ / ❌ Marquer une pièce conforme ou non conforme (nouvelle version)
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".btn.small");
+  if (!btn || !btn.dataset.filename) return;
+
+  const decision = btn.classList.contains("ok") ? "conforme" : "non_conforme";
+  const filename = btn.dataset.filename;
+
+  btn.textContent = "⏳...";
+  btn.disabled = true;
+
+  const res = await fetch("/admin/files/mark", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: currentId, filename, decision })
+  });
+
+  const data = await res.json();
+  if (data.ok) {
+    showToast(decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+      decision === "conforme" ? "#28a745" : "#d9534f");
+    setTimeout(() => openFilesModal(currentId), 800);
+  } else {
+    alert("Erreur : " + (data.error || "inconnue"));
+    btn.disabled = false;
+    btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
+  }
+});
+
 
 </script>
 
