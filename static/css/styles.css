@@ -527,3 +527,50 @@ body.admin-page .admin-container {
   min-width: 0;
 }
 
+/* =======================================================
+   ✅ Onglets avec états visuels (terminé / verrouillé)
+   ======================================================= */
+
+.tabs button {
+  position: relative;
+  padding-right: 32px;
+  transition: background-color 0.4s ease, color 0.4s ease, transform 0.2s ease;
+}
+
+/* ✅ Étape terminée */
+.tabs button.completed {
+  background-color: #d4edda !important;  /* vert clair */
+  color: #155724 !important;
+  border-color: #c3e6cb !important;
+  transform: scale(1.02);
+}
+
+/* 🔒 Étape verrouillée */
+.tabs button.locked {
+  background-color: #eee !important;
+  color: #888 !important;
+  border-color: #ddd !important;
+  cursor: not-allowed;
+}
+
+/* ✅ Icônes visuelles */
+.tabs button.completed::after {
+  content: "✅";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+}
+
+.tabs button.locked::after {
+  content: "🔒";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+  opacity: 0.8;
+}
+
+
