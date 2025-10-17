@@ -69,7 +69,7 @@
       </thead>
       <tbody>
         {% for r in rows %}
-        <tr data-id="{{ r.id }}">
+        <tr data-id="{{ r.id }}" data-nouveau="{{ r.nouveau_doc }}">
           <td contenteditable="true" data-field="nom">{{ r.nom }}</td>
           <td contenteditable="true" data-field="prenom">{{ r.prenom }}</td>
           <td contenteditable="true" data-field="bts">{{ r.bts }}</td>
@@ -297,6 +297,24 @@ async function refreshCandidateStatus(id) {
     }
   }
 }
+
+  // =======================================================
+// 📥 Affiche "Nouveau document déposé" dans le tableau admin
+// =======================================================
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll("tr[data-id]").forEach(tr => {
+    if (tr.dataset.nouveau === "1") {
+      const badge = document.createElement("span");
+      badge.textContent = "📥 Nouveau document déposé";
+      badge.style.color = "#28a745";
+      badge.style.fontWeight = "600";
+      badge.style.marginLeft = "8px";
+      tr.querySelector("td:last-child").appendChild(badge);
+    }
+  });
+});
+
+  
 
 
 </script>
