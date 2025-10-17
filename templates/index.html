@@ -396,37 +396,41 @@ function verifierNumSecu() {
   document.querySelector('input[name="date_naissance"]')?.addEventListener(evt, verifierNumSecu);
   document.querySelector('select[name="sexe"]')?.addEventListener(evt, verifierNumSecu);
 });
-
+</script>
+<script>
 // --- Navigation contrôlée entre les onglets ---
 const tabs = document.querySelectorAll(".tabs button");
 const formTabs = document.querySelectorAll(".tab");
 let currentStep = 0;
 
-// Fonction pour afficher un onglet
+// --- Fonction pour afficher un onglet ---
 function showTab(index) {
   formTabs.forEach((tab, i) => tab.classList.toggle("active", i === index));
   tabs.forEach((btn, i) => btn.classList.toggle("active", i === index));
 }
 
-// Quand on clique sur "Étape suivante"
+// --- Fonction pour valider une étape ---
+function validateStep(stepIndex) {
+  const currentTab = formTabs[stepIndex];
+  const inputs = currentTab.querySelectorAll("input, select, textarea");
+  let allValid = true;
+
+  for (let input of inputs) {
+    if (input.hasAttribute("required") && !input.value.trim()) {
+      input.focus();
+      input.reportValidity();
+      allValid = false;
+      break;
+    }
+  }
+
+  return allValid;
+}
+
+// --- Étape suivante ---
 document.querySelectorAll(".next").forEach(btn => {
   btn.addEventListener("click", () => {
-    const currentTab = formTabs[currentStep];
-    const inputs = currentTab.querySelectorAll("input, select, textarea");
-    let allValid = true;
-
-    // Vérifie que tous les champs requis sont remplis
-    for (let input of inputs) {
-      if (input.hasAttribute("required") && !input.value.trim()) {
-        input.focus();
-        input.reportValidity();
-        allValid = false;
-        break;
-      }
-    }
-
-    // Si tout est bon → on passe à l'étape suivante
-    if (allValid) {
+    if (validateStep(currentStep)) {
       currentStep++;
       if (currentStep >= formTabs.length) currentStep = formTabs.length - 1;
       showTab(currentStep);
@@ -434,7 +438,7 @@ document.querySelectorAll(".next").forEach(btn => {
   });
 });
 
-// Quand on clique sur "Étape précédente"
+// --- Étape précédente ---
 document.querySelectorAll(".prev").forEach(btn => {
   btn.addEventListener("click", () => {
     currentStep--;
@@ -443,18 +447,24 @@ document.querySelectorAll(".prev").forEach(btn => {
   });
 });
 
-// Bloquer le clic direct sur les onglets
+// --- Bloquer le clic direct sur les onglets ---
 tabs.forEach((tab, i) => {
   tab.addEventListener("click", (e) => {
     e.preventDefault();
-    if (i <= currentStep) {
-      showTab(i);
-    } else {
+
+    // Si on essaie d'aller plus loin que le step actuel
+    if (i > currentStep) {
       alert("⚠️ Merci de compléter les étapes précédentes avant de continuer.");
+      return;
     }
+
+    // Sinon on affiche l'onglet demandé
+    currentStep = i;
+    showTab(i);
   });
 });
 </script>
+
 {% endblock %}
 
 
