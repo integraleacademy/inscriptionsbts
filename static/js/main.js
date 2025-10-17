@@ -1,17 +1,19 @@
+// === Intégrale Academy – JS global (Front + Admin) ===
 window.currentId = null;
-// === Gestion fluide + verrouillage + icônes visuelles des onglets ===
+
 document.addEventListener("DOMContentLoaded", () => {
 
+  // =====================================================
+  // 🌐 NAVIGATION FORMULAIRE PUBLIC
+  // =====================================================
   const tabButtons = document.querySelectorAll('.tabs button');
   const tabs = document.querySelectorAll('.tab');
+  const progress = document.getElementById("progressBar");
+  const info = document.getElementById("progressInfo");
   let currentStep = 0;
 
-  // === 🔢 Barre de progression (liée aux onglets) — avec texte correct et animation fluide ===
   function updateProgressBar(index) {
-    const progress = document.getElementById("progressBar");
-    const info = document.getElementById("progressInfo");
     if (!progress || !info) return;
-
     const total = tabs.length;
     const targetPercent = ((index + 1) / total) * 100;
     const currentWidth = parseFloat(progress.style.width) || 0;
@@ -25,41 +27,27 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         requestAnimationFrame(animate);
       }
-
       progress.style.width = currentPercent + "%";
       info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(((index + 1) / total) * 100)} % complété`;
     };
-
     animate();
   }
 
-  // --- Fonction d’affichage des étapes ---
   function showStep(index) {
     tabs.forEach((tab, i) => {
       tab.style.display = (i === index) ? 'block' : 'none';
-      tab.style.opacity = (i === index) ? '1' : '0';
       tab.classList.toggle('active', i === index);
     });
-
     tabButtons.forEach((btn, i) => {
       btn.classList.toggle('active', i === index);
-      if (i < index) {
-        btn.classList.add('completed');
-        btn.classList.remove('locked');
-      } else if (i === index) {
-        btn.classList.remove('completed', 'locked');
-      } else {
-        btn.classList.add('locked');
-        btn.classList.remove('completed');
-      }
+      if (i < index) btn.classList.add('completed');
+      else btn.classList.remove('completed');
     });
-
     currentStep = index;
     updateProgressBar(index);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // --- Validation d’une étape ---
   function validateStep(stepIndex) {
     const currentTab = tabs[stepIndex];
     const inputs = currentTab.querySelectorAll('input, select, textarea');
@@ -72,7 +60,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  // --- Clic sur un onglet ---
   tabButtons.forEach((btn, i) => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -84,7 +71,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // --- Étape suivante / précédente ---
   document.querySelectorAll('.next').forEach(btn => {
     btn.addEventListener('click', () => {
       if (validateStep(currentStep)) {
@@ -103,9 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  showStep(0); // affiche la première étape au chargement
-
-  // === Vérification e-mail ===
+  // === Vérif e-mail ===
   const email = document.querySelector('input[name="email"]');
   const email2 = document.querySelector('input[name="email_confirm"]');
   if (email && email2) {
@@ -120,22 +104,34 @@ document.addEventListener("DOMContentLoaded", () => {
     email2.addEventListener('input', check);
   }
 
-  // === Affichage si mineur ===
+  // === Bloc mineur ===
   const birth = document.querySelector('input[name="date_naissance"]');
-  const minor = document.getElementById('minorFields');
+  const blocResp = document.getElementById('bloc-resp-legal');
+  const hiddenMineur = document.getElementById('est_mineur');
   const updateMinor = () => {
-    if (!birth || !birth.value) { minor.style.display = 'none'; return; }
+    if (!birth || !birth.value) return;
     const d = new Date(birth.value);
     const today = new Date();
     let age = today.getFullYear() - d.getFullYear();
     const m = today.getMonth() - d.getMonth();
     if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
-    minor.style.display = (age < 18) ? 'block' : 'none';
-    document.querySelector('input[name="est_mineur"]').value = (age < 18) ? '1' : '0';
+    if (blocResp) blocResp.style.display = (age < 18) ? 'block' : 'none';
+    if (hiddenMineur) hiddenMineur.value = (age < 18) ? '1' : '0';
   };
   if (birth) birth.addEventListener('change', updateMinor);
 
-  // === Validation fichiers PDF ===
+  // === Sélection visuelle Présentiel / Distanciel ===
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+      const radio = btn.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+    });
+  });
+
+  // === Vérif fichiers PDF ===
   const form = document.querySelector('form');
   if (form) {
     form.addEventListener('submit', (e) => {
@@ -149,18 +145,21 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
             return;
           }
-        } else if (input && input.hasAttribute('required') && input.files.length === 0) {
-          e.preventDefault();
-          alert(`⚠️ Le champ "${name}" est obligatoire.`);
-          return;
         }
       }
     });
   }
 
-  // === Gestion ADMIN (tableau) ===
+  showStep(0); // première étape visible
+  console.log("✅ main.js (Front) chargé avec succès");
+
+  // =====================================================
+  // 🧾 SECTION ADMIN
+  // =====================================================
   const table = document.querySelector('.admin-table');
   if (table) {
+
+    // 🔤 Modification champs inline
     table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
       td.addEventListener('blur', async () => {
         const tr = td.closest('tr');
@@ -172,9 +171,11 @@ document.addEventListener("DOMContentLoaded", () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, field, value })
         });
+        showToast("💾 Sauvegardé", "#28a745");
       });
     });
 
+    // 🔄 Changement de statut
     table.querySelectorAll('.status-select').forEach(sel => {
       sel.addEventListener('change', async () => {
         const tr = sel.closest('tr');
@@ -185,9 +186,11 @@ document.addEventListener("DOMContentLoaded", () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, value })
         });
+        showToast("📊 Statut mis à jour", "#007bff");
       });
     });
 
+    // ✅ Cases à cocher (labels)
     table.querySelectorAll('input.chk').forEach(chk => {
       chk.addEventListener('change', async () => {
         const tr = chk.closest('tr');
@@ -199,24 +202,17 @@ document.addEventListener("DOMContentLoaded", () => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, field, value })
         });
+        showToast("🔖 Étiquette mise à jour");
       });
     });
   }
 
-  // === Sélection visuelle du mode (présentiel / distanciel) ===
-  const modeBtns = document.querySelectorAll('.mode-btn');
-  modeBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      modeBtns.forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-    });
-  });
-
-  // === 📎 Gestion des pièces justificatives (modale admin) ===
+  // =====================================================
+  // 📁 MODALE DES PIÈCES JUSTIFICATIVES
+  // =====================================================
   const filesModal = document.getElementById("filesModal");
   if (filesModal) {
 
-    // 📦 Télécharger toutes les pièces
     const downloadAllBtn = document.getElementById("downloadAllBtn");
     if (downloadAllBtn) {
       downloadAllBtn.addEventListener("click", () => {
@@ -243,27 +239,21 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const data = await res.json();
-if (data.ok) {
-  showToast(
-    decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
-    decision === "conforme" ? "#28a745" : "#d9534f"
-  );
+      if (data.ok) {
+        showToast(
+          decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+          decision === "conforme" ? "#28a745" : "#d9534f"
+        );
+        await refreshCandidateStatus(window.currentId);
+        setTimeout(() => { openFilesModal(window.currentId); }, 500);
+      } else {
+        alert("Erreur : " + (data.error || "inconnue"));
+        btn.disabled = false;
+      }
+    });
+  }
 
-  // 🔁 Rafraîchir le statut dans le tableau
-  await refreshCandidateStatus(window.currentId);
-
-  // 🔄 Rafraîchir visuellement la modale
-  setTimeout(() => {
-    openFilesModal(window.currentId);
-  }, 500);
-} else {
-  alert("Erreur : " + (data.error || "inconnue"));
-  btn.disabled = false;
-  btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
-}
-
-
-  // === 📥 Vérifie les "nouveaux documents" dans le tableau ===
+  // === Vérifie "nouveaux documents" dans le tableau ===
   document.querySelectorAll("tr[data-id]").forEach(tr => {
     if (tr.dataset.nouveau === "1") {
       const badge = document.createElement("span");
@@ -271,29 +261,31 @@ if (data.ok) {
       badge.style.color = "#28a745";
       badge.style.fontWeight = "600";
       badge.style.marginLeft = "8px";
-      tr.querySelector("td:last-child").appendChild(badge);
+      tr.querySelector("td:last-child")?.appendChild(badge);
     }
   });
 
 }); // fin du DOMContentLoaded
 
 
-// === Toast notification ===
-function showToast(msg, color="#333") {
-  const t=document.createElement("div");
-  t.textContent=msg;
-  Object.assign(t.style,{
-    position:"fixed",bottom:"20px",right:"20px",background:color,color:"#fff",
-    padding:"10px 16px",borderRadius:"8px",fontWeight:"600",boxShadow:"0 3px 8px rgba(0,0,0,.3)",
-    zIndex:"9999",opacity:"0",transition:"opacity .3s"
+// =====================================================
+// 🔔 FONCTIONS GLOBALES (utilisées par admin)
+// =====================================================
+
+function showToast(msg, color = "#333") {
+  const t = document.createElement("div");
+  t.textContent = msg;
+  Object.assign(t.style, {
+    position: "fixed", bottom: "20px", right: "20px", background: color,
+    color: "#fff", padding: "10px 16px", borderRadius: "8px",
+    fontWeight: "600", boxShadow: "0 3px 8px rgba(0,0,0,.3)",
+    zIndex: "9999", opacity: "0", transition: "opacity .3s"
   });
   document.body.appendChild(t);
-  setTimeout(()=>t.style.opacity="1",50);
-  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},2500);
+  setTimeout(() => t.style.opacity = "1", 50);
+  setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 300); }, 2500);
 }
 
-
-// === Rafraîchit le statut du dossier ===
 async function refreshCandidateStatus(id) {
   const row = document.querySelector(`tr[data-id='${id}']`);
   if (!row) return;
@@ -309,14 +301,11 @@ async function refreshCandidateStatus(id) {
   }
 }
 
-
 function openFilesModal(id) {
   window.currentId = id;
   const modal = document.getElementById("filesModal");
   const list = document.getElementById("filesList");
-
   if (!modal || !list) return;
-
   modal.classList.remove("hidden");
   list.innerHTML = "<p>⏳ Chargement des pièces...</p>";
 
@@ -329,7 +318,6 @@ function openFilesModal(id) {
         list.innerHTML = "<p>Aucune pièce justificative trouvée.</p>";
         return;
       }
-
       list.innerHTML = "";
       files.forEach(f => {
         const div = document.createElement("div");
@@ -337,7 +325,7 @@ function openFilesModal(id) {
         div.innerHTML = `
           <div class="file-header">
             <strong>${f.label}</strong><br>
-            <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank" rel="noopener noreferrer">${f.filename}</a>
+            <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank">${f.filename}</a>
           </div>
           <div class="file-actions">
             <button class="btn small ok" data-filename="${f.filename}" ${f.status === "conforme" ? "disabled" : ""}>✅ Conforme</button>
