@@ -5,6 +5,33 @@ const tabButtons = document.querySelectorAll('.tabs button');
 const tabs = document.querySelectorAll('.tab');
 let currentStep = 0;
 
+  // === 🔢 Barre de progression (liée aux onglets) — avec pourcentage animé ===
+function updateProgressBar(index) {
+  const progress = document.getElementById("progressBar");
+  const info = document.getElementById("progressInfo");
+  if (!progress || !info) return;
+
+  const total = tabs.length;
+  const targetPercent = (index / (total - 1)) * 100;
+  const currentWidth = parseFloat(progress.style.width) || 0;
+  const step = (targetPercent - currentWidth) / 20;
+  let currentPercent = currentWidth;
+
+  const animate = () => {
+    currentPercent += step;
+    if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
+      currentPercent = targetPercent;
+    } else {
+      requestAnimationFrame(animate);
+    }
+
+    progress.style.width = currentPercent + "%";
+    info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(currentPercent)} % complété`;
+  };
+
+  animate();
+}
+
 // --- Fonction d’affichage des étapes ---
 function showStep(index) {
   tabs.forEach((tab, i) => {
@@ -223,33 +250,7 @@ document.addEventListener('change', (e) => {
   }
 });
 
-// === 🔢 Barre de progression (liée aux onglets) ===
-// === 🔢 Barre de progression (liée aux onglets) — avec pourcentage animé ===
-function updateProgressBar(index) {
-  const progress = document.getElementById("progressBar");
-  const info = document.getElementById("progressInfo");
-  if (!progress || !info) return;
 
-  const total = tabs.length;
-  const targetPercent = (index / (total - 1)) * 100;
-  const currentWidth = parseFloat(progress.style.width) || 0;
-  const step = (targetPercent - currentWidth) / 20; // vitesse animation
-  let currentPercent = currentWidth;
-
-  const animate = () => {
-    currentPercent += step;
-    if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
-      currentPercent = targetPercent;
-    } else {
-      requestAnimationFrame(animate);
-    }
-
-    progress.style.width = currentPercent + "%";
-    info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(currentPercent)} % complété`;
-  };
-
-  animate();
-}
 
 
 }); // 👈 fin du DOMContentLoaded
