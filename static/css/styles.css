@@ -613,4 +613,70 @@ tr.status-updated { animation: flashRow 1.5s ease; }
   margin-top: 12px;
 }
 
+/* =======================================================
+   🎨 Amélioration modale admin (couleurs boutons + largeur tableau)
+   ======================================================= */
+
+/* --- Tableau sur toute la largeur --- */
+.admin-wrapper {
+  max-width: 100%;
+  margin: 20px auto;
+  padding: 0 20px;
+}
+
+.table-container {
+  background: #fff;
+  border-radius: 10px;
+  padding: 15px 20px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  overflow-x: auto;
+}
+
+/* --- Boutons colorés dans la modale --- */
+.btn.pdf {
+  background: #f4c45a;
+  color: #111;
+  font-weight: 700;
+  border: none;
+}
+
+.btn.pdf:hover {
+  background: #ffd97a;
+}
+
+.btn.reconfirm {
+  background: #007bff;
+  color: #fff;
+}
+
+.btn.reconfirm:hover {
+  background: #1a86ff;
+}
+
+.btn.danger {
+  background: #d9534f;
+  color: #fff;
+}
+
+.btn.danger:hover {
+  background: #c82333;
+}
+
+/* --- Boutons dans la modale : taille uniforme et arrondis doux --- */
+.modal-actions .btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 10px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: background 0.3s;
+}
+
+/* --- Supprime le soulignement du lien PDF --- */
+.modal-actions a,
+.modal-actions button {
+  text-decoration: none;
+}
+
 
