@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Bienvenue à Intégrale Academy 🎓</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background-color: #f8f8f8;
+      color: #222;
+      margin: 0;
+      padding: 40px 15px;
+      line-height: 1.6;
+    }
+    .card {
+      background: #fff;
+      max-width: 640px;
+      margin: auto;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 30px 40px;
+    }
+    h1 {
+      color: #0a7d42;
+      font-size: 26px;
+      margin-top: 0;
+    }
+    p {
+      font-size: 16px;
+      margin: 15px 0;
+    }
+    .highlight {
+      color: #0a7d42;
+      font-weight: bold;
+    }
+    .footer {
+      margin-top: 30px;
+      border-top: 1px solid #ddd;
+      padding-top: 15px;
+      font-size: 14px;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎓 Bienvenue à Intégrale Academy !</h1>
+
+    <p>Bonjour {{ prenom }},</p>
+
+    <p>Nous vous remercions chaleureusement d’avoir confirmé votre inscription au sein de <strong>Intégrale Academy</strong>.</p>
+
+    <p>Votre place est désormais réservée pour la prochaine rentrée de septembre, dans le programme <strong>{{ bts or "BTS choisi" }}</strong>.</p>
+
+    <p>🟢 <strong>Notre équipe se réjouit de vous accueillir</strong> au sein d’une école engagée, moderne et tournée vers l’emploi.  
+    Vous allez bientôt recevoir par courrier votre <strong>carte étudiante officielle</strong> et votre <strong>certificat de scolarité</strong>.</p>
+
+    <p>Entre passion, rigueur et accompagnement, nous avons à cœur de vous offrir une formation concrète, professionnalisante et pleine d’opportunités 🚀</p>
+
+    <p>En attendant la rentrée, n’hésitez pas à suivre notre actualité sur :</p>
+    <ul>
+      <li>🌐 <a href="https://integraleacademy.com" target="_blank">www.integraleacademy.com</a></li>
+      <li>📱 <a href="https://www.instagram.com/integraleacademy" target="_blank">@integraleacademy</a></li>
+      <li>💼 <a href="https://www.linkedin.com/company/integraleacademy" target="_blank">LinkedIn – Intégrale Academy</a></li>
+    </ul>
+
+    <p>À très bientôt,</p>
+    <p><strong>L’équipe Intégrale Academy</strong></p>
+
+    <div class="footer">
+      Intégrale Academy – 54 chemin du Carreou, 83480 Puget-sur-Argens<br>
+      <a href="mailto:ecole@integraleacademy.com">ecole@integraleacademy.com</a> | 04 22 47 07 68
+    </div>
+  </div>
+</body>
+</html>
