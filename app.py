@@ -636,6 +636,18 @@ def admin_files_mark():
     log_event(row, "DOC_MARK", {"file": fname, "decision": decision})
     return jsonify({"ok": True})
 
+@app.route("/admin/status/<cid>")
+def admin_status(cid):
+    if not require_admin():
+        abort(403)
+    conn = db()
+    row = get_candidat(conn, cid)
+    conn.close()
+    if not row:
+        return jsonify({"ok": False, "error": "not found"}), 404
+    return jsonify({"ok": True, "statut": row.get("statut")})
+
+
 # =====================================================
 # 🔁 ROUTES : Remplacement de pièce justificative
 # =====================================================
