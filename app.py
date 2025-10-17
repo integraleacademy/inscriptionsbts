@@ -544,6 +544,18 @@ def admin_files(cid):
     conn.close()
     return jsonify(files_data)
 
+@app.route("/admin/files/mark_seen/<cid>", methods=["POST"])
+def admin_files_mark_seen(cid):
+    if not require_admin():
+        abort(403)
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("UPDATE candidats SET nouveau_doc=0 WHERE id=?", (cid,))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
 # =====================================================
 # 📦 ROUTE : Télécharger toutes les pièces justificatives (ZIP)
 # =====================================================
