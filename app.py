@@ -44,20 +44,27 @@ def db():
     return conn
 
 def normalize_nir(nir: str) -> str:
-    """Remplace 2A/2B et retire espaces."""
+    """Nettoie le NIR sans modifier sa structure (garde 2A/2B pour l'affichage)."""
     if not nir:
         return ""
-    nir = nir.strip().upper().replace(" ", "")
-    nir = nir.replace("2A", "19").replace("2B", "18")
-    return "".join(ch for ch in nir if ch.isdigit())
+    return nir.strip().upper().replace(" ", "")
 
 def validate_nir(nir_raw, date_naissance_str, sexe_str):
-    """Valide le NIR (clé + cohérence date + sexe). Gère Corse & DOM-TOM."""
-    digits = normalize_nir(nir_raw)
-    if len(digits) != 15:
-        return False, "Le numéro de sécurité sociale doit comporter 15 chiffres."
+    """Valide le NIR (clé + cohérence date + sexe). 
+    Conserve 2A/2B dans la valeur stockée, mais effectue la vérification avec conversion temporaire."""
+    if not nir_raw:
+        return False, "Numéro de sécurité sociale manquant."
 
-    # Vérif clé
+    nir_clean = normalize_nir(nir_raw)
+
+    # 🔁 copie temporaire pour le calcul (convertit juste pour la vérif)
+    nir_calc = nir_clean.replace("2A", "19").replace("2B", "18")
+    digits = "".join(ch for ch in nir_calc if ch.isdigit())
+
+    if len(digits) != 15:
+        return False, "Le numéro de sécurité sociale doit comporter 15 caractères (chiffres ou A/B)."
+
+    # ✅ Vérification de la clé de contrôle
     try:
         corps, cle = digits[:13], int(digits[13:15])
         calc = 97 - (int(corps) % 97)
@@ -66,7 +73,7 @@ def validate_nir(nir_raw, date_naissance_str, sexe_str):
     except Exception:
         return False, "Format du NIR invalide."
 
-    # Cohérence date
+    # ✅ Cohérence date
     if date_naissance_str:
         try:
             annee = int(date_naissance_str[:4])
@@ -83,13 +90,19 @@ def validate_nir(nir_raw, date_naissance_str, sexe_str):
         except Exception:
             return False, "Date de naissance invalide."
 
-    # Cohérence sexe
-    s = int(digits[0])
-    sexe_str = (sexe_str or "").lower()
-    if (sexe_str.startswith("h") and s != 1) or (sexe_str.startswith("f") and s != 2):
-        return False, "Le sexe indiqué ne correspond pas au NIR."
+    # ✅ Cohérence sexe
+    try:
+        s = int(digits[0])
+        sexe_str = (sexe_str or "").lower()
+        if (sexe_str.startswith("h") and s != 1) or (sexe_str.startswith("f") and s != 2):
+            return False, "Le sexe indiqué ne correspond pas au NIR."
+    except Exception:
+        return False, "Format du NIR invalide."
 
     return True, ""
+
+
+
 
 def init_db():
     conn = db()
