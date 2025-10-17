@@ -283,9 +283,11 @@ textarea {
 }
 
 .admin-table thead {
-  background: #111;
-  color: #fff;
+  background: #f4c45a; /* fond doré cohérent avec ton thème */
+  color: #000;         /* texte noir lisible */
+  font-weight: 700;
 }
+
 
 .admin-table th,
 .admin-table td {
