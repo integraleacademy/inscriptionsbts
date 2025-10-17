@@ -1,3 +1,4 @@
+window.currentId = null;
 // === Gestion fluide + verrouillage + icônes visuelles des onglets ===
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -306,3 +307,49 @@ async function refreshCandidateStatus(id) {
     }
   }
 }
+
+
+function openFilesModal(id) {
+  window.currentId = id;
+  const modal = document.getElementById("filesModal");
+  const list = document.getElementById("filesList");
+
+  if (!modal || !list) return;
+
+  modal.classList.remove("hidden");
+  list.innerHTML = "<p>⏳ Chargement des pièces...</p>";
+
+  fetch(`/admin/files/mark_seen/${id}`, { method: "POST" });
+
+  fetch(`/admin/files/${id}`)
+    .then(res => res.json())
+    .then(files => {
+      if (!files.length) {
+        list.innerHTML = "<p>Aucune pièce justificative trouvée.</p>";
+        return;
+      }
+
+      list.innerHTML = "";
+      files.forEach(f => {
+        const div = document.createElement("div");
+        div.className = "file-item";
+        div.innerHTML = `
+          <div class="file-header">
+            <strong>${f.label}</strong><br>
+            <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank" rel="noopener noreferrer">${f.filename}</a>
+          </div>
+          <div class="file-actions">
+            <button class="btn small ok" data-filename="${f.filename}" ${f.status === "conforme" ? "disabled" : ""}>✅ Conforme</button>
+            <button class="btn small danger" data-filename="${f.filename}" ${f.status === "non_conforme" ? "disabled" : ""}>❌ Non conforme</button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    })
+    .catch(err => {
+      list.innerHTML = "<p style='color:red'>Erreur de chargement</p>";
+      console.error(err);
+    });
+}
+
+
