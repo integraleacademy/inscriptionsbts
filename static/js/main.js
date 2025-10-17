@@ -243,24 +243,25 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const data = await res.json();
-      if (data.ok) {
-        showToast(
-          decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
-          decision === "conforme" ? "#28a745" : "#d9534f"
-        );
+if (data.ok) {
+  showToast(
+    decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+    decision === "conforme" ? "#28a745" : "#d9534f"
+  );
 
-        if (decision === "non_conforme") {
-          await refreshCandidateStatus(window.currentId);
-        }
+  // 🔁 Rafraîchir le statut dans le tableau
+  await refreshCandidateStatus(window.currentId);
 
-        setTimeout(() => openFilesModal(window.currentId), 800);
-      } else {
-        alert("Erreur : " + (data.error || "inconnue"));
-        btn.disabled = false;
-        btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
-      }
-    });
-  }
+  // 🔄 Rafraîchir visuellement la modale
+  setTimeout(() => {
+    openFilesModal(window.currentId);
+  }, 500);
+} else {
+  alert("Erreur : " + (data.error || "inconnue"));
+  btn.disabled = false;
+  btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
+}
+
 
   // === 📥 Vérifie les "nouveaux documents" dans le tableau ===
   document.querySelectorAll("tr[data-id]").forEach(tr => {
