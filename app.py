@@ -77,9 +77,10 @@ STATUTS = [
 ]
 
 def db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn
+
 
 def normalize_nir(nir: str) -> str:
     """Nettoie le NIR sans modifier sa structure (garde 2A/2B pour l'affichage)."""
