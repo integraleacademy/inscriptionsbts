@@ -7,6 +7,43 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# =====================================================
+# 📎 GESTION DES PIÈCES JUSTIFICATIVES
+# =====================================================
+
+DOC_FIELDS = {
+    "ci": ("fichiers_ci", "🪪 Carte d’identité / Passeport"),
+    "photo": ("fichiers_photo", "📸 Photo d’identité"),
+    "carte_vitale": ("fichiers_carte_vitale", "💳 Carte Vitale"),
+    "cv": ("fichiers_cv", "📄 CV"),
+    "lm": ("fichiers_lm", "🖋️ Lettre de motivation"),
+}
+
+def get_candidat(conn, cid):
+    """Récupère un candidat complet par ID."""
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+    row = cur.fetchone()
+    return dict(row) if row else None
+
+def parse_list(v):
+    """Convertit le JSON stocké des fichiers en vraie liste Python."""
+    try:
+        data = json.loads(v or "[]")
+        if isinstance(data, list):
+            return data
+        return []
+    except Exception:
+        return []
+
+def load_verif_docs(row):
+    """Récupère le dictionnaire de vérification des pièces (conforme / non conforme)."""
+    try:
+        return json.loads(row.get("verif_docs") or "{}")
+    except Exception:
+        return {}
+
+
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
 
@@ -36,6 +73,7 @@ STATUTS = [
     ("reconf_en_cours", "Reconfirmation en cours", "orange"),
     ("reconfirmee", "Inscription re-confirmée", "green"),
     ("annulee", "Inscription annulée", "red"),
+    ("docs_non_conformes", "Docs non conformes", "black"),
 ]
 
 def db():
@@ -147,8 +185,38 @@ def init_db():
     conn.close()
 
 # Initialisation de la base de données au démarrage de l'application
+def ensure_schema():
+    """Ajoute les colonnes manquantes si besoin (migration douce)."""
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(candidats)")
+    existing = {r[1] for r in cur.fetchall()}
+
+    to_add = []
+    if "verif_docs" not in existing:
+        to_add.append(("verif_docs", "TEXT", ""))
+    if "nouveau_doc" not in existing:
+        to_add.append(("nouveau_doc", "INTEGER", "0"))
+    if "replace_token" not in existing:
+        to_add.append(("replace_token", "TEXT", ""))
+    if "replace_token_exp" not in existing:
+        to_add.append(("replace_token_exp", "TEXT", ""))
+    if "replace_meta" not in existing:
+        to_add.append(("replace_meta", "TEXT", ""))
+
+    for col, typ, default in to_add:
+        cur.execute(
+            f"ALTER TABLE candidats ADD COLUMN {col} {typ} DEFAULT {json.dumps(default) if typ=='TEXT' else default}"
+        )
+
+    conn.commit()
+    conn.close()
+
+# ✅ Appel après définition
 with app.app_context():
     init_db()
+    ensure_schema()
+
 
 
 def log_event(candidat, type_, payload_dict):
@@ -443,6 +511,210 @@ def admin_export_json():
     cur.execute("SELECT * FROM candidats ORDER BY created_at DESC")
     rows = [dict(r) for r in cur.fetchall()]
     return jsonify(rows)
+
+# =====================================================
+# 📎 ROUTE : Récupérer les pièces justificatives d’un candidat
+# =====================================================
+
+@app.route("/admin/files/<cid>")
+def admin_files(cid):
+    if not require_admin():
+        abort(403)
+    conn = db()
+    row = get_candidat(conn, cid)
+    if not row:
+        abort(404)
+    verif = load_verif_docs(row)
+
+    files_data = []
+    for key, (field, label) in DOC_FIELDS.items():
+        file_list = parse_list(row.get(field))
+        if not file_list:
+            continue
+        for path in file_list:
+            fname = os.path.basename(path)
+            files_data.append({
+                "type": key,
+                "label": label,
+                "filename": fname,
+                "path": path,
+                "status": verif.get(fname, "pending")  # pending / conforme / non_conforme / replaced
+            })
+
+    conn.close()
+    return jsonify(files_data)
+
+# =====================================================
+# 📦 ROUTE : Télécharger toutes les pièces justificatives (ZIP)
+# =====================================================
+
+@app.route("/admin/files/download/<cid>")
+def admin_files_download(cid):
+    if not require_admin():
+        abort(403)
+    import zipfile, io
+
+    conn = db()
+    row = get_candidat(conn, cid)
+    if not row:
+        abort(404)
+    conn.close()
+
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for key, (field, label) in DOC_FIELDS.items():
+            file_list = parse_list(row.get(field))
+            for path in file_list:
+                if os.path.exists(path):
+                    zipf.write(path, arcname=os.path.basename(path))
+    buffer.seek(0)
+
+    zip_name = f"pieces_{row.get('numero_dossier','')}.zip"
+    return send_file(
+        buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=zip_name
+    )
+
+# =====================================================
+# ⚙️ ROUTE : Marquer une pièce comme conforme / non conforme
+# =====================================================
+
+@app.route("/admin/files/mark", methods=["POST"])
+def admin_files_mark():
+    if not require_admin():
+        abort(403)
+
+    data = request.json or {}
+    cid = data.get("id")
+    fname = data.get("filename")
+    decision = data.get("decision")  # "conforme" ou "non_conforme"
+
+    if not cid or not fname or decision not in ("conforme", "non_conforme"):
+        return jsonify({"ok": False, "error": "invalid parameters"}), 400
+
+    conn = db()
+    row = get_candidat(conn, cid)
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "not found"}), 404
+
+    verif = load_verif_docs(row)
+    verif[fname] = decision
+
+    # mise à jour base
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE candidats SET verif_docs=?, updated_at=? WHERE id=?",
+        (json.dumps(verif, ensure_ascii=False), datetime.now().isoformat(), cid)
+    )
+
+    # si non conforme → mail + statut
+    if decision == "non_conforme":
+        token = new_token()
+        exp = (datetime.now() + timedelta(days=7)).isoformat()
+        cur.execute(
+            "UPDATE candidats SET statut=?, replace_token=?, replace_token_exp=?, replace_meta=? WHERE id=?",
+            ("docs_non_conformes", token, exp, json.dumps({"filename": fname, "admin_id": session.get('admin_ok', 'admin')}), cid)
+        )
+
+        # 🔗 lien de remplacement
+        link = make_signed_link("/replace-file", token)
+        html = render_template(
+            "mail_doc_non_conforme.html",
+            prenom=row.get("prenom", ""),
+            filename=fname,
+            link=link
+        )
+        send_mail(row.get("email", ""), "Document non conforme – veuillez le remplacer", html)
+        log_event(row, "MAIL_ENVOYE", {"type": "doc_non_conforme", "file": fname})
+
+
+    conn.commit()
+    conn.close()
+    log_event(row, "DOC_MARK", {"file": fname, "decision": decision})
+    return jsonify({"ok": True})
+
+# =====================================================
+# 🔁 ROUTES : Remplacement de pièce justificative
+# =====================================================
+
+@app.route("/replace-file", methods=["GET"])
+def replace_file_form():
+    token = request.args.get("token", "")
+    sig = request.args.get("sig", "")
+    if not verify_token(token, sig):
+        abort(403)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM candidats WHERE replace_token=?", (token,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        abort(404)
+
+    row = dict(row)
+    meta = json.loads(row.get("replace_meta") or "{}")
+    filename = meta.get("filename", "pièce inconnue")
+
+    return render_template("replace_file.html", title="Remplacement de document", filename=filename, token=token, sig=sig)
+
+
+@app.route("/replace-submit", methods=["POST"])
+def replace_file_submit():
+    token = request.form.get("token", "")
+    sig = request.form.get("sig", "")
+    if not verify_token(token, sig):
+        abort(403)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM candidats WHERE replace_token=?", (token,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        abort(404)
+
+    row = dict(row)
+    meta = json.loads(row.get("replace_meta") or "{}")
+    fname_old = meta.get("filename", "")
+
+    # 🔽 enregistrement du nouveau fichier
+    file = request.files.get("fichier")
+    if not file or not file.filename:
+        flash("Aucun fichier sélectionné", "error")
+        return redirect(request.referrer or "/")
+
+    name = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(file.filename)
+    path = os.path.join(UPLOAD_DIR, name)
+    file.save(path)
+
+    # marquer dans verif_docs comme "replaced"
+    verif = load_verif_docs(row)
+    verif[fname_old] = "replaced"
+
+    # maj base
+    cur.execute("""
+        UPDATE candidats
+        SET verif_docs=?, nouveau_doc=1, updated_at=?, statut='preinscription'
+        WHERE id=?
+    """, (json.dumps(verif, ensure_ascii=False), datetime.now().isoformat(), row["id"]))
+    conn.commit()
+    conn.close()
+
+    # 🔔 notification admin par mail
+    admin_html = f"<p>Un candidat a remplacé un document : <strong>{fname_old}</strong></p><p>Dossier : {row.get('numero_dossier')}</p>"
+    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
+    send_mail(from_addr, f"[ADMIN] Nouveau document déposé ({row.get('numero_dossier')})", admin_html)
+
+    log_event(row, "DOC_REPLACED", {"file": fname_old, "new": name})
+
+    return render_template("replace_ok.html", title="Merci", filename=fname_old)
+
+
 
 @app.route("/admin/logs")
 def admin_logs():
