@@ -13,10 +13,10 @@ function showStep(index) {
   tabButtons.forEach((btn, i) => {
     btn.classList.toggle('active', i === index);
 
-    if (i < currentStep) {
+    if (i < index) {
       btn.classList.add('completed');
       btn.classList.remove('locked');
-    } else if (i === currentStep) {
+    } else if (i === index) {
       btn.classList.remove('completed', 'locked');
     } else {
       btn.classList.add('locked');
@@ -25,8 +25,10 @@ function showStep(index) {
   });
 
   currentStep = index;
+  updateProgressBar(index); // ✅ appel ici
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
 
 // --- Validation d’une étape ---
 function validateStep(stepIndex) {
@@ -193,6 +195,35 @@ document.querySelectorAll('.prev').forEach(btn => {
   }
 
 }); // 👈 fin du DOMContentLoaded
+
+// === 🔢 Barre de progression (liée aux onglets)
+// === 🔢 Barre de progression (liée aux onglets)
+// === 🔢 Barre de progression (liée aux onglets) — avec animation fluide
+function updateProgressBar(index) {
+  const progress = document.getElementById("progressBar");
+  const info = document.getElementById("progressInfo");
+  if (!progress || !info) return;
+
+  const targetPercent = ((index + 1) / tabs.length) * 100;
+  const currentWidth = parseFloat(progress.style.width) || 0;
+  const step = (targetPercent - currentWidth) / 20; // vitesse animation
+  let currentPercent = currentWidth;
+
+  const animate = () => {
+    currentPercent += step;
+    if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
+      currentPercent = targetPercent;
+    } else {
+      requestAnimationFrame(animate);
+    }
+
+    progress.style.width = currentPercent + "%";
+    info.textContent = `Étape ${index + 1} sur ${tabs.length} — ${Math.round(currentPercent)} % complété`;
+  };
+
+  animate();
+}
+
 
 
 
