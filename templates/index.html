@@ -310,11 +310,21 @@
       <div class="grid">
         <label>Carte d’identité / Passeport (1 fichier obligatoire) <input type="file" name="ci" accept="application/pdf,image/*" required></label>
         <label>Deuxième page / verso (facultatif) <input type="file" name="ci2" accept="application/pdf,image/*"></label>
-        <label>Photo d’identité <input type="file" name="photo" accept="image/*" required></label>
-        <p class="photo-exemple">
-          <img src="{{ url_for('static', filename='photo-exemple.png') }}" alt="Exemples de photos" style="max-width:280px;border-radius:8px;">
-          <br><small>✅ Photo nette, fond neutre — ❌ Pas de selfie ni d’arrière-plan visible</small>
-        </p>
+        <div class="photo-block">
+  <h4>📸 Photo d’identité</h4>
+  <div class="photo-inner">
+    <div class="photo-upload">
+      <label>Importer votre photo :
+        <input type="file" name="photo" accept="image/*" required>
+      </label>
+    </div>
+    <div class="photo-example">
+      <img src="{{ url_for('static', filename='photo-exemple.png') }}" alt="Exemples de photos" />
+      <p><span class="ok">✅ Photo nette, fond neutre</span> — <span class="no">❌ Pas de selfie ni d’arrière-plan visible</span></p>
+    </div>
+  </div>
+</div>
+
         <label>Carte Vitale (PDF uniquement) <input type="file" name="carte_vitale" accept="application/pdf" required></label>
         <label>CV (PDF) <input type="file" name="cv" accept="application/pdf" required></label>
         <label>Lettre de motivation (PDF) <input type="file" name="lm" accept="application/pdf" required></label>
