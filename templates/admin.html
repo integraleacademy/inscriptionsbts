@@ -88,9 +88,11 @@
             <label><input type="checkbox" class="chk" data-field="label_aut_ok" {% if r.label_aut_ok %}checked{% endif %}> AUT OK</label>
             <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
           </td>
-          <td>
-            <button class="btn small" onclick="openActionsModal('{{ r.id }}', `{{ r.commentaires|default('')|escape }}`)">⋯</button>
-          </td>
+         <td>
+  <button class="btn small" onclick="openActionsModal('{{ r.id }}', `{{ r.commentaires|default('')|escape }}`)">⋯</button>
+  <button class="btn small" onclick="openFilesModal('{{ r.id }}')">📎 Pièces justificatives</button>
+</td>
+
         </tr>
         {% endfor %}
       </tbody>
@@ -117,6 +119,23 @@
     </div>
   </div>
 </div>
+
+<!-- 📎 MODALE – PIÈCES JUSTIFICATIVES -->
+<div id="filesModal" class="modal hidden">
+  <div class="modal-content" style="width:700px;max-height:90vh;overflow-y:auto;">
+    <h3>📎 Pièces justificatives</h3>
+
+    <div id="filesList" class="files-list">
+      <p>Chargement des documents...</p>
+    </div>
+
+    <div class="modal-actions">
+      <button id="downloadAllBtn" class="btn pdf">⬇️ Télécharger toutes les pièces</button>
+      <button class="btn" onclick="closeFilesModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- 💾 Script -->
 <script>
@@ -177,6 +196,77 @@ function showToast(msg,color="#333"){
   setTimeout(()=>t.style.opacity="1",50);
   setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},2500);
 }
+
+  // =======================================================
+// 📎 GESTION DES PIÈCES JUSTIFICATIVES
+// =======================================================
+function openFilesModal(id) {
+  currentId = id;
+  const modal = document.getElementById("filesModal");
+  const list = document.getElementById("filesList");
+  modal.classList.remove("hidden");
+  list.innerHTML = "<p>⏳ Chargement des pièces...</p>";
+
+  fetch(`/admin/files/${id}`)
+    .then(res => res.json())
+    .then(files => {
+      if (!files.length) {
+        list.innerHTML = "<p>Aucune pièce justificative trouvée.</p>";
+        return;
+      }
+
+      list.innerHTML = "";
+      files.forEach(f => {
+        const div = document.createElement("div");
+        div.className = "file-item";
+        div.innerHTML = `
+          <div class="file-header">
+            <strong>${f.label}</strong><br>
+            <a href="/data/uploads/${f.filename}" target="_blank" rel="noopener noreferrer">${f.filename}</a>
+
+          </div>
+          <div class="file-actions">
+            <button class="btn small ok" ${f.status==="conforme"?"disabled":""} onclick="markDoc('${f.filename}','conforme')">✅ Conforme</button>
+            <button class="btn small danger" ${f.status==="non_conforme"?"disabled":""} onclick="markDoc('${f.filename}','non_conforme')">❌ Non conforme</button>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    })
+    .catch(err => {
+      list.innerHTML = "<p style='color:red'>Erreur de chargement</p>";
+      console.error(err);
+    });
+}
+
+function closeFilesModal() {
+  document.getElementById("filesModal").classList.add("hidden");
+}
+
+// 📩 Marquer une pièce comme conforme / non conforme
+function markDoc(filename, decision) {
+  if (!currentId) return;
+  fetch("/admin/files/mark", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({id: currentId, filename, decision})
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ok) {
+      showToast(decision==="conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+        decision==="conforme" ? "#28a745" : "#d9534f");
+      openFilesModal(currentId); // recharge la liste
+    }
+  });
+}
+
+// 📦 Télécharger toutes les pièces
+document.getElementById("downloadAllBtn").addEventListener("click", ()=>{
+  if (!currentId) return;
+  window.open(`/admin/files/download/${currentId}`, "_blank");
+});
+
 </script>
 
 {% endblock %}
