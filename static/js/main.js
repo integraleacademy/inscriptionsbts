@@ -1,117 +1,108 @@
 // === Gestion fluide + verrouillage + icônes visuelles des onglets ===
 document.addEventListener("DOMContentLoaded", () => {
 
-const tabButtons = document.querySelectorAll('.tabs button');
-const tabs = document.querySelectorAll('.tab');
-let currentStep = 0;
+  const tabButtons = document.querySelectorAll('.tabs button');
+  const tabs = document.querySelectorAll('.tab');
+  let currentStep = 0;
 
-  // === 🔢 Barre de progression (liée aux onglets) — avec pourcentage animé ===
-function updateProgressBar(index) {
-  const progress = document.getElementById("progressBar");
-  const info = document.getElementById("progressInfo");
-  if (!progress || !info) return;
+  // === 🔢 Barre de progression (liée aux onglets) — avec texte correct et animation fluide ===
+  function updateProgressBar(index) {
+    const progress = document.getElementById("progressBar");
+    const info = document.getElementById("progressInfo");
+    if (!progress || !info) return;
 
-  const total = tabs.length;
-  const targetPercent = (index / (total - 1)) * 100;
-  const currentWidth = parseFloat(progress.style.width) || 0;
-  const step = (targetPercent - currentWidth) / 20;
-  let currentPercent = currentWidth;
+    const total = tabs.length;
+    const targetPercent = ((index + 1) / total) * 100;
+    const currentWidth = parseFloat(progress.style.width) || 0;
+    const step = (targetPercent - currentWidth) / 20;
+    let currentPercent = currentWidth;
 
-  const animate = () => {
-    currentPercent += step;
-    if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
-      currentPercent = targetPercent;
-    } else {
-      requestAnimationFrame(animate);
-    }
+    const animate = () => {
+      currentPercent += step;
+      if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
+        currentPercent = targetPercent;
+      } else {
+        requestAnimationFrame(animate);
+      }
 
-    progress.style.width = currentPercent + "%";
-    info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(currentPercent)} % complété`;
-  };
+      progress.style.width = currentPercent + "%";
+      info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(((index + 1) / total) * 100)} % complété`;
+    };
 
-  animate();
-}
-
-// --- Fonction d’affichage des étapes ---
-function showStep(index) {
-  tabs.forEach((tab, i) => {
-    if (i === index) {
-      tab.classList.add('active');
-      tab.style.display = 'block';
-      tab.style.opacity = '1';
-    } else {
-      tab.classList.remove('active');
-      tab.style.display = 'none';
-      tab.style.opacity = '0';
-    }
-  });
-
-  tabButtons.forEach((btn, i) => {
-    btn.classList.toggle('active', i === index);
-    if (i < index) {
-      btn.classList.add('completed');
-      btn.classList.remove('locked');
-    } else if (i === index) {
-      btn.classList.remove('completed', 'locked');
-    } else {
-      btn.classList.add('locked');
-      btn.classList.remove('completed');
-    }
-  });
-
-  currentStep = index;
-  updateProgressBar(index);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-
-
-// --- Validation d’une étape ---
-function validateStep(stepIndex) {
-  const currentTab = tabs[stepIndex];
-  const inputs = currentTab.querySelectorAll('input, select, textarea');
-  for (let input of inputs) {
-    if (!input.checkValidity()) {
-      input.reportValidity();
-      return false;
-    }
+    animate();
   }
-  return true;
-}
 
-// --- Clic sur un onglet ---
-tabButtons.forEach((btn, i) => {
-  btn.addEventListener('click', (e) => {
-    e.preventDefault();
-    if (i > currentStep) {
-      alert("⚠️ Merci de compléter les étapes précédentes avant de continuer.");
-      return;
+  // --- Fonction d’affichage des étapes ---
+  function showStep(index) {
+    tabs.forEach((tab, i) => {
+      tab.style.display = (i === index) ? 'block' : 'none';
+      tab.style.opacity = (i === index) ? '1' : '0';
+      tab.classList.toggle('active', i === index);
+    });
+
+    tabButtons.forEach((btn, i) => {
+      btn.classList.toggle('active', i === index);
+      if (i < index) {
+        btn.classList.add('completed');
+        btn.classList.remove('locked');
+      } else if (i === index) {
+        btn.classList.remove('completed', 'locked');
+      } else {
+        btn.classList.add('locked');
+        btn.classList.remove('completed');
+      }
+    });
+
+    currentStep = index;
+    updateProgressBar(index);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // --- Validation d’une étape ---
+  function validateStep(stepIndex) {
+    const currentTab = tabs[stepIndex];
+    const inputs = currentTab.querySelectorAll('input, select, textarea');
+    for (let input of inputs) {
+      if (!input.checkValidity()) {
+        input.reportValidity();
+        return false;
+      }
     }
-    showStep(i);
-  });
-});
+    return true;
+  }
 
-// --- Étape suivante / précédente ---
-document.querySelectorAll('.next').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (validateStep(currentStep)) {
-      currentStep++;
-      if (currentStep >= tabs.length) currentStep = tabs.length - 1;
+  // --- Clic sur un onglet ---
+  tabButtons.forEach((btn, i) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (i > currentStep) {
+        alert("⚠️ Merci de compléter les étapes précédentes avant de continuer.");
+        return;
+      }
+      showStep(i);
+    });
+  });
+
+  // --- Étape suivante / précédente ---
+  document.querySelectorAll('.next').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (validateStep(currentStep)) {
+        currentStep++;
+        if (currentStep >= tabs.length) currentStep = tabs.length - 1;
+        showStep(currentStep);
+      }
+    });
+  });
+
+  document.querySelectorAll('.prev').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentStep--;
+      if (currentStep < 0) currentStep = 0;
       showStep(currentStep);
-    }
+    });
   });
-});
-
-document.querySelectorAll('.prev').forEach(btn => {
-  btn.addEventListener('click', () => {
-    currentStep--;
-    if (currentStep < 0) currentStep = 0;
-    showStep(currentStep);
-  });
-});
 
   showStep(0); // affiche la première étape au chargement
-
 
   // === Vérification e-mail ===
   const email = document.querySelector('input[name="email"]');
@@ -141,9 +132,7 @@ document.querySelectorAll('.prev').forEach(btn => {
     minor.style.display = (age < 18) ? 'block' : 'none';
     document.querySelector('input[name="est_mineur"]').value = (age < 18) ? '1' : '0';
   };
-  if (birth) { birth.addEventListener('change', updateMinor); }
-
-
+  if (birth) birth.addEventListener('change', updateMinor);
 
   // === Validation fichiers PDF ===
   const form = document.querySelector('form');
@@ -214,45 +203,40 @@ document.querySelectorAll('.prev').forEach(btn => {
   }
 
   // === Bloc MOS (déplacé depuis index.html) ===
-const btsSelect = document.querySelector('select[name="bts"]');
-const mosSection = document.getElementById('mos-section');
-const mosExplication = document.getElementById('mos-explication');
-const blocBacAutre = document.getElementById('bloc-bac-autre');
-const blocApsSession = document.getElementById('bloc-aps-session');
+  const btsSelect = document.querySelector('select[name="bts"]');
+  const mosSection = document.getElementById('mos-section');
+  const mosExplication = document.getElementById('mos-explication');
+  const blocBacAutre = document.getElementById('bloc-bac-autre');
+  const blocApsSession = document.getElementById('bloc-aps-session');
 
-if (btsSelect) {
-  btsSelect.addEventListener('change', () => {
-    if (btsSelect.value === 'MOS') {
-      mosSection.style.display = 'block';
-    } else {
-      mosSection.style.display = 'none';
-      mosExplication.style.display = 'none';
-      blocBacAutre.style.display = 'none';
-    }
-  });
-}
-
-// --- Si "Aucun de ces cas" est coché ---
-document.addEventListener('change', (e) => {
-  if (e.target.name === 'bac_status') {
-    if (e.target.value === 'autre') {
-      mosExplication.style.display = 'block';
-      blocBacAutre.style.display = 'block';
-    } else {
-      blocBacAutre.style.display = 'none';
-      if (e.target.value === 'carte_cnaps') {
+  if (btsSelect) {
+    btsSelect.addEventListener('change', () => {
+      if (btsSelect.value === 'MOS') {
+        mosSection.style.display = 'block';
+      } else {
+        mosSection.style.display = 'none';
         mosExplication.style.display = 'none';
+        blocBacAutre.style.display = 'none';
+      }
+    });
+  }
+
+  // --- Si "Aucun de ces cas" est coché ---
+  document.addEventListener('change', (e) => {
+    if (e.target.name === 'bac_status') {
+      if (e.target.value === 'autre') {
+        mosExplication.style.display = 'block';
+        blocBacAutre.style.display = 'block';
+      } else {
+        blocBacAutre.style.display = 'none';
+        if (e.target.value === 'carte_cnaps') {
+          mosExplication.style.display = 'none';
+        }
       }
     }
-  }
-  if (e.target.name === 'aps_souhaitee') {
-    blocApsSession.style.display = e.target.checked ? 'block' : 'none';
-  }
-});
-
-
-
+    if (e.target.name === 'aps_souhaitee') {
+      blocApsSession.style.display = e.target.checked ? 'block' : 'none';
+    }
+  });
 
 }); // 👈 fin du DOMContentLoaded
-
-
