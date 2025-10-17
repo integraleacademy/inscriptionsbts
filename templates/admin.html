@@ -1,229 +1,41 @@
-{% extends "base.html" %}
-{% block body_class %}admin-page{% endblock %}
+/* 🌟 Nouvelle modale claire */
+.modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.modal.hidden { display: none; }
 
-{% block content %}
-
-<h2>📋 Administration – Pré-inscriptions BTS 2026</h2>
-
-<div class="admin-container">
-
-  <!-- 🔎 BARRE D’OUTILS / FILTRES -->
-  <div class="toolbar">
-    <form method="get" action="{{ url_for('admin') }}" class="filters">
-      <input type="text" name="q" placeholder="Rechercher (nom, prénom, mail, BTS...)" value="{{ request.args.get('q','') }}">
-      <select name="bts">
-        <option value="">BTS (tous)</option>
-        <option value="MOS">MOS</option>
-        <option value="MCO">MCO</option>
-        <option value="PI">PI</option>
-        <option value="CI">CI</option>
-        <option value="NDRC">NDRC</option>
-        <option value="CG">CG</option>
-      </select>
-      <select name="mode">
-        <option value="">Mode (tous)</option>
-        <option value="presentiel">Présentiel</option>
-        <option value="distanciel">Distanciel</option>
-      </select>
-      <select name="statut">
-        <option value="">Statut (tous)</option>
-        {% for key,label,color in statuts %}
-          <option value="{{ key }}">{{ label }}</option>
-        {% endfor %}
-      </select>
-      <select name="label">
-        <option value="">Étiquette</option>
-        <option value="APS">APS</option>
-        <option value="AUT">AUT OK</option>
-        <option value="CHEQUE">Chèque OK</option>
-      </select>
-      <button class="btn primary">Filtrer</button>
-      <a class="btn" href="{{ url_for('admin') }}">Réinitialiser</a>
-    </form>
-
-    <div class="exports">
-      <a class="btn" href="{{ url_for('admin_export_csv') }}">📄 Export CSV</a>
-      <a class="btn" href="{{ url_for('admin_export_json') }}">💾 Export JSON</a>
-    </div>
-  </div>
-
-  <!-- 📊 TABLEAU ADMIN -->
-  <table class="admin-table">
-    <thead>
-      <tr>
-        <th>Nom</th>
-        <th>Prénom</th>
-        <th>BTS</th>
-        <th>Mode</th>
-        <th>Téléphone</th>
-        <th>Email</th>
-        <th>Statut</th>
-        <th>Étiquettes</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      <tr data-id="{{ r.id }}">
-        <td contenteditable="true" data-field="nom">{{ r.nom }}</td>
-        <td contenteditable="true" data-field="prenom">{{ r.prenom }}</td>
-        <td contenteditable="true" data-field="bts">{{ r.bts }}</td>
-        <td contenteditable="true" data-field="mode">{{ r.mode }}</td>
-        <td contenteditable="true" data-field="tel">{{ r.tel }}</td>
-        <td contenteditable="true" data-field="email">{{ r.email }}</td>
-        
-        <td>
-          <select data-field="statut" class="status-select" 
-                  style="background-color: var(--{{ r.statut or 'preinscription' }});">
-            {% for key,label,color in statuts %}
-              <option value="{{ key }}" {% if r.statut==key %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </td>
-        <td class="etiquettes">
-          <label><input type="checkbox" class="chk" data-field="label_aps" {% if r.label_aps %}checked{% endif %}> APS</label>
-          <label><input type="checkbox" class="chk" data-field="label_aut_ok" {% if r.label_aut_ok %}checked{% endif %}> AUT OK</label>
-          <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
-        </td>
-        <td><button class="btn small" onclick="openActionsModal('{{ r.id }}')">⋯</button></td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-</div>
-
-<!-- ⚙️ MODALE D’ACTIONS -->
-<div id="actionsModal" class="modal hidden">
-  <div class="modal-content">
-    <h3>Actions</h3>
-    <div class="modal-actions">
-      <a id="printLink" class="btn">🖨️ Imprimer la fiche (PDF)</a>
-      <button id="reconfirmBtn" class="btn">🔁 Reconfirmation inscription</button>
-      <button id="deleteBtn" class="btn danger">🗑️ Supprimer</button>
-    </div>
-    <hr>
-    <h4>Commentaires</h4>
-    <textarea id="commentBox" rows="4" placeholder="Ajouter / modifier un commentaire…"></textarea>
-    <div style="margin-top:8px">
-      <button id="saveCommentBtn" class="btn primary">💾 Enregistrer</button>
-    </div>
-    <div class="modal-close">
-      <button class="btn" onclick="closeActionsModal()">Fermer</button>
-    </div>
-  </div>
-</div>
-
-<!-- 💾 JS INTERACTIF -->
-<script>
-// === Notification (toast) ===
-function showToast(message, color="#333") {
-  let toast = document.createElement("div");
-  toast.textContent = message;
-  toast.style.position = "fixed";
-  toast.style.bottom = "25px";
-  toast.style.right = "25px";
-  toast.style.background = color;
-  toast.style.color = "#fff";
-  toast.style.padding = "12px 18px";
-  toast.style.borderRadius = "8px";
-  toast.style.fontWeight = "600";
-  toast.style.boxShadow = "0 3px 8px rgba(0,0,0,0.25)";
-  toast.style.zIndex = "2000";
-  toast.style.opacity = "0";
-  toast.style.transition = "all 0.4s ease";
-  document.body.appendChild(toast);
-  setTimeout(()=>toast.style.opacity="1",100);
-  setTimeout(()=>{
-    toast.style.opacity="0";
-    setTimeout(()=>toast.remove(),400);
-  },3000);
+.modal-content {
+  background: #fff;
+  padding: 25px 30px;
+  border-radius: 12px;
+  width: 400px;
+  max-width: 90%;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
 }
 
-// === Sauvegarde champ texte ===
-function saveField(id, field, value) {
-  fetch("/admin/update-field", {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({id, field, value})
-  });
+.modal-content h3 {
+  margin-top: 0;
+  text-align: center;
+  color: #111;
+  border-bottom: 2px solid #f4c45a;
+  padding-bottom: 10px;
 }
 
-// ✅ Sauvegarde auto sur modification
-document.querySelectorAll("[contenteditable]").forEach(el=>{
-  el.addEventListener("blur", ()=>{
-    const id = el.closest("tr").dataset.id;
-    saveField(id, el.dataset.field, el.textContent.trim());
-  });
-});
-
-document.querySelectorAll(".chk").forEach(chk=>{
-  chk.addEventListener("change", ()=>{
-    const id = chk.closest("tr").dataset.id;
-    saveField(id, chk.dataset.field, chk.checked ? 1 : 0);
-  });
-});
-
-document.querySelectorAll(".status-select").forEach(sel=>{
-  sel.addEventListener("change", ()=>{
-    const id = sel.closest("tr").dataset.id;
-    const value = sel.value;
-    fetch("/admin/update-status", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({id, value})
-    }).then(()=>{
-      sel.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--'+value);
-      const tr = sel.closest("tr");
-      tr.classList.add("status-updated");
-      setTimeout(()=>tr.classList.remove("status-updated"),1200);
-      showToast("✅ Statut mis à jour");
-    });
-  });
-});
-
-// ⚙️ Modale
-let currentId = null;
-function openActionsModal(id) {
-  currentId = id;
-  const modal = document.getElementById("actionsModal");
-  modal.classList.remove("hidden");
-  document.getElementById("printLink").href = "/admin/print/" + id;
-
-  // 🟠 Bouton RECONFIRMATION — mise à jour instantanée
-  const reconfirmBtn = document.getElementById("reconfirmBtn");
-  reconfirmBtn.onclick = async () => {
-    reconfirmBtn.disabled = true;
-    reconfirmBtn.textContent = "⏳ Envoi en cours...";
-    await fetch("/admin/reconfirm/" + id, { method: "POST" });
-    reconfirmBtn.textContent = "✅ Reconfirmation envoyée !";
-    reconfirmBtn.style.background = "#28a745";
-
-    const row = document.querySelector(`tr[data-id='${id}']`);
-    if (row) {
-      const select = row.querySelector(".status-select");
-      select.value = "reconf_en_cours";
-      select.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--reconf_en_cours');
-      row.classList.add("status-updated");
-      setTimeout(()=>row.classList.remove("status-updated"),1200);
-    }
-    showToast("📨 Mail de reconfirmation envoyé", "#28a745");
-  };
-}
-function closeActionsModal() {
-  document.getElementById("actionsModal").classList.add("hidden");
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 15px;
 }
 
-// 💬 Commentaires
-document.getElementById("saveCommentBtn").addEventListener("click", ()=>{
-  const value = document.getElementById("commentBox").value;
-  fetch("/admin/update-field", {
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({id:currentId, field:"commentaires", value})
-  });
-  showToast("💾 Commentaire enregistré", "#f4c45a");
-});
-</script>
-
-{% endblock %}
+.comment-save {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 12px;
+}
