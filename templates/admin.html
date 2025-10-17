@@ -1,41 +1,181 @@
-/* 🌟 Nouvelle modale claire */
-.modal {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-.modal.hidden { display: none; }
+{% extends "base.html" %}
+{% block body_class %}admin-page{% endblock %}
+{% block content %}
 
-.modal-content {
-  background: #fff;
-  padding: 25px 30px;
-  border-radius: 12px;
-  width: 400px;
-  max-width: 90%;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+<div class="admin-wrapper">
+
+  <!-- 🔝 En-tête -->
+  <header class="admin-header">
+    <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
+    <div class="admin-actions">
+      <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
+      <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
+    </div>
+  </header>
+
+  <!-- 🔎 Barre de filtres -->
+  <form method="get" action="{{ url_for('admin') }}" class="filter-bar">
+    <input type="text" name="q" placeholder="🔍 Rechercher (nom, prénom, mail...)" value="{{ request.args.get('q','') }}">
+    
+    <select name="bts">
+      <option value="">BTS (tous)</option>
+      <option value="MOS">MOS</option>
+      <option value="MCO">MCO</option>
+      <option value="PI">PI</option>
+      <option value="CI">CI</option>
+      <option value="NDRC">NDRC</option>
+      <option value="CG">CG</option>
+    </select>
+
+    <select name="mode">
+      <option value="">Mode (tous)</option>
+      <option value="presentiel">Présentiel</option>
+      <option value="distanciel">Distanciel</option>
+    </select>
+
+    <select name="statut">
+      <option value="">Statut (tous)</option>
+      {% for key,label,color in statuts %}
+        <option value="{{ key }}">{{ label }}</option>
+      {% endfor %}
+    </select>
+
+    <select name="label">
+      <option value="">Étiquette</option>
+      <option value="APS">APS</option>
+      <option value="AUT">AUT OK</option>
+      <option value="CHEQUE">Chèque OK</option>
+    </select>
+
+    <button class="btn primary" type="submit">Filtrer</button>
+    <a class="btn" href="{{ url_for('admin') }}">Réinitialiser</a>
+  </form>
+
+  <!-- 📊 Tableau -->
+  <div class="table-container">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Prénom</th>
+          <th>BTS</th>
+          <th>Mode</th>
+          <th>Téléphone</th>
+          <th>Email</th>
+          <th>Statut</th>
+          <th>Étiquettes</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr data-id="{{ r.id }}">
+          <td contenteditable="true" data-field="nom">{{ r.nom }}</td>
+          <td contenteditable="true" data-field="prenom">{{ r.prenom }}</td>
+          <td contenteditable="true" data-field="bts">{{ r.bts }}</td>
+          <td contenteditable="true" data-field="mode">{{ r.mode }}</td>
+          <td contenteditable="true" data-field="tel">{{ r.tel }}</td>
+          <td contenteditable="true" data-field="email">{{ r.email }}</td>
+          <td>
+            <select data-field="statut" class="status-select" style="background: var(--{{ r.statut or 'preinscription' }});">
+              {% for key,label,color in statuts %}
+                <option value="{{ key }}" {% if r.statut==key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td class="etiquettes">
+            <label><input type="checkbox" class="chk" data-field="label_aps" {% if r.label_aps %}checked{% endif %}> APS</label>
+            <label><input type="checkbox" class="chk" data-field="label_aut_ok" {% if r.label_aut_ok %}checked{% endif %}> AUT OK</label>
+            <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
+          </td>
+          <td>
+            <button class="btn small" onclick="openActionsModal('{{ r.id }}', `{{ r.commentaires|default('')|escape }}`)">⋯</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ⚙️ MODALE D’ACTIONS -->
+<div id="actionsModal" class="modal hidden">
+  <div class="modal-content">
+    <h3>⚙️ Actions</h3>
+    <div class="modal-actions">
+      <a id="printLink" class="btn">🖨️ Imprimer la fiche (PDF)</a>
+      <button id="reconfirmBtn" class="btn secondary">🔁 Reconfirmation inscription</button>
+      <button id="deleteBtn" class="btn danger">🗑️ Supprimer</button>
+    </div>
+    <hr>
+    <h4>💬 Commentaires</h4>
+    <textarea id="commentBox" rows="4" placeholder="Ajouter ou modifier un commentaire..."></textarea>
+    <div class="comment-save">
+      <button id="saveCommentBtn" class="btn primary">💾 Enregistrer</button>
+      <button class="btn" onclick="closeActionsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- 💾 Script -->
+<script>
+let currentId = null;
+
+function openActionsModal(id, comment="") {
+  currentId = id;
+  document.getElementById("actionsModal").classList.remove("hidden");
+  document.getElementById("printLink").href = "/admin/print/" + id;
+  document.getElementById("commentBox").value = comment || "";
 }
 
-.modal-content h3 {
-  margin-top: 0;
-  text-align: center;
-  color: #111;
-  border-bottom: 2px solid #f4c45a;
-  padding-bottom: 10px;
+function closeActionsModal() {
+  document.getElementById("actionsModal").classList.add("hidden");
 }
 
-.modal-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 15px;
-}
+// Enregistrement commentaire
+document.getElementById("saveCommentBtn").addEventListener("click", ()=>{
+  const value = document.getElementById("commentBox").value;
+  fetch("/admin/update-field", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({id: currentId, field: "commentaires", value})
+  }).then(()=>showToast("💾 Commentaire enregistré","#f4c45a"));
+});
 
-.comment-save {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 12px;
+// Reconfirmation
+document.getElementById("reconfirmBtn").addEventListener("click", async ()=>{
+  if (!currentId) return;
+  const btn = document.getElementById("reconfirmBtn");
+  btn.disabled = true;
+  btn.textContent = "⏳ Envoi...";
+  await fetch("/admin/reconfirm/" + currentId, {method:"POST"});
+  btn.textContent = "✅ Reconfirmation envoyée";
+  btn.style.background = "#28a745";
+});
+
+// Suppression
+document.getElementById("deleteBtn").addEventListener("click", async ()=>{
+  if (!currentId) return;
+  if (!confirm("⚠️ Supprimer définitivement cette fiche ?")) return;
+  await fetch("/admin/delete/" + currentId, {method:"POST"});
+  document.querySelector(`tr[data-id='${currentId}']`)?.remove();
+  closeActionsModal();
+  showToast("🗑️ Fiche supprimée","#d9534f");
+});
+
+// Toast notification
+function showToast(msg,color="#333"){
+  const t=document.createElement("div");
+  t.textContent=msg;
+  Object.assign(t.style,{
+    position:"fixed",bottom:"20px",right:"20px",background:color,color:"#fff",
+    padding:"10px 16px",borderRadius:"8px",fontWeight:"600",boxShadow:"0 3px 8px rgba(0,0,0,.3)",
+    zIndex:"9999",opacity:"0",transition:"opacity .3s"
+  });
+  document.body.appendChild(t);
+  setTimeout(()=>t.style.opacity="1",50);
+  setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},2500);
 }
+</script>
+
+{% endblock %}
