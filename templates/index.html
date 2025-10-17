@@ -285,7 +285,7 @@ document.addEventListener('change', (e) => {
         <label>Deuxième page / verso (facultatif) <input type="file" name="ci2" accept="application/pdf,image/*"></label>
         <label>Photo d’identité <input type="file" name="photo" accept="image/*" required></label>
         <p class="photo-exemple">
-          <img src="{{ url_for('static', filename='img/photo-exemple.png') }}" alt="Exemples de photos" style="max-width:280px;border-radius:8px;">
+          <img src="{{ url_for('static', filename='photo-exemple.png') }}" alt="Exemples de photos" style="max-width:280px;border-radius:8px;">
           <br><small>✅ Photo nette, fond neutre — ❌ Pas de selfie ni d’arrière-plan visible</small>
         </p>
         <label>Carte Vitale (PDF uniquement) <input type="file" name="carte_vitale" accept="application/pdf" required></label>
@@ -338,60 +338,152 @@ dateNaissanceInput.addEventListener('change', () => {
 </script>
 
 <script>
-// --- Vérification complète du numéro de sécu ---
+// --- Vérification complète NIR avec gestion Corse + DOM-TOM ---
 function verifierNumSecu() {
   const input = document.getElementById("num_secu");
   const help = document.getElementById("numSecuHelp");
-  const val = input.value.trim();
+  let val = input.value.trim().toUpperCase();
+  let nir = val.replace(/\s+/g, "");
 
-  // Nettoyer la saisie (ne garder que les chiffres)
-  const digits = val.replace(/\D/g, "");
+  // Conversion 2A/2B → numérique
+  nir = nir.replace("2A", "19").replace("2B", "18");
 
+  // Garder uniquement chiffres
+  const digits = nir.replace(/\D/g, "");
   if (digits.length !== 15) {
-    help.textContent = "❌ Numéro invalide — 15 chiffres attendus";
+    help.textContent = "❌ Numéro invalide — 15 chiffres attendus (remplacez 2A/2B par le code approprié)";
     help.style.color = "red";
     input.style.borderColor = "red";
     return false;
   }
 
-  // Séparer le corps du NIR et la clé
+  // Clé de contrôle
   const corps = digits.slice(0, 13);
-  const clef = parseInt(digits.slice(13, 15));
-
-  // Calcul de la clé de contrôle
-  // ⚠️ Attention : on doit gérer le dépassement de 32 bits -> utiliser BigInt
+  const cle = parseInt(digits.slice(13, 15), 10);
   try {
     const calc = 97n - (BigInt(corps) % 97n);
-    const cleCalc = Number(calc);
-    if (cleCalc === clef) {
-      help.textContent = "✅ Numéro valide (clé de contrôle correcte)";
-      help.style.color = "green";
-      input.style.borderColor = "#28a745";
-      return true;
-    } else {
-      help.textContent = "❌ Numéro invalide — clé de contrôle incorrecte";
+    if (Number(calc) !== cle) {
+      help.textContent = "❌ Clé de contrôle incorrecte";
       help.style.color = "red";
       input.style.borderColor = "red";
       return false;
     }
-  } catch (e) {
-    help.textContent = "❌ Format invalide — chiffres incorrects";
+  } catch {
+    help.textContent = "❌ Format invalide";
     help.style.color = "red";
     input.style.borderColor = "red";
     return false;
   }
-}
 
-// --- Bloquer si le numéro n’est pas cohérent ---
-document.addEventListener("click", (e) => {
-  if (e.target.classList.contains("next")) {
-    const numSecu = document.getElementById("num_secu");
-    if (!verifierNumSecu()) {
-      e.preventDefault();
-      alert("⚠️ Merci de vérifier votre numéro de sécurité sociale (clé de contrôle incorrecte).");
-      numSecu.focus();
+  // Cohérence avec date de naissance et sexe
+  const s = parseInt(digits[0], 10);
+  const yy = digits.slice(1, 3);
+  const mm = digits.slice(3, 5);
+  const dateInput = document.querySelector('input[name="date_naissance"]');
+  const sexeSelect = document.querySelector('select[name="sexe"]');
+
+  if (dateInput && dateInput.value) {
+    const d = new Date(dateInput.value);
+    const yyExpected = String(d.getFullYear()).slice(-2);
+    const mmExpected = String(d.getMonth() + 1).padStart(2, "0");
+
+    if (yy !== yyExpected) {
+      help.textContent = `❌ Année ${yy} incohérente (attendu ${yyExpected})`;
+      help.style.color = "red";
+      input.style.borderColor = "red";
+      return false;
+    }
+    // Mois codés spéciaux (DOM-TOM, 20–99) acceptés sans contrôle
+    if (/^0[1-9]|1[0-2]$/.test(mm) && mm !== mmExpected) {
+      help.textContent = `❌ Mois ${mm} incohérent (attendu ${mmExpected})`;
+      help.style.color = "red";
+      input.style.borderColor = "red";
+      return false;
     }
   }
+
+  if (sexeSelect && sexeSelect.value) {
+    const valSexe = sexeSelect.value.toLowerCase();
+    if ((valSexe === "homme" && s !== 1) || (valSexe === "femme" && s !== 2)) {
+      help.textContent = "❌ Sexe incohérent avec le NIR";
+      help.style.color = "red";
+      input.style.borderColor = "red";
+      return false;
+    }
+  }
+
+  help.textContent = "✅ Numéro valide et cohérent";
+  help.style.color = "green";
+  input.style.borderColor = "#28a745";
+  return true;
+}
+
+// Vérif automatique
+["input", "change"].forEach(evt => {
+  document.getElementById("num_secu")?.addEventListener(evt, verifierNumSecu);
+  document.querySelector('input[name="date_naissance"]')?.addEventListener(evt, verifierNumSecu);
+  document.querySelector('select[name="sexe"]')?.addEventListener(evt, verifierNumSecu);
+});
+</script>
+
+
+<script>
+// --- Navigation contrôlée entre les onglets ---
+const tabs = document.querySelectorAll(".tabs button");
+const formTabs = document.querySelectorAll(".tab");
+let currentStep = 0;
+
+// Fonction pour afficher un onglet
+function showTab(index) {
+  formTabs.forEach((tab, i) => tab.classList.toggle("active", i === index));
+  tabs.forEach((btn, i) => btn.classList.toggle("active", i === index));
+}
+
+// Quand on clique sur "Étape suivante"
+document.querySelectorAll(".next").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const currentTab = formTabs[currentStep];
+    const inputs = currentTab.querySelectorAll("input, select, textarea");
+    let allValid = true;
+
+    // Vérifie que tous les champs requis sont remplis
+    for (let input of inputs) {
+      if (input.hasAttribute("required") && !input.value.trim()) {
+        input.focus();
+        input.reportValidity();
+        allValid = false;
+        break;
+      }
+    }
+
+    // Si tout est bon → on passe à l'étape suivante
+    if (allValid) {
+      currentStep++;
+      if (currentStep >= formTabs.length) currentStep = formTabs.length - 1;
+      showTab(currentStep);
+    }
+  });
+});
+
+// Quand on clique sur "Étape précédente"
+document.querySelectorAll(".prev").forEach(btn => {
+  btn.addEventListener("click", () => {
+    currentStep--;
+    if (currentStep < 0) currentStep = 0;
+    showTab(currentStep);
+  });
+});
+
+// Bloquer le clic direct sur les onglets
+tabs.forEach((tab, i) => {
+  tab.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (i <= currentStep) {
+      showTab(i);
+    } else {
+      alert("⚠️ Merci de compléter les étapes précédentes avant de continuer.");
+    }
+  });
 });
 </script>
 
