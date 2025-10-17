@@ -573,4 +573,34 @@ body.admin-page .admin-container {
   opacity: 0.8;
 }
 
+/* =======================================================
+   📊 BARRE DE PROGRESSION – Formulaire multi-étapes
+   ======================================================= */
+
+.progress-container {
+  width: 100%;
+  background-color: #eee;
+  border-radius: 10px;
+  height: 10px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.progress-bar {
+  height: 10px;
+  width: 0%;
+  background-color: #f4c45a;
+  border-radius: 10px;
+  transition: width 0.4s ease;
+}
+
+.progress-info {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 10px;
+  transition: all 0.3s ease;
+}
+
 
