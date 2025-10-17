@@ -1,37 +1,164 @@
 window.currentId = null;
-
 // === Gestion fluide + verrouillage + icônes visuelles des onglets ===
 document.addEventListener("DOMContentLoaded", () => {
+
   const tabButtons = document.querySelectorAll('.tabs button');
   const tabs = document.querySelectorAll('.tab');
   let currentStep = 0;
 
-  // === 🔢 Barre de progression ===
+  // === 🔢 Barre de progression (liée aux onglets) — avec texte correct et animation fluide ===
   function updateProgressBar(index) {
     const progress = document.getElementById("progressBar");
     const info = document.getElementById("progressInfo");
     if (!progress || !info) return;
+
     const total = tabs.length;
     const targetPercent = ((index + 1) / total) * 100;
-    progress.style.width = targetPercent + "%";
-    info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(targetPercent)} % complété`;
+    const currentWidth = parseFloat(progress.style.width) || 0;
+    const step = (targetPercent - currentWidth) / 20;
+    let currentPercent = currentWidth;
+
+    const animate = () => {
+      currentPercent += step;
+      if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
+        currentPercent = targetPercent;
+      } else {
+        requestAnimationFrame(animate);
+      }
+
+      progress.style.width = currentPercent + "%";
+      info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(((index + 1) / total) * 100)} % complété`;
+    };
+
+    animate();
   }
 
+  // --- Fonction d’affichage des étapes ---
   function showStep(index) {
     tabs.forEach((tab, i) => {
       tab.style.display = (i === index) ? 'block' : 'none';
+      tab.style.opacity = (i === index) ? '1' : '0';
       tab.classList.toggle('active', i === index);
     });
+
     tabButtons.forEach((btn, i) => {
       btn.classList.toggle('active', i === index);
+      if (i < index) {
+        btn.classList.add('completed');
+        btn.classList.remove('locked');
+      } else if (i === index) {
+        btn.classList.remove('completed', 'locked');
+      } else {
+        btn.classList.add('locked');
+        btn.classList.remove('completed');
+      }
     });
+
     currentStep = index;
     updateProgressBar(index);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-  showStep(0);
 
-  // === Gestion du tableau admin ===
+  // --- Validation d’une étape ---
+  function validateStep(stepIndex) {
+    const currentTab = tabs[stepIndex];
+    const inputs = currentTab.querySelectorAll('input, select, textarea');
+    for (let input of inputs) {
+      if (!input.checkValidity()) {
+        input.reportValidity();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // --- Clic sur un onglet ---
+  tabButtons.forEach((btn, i) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (i > currentStep) {
+        alert("⚠️ Merci de compléter les étapes précédentes avant de continuer.");
+        return;
+      }
+      showStep(i);
+    });
+  });
+
+  // --- Étape suivante / précédente ---
+  document.querySelectorAll('.next').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (validateStep(currentStep)) {
+        currentStep++;
+        if (currentStep >= tabs.length) currentStep = tabs.length - 1;
+        showStep(currentStep);
+      }
+    });
+  });
+
+  document.querySelectorAll('.prev').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentStep--;
+      if (currentStep < 0) currentStep = 0;
+      showStep(currentStep);
+    });
+  });
+
+  showStep(0); // affiche la première étape au chargement
+
+  // === Vérification e-mail ===
+  const email = document.querySelector('input[name="email"]');
+  const email2 = document.querySelector('input[name="email_confirm"]');
+  if (email && email2) {
+    const check = () => {
+      if (email.value && email2.value && email.value !== email2.value) {
+        email2.setCustomValidity("⚠️ Les adresses e-mail ne correspondent pas.");
+      } else {
+        email2.setCustomValidity("");
+      }
+    };
+    email.addEventListener('input', check);
+    email2.addEventListener('input', check);
+  }
+
+  // === Affichage si mineur ===
+  const birth = document.querySelector('input[name="date_naissance"]');
+  const minor = document.getElementById('minorFields');
+  const updateMinor = () => {
+    if (!birth || !birth.value) { minor.style.display = 'none'; return; }
+    const d = new Date(birth.value);
+    const today = new Date();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) age--;
+    minor.style.display = (age < 18) ? 'block' : 'none';
+    document.querySelector('input[name="est_mineur"]').value = (age < 18) ? '1' : '0';
+  };
+  if (birth) birth.addEventListener('change', updateMinor);
+
+  // === Validation fichiers PDF ===
+  const form = document.querySelector('form');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
+      for (const name of pdfOnlyFields) {
+        const input = form.querySelector(`input[name="${name}"]`);
+        if (input && input.files.length > 0) {
+          const file = input.files[0];
+          if (!file.name.toLowerCase().endsWith('.pdf')) {
+            e.preventDefault();
+            alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
+            return;
+          }
+        } else if (input && input.hasAttribute('required') && input.files.length === 0) {
+          e.preventDefault();
+          alert(`⚠️ Le champ "${name}" est obligatoire.`);
+          return;
+        }
+      }
+    });
+  }
+
+  // === Gestion ADMIN (tableau) ===
   const table = document.querySelector('.admin-table');
   if (table) {
     table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
@@ -76,9 +203,20 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // === Sélection visuelle du mode (présentiel / distanciel) ===
+  const modeBtns = document.querySelectorAll('.mode-btn');
+  modeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeBtns.forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+
   // === 📎 Gestion des pièces justificatives (modale admin) ===
   const filesModal = document.getElementById("filesModal");
   if (filesModal) {
+
+    // 📦 Télécharger toutes les pièces
     const downloadAllBtn = document.getElementById("downloadAllBtn");
     if (downloadAllBtn) {
       downloadAllBtn.addEventListener("click", () => {
@@ -105,23 +243,27 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const data = await res.json();
-      if (data.ok) {
-        showToast(
-          decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
-          decision === "conforme" ? "#28a745" : "#d9534f"
-        );
+if (data.ok) {
+  showToast(
+    decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+    decision === "conforme" ? "#28a745" : "#d9534f"
+  );
 
-        await refreshCandidateStatus(window.currentId);
-        setTimeout(() => openFilesModal(window.currentId), 600);
-      } else {
-        alert("Erreur : " + (data.error || "inconnue"));
-        btn.disabled = false;
-        btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
-      }
-    });
-  }
+  // 🔁 Rafraîchir le statut dans le tableau
+  await refreshCandidateStatus(window.currentId);
 
-  // === 📥 Badge "nouveau document" ===
+  // 🔄 Rafraîchir visuellement la modale
+  setTimeout(() => {
+    openFilesModal(window.currentId);
+  }, 500);
+} else {
+  alert("Erreur : " + (data.error || "inconnue"));
+  btn.disabled = false;
+  btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
+}
+
+
+  // === 📥 Vérifie les "nouveaux documents" dans le tableau ===
   document.querySelectorAll("tr[data-id]").forEach(tr => {
     if (tr.dataset.nouveau === "1") {
       const badge = document.createElement("span");
@@ -132,7 +274,8 @@ document.addEventListener("DOMContentLoaded", () => {
       tr.querySelector("td:last-child").appendChild(badge);
     }
   });
-}); // ← cette accolade ferme bien le DOMContentLoaded maintenant ✅
+
+}); // fin du DOMContentLoaded
 
 
 // === Toast notification ===
@@ -148,6 +291,7 @@ function showToast(msg, color="#333") {
   setTimeout(()=>t.style.opacity="1",50);
   setTimeout(()=>{t.style.opacity="0";setTimeout(()=>t.remove(),300)},2500);
 }
+
 
 // === Rafraîchit le statut du dossier ===
 async function refreshCandidateStatus(id) {
@@ -165,16 +309,19 @@ async function refreshCandidateStatus(id) {
   }
 }
 
-// === Ouvre la modale des pièces justificatives ===
+
 function openFilesModal(id) {
   window.currentId = id;
   const modal = document.getElementById("filesModal");
   const list = document.getElementById("filesList");
+
   if (!modal || !list) return;
+
   modal.classList.remove("hidden");
   list.innerHTML = "<p>⏳ Chargement des pièces...</p>";
 
   fetch(`/admin/files/mark_seen/${id}`, { method: "POST" });
+
   fetch(`/admin/files/${id}`)
     .then(res => res.json())
     .then(files => {
@@ -182,6 +329,7 @@ function openFilesModal(id) {
         list.innerHTML = "<p>Aucune pièce justificative trouvée.</p>";
         return;
       }
+
       list.innerHTML = "";
       files.forEach(f => {
         const div = document.createElement("div");
@@ -205,43 +353,7 @@ function openFilesModal(id) {
     });
 }
 
-// === Ferme la modale des pièces justificatives ===
 function closeFilesModal() {
   const modal = document.getElementById("filesModal");
-  if (modal) modal.classList.add("hidden");
-}
-
-// === Ouvre / Ferme la modale des actions ===
-function openActionsModal(id, commentaire = "") {
-  window.currentId = id;
-  const modal = document.getElementById("actionsModal");
-  if (!modal) return;
-  modal.classList.remove("hidden");
-
-  const commentBox = document.getElementById("commentBox");
-  if (commentBox) commentBox.value = commentaire;
-
-  document.getElementById("printLink").onclick = () => window.open(`/admin/print/${id}`, "_blank");
-  document.getElementById("deleteBtn").onclick = async () => {
-    if (confirm("Supprimer définitivement cette fiche ?")) {
-      await fetch(`/admin/delete/${id}`, { method: "POST" });
-      showToast("🗑️ Fiche supprimée");
-      setTimeout(() => location.reload(), 600);
-    }
-  };
-  document.getElementById("saveCommentBtn").onclick = async () => {
-    const value = commentBox.value.trim();
-    await fetch("/admin/update-field", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, field: "commentaires", value })
-    });
-    showToast("💾 Commentaire enregistré");
-    closeActionsModal();
-  };
-}
-
-function closeActionsModal() {
-  const modal = document.getElementById("actionsModal");
   if (modal) modal.classList.add("hidden");
 }
