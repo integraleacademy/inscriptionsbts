@@ -15,7 +15,7 @@
     </div>
   </header>
 
-  <main class="container">
+  <main class="{% if 'admin' in request.path %}admin-full{% else %}container{% endif %}">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-area">
