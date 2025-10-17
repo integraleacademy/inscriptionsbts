@@ -221,37 +221,53 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // ✅ / ❌ Marquer une pièce conforme ou non conforme
-    filesModal.addEventListener("click", async (e) => {
-      const btn = e.target.closest(".btn.small");
-      if (!btn) return;
-      const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
-      const filename = btn.dataset.filename;
-      if (!window.currentId || !filename) return;
+// ✅ / ❌ Marquer une pièce conforme ou non conforme
+filesModal.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".btn.small");
+  if (!btn) return;
 
-      btn.textContent = "⏳...";
-      btn.disabled = true;
+  const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
+  const filename = btn.dataset.filename;
 
-      const res = await fetch("/admin/files/mark", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: window.currentId, filename, decision })
-      });
+  // 🩺 LOG DEBUG pour vérifier
+  console.log("🧩 CLIC détecté :", { currentId: window.currentId, filename, decision });
 
-      const data = await res.json();
-      if (data.ok) {
-        showToast(
-          decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
-          decision === "conforme" ? "#28a745" : "#d9534f"
-        );
-        await refreshCandidateStatus(window.currentId);
-        setTimeout(() => { openFilesModal(window.currentId); }, 500);
-      } else {
-        alert("Erreur : " + (data.error || "inconnue"));
-        btn.disabled = false;
-      }
-    });
+  // 🧠 Sécurité : si window.currentId est vide, on essaie de le retrouver
+  if (!window.currentId) {
+    const tr = btn.closest("tr[data-id]");
+    if (tr) window.currentId = tr.dataset.id;
   }
+
+  if (!window.currentId || !filename) {
+    console.warn("⚠️ currentId ou filename manquant !");
+    return;
+  }
+
+  btn.textContent = "⏳...";
+  btn.disabled = true;
+
+  const res = await fetch("/admin/files/mark", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: window.currentId, filename, decision })
+  });
+
+  const data = await res.json();
+  console.log("🧾 Réponse serveur :", data);
+
+  if (data.ok) {
+    showToast(
+      decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+      decision === "conforme" ? "#28a745" : "#d9534f"
+    );
+    await refreshCandidateStatus(window.currentId);
+    setTimeout(() => { openFilesModal(window.currentId); }, 500);
+  } else {
+    alert("Erreur : " + (data.error || "inconnue"));
+    btn.disabled = false;
+  }
+});
+
 
   // === Vérifie "nouveaux documents" dans le tableau ===
   document.querySelectorAll("tr[data-id]").forEach(tr => {
