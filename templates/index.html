@@ -302,63 +302,36 @@ document.addEventListener('change', (e) => {
 </div>
 
 <script>
-// --- Détection automatique de la majorité ---
-const dateNaissanceInput = document.querySelector('input[name="date_naissance"]');
-const blocResp = document.getElementById('bloc-resp-legal');
-const champMineur = document.getElementById('est_mineur');
-
-function calculerAge(dateStr) {
-  const today = new Date();
-  const birth = new Date(dateStr);
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-}
-
-dateNaissanceInput.addEventListener('change', () => {
-  const val = dateNaissanceInput.value;
-  if (!val) return;
-  const age = calculerAge(val);
-  if (age < 18) {
-    blocResp.style.display = 'block';
-    champMineur.value = '1';
-    // rendant les champs obligatoires si mineur
-    blocResp.querySelectorAll('input').forEach(i => i.required = true);
-  } else {
-    blocResp.style.display = 'none';
-    champMineur.value = '0';
-    blocResp.querySelectorAll('input').forEach(i => i.required = false);
-  }
-});
-</script>
-
-<script>
-// --- Vérification complète NIR avec gestion Corse + DOM-TOM ---
+// --- Vérification du NIR (avec 2A / 2B autorisés et conservés) ---
 function verifierNumSecu() {
   const input = document.getElementById("num_secu");
   const help = document.getElementById("numSecuHelp");
   let val = input.value.trim().toUpperCase();
   let nir = val.replace(/\s+/g, "");
 
-  // Conversion 2A/2B → numérique
-  nir = nir.replace("2A", "19").replace("2B", "18");
-
-  // Garder uniquement chiffres
-  const digits = nir.replace(/\D/g, "");
-  if (digits.length !== 15) {
-    help.textContent = "❌ Numéro invalide — 15 chiffres attendus (remplacez 2A/2B par le code approprié)";
+  // ✅ Autoriser chiffres et lettres A/B
+  if (!/^[0-9AB]{13,15}$/.test(nir)) {
+    help.textContent = "❌ Format invalide — seuls chiffres et A/B sont autorisés (15 caractères attendus)";
     help.style.color = "red";
     input.style.borderColor = "red";
     return false;
   }
 
-  // Clé de contrôle
-  const corps = digits.slice(0, 13);
-  const cle = parseInt(digits.slice(13, 15), 10);
+  // 🔁 copie pour le calcul (convertit seulement temporairement 2A / 2B)
+  const nirCalc = nir.replace("2A", "19").replace("2B", "18");
+  const digits = nirCalc.replace(/\D/g, "");
+
+  if (digits.length !== 15) {
+    help.textContent = "❌ Numéro incomplet — 15 chiffres attendus (A/B acceptés pour la Corse)";
+    help.style.color = "red";
+    input.style.borderColor = "red";
+    return false;
+  }
+
+  // ✅ Vérification de la clé de contrôle
   try {
+    const corps = digits.slice(0, 13);
+    const cle = parseInt(digits.slice(13, 15), 10);
     const calc = 97n - (BigInt(corps) % 97n);
     if (Number(calc) !== cle) {
       help.textContent = "❌ Clé de contrôle incorrecte";
@@ -373,12 +346,12 @@ function verifierNumSecu() {
     return false;
   }
 
-  // Cohérence avec date de naissance et sexe
+  // ✅ Cohérence avec date de naissance et sexe
+  const dateInput = document.querySelector('input[name="date_naissance"]');
+  const sexeSelect = document.querySelector('select[name="sexe"]');
   const s = parseInt(digits[0], 10);
   const yy = digits.slice(1, 3);
   const mm = digits.slice(3, 5);
-  const dateInput = document.querySelector('input[name="date_naissance"]');
-  const sexeSelect = document.querySelector('select[name="sexe"]');
 
   if (dateInput && dateInput.value) {
     const d = new Date(dateInput.value);
@@ -391,7 +364,7 @@ function verifierNumSecu() {
       input.style.borderColor = "red";
       return false;
     }
-    // Mois codés spéciaux (DOM-TOM, 20–99) acceptés sans contrôle
+
     if (/^0[1-9]|1[0-2]$/.test(mm) && mm !== mmExpected) {
       help.textContent = `❌ Mois ${mm} incohérent (attendu ${mmExpected})`;
       help.style.color = "red";
@@ -410,22 +383,20 @@ function verifierNumSecu() {
     }
   }
 
+  // ✅ Tout est bon
   help.textContent = "✅ Numéro valide et cohérent";
   help.style.color = "green";
   input.style.borderColor = "#28a745";
   return true;
 }
 
-// Vérif automatique
+// Vérification automatique à chaque saisie
 ["input", "change"].forEach(evt => {
   document.getElementById("num_secu")?.addEventListener(evt, verifierNumSecu);
   document.querySelector('input[name="date_naissance"]')?.addEventListener(evt, verifierNumSecu);
   document.querySelector('select[name="sexe"]')?.addEventListener(evt, verifierNumSecu);
 });
-</script>
 
-
-<script>
 // --- Navigation contrôlée entre les onglets ---
 const tabs = document.querySelectorAll(".tabs button");
 const formTabs = document.querySelectorAll(".tab");
@@ -484,8 +455,8 @@ tabs.forEach((tab, i) => {
   });
 });
 </script>
-
-
-
-
 {% endblock %}
+
+
+
+
