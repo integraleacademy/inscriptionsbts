@@ -512,5 +512,33 @@ def logout():
     session.clear()
     return redirect(url_for("admin"))
 
+# ------------------------------------------------------------
+# 📊 API publique : /data.json
+#    → Sert au tableau de bord principal pour afficher le nombre
+#      de pré-inscriptions à traiter en temps réel.
+# ------------------------------------------------------------
+@app.route("/data.json")
+def data_json():
+    try:
+        conn = db()
+        cur = conn.cursor()
+        cur.execute("SELECT statut FROM candidats")
+        rows = [r[0] for r in cur.fetchall()]
+
+        # 🔍 Comptage : uniquement les statuts "pré-inscription à traiter"
+        a_traiter = len([s for s in rows if not s or s == "preinscription" or s.lower().startswith("pré")])
+
+        payload = {"a_traiter": a_traiter, "total": len(rows)}
+        headers = {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*"
+        }
+        return json.dumps(payload, ensure_ascii=False), 200, headers
+
+    except Exception as e:
+        print("❌ Erreur /data.json :", e)
+        return json.dumps({"error": str(e)}), 500, {"Access-Control-Allow-Origin": "*"}
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
