@@ -4,7 +4,7 @@
 
 body {
   font-family: "Segoe UI", Arial, sans-serif;
-  background: #f3f3f3; /* léger gris pour contraste */
+  background: #f3f3f3;
   margin: 0;
   color: #222;
 }
@@ -51,7 +51,7 @@ nav a:hover {
    ======================================================= */
 
 .container {
-  max-width: 1100px;
+  max-width: 1000px;
   margin: 40px auto;
   background: #fff;
   padding: 40px;
@@ -71,49 +71,94 @@ h2 {
    🌈 STYLE FORMULAIRE – Pré-inscriptions BTS 2026
    ======================================================= */
 
+/* --- Onglets + états visuels (unique) --- */
 .tabs {
   display: flex;
-  flex-wrap: wrap;
   justify-content: center;
-  margin: 20px 0;
-  gap: 10px;
+  align-items: center;
+  gap: 8px;
+  margin: 20px 0 25px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
+.tabs::-webkit-scrollbar { height: 0; }
 
 .tabs button {
-  background: #f4f4f4;
-  border: 2px solid transparent;
-  padding: 10px 18px;
+  position: relative;
+  padding: 10px 14px;
+  padding-right: 32px;
+  border: none;
   border-radius: 8px;
   cursor: pointer;
+  background: #eee;
   font-weight: 600;
-  transition: all 0.25s ease;
   color: #222;
-  font-size: 15px;
+  transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .tabs button.active {
   background: #f4c45a;
   color: #000;
-  border-color: #f4c45a;
-  transform: scale(1.05);
-  box-shadow: 0 0 12px rgba(244, 196, 90, 0.4);
 }
 
-.tabs button:hover:not(.active) {
+.tabs button.completed {
+  background-color: #d4edda !important;
+  color: #155724 !important;
+  transform: scale(1.02);
+}
+.tabs button.completed::after {
+  content: "✅";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 16px;
+}
+
+.tabs button.locked {
+  background-color: #ddd !important;
+  color: #777 !important;
+  cursor: not-allowed;
+}
+.tabs button.locked::after {
+  content: "🔒";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+@media (max-width: 700px) {
+  .tabs { flex-wrap: wrap; }
+}
+
+/* --- Barre de progression (au-dessus des onglets) --- */
+.progress-container {
+  width: 100%;
+  height: 8px;
   background: #eee;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 0 0 8px;
 }
 
-.tab {
-  display: none;
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.3s ease;
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #f4c45a, #d4a73a);
+  transition: width 0.4s ease;
 }
 
-.tab.active {
-  display: block;
-  opacity: 1;
-  transform: translateY(0);
+.progress-info {
+  text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 10px;
 }
 
 /* --- Grille propre pour les champs --- */
@@ -149,34 +194,6 @@ textarea {
   resize: vertical;
 }
 
-/* --- Notice explicative --- */
-.notice {
-  background: #fffaf0;
-  border-left: 5px solid #f4c45a;
-  padding: 20px;
-  border-radius: 8px;
-  margin-bottom: 25px;
-  font-size: 15px;
-}
-
-.notice ol {
-  margin: 10px 0 10px 25px;
-}
-
-.notice strong {
-  color: #000;
-}
-
-.notice .help a {
-  color: #f4c45a;
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.notice .help a:hover {
-  text-decoration: underline;
-}
-
 /* --- Boutons --- */
 .btn {
   background: #111;
@@ -189,9 +206,7 @@ textarea {
   transition: all 0.2s;
 }
 
-.btn:hover {
-  opacity: 0.85;
-}
+.btn:hover { opacity: 0.85; }
 
 .btn.primary {
   background: #f4c45a;
@@ -207,17 +222,55 @@ textarea {
   transform: scale(1.05);
 }
 
-/* --- Blocs conditionnels (MOS, mineur, etc.) --- */
+/* --- Actions navigation étapes --- */
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 30px;
+}
+.actions .btn { min-width: 180px; }
+
+/* --- Notices explicatives --- */
+.notice {
+  background: #fffaf0;
+  border-left: 5px solid #f4c45a;
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 25px;
+  font-size: 15px;
+}
+
+/* --- Exemple photo --- */
+.notice img,
+#photoExample,
+.example-photo {
+  max-width: 220px;
+  height: auto;
+  display: inline-block;
+  margin-top: 10px;
+}
+
+.photo-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.photo-help img {
+  max-width: 220px;
+  border-radius: 6px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+}
+
+/* --- Blocs conditionnels --- */
 .minor, .mos {
   background: #f8f8f8;
   border-left: 4px solid #f4c45a;
   padding: 15px;
   border-radius: 6px;
   margin-top: 15px;
-}
-
-.minor h4, .mos h4 {
-  margin-top: 0;
 }
 
 /* =======================================================
@@ -260,15 +313,6 @@ textarea {
   font-size: 14px;
 }
 
-.exports .btn {
-  margin-left: 8px;
-}
-
-.btn, a.btn {
-  text-decoration: none !important;
-  display: inline-block;
-}
-
 /* =======================================================
    📊 TABLEAU ADMIN COMPACT ET LISIBLE
    ======================================================= */
@@ -283,33 +327,26 @@ textarea {
 }
 
 .admin-table thead {
-  background: #f4c45a; /* fond doré cohérent avec ton thème */
-  color: #000;         /* texte noir lisible */
+  background: #f4c45a;
+  color: #000;
   font-weight: 700;
 }
 
-
 .admin-table th,
 .admin-table td {
-  padding: 6px 5px; /* ✅ compact */
+  padding: 6px 5px;
   border: 1px solid #ddd;
   text-align: center;
   vertical-align: middle;
 }
 
-/* ✅ Lignes alternées : blanc / gris clair */
-.admin-table tr:nth-child(odd) {
-  background: #ffffff;
-}
-.admin-table tr:nth-child(even) {
-  background: #f6f6f6;
-}
+.admin-table tr:nth-child(odd) { background: #ffffff; }
+.admin-table tr:nth-child(even) { background: #f6f6f6; }
 
 .admin-table td[contenteditable="true"] {
   background: #fff8e1;
   cursor: text;
 }
-
 .admin-table td[contenteditable="true"]:focus {
   outline: 2px solid #f4c45a;
 }
@@ -333,14 +370,7 @@ textarea {
   cursor: pointer;
   transition: transform 0.1s ease;
 }
-
-.status-select:hover {
-  transform: scale(1.05);
-}
-
-.status-select option {
-  color: #000;
-}
+.status-select:hover { transform: scale(1.05); }
 
 .status-select[value="preinscription"] { background: var(--preinscription); }
 .status-select[value="validee"] { background: var(--validee); }
@@ -349,258 +379,9 @@ textarea {
 .status-select[value="reconfirmee"] { background: var(--reconfirmee); }
 .status-select[value="annulee"] { background: var(--annulee); }
 
-/* --- Boutons secondaires --- */
-.btn.small {
-  padding: 5px 8px;
-  font-size: 12px;
-}
-
-.btn.danger {
-  background: #d9534f;
-  color: #fff;
-}
-
-.btn.danger:hover {
-  background: #c9302c;
-}
-
-/* --- Modale --- */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal.hidden {
-  display: none;
-}
-
-.modal-content {
-  background: #fff;
-  padding: 25px;
-  border-radius: 10px;
-  width: 400px;
-  max-width: 90%;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
-}
-
-.modal-content h3 {
-  text-align: center;
-  margin-top: 0;
-  color: #111;
-  border-bottom: 3px solid #f4c45a;
-  padding-bottom: 8px;
-}
-
-.modal-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.modal-actions .btn {
-  width: 100%;
-  justify-content: center;
-}
-
-.modal textarea {
-  width: 100%;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  padding: 8px;
-  font-size: 14px;
-  resize: vertical;
-}
-
 /* --- Animation sur changement de statut --- */
-tr.status-updated {
-  animation: flashRow 1.5s ease;
-}
-
-/* ✅ Les étiquettes sur une seule ligne */
-.admin-table .etiquettes {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-}
-
-.admin-table .etiquettes label {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.admin-table input[type="checkbox"] {
-  transform: scale(1);
-  cursor: pointer;
-}
-
 @keyframes flashRow {
   0% { background: #dfffd8; }
   100% { background: transparent; }
 }
-
-/* ✅ Pleine largeur uniquement sur la page admin */
-body.admin-page .container {
-  max-width: 100%;
-  margin: 0;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 0;
-  background: transparent;
-}
-
-body.admin-page .admin-container {
-  max-width: 100%;
-  margin: 0;
-  border-radius: 0;
-  padding: 30px;
-}
-
-
-/* =======================================================
-   🧩 CORRECTIONS FORMULAIRE PUBLIC (index)
-   ======================================================= */
-
-/* ✅ Rétablir la mise en page fluide et centrée */
-.container {
-  max-width: 1000px;
-  margin: 40px auto;
-  background: #fff;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-
-/* ✅ Aligner correctement les boutons d’étape */
-.actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 30px;
-}
-
-.actions .btn {
-  min-width: 180px;
-}
-
-/* ✅ Rendre l’image d’exemple visible */
-.notice img,
-#photoExample,
-.example-photo {
-  max-width: 220px;
-  height: auto;
-  display: inline-block;
-  margin-top: 10px;
-}
-
-/* ✅ Corriger le bloc d’aide sur les photos */
-.photo-help {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.photo-help img {
-  max-width: 220px;
-  border-radius: 6px;
-  box-shadow: 0 1px 5px rgba(0,0,0,0.1);
-}
-
-/* ✅ Empêcher les éléments du formulaire de se compresser */
-.grid label,
-.grid input,
-.grid select,
-.grid textarea {
-  min-width: 0;
-}
-
-/* =======================================================
-   ✅ Onglets avec états visuels (terminé / verrouillé)
-   ======================================================= */
-
-.tabs button {
-  position: relative;
-  padding-right: 32px;
-  transition: background-color 0.4s ease, color 0.4s ease, transform 0.2s ease;
-}
-
-/* ✅ Étape terminée */
-.tabs button.completed {
-  background-color: #d4edda !important;  /* vert clair */
-  color: #155724 !important;
-  border-color: #c3e6cb !important;
-  transform: scale(1.02);
-}
-
-/* 🔒 Étape verrouillée */
-.tabs button.locked {
-  background-color: #eee !important;
-  color: #888 !important;
-  border-color: #ddd !important;
-  cursor: not-allowed;
-}
-
-/* ✅ Icônes visuelles */
-.tabs button.completed::after {
-  content: "✅";
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 16px;
-}
-
-.tabs button.locked::after {
-  content: "🔒";
-  position: absolute;
-  right: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 15px;
-  opacity: 0.8;
-}
-
-/* =======================================================
-   📊 BARRE DE PROGRESSION – Formulaire multi-étapes
-   ======================================================= */
-
-.progress-container {
-  width: 100%;
-  background-color: #eee;
-  border-radius: 10px;
-  height: 10px;
-  overflow: hidden;
-  margin-bottom: 10px;
-}
-
-.progress-bar {
-  height: 10px;
-  width: 0%;
-  background-color: #f4c45a;
-  border-radius: 10px;
-  transition: width 0.4s ease;
-}
-
-.progress-info {
-  text-align: right;
-  font-size: 14px;
-  font-weight: 600;
-  color: #444;
-  margin-bottom: 10px;
-  transition: all 0.3s ease;
-}
-
-
+tr.status-updated { animation: flashRow 1.5s ease; }
