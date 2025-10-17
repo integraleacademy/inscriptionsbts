@@ -1,4 +1,6 @@
 // === Gestion fluide + verrouillage + icônes visuelles des onglets ===
+document.addEventListener("DOMContentLoaded", () => {
+
 const tabButtons = document.querySelectorAll('.tabs button');
 const tabs = document.querySelectorAll('.tab');
 let currentStep = 0;
@@ -6,13 +8,19 @@ let currentStep = 0;
 // --- Fonction d’affichage des étapes ---
 function showStep(index) {
   tabs.forEach((tab, i) => {
-    tab.classList.toggle('active', i === index);
-    tab.style.display = i === index ? 'block' : 'none';
+    if (i === index) {
+      tab.classList.add('active');
+      tab.style.display = 'block';
+      tab.style.opacity = '1';
+    } else {
+      tab.classList.remove('active');
+      tab.style.display = 'none';
+      tab.style.opacity = '0';
+    }
   });
 
   tabButtons.forEach((btn, i) => {
     btn.classList.toggle('active', i === index);
-
     if (i < index) {
       btn.classList.add('completed');
       btn.classList.remove('locked');
@@ -25,9 +33,10 @@ function showStep(index) {
   });
 
   currentStep = index;
-  updateProgressBar(index); // ✅ appel ici
+  updateProgressBar(index);
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
 
 
 // --- Validation d’une étape ---
