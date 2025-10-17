@@ -1,52 +1,79 @@
-document.addEventListener('DOMContentLoaded', () => {
+// === Gestion fluide + verrouillage + icônes visuelles des onglets ===
+const tabButtons = document.querySelectorAll('.tabs button');
+const tabs = document.querySelectorAll('.tab');
+let currentStep = 0;
 
-  // === Gestion fluide des onglets ===
-  const tabButtons = document.querySelectorAll('.tabs button');
-  const tabs = document.querySelectorAll('.tab');
-  let currentStep = 0;
-
-  function showStep(index) {
-    tabs.forEach((tab, i) => {
-      tab.classList.toggle('active', i === index);
-      tab.style.display = i === index ? 'block' : 'none';
-      tabButtons[i].classList.toggle('active', i === index);
-    });
-    currentStep = index;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
+// --- Fonction d’affichage des étapes ---
+function showStep(index) {
+  tabs.forEach((tab, i) => {
+    tab.classList.toggle('active', i === index);
+    tab.style.display = i === index ? 'block' : 'none';
+  });
 
   tabButtons.forEach((btn, i) => {
-    btn.addEventListener('click', () => {
-      showStep(i);
-    });
+    btn.classList.toggle('active', i === index);
+
+    if (i < currentStep) {
+      btn.classList.add('completed');
+      btn.classList.remove('locked');
+    } else if (i === currentStep) {
+      btn.classList.remove('completed', 'locked');
+    } else {
+      btn.classList.add('locked');
+      btn.classList.remove('completed');
+    }
   });
+
+  currentStep = index;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// --- Validation d’une étape ---
+function validateStep(stepIndex) {
+  const currentTab = tabs[stepIndex];
+  const inputs = currentTab.querySelectorAll('input, select, textarea');
+  for (let input of inputs) {
+    if (!input.checkValidity()) {
+      input.reportValidity();
+      return false;
+    }
+  }
+  return true;
+}
+
+// --- Clic sur un onglet ---
+tabButtons.forEach((btn, i) => {
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (i > currentStep) {
+      alert("⚠️ Merci de compléter les étapes précédentes avant de continuer.");
+      return;
+    }
+    showStep(i);
+  });
+});
+
+// --- Étape suivante / précédente ---
+document.querySelectorAll('.next').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (validateStep(currentStep)) {
+      currentStep++;
+      if (currentStep >= tabs.length) currentStep = tabs.length - 1;
+      showStep(currentStep);
+    }
+  });
+});
+
+document.querySelectorAll('.prev').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentStep--;
+    if (currentStep < 0) currentStep = 0;
+    showStep(currentStep);
+  });
+});
 
   showStep(0); // affiche la première étape au chargement
 
-  // === Boutons Étape suivante / précédente ===
-  document.querySelectorAll('.next').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const currentTab = tabs[currentStep];
-      const inputs = currentTab.querySelectorAll('input, select, textarea');
-      for (let input of inputs) {
-        if (!input.checkValidity()) {
-          input.reportValidity();
-          return; // stop si un champ est invalide
-        }
-      }
-      if (currentStep < tabs.length - 1) {
-        showStep(currentStep + 1);
-      }
-    });
-  });
-
-  document.querySelectorAll('.prev').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (currentStep > 0) {
-        showStep(currentStep - 1);
-      }
-    });
-  });
 
   // === Vérification e-mail ===
   const email = document.querySelector('input[name="email"]');
