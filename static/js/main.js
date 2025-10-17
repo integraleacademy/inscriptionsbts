@@ -223,157 +223,17 @@ document.addEventListener('change', (e) => {
   }
 });
 
-
-}); // 👈 fin du DOMContentLoaded
-
-// === 🔢 Barre de progression (liée aux onglets)
-// === 🔢 Barre de progression (liée aux onglets)
-// === 🔢 Barre de progression (liée aux onglets) — avec animation fluide
+// === 🔢 Barre de progression (liée aux onglets) ===
 function updateProgressBar(index) {
   const progress = document.getElementById("progressBar");
   const info = document.getElementById("progressInfo");
   if (!progress || !info) return;
 
   const targetPercent = ((index + 1) / tabs.length) * 100;
-  const currentWidth = parseFloat(progress.style.width) || 0;
-  const step = (targetPercent - currentWidth) / 20; // vitesse animation
-  let currentPercent = currentWidth;
-
-  const animate = () => {
-    currentPercent += step;
-    if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
-      currentPercent = targetPercent;
-    } else {
-      requestAnimationFrame(animate);
-    }
-
-    progress.style.width = currentPercent + "%";
-    info.textContent = `Étape ${index + 1} sur ${tabs.length} — ${Math.round(currentPercent)} % complété`;
-  };
-
-  animate();
+  progress.style.width = targetPercent + "%";
+  info.textContent = `Étape ${index + 1} sur ${tabs.length}`;
 }
 
-
-
-
-// === Fonctions globales (hors DOMContentLoaded) ===
-let currentRowId = null;
-
-function openActionsModal(id) {
-  currentRowId = id;
-  const modal = document.getElementById('actionsModal');
-  modal.classList.remove('hidden');
-  document.getElementById('printLink').setAttribute('href', '/admin/print/' + id);
-
-  // 🟡 Bouton RECONFIRMATION
-  const reconfirmBtn = document.getElementById('reconfirmBtn');
-  reconfirmBtn.onclick = async () => {
-    try {
-      reconfirmBtn.disabled = true;
-      reconfirmBtn.textContent = "⏳ Envoi en cours...";
-      
-      // 1️⃣ Envoi du mail + MAJ du statut côté serveur
-      const res = await fetch('/admin/reconfirm/' + id, { method: 'POST' });
-      if (!res.ok) throw new Error("Erreur serveur");
-
-      // 2️⃣ Mise à jour immédiate du DOM
-      const row = document.querySelector(`tr[data-id='${id}']`);
-      if (row) {
-        const select = row.querySelector('.status-select');
-        if (select) {
-          select.value = "reconf_en_cours";
-          select.style.backgroundColor = getComputedStyle(document.documentElement)
-            .getPropertyValue('--reconf_en_cours');
-        }
-        // petit effet visuel pour montrer le changement
-        row.classList.add('status-updated');
-        setTimeout(() => row.classList.remove('status-updated'), 1500);
-      }
-
-      // 3️⃣ Feedback visuel sur le bouton
-      reconfirmBtn.textContent = "✅ Reconfirmation envoyée !";
-      reconfirmBtn.style.background = "#28a745";
-      setTimeout(() => {
-        reconfirmBtn.disabled = false;
-        reconfirmBtn.textContent = "🔁 Reconfirmation inscription";
-        reconfirmBtn.style.background = "";
-      }, 2500);
-
-    } catch (err) {
-      alert("❌ Erreur lors de la reconfirmation.");
-      console.error(err);
-      reconfirmBtn.disabled = false;
-    }
-  };
-
-  // 🔴 Bouton SUPPRIMER
-  document.getElementById('deleteBtn').onclick = async () => {
-    if (!confirm('⚠️ Confirmer la suppression ?')) return;
-    await fetch('/admin/delete/' + id, { method: 'POST' });
-    location.reload();
-  };
-
-  // 💬 Sauvegarde du commentaire
-  document.getElementById('saveCommentBtn').onclick = async () => {
-    const value = document.getElementById('commentBox').value;
-    await fetch('/admin/update-field', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: currentRowId, field: 'commentaires', value })
-    });
-    alert('💾 Commentaire enregistré.');
-  };
-}
-
-function closeActionsModal() {
-  document.getElementById('actionsModal').classList.add('hidden');
-}
-
-// === 🔄 Actualisation automatique des statuts dans l'admin ===
-async function refreshAdminStatuses() {
-  try {
-    const table = document.querySelector(".admin-table");
-    if (!table) return; // on n'est pas sur la page admin
-
-    // Récupère les données actuelles depuis la base (JSON)
-    const res = await fetch("/admin/export.json");
-    if (!res.ok) return;
-    const data = await res.json();
-
-    // Crée un dictionnaire id -> statut pour mise à jour rapide
-    const map = {};
-    for (const c of data) map[c.id] = c.statut;
-
-    // Parcourt le tableau affiché et met à jour les statuts
-    table.querySelectorAll("tr[data-id]").forEach(tr => {
-      const id = tr.dataset.id;
-      const select = tr.querySelector(".status-select");
-      if (select && map[id] && select.value !== map[id]) {
-        select.value = map[id];
-        select.style.backgroundColor =
-          getComputedStyle(document.documentElement)
-            .getPropertyValue(`--${map[id]}`) || "#999";
-
-        // petit effet visuel pour signaler la mise à jour
-        tr.classList.add("status-updated");
-        setTimeout(() => tr.classList.remove("status-updated"), 1200);
-      }
-    });
-
-    // (Optionnel) Affiche la dernière heure de synchro si un élément existe
-    const syncLabel = document.getElementById("lastSync");
-    if (syncLabel) {
-      const now = new Date();
-      syncLabel.textContent = `🔄 Dernière mise à jour : ${now.toLocaleTimeString("fr-FR", { hour: '2-digit', minute: '2-digit' })}`;
-    }
-
-  } catch (err) {
-    console.error("Erreur lors du rafraîchissement des statuts :", err);
-  }
-}
-
-// Lancement automatique toutes les 30 secondes
-setInterval(refreshAdminStatuses, 30000);
+}); // 👈 fin du DOMContentLoaded
 
 
