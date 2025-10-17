@@ -78,6 +78,40 @@
       </div>
     </div>
 
+    <!-- 🟡 Bloc spécifique BTS MOS Sécurité -->
+<div id="mos-section" class="mos" style="display:none; margin-top:20px;">
+  <h4>À cocher, une seule case possible :</h4>
+  <label><input type="radio" name="mos_situation" value="bac_titulaire"> Je suis titulaire d’un Bac Pro MS métiers de la sécurité</label><br>
+  <label><input type="radio" name="mos_situation" value="bac_en_cours"> Je passe mon Bac Pro MS métiers de la sécurité en 2026</label><br>
+  <label><input type="radio" name="mos_situation" value="carte_cnaps"> Je suis déjà titulaire d’une carte professionnelle CNAPS</label><br>
+  <label><input type="radio" name="mos_situation" value="autre"> Aucun de ces cas (bac général, bac technologique, bac pro hors MS, autre)</label>
+
+  <!-- Texte d’explication pour "Aucun de ces cas" -->
+  <div id="mos-explication" style="display:none; margin-top:15px; background:#fff8e1; padding:15px; border-left:4px solid #f4c45a; border-radius:8px;">
+    <p>
+      Pour accéder à notre <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>, vous devez être titulaire d'une
+      <strong>carte professionnelle “agent de sécurité privée”</strong> délivrée par le Ministère de l'intérieur (CNAPS).
+    </p>
+    <p>
+      En effet, la carte professionnelle vous sera réclamée dans le cadre de la recherche d'une entreprise de sécurité privée pour votre alternance.
+    </p>
+    <p>
+      ➡️ <a href="https://www.canva.com/design/DAFyt9PCLzk/crHFPARJiocR1wDYdodMJw/view?utm_content=DAFyt9PCLzk&utm_campaign=designshare&utm_medium=link&utm_source=editor"
+      target="_blank" style="color:#007bff; font-weight:600;">Plus d’infos sur le CNAPS ici</a>
+    </p>
+    <p>
+      Cette formation est proposée au tarif <strong>950 € (apprenti)</strong> au lieu de 1650 €.  
+      Le chèque sera à envoyer par courrier lorsque nous aurons confirmé votre inscription (encaissé le 1er jour de formation).
+    </p>
+
+    <p><strong>Veuillez cocher une des options suivantes :</strong></p>
+    <label><input type="radio" name="mos_formation" value="session1"> Je souhaite m’inscrire à la formation agent de sécurité privée prévue du 8 juillet au 12 août 2026  
+    (lieu : Intégrale Academy – 54 chemin du Carreou 83480 Puget-sur-Argens)</label><br>
+    <label><input type="radio" name="mos_formation" value="session2"> Je souhaite m’inscrire à la formation agent de sécurité privée prévue du 8 juillet au 12 août 2026</label>
+  </div>
+</div>
+
+
     <!-- 🧩 Étape 3 -->
     <div id="tab3" class="tab">
       <div class="grid">
@@ -151,6 +185,37 @@
         <button class="btn primary" type="submit">✅ Envoyer ma pré-inscription</button>
       </div>
     </div>
+
+    <script>
+// --- Afficher automatiquement la section MOS ---
+const btsSelect = document.querySelector('select[name="bts"]');
+const mosSection = document.getElementById('mos-section');
+const mosExplication = document.getElementById('mos-explication');
+
+if (btsSelect) {
+  btsSelect.addEventListener('change', () => {
+    if (btsSelect.value === 'MOS') {
+      mosSection.style.display = 'block';
+    } else {
+      mosSection.style.display = 'none';
+      mosExplication.style.display = 'none';
+      document.querySelectorAll('input[name="mos_situation"]').forEach(r => r.checked = false);
+    }
+  });
+}
+
+// --- Si "Aucun de ces cas" est coché, afficher l’explication ---
+document.addEventListener('change', (e) => {
+  if (e.target.name === 'mos_situation') {
+    if (e.target.value === 'autre') {
+      mosExplication.style.display = 'block';
+    } else {
+      mosExplication.style.display = 'none';
+    }
+  }
+});
+</script>
+
   </form>
 </div>
 
