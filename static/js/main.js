@@ -248,5 +248,57 @@ modeBtns.forEach(btn => {
   });
 });
 
+  // === 📎 Gestion des pièces justificatives (modale admin) ===
+const filesModal = document.getElementById("filesModal");
+if (filesModal) {
+
+  // 📦 Télécharger toutes les pièces
+  const downloadAllBtn = document.getElementById("downloadAllBtn");
+  if (downloadAllBtn) {
+    downloadAllBtn.addEventListener("click", () => {
+      if (!window.currentId) return;
+      window.open(`/admin/files/download/${window.currentId}`, "_blank");
+    });
+  }
+
+  // ✅ / ❌ Marquer une pièce conforme ou non conforme
+  filesModal.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".btn.small");
+    if (!btn) return;
+    const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
+    const filename = btn.dataset.filename;
+    if (!window.currentId || !filename) return;
+
+    // Animation rapide du bouton
+    btn.textContent = "⏳...";
+    btn.disabled = true;
+
+    const res = await fetch("/admin/files/mark", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        id: window.currentId,
+        filename,
+        decision
+      })
+    });
+
+    const data = await res.json();
+    if (data.ok) {
+      btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
+      btn.style.opacity = 0.6;
+      showToast(decision === "conforme" ? "✅ Document marqué conforme" : "❌ Document non conforme",
+        decision === "conforme" ? "#28a745" : "#d9534f");
+      // recharge la liste pour refléter l’état
+      setTimeout(() => openFilesModal(window.currentId), 800);
+    } else {
+      alert("Erreur lors de la mise à jour du document.");
+      btn.disabled = false;
+    }
+  });
+}
+
+  
+
 
 }); // 👈 fin du DOMContentLoaded
