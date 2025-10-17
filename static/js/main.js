@@ -231,7 +231,7 @@ function updateProgressBar(index) {
   if (!progress || !info) return;
 
   const total = tabs.length;
-  const targetPercent = ((index + 1) / total) * 100;
+  const targetPercent = (index / (total - 1)) * 100;
   const currentWidth = parseFloat(progress.style.width) || 0;
   const step = (targetPercent - currentWidth) / 20; // vitesse animation
   let currentPercent = currentWidth;
