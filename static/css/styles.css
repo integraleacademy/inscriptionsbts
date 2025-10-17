@@ -451,6 +451,24 @@ tr.status-updated {
   100% { background: transparent; }
 }
 
+/* ✅ Pleine largeur uniquement sur la page admin */
+body.admin-page .container {
+  max-width: 100%;
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  background: transparent;
+}
+
+body.admin-page .admin-container {
+  max-width: 100%;
+  margin: 0;
+  border-radius: 0;
+  padding: 30px;
+}
+
+
 /* =======================================================
    🧩 CORRECTIONS FORMULAIRE PUBLIC (index)
    ======================================================= */
