@@ -153,8 +153,8 @@ document.addEventListener("DOMContentLoaded", () => {
   showStep(0); // première étape visible
   console.log("✅ main.js (Front) chargé avec succès");
 
-  // =====================================================
- // =====================================================
+
+  
 // 🧾 SECTION ADMIN
 // =====================================================
 const table = document.querySelector('.admin-table');
