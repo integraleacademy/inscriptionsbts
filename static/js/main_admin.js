@@ -1,150 +1,153 @@
+// === Intégrale Academy – JS ADMIN SEUL ===
+window.currentId = null;
 
+document.addEventListener("DOMContentLoaded", () => {
 
-// =====================================================
-// 🧾 SECTION ADMIN
-// =====================================================
-const table = document.querySelector('.admin-table');
-if (table) {
+  // =====================================================
+  // 🧾 SECTION ADMIN
+  // =====================================================
+  const table = document.querySelector('.admin-table');
+  if (table) {
 
-  // 🔤 Modification champs inline
-  table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
-    td.addEventListener('blur', async () => {
-      const tr = td.closest('tr');
-      const id = tr.dataset.id;
-      const field = td.dataset.field;
-      const value = td.textContent.trim();
-      await fetch('/admin/update-field', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, field, value })
+    // 🔤 Modification champs inline
+    table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
+      td.addEventListener('blur', async () => {
+        const tr = td.closest('tr');
+        const id = tr.dataset.id;
+        const field = td.dataset.field;
+        const value = td.textContent.trim();
+        await fetch('/admin/update-field', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, field, value })
+        });
+        showToast("💾 Sauvegardé", "#28a745");
       });
-      showToast("💾 Sauvegardé", "#28a745");
     });
-  });
 
-  // 🔄 Changement de statut
-  table.querySelectorAll('.status-select').forEach(sel => {
-    sel.addEventListener('change', async () => {
-      const tr = sel.closest('tr');
-      const id = tr.dataset.id;
-      const value = sel.value;
-      await fetch('/admin/update-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, value })
+    // 🔄 Changement de statut
+    table.querySelectorAll('.status-select').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        const tr = sel.closest('tr');
+        const id = tr.dataset.id;
+        const value = sel.value;
+        await fetch('/admin/update-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, value })
+        });
+        showToast("📊 Statut mis à jour", "#007bff");
       });
-      showToast("📊 Statut mis à jour", "#007bff");
     });
-  });
 
-  // ✅ Cases à cocher (labels)
-  table.querySelectorAll('input.chk').forEach(chk => {
-    chk.addEventListener('change', async () => {
-      const tr = chk.closest('tr');
-      const id = tr.dataset.id;
-      const field = chk.dataset.field;
-      const value = chk.checked ? 1 : 0;
-      await fetch('/admin/update-field', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, field, value })
+    // ✅ Cases à cocher (labels)
+    table.querySelectorAll('input.chk').forEach(chk => {
+      chk.addEventListener('change', async () => {
+        const tr = chk.closest('tr');
+        const id = tr.dataset.id;
+        const field = chk.dataset.field;
+        const value = chk.checked ? 1 : 0;
+        await fetch('/admin/update-field', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, field, value })
+        });
+        showToast("🔖 Étiquette mise à jour");
       });
-      showToast("🔖 Étiquette mise à jour");
     });
-  });
 
-  // 🟢 Boutons d’action
-  table.querySelectorAll('.action-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      const commentaire = btn.dataset.commentaire || "";
-      openActionsModal(id, commentaire);
+    // 🟢 Boutons d’action
+    table.querySelectorAll('.action-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        const commentaire = btn.dataset.commentaire || "";
+        openActionsModal(id, commentaire);
+      });
     });
-  });
 
-  // 📎 Boutons pièces justificatives
-  table.querySelectorAll('.files-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.id;
-      openFilesModal(id);
+    // 📎 Boutons pièces justificatives
+    table.querySelectorAll('.files-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        openFilesModal(id);
+      });
     });
-  });
-} // ✅ <-- FIN DU if(table)
+  } // ✅ FIN if(table)
 
 
-// =====================================================
-// 📁 MODALE DES PIÈCES JUSTIFICATIVES
-// =====================================================
-const filesModal = document.getElementById("filesModal");
-if (filesModal) {
+  // =====================================================
+  // 📁 MODALE DES PIÈCES JUSTIFICATIVES
+  // =====================================================
+  const filesModal = document.getElementById("filesModal");
+  if (filesModal) {
 
-  const downloadAllBtn = document.getElementById("downloadAllBtn");
-  if (downloadAllBtn) {
-    downloadAllBtn.addEventListener("click", () => {
-      if (!window.currentId) return;
-      window.open(`/admin/files/download/${window.currentId}`, "_blank");
-    });
-  }
-
-  // ✅ / ❌ Marquer une pièce conforme ou non conforme
-  filesModal.addEventListener("click", async (e) => {
-    const btn = e.target.closest(".btn.small");
-    if (!btn) return;
-
-    const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
-    const filename = btn.dataset.filename;
-
-    console.log("🧩 CLIC détecté :", { currentId: window.currentId, filename, decision });
-
-    if (!window.currentId) {
-      const tr = btn.closest("tr[data-id]");
-      if (tr) window.currentId = tr.dataset.id;
+    const downloadAllBtn = document.getElementById("downloadAllBtn");
+    if (downloadAllBtn) {
+      downloadAllBtn.addEventListener("click", () => {
+        if (!window.currentId) return;
+        window.open(`/admin/files/download/${window.currentId}`, "_blank");
+      });
     }
 
-    if (!window.currentId || !filename) {
-      console.warn("⚠️ currentId ou filename manquant !");
-      return;
-    }
+    // ✅ / ❌ Marquer une pièce conforme ou non conforme
+    filesModal.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".btn.small");
+      if (!btn) return;
 
-    btn.textContent = "⏳...";
-    btn.disabled = true;
+      const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
+      const filename = btn.dataset.filename;
 
-    const res = await fetch("/admin/files/mark", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: window.currentId, filename, decision })
+      console.log("🧩 CLIC détecté :", { currentId: window.currentId, filename, decision });
+
+      if (!window.currentId) {
+        const tr = btn.closest("tr[data-id]");
+        if (tr) window.currentId = tr.dataset.id;
+      }
+
+      if (!window.currentId || !filename) {
+        console.warn("⚠️ currentId ou filename manquant !");
+        return;
+      }
+
+      btn.textContent = "⏳...";
+      btn.disabled = true;
+
+      const res = await fetch("/admin/files/mark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: window.currentId, filename, decision })
+      });
+
+      const data = await res.json();
+      console.log("🧾 Réponse serveur :", data);
+
+      if (data.ok) {
+        showToast(
+          decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+          decision === "conforme" ? "#28a745" : "#d9534f"
+        );
+        await refreshCandidateStatus(window.currentId);
+        setTimeout(() => { openFilesModal(window.currentId); }, 500);
+      } else {
+        alert("Erreur : " + (data.error || "inconnue"));
+        btn.disabled = false;
+      }
     });
 
-    const data = await res.json();
-    console.log("🧾 Réponse serveur :", data);
+    // === Vérifie "nouveaux documents"
+    document.querySelectorAll("tr[data-id]").forEach(tr => {
+      if (tr.dataset.nouveau === "1") {
+        const badge = document.createElement("span");
+        badge.textContent = "📥 Nouveau document déposé";
+        badge.style.color = "#28a745";
+        badge.style.fontWeight = "600";
+        badge.style.marginLeft = "8px";
+        tr.querySelector("td:last-child")?.appendChild(badge);
+      }
+    });
+  } // ✅ FIN if(filesModal)
 
-    if (data.ok) {
-      showToast(
-        decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
-        decision === "conforme" ? "#28a745" : "#d9534f"
-      );
-      await refreshCandidateStatus(window.currentId);
-      setTimeout(() => { openFilesModal(window.currentId); }, 500);
-    } else {
-      alert("Erreur : " + (data.error || "inconnue"));
-      btn.disabled = false;
-    }
-  });
-
-  // === Vérifie "nouveaux documents"
-  document.querySelectorAll("tr[data-id]").forEach(tr => {
-    if (tr.dataset.nouveau === "1") {
-      const badge = document.createElement("span");
-      badge.textContent = "📥 Nouveau document déposé";
-      badge.style.color = "#28a745";
-      badge.style.fontWeight = "600";
-      badge.style.marginLeft = "8px";
-      tr.querySelector("td:last-child")?.appendChild(badge);
-    }
-  });
-} // ✅ <-- FIN DU if(filesModal)
-
-}); // ✅ FIN DU DOMContentLoaded
+}); // ✅ FIN DOMContentLoaded
 
 
 
@@ -303,4 +306,3 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
-
