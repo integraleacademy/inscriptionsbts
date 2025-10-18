@@ -311,12 +311,17 @@ def save_draft():
 
     # Charger les brouillons existants
     drafts = []
-    if os.path.exists(DRAFT_PATH):
-        with open(DRAFT_PATH, "r", encoding="utf-8") as f:
-            try:
-                drafts = json.load(f)
-            except:
-                drafts = []
+    # Charger les brouillons existants (et créer le fichier s’il n’existe pas)
+if not os.path.exists(DRAFT_PATH):
+    with open(DRAFT_PATH, "w", encoding="utf-8") as f:
+        json.dump([], f)
+
+with open(DRAFT_PATH, "r", encoding="utf-8") as f:
+    try:
+        drafts = json.load(f)
+    except:
+        drafts = []
+
 
     email = request.form.get("email")
     if not email:
