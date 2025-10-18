@@ -853,6 +853,67 @@ def admin_files_mark():
     print(f"✅ Pièce {fname} marquée comme {decision}")
     return jsonify({"ok": True, "horodatage": horodatage})
 
+    # =====================================================
+# 💾 ROUTE : Fusionner les nouveaux fichiers dans les pièces normales
+# =====================================================
+@app.route("/admin/files/merge", methods=["POST"])
+def admin_files_merge():
+    if not require_admin():
+        abort(403)
+
+    data = request.json or {}
+    cid = data.get("id")
+    if not cid:
+        return jsonify({"ok": False, "error": "id manquant"}), 400
+
+    conn = db()
+    row = get_candidat(conn, cid)
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "candidat introuvable"}), 404
+
+    # Charger le JSON meta existant
+    try:
+        meta = json.loads(row.get("replace_meta") or "{}")
+        nouveaux = meta.get("nouveaux_fichiers", [])
+    except Exception:
+        nouveaux = []
+
+    if not nouveaux:
+        conn.close()
+        return jsonify({"ok": False, "error": "aucun nouveau fichier"}), 400
+
+    # Fusionner chaque nouveau fichier dans la bonne colonne
+    for info in nouveaux:
+        fname = info.get("fichier")
+        label = info.get("label")
+        if not fname:
+            continue
+
+        # Trouver la colonne correspondante selon le label
+        for key, (col, label_ref) in DOC_FIELDS.items():
+            if label_ref in label:
+                cur = conn.cursor()
+                lst = parse_list(row.get(col))
+                lst.append(os.path.join(UPLOAD_DIR, fname))
+                cur.execute(
+                    f"UPDATE candidats SET {col}=?, updated_at=? WHERE id=?",
+                    (json.dumps(lst, ensure_ascii=False), datetime.now().isoformat(), cid)
+                )
+                break
+
+    # Remettre le flag à zéro et vider replace_meta
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE candidats SET nouveau_doc=0, replace_meta=?, updated_at=? WHERE id=?",
+        ("{}", datetime.now().isoformat(), cid)
+    )
+    conn.commit()
+    conn.close()
+
+    return jsonify({"ok": True})
+
+
 # =====================================================
 # ✉️ NOTIFICATION DE DOCUMENTS NON CONFORMES
 # =====================================================
