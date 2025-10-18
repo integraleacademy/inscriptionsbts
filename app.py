@@ -716,16 +716,17 @@ def admin_files(cid):
     if row.get("nouveau_doc"):
         try:
             meta = json.loads(row.get("replace_meta") or "{}")
-            nouveaux = meta.get("nouveaux_fichiers", [])
+            nouveaux = meta.get("nouveaux_fichiers") or meta.get("nouveaux") or []
         except Exception as e:
             print("⚠️ Erreur lecture replace_meta :", e)
+            nouveaux = []
 
         # 🔎 Si la base est vide mais que le flag est à 1, on scanne le dossier uploads
         if not nouveaux:
-            pattern = f"*_{row['id']}_*"
             for f in os.listdir(UPLOAD_DIR):
                 if row["id"] in f:
                     nouveaux.append(f)
+
 
     for info in nouveaux:
         if isinstance(info, str):
@@ -962,7 +963,7 @@ def replace_files_submit():
         name = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(f.filename)
         path = os.path.join(UPLOAD_DIR, name)
         f.save(path)
-        label_piece = DOC_FIELDS.get(key, ("", key))[1]  # récupère le label lisible si dispo
+        label_piece = DOC_FIELDS.get(key, ("", key))[1] if key in DOC_FIELDS else (request.form.get(f"label_{key}") or "Pièce justificative")
         nouveaux_meta.append({
             "fichier": os.path.basename(path),
             "type": key,
