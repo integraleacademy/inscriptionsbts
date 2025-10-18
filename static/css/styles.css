@@ -935,6 +935,15 @@ tr.status-updated { animation: flashRow 1.5s ease; }
   margin-bottom: 15px;
 }
 
+#formation-info h4 {
+  margin-top: 0;
+  color: #111;
+}
+#formation-info p {
+  margin: 6px 0;
+  color: #333;
+}
+
 
 
 
