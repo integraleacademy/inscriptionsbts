@@ -768,14 +768,6 @@ def admin_files(cid):
     conn.close()
 
     # ✅ On garde trace que les nouveaux ont déjà été vus
-    try:
-        conn2 = db()
-        cur2 = conn2.cursor()
-        cur2.execute("UPDATE candidats SET nouveau_doc=0 WHERE id=?", (cid,))
-        conn2.commit()
-        conn2.close()
-    except Exception as e:
-        print("⚠️ Erreur mise à jour nouveau_doc :", e)
 
     return jsonify(files_data)
 
