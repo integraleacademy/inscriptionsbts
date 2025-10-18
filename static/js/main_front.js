@@ -64,12 +64,15 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
-  // === Cadenas sur les boutons d’étapes ===
+  // === Cadenas sur les boutons d’étapes (version corrigée) ===
   tabButtons.forEach((btn, i) => {
-    const lockIcon = document.createElement("span");
-    lockIcon.textContent = " 🔒";
-    lockIcon.classList.add("lock-icon");
-    btn.appendChild(lockIcon);
+    // Empêche la création de plusieurs icônes 🔒
+    if (!btn.querySelector(".lock-icon")) {
+      const lockIcon = document.createElement("span");
+      lockIcon.textContent = " 🔒";
+      lockIcon.classList.add("lock-icon");
+      btn.appendChild(lockIcon);
+    }
 
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -197,7 +200,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // --- Afficher "autre bac"
+  // --- Afficher "autre bac" et CNAPS
   const bacRadios = document.querySelectorAll('input[name="bac_status"]');
   bacRadios.forEach(r => {
     r.addEventListener('change', () => {
@@ -206,7 +209,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         blocBacAutre.style.display = 'none';
       }
-      // si CNAPS => affiche explication
+      // Si CNAPS ou autre => explication MOS
       if (r.value === 'carte_cnaps' || r.value === 'autre') {
         mosExplication.style.display = 'block';
       } else {
