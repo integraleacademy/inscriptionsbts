@@ -800,6 +800,42 @@ tr.status-updated { animation: flashRow 1.5s ease; }
 }
 .btn.prev, .btn.primary, .btn.save { min-width: 190px; }
 
+/* =======================================================
+   ✅ Message de confirmation / erreur dynamique
+   ======================================================= */
+.flash-message {
+  text-align: center;
+  padding: 14px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 20px;
+  transition: opacity 0.5s ease, transform 0.5s ease;
+  opacity: 0;
+  transform: translateY(-15px);
+}
+
+.flash-message.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.flash-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.flash-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.flash-message.hidden {
+  display: none;
+}
+
 
 
 
