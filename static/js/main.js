@@ -406,6 +406,15 @@ function openActionsModal(id, commentaire = "") {
   const printLink = document.getElementById("printLink");
   const reconfirmBtn = document.getElementById("reconfirmBtn");
   const deleteBtn = document.getElementById("deleteBtn");
+    // 📎 Ouvrir la modale des pièces justificatives depuis la modale d’actions
+  const openFilesBtn = document.getElementById("openFilesFromActions");
+  if (openFilesBtn) {
+    openFilesBtn.onclick = () => {
+      closeActionsModal(); // on ferme la modale d’actions
+      openFilesModal(id);  // et on ouvre directement la modale des pièces justificatives
+    };
+  }
+
 
   if (!modal) return;
   modal.classList.remove("hidden");
