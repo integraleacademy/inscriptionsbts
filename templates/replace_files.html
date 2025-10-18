@@ -1,46 +1,34 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <title>{{ title }}</title>
-  <style>
-    body { font-family: Arial, sans-serif; background:#f8f8f8; margin:0; padding:0; }
-    .container {
-      max-width: 600px; margin:50px auto; background:white; padding:30px;
-      border-radius:10px; box-shadow:0 3px 10px rgba(0,0,0,0.1);
-    }
-    h2 { text-align:center; color:#111; }
-    label { font-weight:600; }
-    input[type=file] { display:block; margin:15px 0; }
-    button {
-      background:#f4c45a; border:none; color:#000; font-weight:700;
-      padding:10px 20px; border-radius:8px; cursor:pointer;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>📤 Envoyer mes nouvelles pièces justificatives</h2>
-    <p>Suite à la vérification de votre dossier, certaines pièces ont été jugées non conformes :</p>
-    <ul>
-      {% for p in pieces %}
-        <li>{{ p }}</li>
-      {% endfor %}
-    </ul>
+{% extends "base.html" %}
+{% block body_class %}public-page{% endblock %}
+{% block content %}
+<div style="max-width:700px;margin:50px auto;background:white;padding:40px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);">
+  <h2 style="text-align:center;color:#111;">📎 Remplacement des pièces non conformes</h2>
+
+  <p>Bonjour {{ prenom }}, merci de renvoyer uniquement les pièces signalées comme non conformes.</p>
+
+  <form method="POST" enctype="multipart/form-data" action="/replace-files">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="sig" value="{{ sig }}">
+
+    {% for piece in pieces %}
+    <div style="margin:20px 0;padding:15px;border:1px solid #ccc;border-radius:8px;">
+      <p style="margin:0;font-weight:600;">{{ piece }}</p>
+      <input type="file" name="piece_{{ loop.index }}" required style="margin-top:8px;">
+    </div>
+    {% endfor %}
 
     {% if commentaire %}
-      <p><strong>Commentaire :</strong> {{ commentaire }}</p>
+    <div style="margin-top:25px;padding:12px;background:#fff8e1;border-radius:6px;">
+      <strong>🗒️ Commentaire de l’équipe :</strong>
+      <p style="margin:6px 0 0;">{{ commentaire }}</p>
+    </div>
     {% endif %}
 
-    <form method="POST" enctype="multipart/form-data">
-      <label>Sélectionnez vos nouvelles pièces (vous pouvez en joindre plusieurs) :</label>
-      <input type="file" name="fichiers" multiple required>
-
-      <input type="hidden" name="token" value="{{ token }}">
-      <input type="hidden" name="sig" value="{{ sig }}">
-
-      <button type="submit">📨 Envoyer mes fichiers</button>
-    </form>
-  </div>
-</body>
-</html>
+    <div style="text-align:center;margin-top:30px;">
+      <button type="submit" class="btn primary" style="background:#28a745;color:white;padding:12px 20px;border:none;border-radius:8px;font-size:16px;">
+        📤 Envoyer mes nouveaux documents
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
