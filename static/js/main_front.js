@@ -152,3 +152,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   showStep(0); // première étape visible
   console.log("✅ main.js (Front) chargé avec succès");
+
+}); // ✅ fermeture du bloc DOMContentLoaded
