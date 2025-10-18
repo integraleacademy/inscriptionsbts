@@ -952,40 +952,34 @@ def replace_files_submit():
 
     row = dict(row)
 
-    # 🔁 Mise à jour du candidat : on sauvegarde aussi les nouveaux fichiers dans replace_meta
+    # 🔁 Mise à jour du candidat : on sauvegarde les nouveaux fichiers dans replace_meta
     meta = json.loads(row.get("replace_meta") or "{}")
+    nouveaux = []
 
-    # 🆕 On capture à la fois le nom du fichier et le champ d'origine
-    nouveaux_meta = []
-    for key, f in request.files.items():
-        if not f or not f.filename:
-            continue
-        name = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(f.filename)
-        path = os.path.join(UPLOAD_DIR, name)
-        f.save(path)
-        label_piece = DOC_FIELDS.get(key, ("", key))[1] if key in DOC_FIELDS else (request.form.get(f"label_{key}") or "Pièce justificative")
-        nouveaux_meta.append({
-            "fichier": os.path.basename(path),
-            "type": key,
-            "label": label_piece
-        })
+    for field_name, (col_name, label) in DOC_FIELDS.items():
+        files = request.files.getlist(field_name)
+        for f in files:
+            if not f or not f.filename:
+                continue
+            filename = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(f.filename)
+            f.save(os.path.join(UPLOAD_DIR, filename))
+            nouveaux.append({"fichier": filename, "label": label})
 
-    meta["nouveaux_fichiers"] = nouveaux_meta
+    meta["nouveaux_fichiers"] = nouveaux
 
     cur.execute("""
         UPDATE candidats
         SET nouveau_doc=1,
-            statut=?,
             replace_meta=?,
-            updated_at=?
+            updated_at=?,
+            statut=?
         WHERE id=?
     """, (
-        "preinscription",
         json.dumps(meta, ensure_ascii=False),
         datetime.now().isoformat(),
+        "preinscription",
         row["id"]
     ))
-
     conn.commit()
     conn.close()
 
@@ -995,14 +989,15 @@ def replace_files_submit():
         numero=row.get("numero_dossier", ""),
         nom=row.get("nom", ""),
         prenom=row.get("prenom", ""),
-        fichiers=[n["fichier"] for n in nouveaux_meta]
+        fichiers=[n["fichier"] for n in nouveaux]
     )
     from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
     send_mail(from_addr, f"[ADMIN] Nouvelles pièces déposées ({row.get('numero_dossier')})", admin_html)
 
-    log_event(row, "DOCS_RENVOYES", {"files": [n["fichier"] for n in nouveaux_meta]})
+    log_event(row, "DOCS_RENVOYES", {"files": [n["fichier"] for n in nouveaux]})
 
-    return render_template("replace_ok.html", title="Merci", fichiers=[n["fichier"] for n in nouveaux_meta])
+    return render_template("replace_ok.html", title="Merci", fichiers=[n["fichier"] for n in nouveaux])
+
 
 
 
