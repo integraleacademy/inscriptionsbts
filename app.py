@@ -683,7 +683,20 @@ def admin_files_mark():
     horodatage = datetime.now().strftime("%d/%m/%Y à %H:%M")
 
     # ✅ Marquer le document
-    verif[fname] = {"etat": decision, "horodatage": horodatage}
+    verif[fname] =# ✅ Marquer le document avec le label humain
+label_associe = ""
+for key, (field, label) in DOC_FIELDS.items():
+    file_list = parse_list(row.get(field))
+    if any(p.endswith(fname) for p in file_list):
+        label_associe = label
+        break
+
+verif[fname] = {
+    "etat": decision,
+    "horodatage": horodatage,
+    "label": label_associe or "Pièce justificative"
+}
+ {"etat": decision, "horodatage": horodatage}
 
     # ❌ Si non conforme → supprimer physiquement le fichier
     if decision == "non_conforme":
@@ -750,10 +763,12 @@ def admin_files_notify():
     verif = load_verif_docs(row)
 
     # 🔍 Lister les documents non conformes
-    non_conformes = [
-        f"{f} (le {v.get('horodatage')})"
-        for f, v in verif.items() if v.get("etat") == "non_conforme"
-    ]
+non_conformes = []
+for f, v in verif.items():
+    if v.get("etat") == "non_conforme":
+        label = v.get("label", "Pièce justificative")
+        date = v.get("horodatage", "")
+        non_conformes.append(f"{label} – {f} (le {date})")
 
     if not non_conformes:
         return jsonify({"ok": False, "error": "Aucune pièce non conforme"}), 400
