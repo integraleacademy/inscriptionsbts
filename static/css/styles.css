@@ -762,6 +762,17 @@ tr.status-updated { animation: flashRow 1.5s ease; }
   box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
 
+/* Boutons d'action dans le tableau admin */
+.admin-table .btn.small {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin: 0 3px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+
 
 
 
