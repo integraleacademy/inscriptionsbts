@@ -297,6 +297,64 @@ def save_files(field):
         saved.append(path)
     return saved
 
+# =====================================================
+# 💾 SAUVEGARDE DU BROUILLON ("Reprendre plus tard")
+# =====================================================
+@app.route("/save_draft", methods=["POST"])
+def save_draft():
+    import json, uuid, os
+    from datetime import datetime
+
+    DATA_DIR = os.getenv("DATA_DIR", "/data")
+    DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
+    os.makedirs(DATA_DIR, exist_ok=True)
+
+    # Charger les brouillons existants
+    drafts = []
+    if os.path.exists(DRAFT_PATH):
+        with open(DRAFT_PATH, "r", encoding="utf-8") as f:
+            try:
+                drafts = json.load(f)
+            except:
+                drafts = []
+
+    email = request.form.get("email")
+    if not email:
+        return jsonify({"ok": False, "error": "email manquant"})
+
+    token = str(uuid.uuid4())
+    data = dict(request.form)
+    data.pop("csrf_token", None)
+
+    new_draft = {
+        "token": token,
+        "email": email,
+        "data": data,
+        "step": request.form.get("current_step", 0),
+        "created_at": datetime.now().isoformat()
+    }
+
+    # Remplacer l’ancien brouillon s’il existe pour cet e-mail
+    drafts = [d for d in drafts if d["email"] != email]
+    drafts.append(new_draft)
+
+    with open(DRAFT_PATH, "w", encoding="utf-8") as f:
+        json.dump(drafts, f, indent=2, ensure_ascii=False)
+
+    # Envoi du mail avec le lien de reprise
+    from utils import send_mail
+    resume_link = f"{request.url_root}reprendre/{token}"
+    html = f"""
+    <p>Bonjour,</p>
+    <p>Votre pré-inscription a été enregistrée. Vous pouvez la reprendre à tout moment via le lien ci-dessous :</p>
+    <p><a href="{resume_link}" style="background:#28a745;color:white;padding:10px 16px;border-radius:6px;text-decoration:none;">▶️ Reprendre ma demande</a></p>
+    <p>Bien cordialement,<br>L’équipe <strong>Intégrale Academy</strong></p>
+    """
+
+    send_mail(email, "Reprendre votre pré-inscription", html)
+    return jsonify({"ok": True})
+
+
 @app.route("/submit", methods=["POST"])
 def submit():
     form = request.form
