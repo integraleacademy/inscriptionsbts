@@ -556,11 +556,22 @@ def admin_update_status():
     row = dict(cur.fetchone())
 
     if value == "validee":
-        token = row.get("token_confirm") or ""
-        link = make_signed_link("/confirm-inscription", token)
-        html = render_template("mail_validation.html", prenom=row.get("prenom",""), bts=row.get("bts",""), link=link, numero=row.get("numero_dossier",""))
-        send_mail(row.get("email",""), "Votre candidature est validée – Confirmez votre inscription", html)
-        log_event(row, "MAIL_ENVOYE", {"type":"validation_inscription"})
+    # 📨 Mail de validation (lien de confirmation)
+    token = row.get("token_confirm") or ""
+    link = make_signed_link("/confirm-inscription", token)
+    html = render_template("mail_validation.html", prenom=row.get("prenom",""), bts=row.get("bts",""), link=link, numero=row.get("numero_dossier",""))
+    send_mail(row.get("email",""), "Votre candidature est validée – Confirmez votre inscription", html)
+    log_event(row, "MAIL_ENVOYE", {"type": "validation_inscription"})
+
+elif value == "confirmee":
+    # 📨 Mail d’inscription confirmée + bienvenue
+    html = render_template("mail_confirmee.html", prenom=row.get("prenom",""), aps=bool(row.get("label_aps",0)))
+    send_mail(row.get("email",""), "Inscription confirmée – Intégrale Academy", html)
+    merci_html = render_template("mail_bienvenue.html", prenom=row.get("prenom",""), bts=row.get("bts",""))
+    send_mail(row.get("email",""), "Bienvenue à Intégrale Academy 🎓", merci_html)
+    log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
+    log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
+
     log_event(row, "STATUT_CHANGE", {"statut": value})
     return jsonify({"ok":True})
 
