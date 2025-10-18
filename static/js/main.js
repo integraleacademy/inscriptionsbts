@@ -321,11 +321,11 @@ function openFilesModal(id) {
   window.currentId = id;
   const modal = document.getElementById("filesModal");
   const list = document.getElementById("filesList");
+  const nonList = document.getElementById("nonConformesList");
   if (!modal || !list) return;
   modal.classList.remove("hidden");
   list.innerHTML = "<p>⏳ Chargement des pièces...</p>";
-
-  fetch(`/admin/files/mark_seen/${id}`, { method: "POST" });
+  nonList.innerHTML = "<li>Aucune pièce non conforme</li>";
 
   fetch(`/admin/files/${id}`)
     .then(res => res.json())
@@ -335,6 +335,8 @@ function openFilesModal(id) {
         return;
       }
       list.innerHTML = "";
+      const nonConformes = [];
+
       files.forEach(f => {
         const div = document.createElement("div");
         div.className = "file-item";
@@ -342,20 +344,51 @@ function openFilesModal(id) {
           <div class="file-header">
             <strong>${f.label}</strong><br>
             <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank">${f.filename}</a>
+            ${f.status === "non_conforme" ? `<p style="color:#d9534f;margin:4px 0 0;"><em>Non conforme le ${f.horodatage}</em></p>` : ""}
           </div>
           <div class="file-actions">
-            <button class="btn small ok" data-filename="${f.filename}" ${f.status === "conforme" ? "disabled" : ""}>✅ Conforme</button>
-            <button class="btn small danger" data-filename="${f.filename}" ${f.status === "non_conforme" ? "disabled" : ""}>❌ Non conforme</button>
+            <button class="btn small ok" data-filename="${f.filename}" ${f.status==="conforme"?"disabled":""}>✅ Conforme</button>
+            <button class="btn small danger" data-filename="${f.filename}" ${f.status==="non_conforme"?"disabled":""}>❌ Non conforme</button>
           </div>
         `;
         list.appendChild(div);
+        if (f.status === "non_conforme") {
+          nonConformes.push(`${f.filename} (${f.horodatage})`);
+        }
       });
+
+      if (nonConformes.length) {
+        nonList.innerHTML = nonConformes.map(n => `<li>${n}</li>`).join("");
+      }
     })
     .catch(err => {
-      list.innerHTML = "<p style='color:red'>Erreur de chargement</p>";
+      list.innerHTML = "<p style='color:red'>Erreur de chargement des pièces.</p>";
       console.error(err);
     });
 }
+
+// 📩 Bouton "Enregistrer et notifier"
+const notifyBtn = document.getElementById("notifyNonConformesBtn");
+if (notifyBtn) {
+  notifyBtn.addEventListener("click", async () => {
+    if (!window.currentId) return;
+    const commentaire = document.getElementById("commentaireNonConforme").value.trim();
+    const res = await fetch("/admin/files/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: window.currentId, commentaire })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      showToast("📧 Notification envoyée au candidat", "#007bff");
+      closeFilesModal();
+      await refreshCandidateStatus(window.currentId);
+    } else {
+      alert("Erreur : " + (data.error || "inconnue"));
+    }
+  });
+}
+
 
 function closeFilesModal() {
   const modal = document.getElementById("filesModal");
