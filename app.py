@@ -713,7 +713,7 @@ def admin_files(cid):
 
     # === 🔄 Nouveaux fichiers redéposés (simplifié et robuste) ===
     nouveaux = []
-    if row.get("nouveau_doc"):
+    if str(row.get("nouveau_doc", "0")) in ("1", "true", "True"):
         try:
             meta = json.loads(row.get("replace_meta") or "{}")
             nouveaux = meta.get("nouveaux_fichiers") or meta.get("nouveaux") or []
