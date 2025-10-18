@@ -727,7 +727,6 @@ def admin_files(cid):
                 if row["id"] in f:
                     nouveaux.append(f)
 
-
     for info in nouveaux:
         if isinstance(info, str):
             fname, label_piece = info, "📥 Nouveau document déposé"
@@ -746,20 +745,41 @@ def admin_files(cid):
                 "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M")
             })
 
-    # ✅ Correction : marquer les fichiers nouveaux à partir de replace_meta
+    # ✅ Correction finale : marquer les nouveaux sans duplication
     if row.get("replace_meta"):
         try:
             meta = json.loads(row["replace_meta"])
-            nouveaux = [x["fichier"] for x in meta.get("nouveaux_fichiers", [])]
+            nouveaux_fichiers = [x["fichier"] for x in meta.get("nouveaux_fichiers", [])]
             for f in files_data:
-                if f["filename"] in nouveaux:
+                if f["filename"] in nouveaux_fichiers:
                     f["type"] = "nouveau"
                     f["label"] = f"📥 Nouveau document déposé — {f['label']}"
+            # Supprime les doublons par nom de fichier
+            unique = []
+            seen = set()
+            for f in files_data:
+                if f["filename"] not in seen:
+                    unique.append(f)
+                    seen.add(f["filename"])
+            files_data = unique
         except Exception as e:
             print("⚠️ Erreur détection fichiers nouveaux :", e)
 
     conn.close()
+
+    # ✅ On garde trace que les nouveaux ont déjà été vus
+    try:
+        conn2 = db()
+        cur2 = conn2.cursor()
+        cur2.execute("UPDATE candidats SET nouveau_doc=0 WHERE id=?", (cid,))
+        conn2.commit()
+        conn2.close()
+    except Exception as e:
+        print("⚠️ Erreur mise à jour nouveau_doc :", e)
+
     return jsonify(files_data)
+
+
 
 
 
