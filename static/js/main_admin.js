@@ -170,9 +170,21 @@ if (markDocsCheckedBtn) {
       // ✅ Enlève le badge côté interface
       const tr = document.querySelector(`tr[data-id='${window.currentId}']`);
       if (tr) {
-        const badge = tr.querySelector("span");
-        if (badge && badge.textContent.includes("Nouveau document déposé")) badge.remove();
-      }
+  const badge = tr.querySelector("span");
+  if (badge && badge.textContent.includes("Nouveau document déposé")) {
+    badge.style.transition = "opacity 0.5s ease";
+    badge.style.opacity = "0.3";
+    badge.style.color = "#999";
+    setTimeout(() => badge.remove(), 500);
+  }
+  markDocsCheckedBtn.style.background = "#28a745";
+  markDocsCheckedBtn.style.color = "#fff";
+  setTimeout(() => {
+    markDocsCheckedBtn.style.background = "";
+    markDocsCheckedBtn.style.color = "";
+  }, 1500);
+}
+
       showToast("✅ Document marqué comme contrôlé", "#28a745");
     } catch (err) {
       alert("Erreur : " + err);
@@ -418,4 +430,5 @@ function closeFilesModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
