@@ -536,7 +536,7 @@ def admin_export_json():
     return jsonify(rows)
 
 # =====================================================
-# 📎 ROUTE : Récupérer les pièces justificatives d’un candidat
+# 📎 GESTION SIMPLIFIÉE DES PIÈCES JUSTIFICATIVES
 # =====================================================
 
 @app.route("/admin/files/<cid>")
@@ -547,36 +547,92 @@ def admin_files(cid):
     row = get_candidat(conn, cid)
     if not row:
         abort(404)
-    verif = load_verif_docs(row)
 
+    verif = load_verif_docs(row)
     files_data = []
     for key, (field, label) in DOC_FIELDS.items():
         file_list = parse_list(row.get(field))
-        if not file_list:
-            continue
         for path in file_list:
             fname = os.path.basename(path)
+            status_info = verif.get(fname, {})
             files_data.append({
                 "type": key,
                 "label": label,
                 "filename": fname,
                 "path": path,
-                "status": verif.get(fname, "pending")  # pending / conforme / non_conforme / replaced
+                "status": status_info.get("etat", "en_attente"),
+                "horodatage": status_info.get("horodatage", "")
             })
 
     conn.close()
     return jsonify(files_data)
 
-@app.route("/admin/files/mark_seen/<cid>", methods=["POST"])
-def admin_files_mark_seen(cid):
+
+@app.route("/admin/files/mark", methods=["POST"])
+def admin_files_mark():
     if not require_admin():
         abort(403)
+
+    data = request.json or {}
+    cid = data.get("id")
+    fname = data.get("filename")
+    decision = data.get("decision")  # "conforme" ou "non_conforme"
+
+    if not cid or not fname or decision not in ("conforme", "non_conforme"):
+        return jsonify({"ok": False, "error": "paramètres invalides"}), 400
+
     conn = db()
-    cur = conn.cursor()
-    cur.execute("UPDATE candidats SET nouveau_doc=0 WHERE id=?", (cid,))
+    row = get_candidat(conn, cid)
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "candidat introuvable"}), 404
+
+    verif = load_verif_docs(row)
+    horodatage = datetime.now().strftime("%d/%m/%Y à %H:%M")
+
+    # ✅ Marquer le document
+    verif[fname] = {"etat": decision, "horodatage": horodatage}
+
+    # ❌ Si non conforme → supprimer physiquement le fichier
+    if decision == "non_conforme":
+        for key, (field, _) in DOC_FIELDS.items():
+            file_list = parse_list(row.get(field))
+            new_list = [p for p in file_list if not p.endswith(fname)]
+            if len(new_list) != len(file_list):
+                # fichier supprimé de la liste
+                cur = conn.cursor()
+                cur.execute(
+                    f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
+                    (json.dumps(new_list), datetime.now().isoformat(), cid)
+                )
+                try:
+                    os.remove(os.path.join(UPLOAD_DIR, fname))
+                except FileNotFoundError:
+                    pass
+
+        # ✅ Marquer le statut global en "docs_non_conformes"
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE candidats SET statut=?, verif_docs=?, updated_at=? WHERE id=?",
+            ("docs_non_conformes", json.dumps(verif, ensure_ascii=False),
+             datetime.now().isoformat(), cid)
+        )
+
+    else:
+        # ✅ conforme → juste mise à jour
+        cur = conn.cursor()
+        cur.execute(
+            "UPDATE candidats SET verif_docs=?, updated_at=? WHERE id=?",
+            (json.dumps(verif, ensure_ascii=False), datetime.now().isoformat(), cid)
+        )
+
     conn.commit()
     conn.close()
-    return jsonify({"ok": True})
+
+    log_event(row, "DOC_MARK", {"file": fname, "decision": decision})
+    print(f"✅ Pièce {fname} marquée comme {decision}")
+    return jsonify({"ok": True, "horodatage": horodatage})
+
 
 
 # =====================================================
