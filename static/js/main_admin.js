@@ -231,10 +231,31 @@ function openFilesModal(id) {
         list.innerHTML = "<p>Aucune pièce justificative trouvée.</p>";
         return;
       }
+
       list.innerHTML = "";
       const nonConformes = [];
+      let nouveauBlocAjoute = false; // ✅ évite le double affichage du bloc “Nouveau document déposé”
 
       files.forEach(f => {
+        // 🆕 Si c’est un nouveau document déposé → bloc spécifique en haut une seule fois
+        if (f.type === "nouveau") {
+          if (!nouveauBlocAjoute) {
+            const bloc = document.createElement("div");
+            bloc.className = "file-item special";
+            bloc.innerHTML = `
+              <div class="file-header" style="background:#e8ffe8;border:1px solid #28a745;padding:8px;border-radius:6px;">
+                <strong>${f.label}</strong><br>
+                <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank">${f.filename}</a>
+                <p style="margin:4px 0 0;color:#28a745;"><em>Déposé le ${f.horodatage}</em></p>
+              </div>
+            `;
+            list.prepend(bloc);
+            nouveauBlocAjoute = true;
+          }
+          return; // on ne traite pas les boutons conforme/non conforme ici
+        }
+
+        // 📎 Documents classiques
         const div = document.createElement("div");
         div.className = "file-item";
         div.innerHTML = `
@@ -249,6 +270,7 @@ function openFilesModal(id) {
           </div>
         `;
         list.appendChild(div);
+
         if (f.status === "non_conforme") {
           nonConformes.push(`${f.filename} (${f.horodatage})`);
         }
@@ -270,7 +292,7 @@ function openFilesModal(id) {
     body: JSON.stringify({ id, field: "nouveau_doc", value: 0 })
   });
 
-  // ✅ Supprime le badge visuellement dès ouverture
+  // ✅ Supprime le badge “Nouveau document déposé” dans la table dès ouverture
   const tr = document.querySelector(`tr[data-id='${id}']`);
   if (tr) {
     const badge = tr.querySelector("span");
@@ -280,90 +302,6 @@ function openFilesModal(id) {
   }
 }
 
-function closeFilesModal() {
-  const modal = document.getElementById("filesModal");
-  if (modal) modal.classList.add("hidden");
-}
-
-// 🔁 Rafraîchit uniquement la liste "Pièces non conformes" sans recharger toute la modale
-async function refreshNonConformesList(id) {
-  const nonList = document.getElementById("nonConformesList");
-  if (!nonList) return;
-  try {
-    const res = await fetch(`/admin/files/${id}`);
-    const files = await res.json();
-    const nonConformes = files.filter(f => f.status === "non_conforme");
-    if (nonConformes.length) {
-      nonList.innerHTML = nonConformes
-        .map(f => `<li>${f.filename} (${f.horodatage || ""})</li>`)
-        .join("");
-    } else {
-      nonList.innerHTML = "<li>Aucune pièce non conforme</li>";
-    }
-  } catch (err) {
-    console.error("Erreur refreshNonConformesList:", err);
-  }
-}
-
-function openActionsModal(id, commentaire = "") {
-  window.currentId = id;
-  const modal = document.getElementById("actionsModal");
-  const commentBox = document.getElementById("commentBox");
-  const saveBtn = document.getElementById("saveCommentBtn");
-  const printLink = document.getElementById("printLink");
-  const reconfirmBtn = document.getElementById("reconfirmBtn");
-  const deleteBtn = document.getElementById("deleteBtn");
-  const openFilesBtn = document.getElementById("openFilesFromActions");
-
-  if (openFilesBtn) {
-    openFilesBtn.onclick = () => {
-      closeActionsModal();
-      openFilesModal(id);
-    };
-  }
-
-  if (!modal) return;
-  modal.classList.remove("hidden");
-  if (commentBox) commentBox.value = commentaire || "";
-
-  if (printLink) {
-    printLink.onclick = () => window.open(`/admin/print/${id}`, "_blank");
-  }
-
-  if (reconfirmBtn) {
-    reconfirmBtn.onclick = async () => {
-      if (!confirm("Confirmer l’envoi du mail de reconfirmation ?")) return;
-      const res = await fetch(`/admin/reconfirm/${id}`, { method: "POST" });
-      if (res.ok) showToast("📧 Mail de reconfirmation envoyé", "#007bff");
-      closeActionsModal();
-    };
-  }
-
-  if (deleteBtn) {
-    deleteBtn.onclick = async () => {
-      if (!confirm("⚠️ Supprimer définitivement cette fiche ?")) return;
-      const res = await fetch(`/admin/delete/${id}`, { method: "POST" });
-      if (res.ok) {
-        showToast("🗑️ Fiche supprimée", "#d9534f");
-        document.querySelector(`tr[data-id='${id}']`)?.remove();
-      }
-      closeActionsModal();
-    };
-  }
-
-  if (saveBtn) {
-    saveBtn.onclick = async () => {
-      const value = commentBox.value.trim();
-      await fetch("/admin/update-field", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, field: "commentaires", value })
-      });
-      showToast("💬 Commentaire sauvegardé", "#28a745");
-      closeActionsModal();
-    };
-  }
-}
 
 function closeActionsModal() {
   const modal = document.getElementById("actionsModal");
@@ -372,5 +310,6 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
