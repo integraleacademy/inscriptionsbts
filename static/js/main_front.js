@@ -52,17 +52,23 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // === Validation des champs ===
-  function validateStep(stepIndex) {
-    const currentTab = tabs[stepIndex];
-    const inputs = currentTab.querySelectorAll('input, select, textarea');
-    for (let input of inputs) {
-      if (!input.checkValidity()) {
-        input.reportValidity();
-        return false;
-      }
+function validateStep(stepIndex) {
+  const currentTab = tabs[stepIndex];
+  const inputs = currentTab.querySelectorAll('input, select, textarea');
+
+  for (let input of inputs) {
+    const style = window.getComputedStyle(input);
+    const visible = style.display !== 'none' && style.visibility !== 'hidden';
+    if (!visible) continue; // ignore les champs masqués
+
+    if (!input.checkValidity()) {
+      input.reportValidity();
+      return false;
     }
-    return true;
   }
+  return true;
+}
+
 
   // === Cadenas sur les boutons d’étapes (version corrigée) ===
   tabButtons.forEach((btn, i) => {
@@ -268,6 +274,7 @@ function showFlash(message, type = "success") {
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
 
