@@ -28,7 +28,12 @@
     {% block content %}{% endblock %}
   </main>
 
-  <script src="{{ url_for('static', filename='js/main.js') }}" defer></script>
+  {% if 'admin' in request.path %}
+  <script src="{{ url_for('static', filename='js/main_admin.js') }}" defer></script>
+{% else %}
+  <script src="{{ url_for('static', filename='js/main_front.js') }}" defer></script>
+{% endif %}
+
 
 
 
