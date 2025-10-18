@@ -533,7 +533,7 @@ def admin_update_field():
     cid = data.get("id")
     field = data.get("field")
     value = data.get("value")
-    allowed = {"nom","prenom","bts","mode","tel","email","label_aps","label_aut_ok","label_cheque_ok","commentaires"}
+    allowed = {"nom","prenom","bts","mode","tel","email","label_aps","label_aut_ok","label_cheque_ok","commentaires","nouveau_doc"}
     if field not in allowed: return jsonify({"ok":False,"error":"field not allowed"}), 400
     conn = db(); cur = conn.cursor()
     cur.execute(f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?", (value, datetime.now().isoformat(), cid))
