@@ -18,6 +18,16 @@ DOC_FIELDS = {
     "cv": ("fichiers_cv", "📄 CV"),
     "lm": ("fichiers_lm", "🖋️ Lettre de motivation"),
 }
+# 📦 Préfixes utilisés pour nommer les fichiers de manière déterministe
+FILE_PREFIX = {
+    "ci": "CI",
+    "photo": "Photo",
+    "carte_vitale": "CarteVitale",
+    "cv": "CV",
+    "lm": "LettreMotivation",
+}
+
+
 
 def get_candidat(conn, cid):
     """Récupère un candidat complet par ID."""
@@ -292,17 +302,33 @@ def health():
 def index():
     return render_template("index.html", title="Pré-inscriptions BTS 2026")
 
-def save_files(field):
-    files = request.files.getlist(field)
+def save_files(field_key: str, cand_id: str):
+    """
+    Sauvegarde les fichiers du champ `field_key` pour le candidat `cand_id`
+    avec un nom DÉTERMINISTE : <PREFIX>_<cand_id><ext>
+    - Si plusieurs fichiers sont envoyés pour un même type, on suffixe _2, _3, ...
+    - Retourne la liste des chemins absolus enregistrés.
+    """
+    files = request.files.getlist(field_key)
     saved = []
+    prefix = FILE_PREFIX.get(field_key, field_key)
+
+    idx = 1
     for f in files:
         if not f or not f.filename:
             continue
-        name = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(f.filename)
-        path = os.path.join(UPLOAD_DIR, name)
-        f.save(path)
-        saved.append(path)
+        # extension propre
+        _, ext = os.path.splitext(secure_filename(f.filename))
+        base = f"{prefix}_{cand_id}{'' if idx == 1 else f'_{idx}'}{ext.lower()}"
+        dest = os.path.join(UPLOAD_DIR, base)
+
+        # on écrit par-dessus si ça existe (cas du remplacement)
+        f.save(dest)
+        saved.append(dest)
+        idx += 1
+
     return saved
+
 
 # =====================================================
 # 💾 SAUVEGARDE DU BROUILLON ("Reprendre plus tard")
@@ -420,11 +446,12 @@ def submit():
 
     def b(v): return 1 if v in ("on", "true", "1", "yes") else 0
 
-    fichiers_ci = save_files("ci")
-    fichiers_photo = save_files("photo")
-    fichiers_carte_vitale = save_files("carte_vitale")
-    fichiers_cv = save_files("cv")
-    fichiers_lm = save_files("lm")
+    fichiers_ci = save_files("ci", cand_id)
+    fichiers_photo = save_files("photo", cand_id)
+    fichiers_carte_vitale = save_files("carte_vitale", cand_id)
+    fichiers_cv = save_files("cv", cand_id)
+    fichiers_lm = save_files("lm", cand_id)
+
 
     token_confirm = new_token()
     token_confirm_exp = (datetime.now() + timedelta(days=30)).isoformat()
@@ -1036,12 +1063,19 @@ def replace_files_submit():
 
     for field_name, (col_name, label) in DOC_FIELDS.items():
         files = request.files.getlist(field_name)
+        prefix = FILE_PREFIX.get(field_name, field_name)
+        idx = 1
         for f in files:
             if not f or not f.filename:
                 continue
-            filename = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(f.filename)
-            f.save(os.path.join(UPLOAD_DIR, filename))
-            nouveaux.append({"fichier": filename, "label": label})
+            _, ext = os.path.splitext(secure_filename(f.filename))
+            base = f"{prefix}_{row['id']}{'' if idx == 1 else f'_{idx}'}{ext.lower()}"
+            dest = os.path.join(UPLOAD_DIR, base)
+            f.save(dest)
+            nouveaux.append({"fichier": base, "label": label})
+            idx += 1
+
+
 
     meta["nouveaux_fichiers"] = nouveaux
 
@@ -1230,6 +1264,31 @@ def preview_upload(filename):
     return send_file(file_path)
 
 print("🚀 Application Flask démarrée – gestion CNAPS & pièces justificatives OK")
+
+@app.route("/admin/clear-db", methods=["POST"])
+def admin_clear_db():
+    if not require_admin():
+        abort(403)
+
+    conn = db()
+    cur = conn.cursor()
+    # Supprimer tous les candidats et logs
+    cur.execute("DELETE FROM candidats")
+    cur.execute("DELETE FROM logs")
+    conn.commit()
+    conn.close()
+
+    # Supprimer tous les fichiers uploadés
+    try:
+        for f in os.listdir(UPLOAD_DIR):
+            full = os.path.join(UPLOAD_DIR, f)
+            if os.path.isfile(full):
+                os.remove(full)
+    except Exception as e:
+        print("⚠️ Erreur suppression fichiers :", e)
+
+    flash("Base de données et fichiers effacés ✅", "success")
+    return redirect(url_for("admin"))
 
 
 if __name__ == "__main__":
