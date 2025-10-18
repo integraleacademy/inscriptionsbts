@@ -100,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
         notifyBtn.textContent = "⏳ Envoi en cours...";
 
         try {
-          const res = await fetch("/admin/files/notify-nonconformes", {
+          const res = await fetch("/admin/files/notify", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: window.currentId, commentaire })
@@ -352,3 +352,4 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
