@@ -658,12 +658,21 @@ def admin_files(cid):
                 "horodatage": status_info.get("horodatage", "")
             })
 
-    # === Nouveaux fichiers redéposés ===
-    try:
-        meta = json.loads(row.get("replace_meta") or "{}")
-        nouveaux = meta.get("nouveaux_fichiers", [])
-    except Exception:
-        nouveaux = []
+    # === 🔄 Nouveaux fichiers redéposés (simplifié et robuste) ===
+    nouveaux = []
+    if row.get("nouveau_doc"):
+        try:
+            meta = json.loads(row.get("replace_meta") or "{}")
+            nouveaux = meta.get("nouveaux_fichiers", [])
+        except Exception as e:
+            print("⚠️ Erreur lecture replace_meta :", e)
+
+        # 🔎 Si la base est vide mais que le flag est à 1, on scanne le dossier uploads
+        if not nouveaux:
+            pattern = f"*_{row['id']}_*"
+            for f in os.listdir(UPLOAD_DIR):
+                if row["id"] in f:
+                    nouveaux.append(f)
 
     for fname in nouveaux:
         full_path = os.path.join(UPLOAD_DIR, fname)
@@ -676,6 +685,7 @@ def admin_files(cid):
                 "status": "nouveau",
                 "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M")
             })
+
 
     conn.close()
     return jsonify(files_data)
