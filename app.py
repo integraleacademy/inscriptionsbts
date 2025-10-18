@@ -876,6 +876,7 @@ def admin_files_mark():
     # =====================================================
 # 💾 ROUTE : Fusionner les nouveaux fichiers dans les pièces normales
 # =====================================================
+# 💾 ROUTE : Fusionner les nouveaux fichiers dans les pièces normales
 @app.route("/admin/files/merge", methods=["POST"])
 def admin_files_merge():
     if not require_admin():
@@ -896,8 +897,10 @@ def admin_files_merge():
     try:
         meta = json.loads(row.get("replace_meta") or "{}")
         nouveaux = meta.get("nouveaux_fichiers", [])
+        verif = load_verif_docs(row)
     except Exception:
         nouveaux = []
+        verif = {}
 
     if not nouveaux:
         conn.close()
@@ -920,18 +923,28 @@ def admin_files_merge():
                     f"UPDATE candidats SET {col}=?, updated_at=? WHERE id=?",
                     (json.dumps(lst, ensure_ascii=False), datetime.now().isoformat(), cid)
                 )
+
+                # 🧹 Remet le statut de ce fichier en "en_attente"
+                verif[fname] = {
+                    "etat": "en_attente",
+                    "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M"),
+                    "label": label
+                }
+
                 break
 
-    # Remettre le flag à zéro et vider replace_meta
+    # 🧩 Enregistrer le dictionnaire verif mis à jour
     cur = conn.cursor()
     cur.execute(
-        "UPDATE candidats SET nouveau_doc=0, replace_meta=?, updated_at=? WHERE id=?",
-        ("{}", datetime.now().isoformat(), cid)
+        "UPDATE candidats SET nouveau_doc=0, replace_meta=?, verif_docs=?, updated_at=? WHERE id=?",
+        ("{}", json.dumps(verif, ensure_ascii=False), datetime.now().isoformat(), cid)
     )
+
     conn.commit()
     conn.close()
 
     return jsonify({"ok": True})
+
 
 
 # =====================================================
