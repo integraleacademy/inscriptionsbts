@@ -309,19 +309,16 @@ def save_draft():
     DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    # Charger les brouillons existants
-    drafts = []
     # Charger les brouillons existants (et créer le fichier s’il n’existe pas)
-if not os.path.exists(DRAFT_PATH):
-    with open(DRAFT_PATH, "w", encoding="utf-8") as f:
-        json.dump([], f)
+    if not os.path.exists(DRAFT_PATH):
+        with open(DRAFT_PATH, "w", encoding="utf-8") as f:
+            json.dump([], f)
 
-with open(DRAFT_PATH, "r", encoding="utf-8") as f:
-    try:
-        drafts = json.load(f)
-    except:
-        drafts = []
-
+    with open(DRAFT_PATH, "r", encoding="utf-8") as f:
+        try:
+            drafts = json.load(f)
+        except:
+            drafts = []
 
     email = request.form.get("email")
     if not email:
@@ -358,6 +355,7 @@ with open(DRAFT_PATH, "r", encoding="utf-8") as f:
 
     send_mail(email, "Reprendre votre pré-inscription", html)
     return jsonify({"ok": True})
+
 
     # =====================================================
 # 🔁 ROUTE DE REPRISE DU FORMULAIRE
