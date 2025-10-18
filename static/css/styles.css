@@ -772,6 +772,30 @@ tr.status-updated { animation: flashRow 1.5s ease; }
   vertical-align: middle;
 }
 
+/* Barre de navigation d'étape harmonisée */
+.actions.nav-global {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 35px;
+}
+.btn.save {
+  background: #fff;
+  border: 2px solid #f4c45a;
+  color: #111;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+.btn.save:hover {
+  background: #f4c45a;
+  color: #000;
+  transform: scale(1.05);
+}
+.btn.prev, .btn.primary, .btn.save { min-width: 190px; }
+
 
 
 
