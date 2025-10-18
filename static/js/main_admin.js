@@ -166,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         await refreshCandidateStatus(window.currentId);
-        setTimeout(() => refreshNonConformesList(window.currentId), 500);
+
 
       } else {
         alert("Erreur : " + (data.error || "inconnue"));
@@ -382,3 +382,4 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
