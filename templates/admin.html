@@ -89,8 +89,9 @@
             <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
           </td>
          <td>
-  <button class="btn small" onclick="openActionsModal('{{ r.id }}', `{{ r.commentaires|default('')|escape }}`)">⋯</button>
-  <button class="btn small" onclick="openFilesModal('{{ r.id }}')">📎 Pièces justificatives</button>
+<button class="btn small action-btn" data-id="{{ r.id }}" data-commentaire="{{ r.commentaires|default('')|escape }}">⋯</button>
+<button class="btn small files-btn" data-id="{{ r.id }}">📎 Pièces justificatives</button>
+
 </td>
 
         </tr>
