@@ -314,43 +314,45 @@ function openFilesModal(id) {
       const nonConformes = [];
       let nouveauBlocAjoute = false;
 
-      files.forEach(f => {
-        if (f.type === "nouveau") {
-          if (!nouveauBlocAjoute) {
-            const bloc = document.createElement("div");
-            bloc.className = "file-item special";
-            bloc.innerHTML = `
-              <div class="file-header" style="background:#e8ffe8;border:1px solid #28a745;padding:8px;border-radius:6px;">
-                <strong>${f.label}</strong><br>
-                <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank">${f.filename}</a>
-                <p style="margin:4px 0 0;color:#28a745;"><em>Déposé le ${f.horodatage}</em></p>
-              </div>
-            `;
-            list.prepend(bloc);
-            nouveauBlocAjoute = true;
-          }
-          return;
-        }
+     const nouveaux = files.filter(f => f.type === "nouveau");
+const anciens = files.filter(f => f.type !== "nouveau");
 
-        const div = document.createElement("div");
-        div.className = "file-item";
-        div.innerHTML = `
-          <div class="file-header">
-            <strong>${f.label}</strong><br>
-            <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank">${f.filename}</a>
-            ${f.status === "non_conforme" ? `<p style="color:#d9534f;margin:4px 0 0;"><em>Non conforme le ${f.horodatage}</em></p>` : ""}
-          </div>
-          <div class="file-actions">
-            <button class="btn small ok" data-filename="${f.filename}" ${f.status==="conforme"?"disabled":""}>✅ Conforme</button>
-            <button class="btn small danger" data-filename="${f.filename}" ${f.status==="non_conforme"?"disabled":""}>❌ Non conforme</button>
-          </div>
-        `;
-        list.appendChild(div);
+// 🔹 D’abord les nouveaux fichiers (bandeau vert)
+nouveaux.forEach(f => {
+  const bloc = document.createElement("div");
+  bloc.className = "file-item special";
+  bloc.innerHTML = `
+    <div class="file-header" style="background:#e8ffe8;border:1px solid #28a745;padding:8px;border-radius:6px;margin-bottom:8px;">
+      <strong>${f.label}</strong><br>
+      <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank">${f.filename}</a>
+      <p style="margin:4px 0 0;color:#28a745;"><em>Déposé le ${f.horodatage}</em></p>
+    </div>
+  `;
+  list.appendChild(bloc);
+});
 
-        if (f.status === "non_conforme") {
-          nonConformes.push(`${f.filename} (${f.horodatage})`);
-        }
-      });
+// 🔹 Puis les fichiers normaux
+anciens.forEach(f => {
+  const div = document.createElement("div");
+  div.className = "file-item";
+  div.innerHTML = `
+    <div class="file-header">
+      <strong>${f.label}</strong><br>
+      <a href="/uploads/${encodeURIComponent(f.filename)}" target="_blank">${f.filename}</a>
+      ${f.status === "non_conforme" ? `<p style="color:#d9534f;margin:4px 0 0;"><em>Non conforme le ${f.horodatage}</em></p>` : ""}
+    </div>
+    <div class="file-actions">
+      <button class="btn small ok" data-filename="${f.filename}" ${f.status==="conforme"?"disabled":""}>✅ Conforme</button>
+      <button class="btn small danger" data-filename="${f.filename}" ${f.status==="non_conforme"?"disabled":""}>❌ Non conforme</button>
+    </div>
+  `;
+  list.appendChild(div);
+
+  if (f.status === "non_conforme") {
+    nonConformes.push(`${f.filename} (${f.horodatage})`);
+  }
+});
+
 
       if (nonConformes.length) {
         nonList.innerHTML = nonConformes.map(n => `<li>${n}</li>`).join("");
@@ -442,6 +444,7 @@ function closeFilesModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
