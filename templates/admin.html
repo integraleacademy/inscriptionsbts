@@ -89,8 +89,17 @@
             <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
           </td>
           <td>
-            <button class="btn small action-btn" data-id="{{ r.id }}" data-commentaire="{{ r.commentaires|default('')|escape }}">ACTIONS</button>
-          </td>
+  <button class="btn small action-btn" 
+          data-id="{{ r.id }}" 
+          data-commentaire="{{ r.commentaires|default('')|escape }}">
+    ACTIONS
+  </button>
+
+  {% if r.nouveau_doc %}
+    <span style="color:#28a745;font-weight:600;margin-left:8px;">📥 Nouveau document déposé</span>
+  {% endif %}
+</td>
+
         </tr>
         {% endfor %}
       </tbody>
