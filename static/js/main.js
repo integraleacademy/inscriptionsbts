@@ -154,7 +154,7 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ main.js (Front) chargé avec succès");
 
 
-// =====================================================  
+// =====================================================
 // 🧾 SECTION ADMIN
 // =====================================================
 const table = document.querySelector('.admin-table');
@@ -216,78 +216,76 @@ if (table) {
     });
   });
 
+  // 📎 Boutons pièces justificatives
   table.querySelectorAll('.files-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const id = btn.dataset.id;
       openFilesModal(id);
     });
   });
-}
+} // ✅ <-- FIN DU if(table)
 
 
-  // =====================================================
-  // 📁 MODALE DES PIÈCES JUSTIFICATIVES
-  // =====================================================
-  const filesModal = document.getElementById("filesModal");
-  if (filesModal) {
+// =====================================================
+// 📁 MODALE DES PIÈCES JUSTIFICATIVES
+// =====================================================
+const filesModal = document.getElementById("filesModal");
+if (filesModal) {
 
-    const downloadAllBtn = document.getElementById("downloadAllBtn");
-    if (downloadAllBtn) {
-      downloadAllBtn.addEventListener("click", () => {
-        if (!window.currentId) return;
-        window.open(`/admin/files/download/${window.currentId}`, "_blank");
-      });
+  const downloadAllBtn = document.getElementById("downloadAllBtn");
+  if (downloadAllBtn) {
+    downloadAllBtn.addEventListener("click", () => {
+      if (!window.currentId) return;
+      window.open(`/admin/files/download/${window.currentId}`, "_blank");
+    });
+  }
+
+  // ✅ / ❌ Marquer une pièce conforme ou non conforme
+  filesModal.addEventListener("click", async (e) => {
+    const btn = e.target.closest(".btn.small");
+    if (!btn) return;
+
+    const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
+    const filename = btn.dataset.filename;
+
+    console.log("🧩 CLIC détecté :", { currentId: window.currentId, filename, decision });
+
+    if (!window.currentId) {
+      const tr = btn.closest("tr[data-id]");
+      if (tr) window.currentId = tr.dataset.id;
     }
 
-// ✅ / ❌ Marquer une pièce conforme ou non conforme
-filesModal.addEventListener("click", async (e) => {
-  const btn = e.target.closest(".btn.small");
-  if (!btn) return;
+    if (!window.currentId || !filename) {
+      console.warn("⚠️ currentId ou filename manquant !");
+      return;
+    }
 
-  const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
-  const filename = btn.dataset.filename;
+    btn.textContent = "⏳...";
+    btn.disabled = true;
 
-  // 🩺 LOG DEBUG pour vérifier
-  console.log("🧩 CLIC détecté :", { currentId: window.currentId, filename, decision });
+    const res = await fetch("/admin/files/mark", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: window.currentId, filename, decision })
+    });
 
-  // 🧠 Sécurité : si window.currentId est vide, on essaie de le retrouver
-  if (!window.currentId) {
-    const tr = btn.closest("tr[data-id]");
-    if (tr) window.currentId = tr.dataset.id;
-  }
+    const data = await res.json();
+    console.log("🧾 Réponse serveur :", data);
 
-  if (!window.currentId || !filename) {
-    console.warn("⚠️ currentId ou filename manquant !");
-    return;
-  }
-
-  btn.textContent = "⏳...";
-  btn.disabled = true;
-
-  const res = await fetch("/admin/files/mark", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id: window.currentId, filename, decision })
+    if (data.ok) {
+      showToast(
+        decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+        decision === "conforme" ? "#28a745" : "#d9534f"
+      );
+      await refreshCandidateStatus(window.currentId);
+      setTimeout(() => { openFilesModal(window.currentId); }, 500);
+    } else {
+      alert("Erreur : " + (data.error || "inconnue"));
+      btn.disabled = false;
+    }
   });
 
-  const data = await res.json();
-  console.log("🧾 Réponse serveur :", data);
-
-  if (data.ok) {
-    showToast(
-      decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
-      decision === "conforme" ? "#28a745" : "#d9534f"
-    );
-    await refreshCandidateStatus(window.currentId);
-    setTimeout(() => { openFilesModal(window.currentId); }, 500);
-  } else {
-    alert("Erreur : " + (data.error || "inconnue"));
-    btn.disabled = false;
-  }
-});
-
-
-  // === Vérifie "nouveaux documents" dans le tableau ===
+  // === Vérifie "nouveaux documents"
   document.querySelectorAll("tr[data-id]").forEach(tr => {
     if (tr.dataset.nouveau === "1") {
       const badge = document.createElement("span");
@@ -298,7 +296,10 @@ filesModal.addEventListener("click", async (e) => {
       tr.querySelector("td:last-child")?.appendChild(badge);
     }
   });
-}); // ✅ ici on ferme vraiment le DOMContentLoaded
+} // ✅ <-- FIN DU if(filesModal)
+
+}); // ✅ FIN DU DOMContentLoaded
+
 
 
 // =====================================================
