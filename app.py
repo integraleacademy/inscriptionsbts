@@ -688,15 +688,17 @@ def admin_export_json():
 def admin_files(cid):
     if not require_admin():
         abort(403)
+
     conn = db()
     row = get_candidat(conn, cid)
     if not row:
+        conn.close()
         abort(404)
 
     verif = load_verif_docs(row)
     files_data = []
 
-    # === Pièces principales ===
+    # === Étape 1 : Fichiers enregistrés en base ===
     for key, (field, label) in DOC_FIELDS.items():
         file_list = parse_list(row.get(field))
         for path in file_list:
@@ -711,41 +713,31 @@ def admin_files(cid):
                 "horodatage": status_info.get("horodatage", "")
             })
 
-    # === 🔄 Nouveaux fichiers redéposés (simplifié et robuste) ===
-    nouveaux = []
-    if str(row.get("nouveau_doc", "0")) in ("1", "true", "True"):
-        try:
-            meta = json.loads(row.get("replace_meta") or "{}")
-            nouveaux = meta.get("nouveaux_fichiers") or meta.get("nouveaux") or []
-        except Exception as e:
-            print("⚠️ Erreur lecture replace_meta :", e)
-            nouveaux = []
+    # === Étape 2 : Détection automatique des nouveaux fichiers sur le disque ===
+    try:
+        all_on_disk = [f for f in os.listdir(UPLOAD_DIR) if cid in f]
+    except Exception as e:
+        print(f"⚠️ Erreur lecture UPLOAD_DIR : {e}")
+        all_on_disk = []
 
-        # 🔎 Si la base est vide mais que le flag est à 1, on scanne le dossier uploads
-        if not nouveaux:
-            for f in os.listdir(UPLOAD_DIR):
-                if row["id"] in f:
-                    nouveaux.append(f)
+    existing_filenames = {os.path.basename(f["filename"]) for f in files_data}
+    nouveaux_detectes = []
 
-    for info in nouveaux:
-        if isinstance(info, str):
-            fname, label_piece = info, "📥 Nouveau document déposé"
-        else:
-            fname = info.get("fichier")
-            label_piece = f"📥 Nouveau document déposé — {info.get('label', 'Pièce justificative')}"
+    for f in all_on_disk:
+        if f not in existing_filenames:
+            full_path = os.path.join(UPLOAD_DIR, f)
+            if os.path.isfile(full_path):
+                files_data.append({
+                    "type": "nouveau",
+                    "label": "📥 Nouveau document déposé",
+                    "filename": f,
+                    "path": full_path,
+                    "status": "nouveau",
+                    "horodatage": datetime.fromtimestamp(os.path.getmtime(full_path)).strftime("%d/%m/%Y à %H:%M")
+                })
+                nouveaux_detectes.append(f)
 
-        full_path = os.path.join(UPLOAD_DIR, fname)
-        if os.path.exists(full_path):
-            files_data.append({
-                "type": "nouveau",
-                "label": label_piece,
-                "filename": fname,
-                "path": full_path,
-                "status": "nouveau",
-                "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M")
-            })
-
-    # ✅ Correction finale : marquer les nouveaux sans duplication
+    # === Étape 3 : Marquage des fichiers présents dans replace_meta (si applicable) ===
     if row.get("replace_meta"):
         try:
             meta = json.loads(row["replace_meta"])
@@ -754,22 +746,23 @@ def admin_files(cid):
                 if f["filename"] in nouveaux_fichiers:
                     f["type"] = "nouveau"
                     f["label"] = f"📥 Nouveau document déposé — {f['label']}"
-            # Supprime les doublons par nom de fichier
-            unique = []
-            seen = set()
-            for f in files_data:
-                if f["filename"] not in seen:
-                    unique.append(f)
-                    seen.add(f["filename"])
-            files_data = unique
         except Exception as e:
-            print("⚠️ Erreur détection fichiers nouveaux :", e)
+            print("⚠️ Erreur détection replace_meta :", e)
+
+    # === Étape 4 : Nettoyage des doublons ===
+    unique_files = []
+    seen = set()
+    for f in files_data:
+        if f["filename"] not in seen:
+            unique_files.append(f)
+            seen.add(f["filename"])
 
     conn.close()
 
-    # ✅ On garde trace que les nouveaux ont déjà été vus
+    print(f"📎 {len(unique_files)} fichiers trouvés pour {cid} (dont {len(nouveaux_detectes)} nouveaux)")
 
-    return jsonify(files_data)
+    return jsonify(unique_files)
+
 
 
 
