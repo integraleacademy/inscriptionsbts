@@ -891,19 +891,22 @@ def replace_files_submit():
         abort(404)
 
     row = dict(row)
-    files = request.files.getlist("fichiers")
-    if not files:
-        flash("Merci de sélectionner au moins un fichier.", "error")
-        return redirect(request.referrer or "/")
 
+    # 🔄 Récupère tous les fichiers envoyés, quel que soit le champ
     saved_paths = []
-    for f in files:
-        if not f.filename:
+    for key, f in request.files.items():
+        if not f or not f.filename:
             continue
         name = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(f.filename)
         path = os.path.join(UPLOAD_DIR, name)
         f.save(path)
         saved_paths.append(path)
+
+    if not saved_paths:
+        flash("Merci de sélectionner au moins un fichier.", "error")
+        return redirect(request.referrer or "/")
+
+
 
     # 🔁 Mise à jour du candidat : on sauvegarde aussi les nouveaux fichiers dans replace_meta
     meta = json.loads(row.get("replace_meta") or "{}")
