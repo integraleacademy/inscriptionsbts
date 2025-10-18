@@ -207,6 +207,36 @@ if (markDocsCheckedBtn) {
   });
 }
 
+    // 💾 Bouton "Enregistrer les nouveaux documents"
+const mergeDocsBtn = document.getElementById("mergeDocsBtn");
+if (mergeDocsBtn) {
+  mergeDocsBtn.addEventListener("click", async () => {
+    if (!window.currentId) return;
+    mergeDocsBtn.disabled = true;
+    mergeDocsBtn.textContent = "⏳ Enregistrement...";
+    try {
+      const res = await fetch("/admin/files/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: window.currentId })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        showToast("💾 Nouveaux documents enregistrés", "#28a745");
+        setTimeout(() => location.reload(), 800);
+      } else {
+        alert("Erreur : " + (data.error || "enregistrement impossible"));
+      }
+    } catch (err) {
+      alert("Erreur réseau : " + err);
+    } finally {
+      mergeDocsBtn.disabled = false;
+      mergeDocsBtn.textContent = "💾 Enregistrer les nouveaux documents";
+    }
+  });
+}
+
+
 
     // ✅ / ❌ Marquer une pièce conforme ou non conforme
     filesModal.addEventListener("click", async (e) => {
@@ -444,6 +474,7 @@ function closeFilesModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
