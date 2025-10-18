@@ -154,58 +154,76 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ main.js (Front) chargé avec succès");
 
   // =====================================================
-  // 🧾 SECTION ADMIN
-  // =====================================================
-  const table = document.querySelector('.admin-table');
-  if (table) {
+ // =====================================================
+// 🧾 SECTION ADMIN
+// =====================================================
+const table = document.querySelector('.admin-table');
+if (table) {
 
-    // 🔤 Modification champs inline
-    table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
-      td.addEventListener('blur', async () => {
-        const tr = td.closest('tr');
-        const id = tr.dataset.id;
-        const field = td.dataset.field;
-        const value = td.textContent.trim();
-        await fetch('/admin/update-field', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, field, value })
-        });
-        showToast("💾 Sauvegardé", "#28a745");
+  // 🔤 Modification champs inline
+  table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
+    td.addEventListener('blur', async () => {
+      const tr = td.closest('tr');
+      const id = tr.dataset.id;
+      const field = td.dataset.field;
+      const value = td.textContent.trim();
+      await fetch('/admin/update-field', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value })
       });
+      showToast("💾 Sauvegardé", "#28a745");
     });
+  });
 
-    // 🔄 Changement de statut
-    table.querySelectorAll('.status-select').forEach(sel => {
-      sel.addEventListener('change', async () => {
-        const tr = sel.closest('tr');
-        const id = tr.dataset.id;
-        const value = sel.value;
-        await fetch('/admin/update-status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, value })
-        });
-        showToast("📊 Statut mis à jour", "#007bff");
+  // 🔄 Changement de statut
+  table.querySelectorAll('.status-select').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const tr = sel.closest('tr');
+      const id = tr.dataset.id;
+      const value = sel.value;
+      await fetch('/admin/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, value })
       });
+      showToast("📊 Statut mis à jour", "#007bff");
     });
+  });
 
-    // ✅ Cases à cocher (labels)
-    table.querySelectorAll('input.chk').forEach(chk => {
-      chk.addEventListener('change', async () => {
-        const tr = chk.closest('tr');
-        const id = tr.dataset.id;
-        const field = chk.dataset.field;
-        const value = chk.checked ? 1 : 0;
-        await fetch('/admin/update-field', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, field, value })
-        });
-        showToast("🔖 Étiquette mise à jour");
+  // ✅ Cases à cocher (labels)
+  table.querySelectorAll('input.chk').forEach(chk => {
+    chk.addEventListener('change', async () => {
+      const tr = chk.closest('tr');
+      const id = tr.dataset.id;
+      const field = chk.dataset.field;
+      const value = chk.checked ? 1 : 0;
+      await fetch('/admin/update-field', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value })
       });
+      showToast("🔖 Étiquette mise à jour");
     });
-  }
+  });
+
+  // 🟢 Boutons d’action
+  table.querySelectorAll('.action-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      const commentaire = btn.dataset.commentaire || "";
+      openActionsModal(id, commentaire);
+    });
+  });
+
+  table.querySelectorAll('.files-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id;
+      openFilesModal(id);
+    });
+  });
+}
+
 
   // =====================================================
   // 📁 MODALE DES PIÈCES JUSTIFICATIVES
