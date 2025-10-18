@@ -715,7 +715,7 @@ def admin_files(cid):
 
     # === Étape 2 : Détection automatique des nouveaux fichiers sur le disque ===
     try:
-        all_on_disk = [f for f in os.listdir(UPLOAD_DIR) if cid in f]
+        all_on_disk = os.listdir(UPLOAD_DIR)
     except Exception as e:
         print(f"⚠️ Erreur lecture UPLOAD_DIR : {e}")
         all_on_disk = []
