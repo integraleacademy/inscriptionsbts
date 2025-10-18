@@ -280,8 +280,7 @@ filesModal.addEventListener("click", async (e) => {
       tr.querySelector("td:last-child")?.appendChild(badge);
     }
   });
-
-}); // fin du DOMContentLoaded
+}); // ✅ FIN DU DOMCONTENTLOADED — TOUT LE CODE FRONT + ADMIN EST DEDANS
 
 
 // =====================================================
@@ -367,37 +366,11 @@ function openFilesModal(id) {
     });
 }
 
-// 📩 Bouton "Enregistrer et notifier"
-const notifyBtn = document.getElementById("notifyNonConformesBtn");
-if (notifyBtn) {
-  notifyBtn.addEventListener("click", async () => {
-    if (!window.currentId) return;
-    const commentaire = document.getElementById("commentaireNonConforme").value.trim();
-    const res = await fetch("/admin/files/notify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: window.currentId, commentaire })
-    });
-    const data = await res.json();
-    if (data.ok) {
-      showToast("📧 Notification envoyée au candidat", "#007bff");
-      closeFilesModal();
-      await refreshCandidateStatus(window.currentId);
-    } else {
-      alert("Erreur : " + (data.error || "inconnue"));
-    }
-  });
-}
-
-
 function closeFilesModal() {
   const modal = document.getElementById("filesModal");
   if (modal) modal.classList.add("hidden");
 }
 
-// =====================================================
-// ⚙️ MODALE D’ACTIONS (PDF / SUPPRIMER / RECONFIRMATION)
-// =====================================================
 function openActionsModal(id, commentaire = "") {
   window.currentId = id;
   const modal = document.getElementById("actionsModal");
@@ -406,28 +379,23 @@ function openActionsModal(id, commentaire = "") {
   const printLink = document.getElementById("printLink");
   const reconfirmBtn = document.getElementById("reconfirmBtn");
   const deleteBtn = document.getElementById("deleteBtn");
-    // 📎 Ouvrir la modale des pièces justificatives depuis la modale d’actions
   const openFilesBtn = document.getElementById("openFilesFromActions");
+
   if (openFilesBtn) {
     openFilesBtn.onclick = () => {
-      closeActionsModal(); // on ferme la modale d’actions
-      openFilesModal(id);  // et on ouvre directement la modale des pièces justificatives
+      closeActionsModal();
+      openFilesModal(id);
     };
   }
-
 
   if (!modal) return;
   modal.classList.remove("hidden");
   if (commentBox) commentBox.value = commentaire || "";
 
-  // 🖨️ Imprimer PDF
   if (printLink) {
-    printLink.onclick = () => {
-      window.open(`/admin/print/${id}`, "_blank");
-    };
+    printLink.onclick = () => window.open(`/admin/print/${id}`, "_blank");
   }
 
-  // 🔁 Reconfirmation inscription
   if (reconfirmBtn) {
     reconfirmBtn.onclick = async () => {
       if (!confirm("Confirmer l’envoi du mail de reconfirmation ?")) return;
@@ -437,7 +405,6 @@ function openActionsModal(id, commentaire = "") {
     };
   }
 
-  // 🗑️ Supprimer
   if (deleteBtn) {
     deleteBtn.onclick = async () => {
       if (!confirm("⚠️ Supprimer définitivement cette fiche ?")) return;
@@ -450,7 +417,6 @@ function openActionsModal(id, commentaire = "") {
     };
   }
 
-  // 💾 Sauvegarde commentaire
   if (saveBtn) {
     saveBtn.onclick = async () => {
       const value = commentBox.value.trim();
@@ -472,6 +438,3 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
-
-
-
