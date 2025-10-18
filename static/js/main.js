@@ -461,4 +461,8 @@ function closeActionsModal() {
   if (modal) modal.classList.add("hidden");
 }
 
+window.openFilesModal = openFilesModal;
+window.openActionsModal = openActionsModal;
+
+
 
