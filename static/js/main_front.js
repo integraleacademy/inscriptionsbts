@@ -3,6 +3,21 @@ window.currentId = null;
 
 document.addEventListener("DOMContentLoaded", () => {
 
+  // === Écran d’intro avant formulaire ===
+const intro = document.getElementById("intro-screen");
+const formContainer = document.querySelector(".tabs-form");
+
+if (intro && formContainer) {
+  formContainer.style.display = "none"; // cache le formulaire au départ
+  document.getElementById("startForm").addEventListener("click", () => {
+    intro.style.display = "none";
+    formContainer.style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
+
+  
+
   // =====================================================
   // 🌐 NAVIGATION FORMULAIRE PUBLIC
   // =====================================================
@@ -282,6 +297,7 @@ function showFlash(message, type = "success") {
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
 
