@@ -836,6 +836,105 @@ tr.status-updated { animation: flashRow 1.5s ease; }
   display: none;
 }
 
+/* =======================================================
+   🎯 Correctifs visuels page ADMIN
+   ======================================================= */
+
+/* --- Boutons Export / Réinitialiser harmonisés --- */
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.admin-header .admin-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.admin-header .admin-actions .btn.secondary {
+  background: #fff;
+  border: 2px solid #f4c45a;
+  color: #111;
+  font-weight: 600;
+  text-decoration: none !important;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.admin-header .admin-actions .btn.secondary:hover {
+  background: #f4c45a;
+  color: #000;
+}
+
+/* --- Bouton Réinitialiser dans la barre de filtre --- */
+.filter-bar .btn.secondary {
+  background: #fff;
+  border: 2px solid #ccc;
+  color: #333;
+  font-weight: 600;
+  text-decoration: none !important;
+  padding: 8px 14px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+.filter-bar .btn.secondary:hover {
+  background: #eee;
+}
+
+/* --- Étiquettes alignées sur une seule ligne --- */
+.etiquettes {
+  white-space: nowrap;
+}
+.etiquettes label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 10px;
+  font-size: 13px;
+}
+
+/* --- Bouton ACTIONS dans tableau --- */
+.admin-table .action-btn {
+  background: #111;
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-transform: uppercase;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.admin-table .action-btn:hover {
+  background: #f4c45a;
+  color: #111;
+  transform: scale(1.05);
+}
+
+/* --- Nettoyage visuel tableau --- */
+.admin-table th, .admin-table td {
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+/* --- Supprime soulignement sur tous les boutons/lien dans admin --- */
+.admin-wrapper a, .admin-wrapper button {
+  text-decoration: none !important;
+}
+
+/* --- Filtre aligné proprement --- */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
 
 
 
