@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // === Validation des champs de l’étape ===
+  // === Validation des champs ===
   function validateStep(stepIndex) {
     const currentTab = tabs[stepIndex];
     const inputs = currentTab.querySelectorAll('input, select, textarea');
@@ -130,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
     email2.addEventListener('input', check);
   }
 
-  // === Bloc mineur (responsable légal) ===
+  // === Bloc mineur ===
   const birth = document.querySelector('input[name="date_naissance"]');
   const blocResp = document.getElementById('bloc-resp-legal');
   const hiddenMineur = document.getElementById('est_mineur');
@@ -176,9 +176,55 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // =====================================================
+  // 🎓 LOGIQUE SPÉCIFIQUE BTS MOS (CNAPS / APS)
+  // =====================================================
+  const btsSelect = document.querySelector('select[name="bts"]');
+  const mosSection = document.getElementById('mos-section');
+  const blocBacAutre = document.getElementById('bloc-bac-autre');
+  const mosExplication = document.getElementById('mos-explication');
+  const apsCheckbox = document.querySelector('input[name="aps_souhaitee"]');
+  const apsBloc = document.getElementById('bloc-aps-session');
+
+  // --- Afficher le bloc MOS quand le BTS MOS est choisi
+  if (btsSelect) {
+    btsSelect.addEventListener('change', () => {
+      if (btsSelect.value === 'MOS') {
+        mosSection.style.display = 'block';
+      } else {
+        mosSection.style.display = 'none';
+      }
+    });
+  }
+
+  // --- Afficher "autre bac"
+  const bacRadios = document.querySelectorAll('input[name="bac_status"]');
+  bacRadios.forEach(r => {
+    r.addEventListener('change', () => {
+      if (r.value === 'autre') {
+        blocBacAutre.style.display = 'block';
+      } else {
+        blocBacAutre.style.display = 'none';
+      }
+      // si CNAPS => affiche explication
+      if (r.value === 'carte_cnaps' || r.value === 'autre') {
+        mosExplication.style.display = 'block';
+      } else {
+        mosExplication.style.display = 'none';
+      }
+    });
+  });
+
+  // --- Bloc APS : apparition si case cochée
+  if (apsCheckbox && apsBloc) {
+    apsCheckbox.addEventListener('change', () => {
+      apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
+    });
+  }
+
   // === Initialisation ===
-  showStep(0); // première étape visible
-  refreshLocks(); // 🔒 initialise les cadenas
+  showStep(0);
+  refreshLocks();
   console.log("✅ main_front.js chargé avec succès");
 
-}); // ✅ fermeture du bloc DOMContentLoaded
+}); // ✅ fermeture DOMContentLoaded
