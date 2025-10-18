@@ -28,14 +28,14 @@
     {% block content %}{% endblock %}
   </main>
 
+  {# === Chargement conditionnel des scripts === #}
   {% if 'admin' in request.path %}
-  <script src="{{ url_for('static', filename='js/main_admin.js') }}" defer></script>
-{% else %}
-  <script src="{{ url_for('static', filename='js/main_front.js') }}" defer></script>
-{% endif %}
-
-
-
+    <script src="{{ url_for('static', filename='js/main_admin.js') }}" defer></script>
+  {% elif request.path.startswith('/replace-files') %}
+    {# Pas de JS front sur la page de remplacement des pièces #}
+  {% else %}
+    <script src="{{ url_for('static', filename='js/main_front.js') }}" defer></script>
+  {% endif %}
 
 </body>
 </html>
