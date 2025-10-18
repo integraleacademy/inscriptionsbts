@@ -302,6 +302,67 @@ function openFilesModal(id) {
   }
 }
 
+function openActionsModal(id, commentaire = "") {
+  window.currentId = id;
+  const modal = document.getElementById("actionsModal");
+  const commentBox = document.getElementById("commentBox");
+  const saveBtn = document.getElementById("saveCommentBtn");
+  const printLink = document.getElementById("printLink");
+  const reconfirmBtn = document.getElementById("reconfirmBtn");
+  const deleteBtn = document.getElementById("deleteBtn");
+  const openFilesBtn = document.getElementById("openFilesFromActions");
+
+  if (openFilesBtn) {
+    openFilesBtn.onclick = () => {
+      closeActionsModal();
+      openFilesModal(id);
+    };
+  }
+
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  if (commentBox) commentBox.value = commentaire || "";
+
+  if (printLink) {
+    printLink.onclick = () => window.open(`/admin/print/${id}`, "_blank");
+  }
+
+  if (reconfirmBtn) {
+    reconfirmBtn.onclick = async () => {
+      if (!confirm("Confirmer l’envoi du mail de reconfirmation ?")) return;
+      const res = await fetch(`/admin/reconfirm/${id}`, { method: "POST" });
+      if (res.ok) showToast("📧 Mail de reconfirmation envoyé", "#007bff");
+      closeActionsModal();
+    };
+  }
+
+  if (deleteBtn) {
+    deleteBtn.onclick = async () => {
+      if (!confirm("⚠️ Supprimer définitivement cette fiche ?")) return;
+      const res = await fetch(`/admin/delete/${id}`, { method: "POST" });
+      if (res.ok) {
+        showToast("🗑️ Fiche supprimée", "#d9534f");
+        document.querySelector(`tr[data-id='${id}']`)?.remove();
+      }
+      closeActionsModal();
+    };
+  }
+
+  if (saveBtn) {
+    saveBtn.onclick = async () => {
+      const value = commentBox.value.trim();
+      await fetch("/admin/update-field", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, field: "commentaires", value })
+      });
+      showToast("💬 Commentaire sauvegardé", "#28a745");
+      closeActionsModal();
+    };
+  }
+}
+
+
 
 function closeActionsModal() {
   const modal = document.getElementById("actionsModal");
@@ -310,6 +371,7 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
