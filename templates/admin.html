@@ -77,7 +77,7 @@
           <td contenteditable="true" data-field="tel">{{ r.tel }}</td>
           <td contenteditable="true" data-field="email">{{ r.email }}</td>
           <td>
-            <select data-field="statut" class="status-select" style="background: var(--{{ r.statut or 'preinscription' }});">
+            <select data-field="statut" class="status-select" data-statut="{{ r.statut or 'preinscription' }}">
               {% for key,label,color in statuts %}
                 <option value="{{ key }}" {% if r.statut==key %}selected{% endif %}>{{ label }}</option>
               {% endfor %}
