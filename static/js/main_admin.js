@@ -140,11 +140,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
           const data = await res.json();
           if (data.ok) {
-            showToast("📩 Notification envoyée au candidat", "#007bff");
-            setTimeout(() => closeFilesModal(), 1000);
-          } else {
-            alert("Erreur : " + (data.error || "notification impossible"));
-          }
+  showToast("📩 Notification envoyée au candidat", "#007bff");
+
+  // 🔄 Met à jour immédiatement le statut dans le tableau admin
+  const tr = document.querySelector(`tr[data-id='${window.currentId}']`);
+  if (tr) {
+    const select = tr.querySelector(".status-select");
+    if (select) {
+      select.value = "docs_non_conformes";
+      updateStatusColor(select);
+    }
+  }
+
+  setTimeout(() => closeFilesModal(), 1000);
+} else {
+  alert("Erreur : " + (data.error || "notification impossible"));
+}
+
         } catch (err) {
           alert("Erreur réseau : " + err);
         } finally {
@@ -430,5 +442,6 @@ function closeFilesModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
