@@ -24,7 +24,7 @@ def get_candidat(conn, cid):
     cur = conn.cursor()
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
     row = cur.fetchone()
-    return dict(row) if row else None
+    return dict(row) if row else Nonef
 
 def parse_list(v):
     """Convertit le JSON stocké des fichiers en vraie liste Python."""
@@ -632,6 +632,76 @@ def admin_files_mark():
     log_event(row, "DOC_MARK", {"file": fname, "decision": decision})
     print(f"✅ Pièce {fname} marquée comme {decision}")
     return jsonify({"ok": True, "horodatage": horodatage})
+
+# =====================================================
+# ✉️ NOTIFICATION DE DOCUMENTS NON CONFORMES
+# =====================================================
+
+@app.route("/admin/files/notify", methods=["POST"])
+def admin_files_notify():
+    if not require_admin():
+        abort(403)
+
+    data = request.json or {}
+    cid = data.get("id")
+    commentaire = (data.get("commentaire") or "").strip()
+
+    if not cid:
+        return jsonify({"ok": False, "error": "ID manquant"}), 400
+
+    conn = db()
+    row = get_candidat(conn, cid)
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
+
+    verif = load_verif_docs(row)
+
+    # 🔍 Lister les documents non conformes
+    non_conformes = [
+        f"{f} (le {v.get('horodatage')})"
+        for f, v in verif.items() if v.get("etat") == "non_conforme"
+    ]
+
+    if not non_conformes:
+        return jsonify({"ok": False, "error": "Aucune pièce non conforme"}), 400
+
+    recap = "\n".join(["• " + n for n in non_conformes])
+
+    # 🧩 Générer un token de remplacement valable 15 jours
+    token = new_token()
+    exp = (datetime.now() + timedelta(days=15)).isoformat()
+    cur = conn.cursor()
+    cur.execute("""
+        UPDATE candidats 
+        SET statut=?, replace_token=?, replace_token_exp=?, replace_meta=?, updated_at=? 
+        WHERE id=?
+    """, (
+        "docs_non_conformes",
+        token,
+        exp,
+        json.dumps({"pieces": non_conformes, "commentaire": commentaire}),
+        datetime.now().isoformat(),
+        cid
+    ))
+    conn.commit()
+    conn.close()
+
+    # ✉️ Envoi du mail au candidat
+    link = make_signed_link("/replace-files", token)
+    html = render_template(
+        "mail_docs_non_conformes.html",
+        prenom=row.get("prenom", ""),
+        pieces=non_conformes,
+        commentaire=commentaire,
+        link=link
+    )
+
+    send_mail(row.get("email", ""), "Documents non conformes – Intégrale Academy", html)
+    log_event(row, "MAIL_ENVOYE", {"type": "docs_non_conformes", "pieces": non_conformes})
+
+    return jsonify({"ok": True})
+
 
 
 
