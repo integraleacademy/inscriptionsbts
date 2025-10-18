@@ -944,6 +944,48 @@ tr.status-updated { animation: flashRow 1.5s ease; }
   color: #333;
 }
 
+/* =====================================================
+   🗑️ Bouton "Vider la base"
+   ===================================================== */
+.btn.danger {
+  background: #c0392b;
+  color: #fff;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.btn.danger:hover {
+  background: #e74c3c;
+}
+
+/* Alignement du bouton avec les autres dans l'entête admin */
+.admin-actions form {
+  display: inline-block;
+  margin-left: 10px;
+  vertical-align: middle;
+}
+
+/* Message de confirmation (flash message Flask) */
+.flash {
+  padding: 10px 14px;
+  margin: 15px 0;
+  border-radius: 6px;
+  font-weight: 500;
+}
+.flash.success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+.flash.error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
 
 
 
