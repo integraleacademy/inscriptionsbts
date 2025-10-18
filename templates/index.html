@@ -18,6 +18,47 @@
   <!-- ✅ Message de confirmation dynamique -->
 <div id="flashMessage" class="flash-message hidden"></div>
 
+  <!-- 🚀 Écran d’introduction -->
+<div id="intro-screen" class="intro-screen">
+  <h2>🕒 Avant de commencer votre pré-inscription</h2>
+  <p>Cette démarche dure environ <strong>5 minutes</strong>.</p>
+  <p>Merci de préparer à portée de main :</p>
+  <ul>
+    <li>🪪 Votre <strong>pièce d’identité (recto/verso)</strong></li>
+    <li>💳 Votre <strong>carte Vitale</strong></li>
+    <li>📸 Une <strong>photo d’identité</strong></li>
+    <li>📄 Votre <strong>CV</strong></li>
+    <li>🖋️ Votre <strong>lettre de motivation</strong></li>
+  </ul>
+  <p>🔒 Toutes vos données sont sauvegardées et sécurisées.</p>
+  <button id="startForm" class="btn primary" style="margin-top:15px;">🚀 Commencer ma pré-inscription</button>
+</div>
+
+  <style>
+.intro-screen {
+  text-align:center;
+  background:#fff8e1;
+  border-left:5px solid #f4c45a;
+  border-radius:10px;
+  padding:30px;
+  margin-bottom:30px;
+  animation: fadeIn 0.4s ease;
+}
+.intro-screen ul {
+  list-style:none;
+  padding:0;
+  margin:10px 0 20px 0;
+}
+.intro-screen li {
+  font-size:16px;
+  margin:5px 0;
+}
+@keyframes fadeIn {
+  from { opacity:0; transform:translateY(-10px); }
+  to { opacity:1; transform:translateY(0); }
+}
+</style>
+
 
   <form id="inscriptionForm" class="tabs-form" method="post" action="{{ url_for('submit') }}" enctype="multipart/form-data">
     <div class="tabs">
