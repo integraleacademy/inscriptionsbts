@@ -642,6 +642,8 @@ def admin_files(cid):
 
     verif = load_verif_docs(row)
     files_data = []
+
+    # === Pièces principales ===
     for key, (field, label) in DOC_FIELDS.items():
         file_list = parse_list(row.get(field))
         for path in file_list:
@@ -655,24 +657,29 @@ def admin_files(cid):
                 "status": status_info.get("etat", "en_attente"),
                 "horodatage": status_info.get("horodatage", "")
             })
-    # 🔁 Inclure les nouveaux fichiers redéposés
-    meta = json.loads(row.get("replace_meta") or "{}")
-    nouveaux = meta.get("nouveaux_fichiers", [])
+
+    # === Nouveaux fichiers redéposés ===
+    try:
+        meta = json.loads(row.get("replace_meta") or "{}")
+        nouveaux = meta.get("nouveaux_fichiers", [])
+    except Exception:
+        nouveaux = []
+
     for fname in nouveaux:
-        path = os.path.join(UPLOAD_DIR, fname)
-        files_data.append({
-            "type": "nouveau",
-            "label": "📥 Nouveau document déposé",
-            "filename": fname,
-            "path": path,
-            "status": "nouveau",
-            "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M")
-        })
-
-
+        full_path = os.path.join(UPLOAD_DIR, fname)
+        if os.path.exists(full_path):
+            files_data.append({
+                "type": "nouveau",
+                "label": "📥 Nouveau document déposé",
+                "filename": fname,
+                "path": full_path,
+                "status": "nouveau",
+                "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M")
+            })
 
     conn.close()
     return jsonify(files_data)
+
 
 
 @app.route("/admin/files/mark", methods=["POST"])
