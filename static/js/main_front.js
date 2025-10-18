@@ -170,6 +170,14 @@ function validateStep(stepIndex) {
   const form = document.querySelector('form');
   if (form) {
     form.addEventListener('submit', (e) => {
+          // Vérifie qu'un mode de formation est choisi (présentiel / distanciel)
+    const modeSelected = document.querySelector('input[name="mode"]:checked');
+    if (!modeSelected) {
+      e.preventDefault();
+      alert("⚠️ Merci de choisir un mode de formation (présentiel ou distanciel).");
+      return;
+    }
+
       const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
       for (const name of pdfOnlyFields) {
         const input = form.querySelector(`input[name="${name}"]`);
@@ -274,6 +282,7 @@ function showFlash(message, type = "success") {
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
 
