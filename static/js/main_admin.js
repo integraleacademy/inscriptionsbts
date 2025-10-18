@@ -130,17 +130,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
       const filename = btn.dataset.filename;
 
-      console.log("🧩 CLIC détecté :", { currentId: window.currentId, filename, decision });
-
       if (!window.currentId) {
         const tr = btn.closest("tr[data-id]");
         if (tr) window.currentId = tr.dataset.id;
       }
 
-      if (!window.currentId || !filename) {
-        console.warn("⚠️ currentId ou filename manquant !");
-        return;
-      }
+      if (!window.currentId || !filename) return;
 
       btn.textContent = "⏳...";
       btn.disabled = true;
@@ -152,8 +147,6 @@ document.addEventListener("DOMContentLoaded", () => {
       });
 
       const data = await res.json();
-      console.log("🧾 Réponse serveur :", data);
-
       if (data.ok) {
         showToast(
           decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
@@ -173,7 +166,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         await refreshCandidateStatus(window.currentId);
-        // 🔁 Rafraîchit la liste des non conformes sans recharger la modale
         setTimeout(() => refreshNonConformesList(window.currentId), 500);
 
       } else {
@@ -287,6 +279,20 @@ function openFilesModal(id) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, field: "nouveau_doc", value: 0 })
   });
+
+  // ✅ Supprime le badge visuellement dès ouverture
+  const tr = document.querySelector(`tr[data-id='${id}']`);
+  if (tr) {
+    const badge = tr.querySelector("span");
+    if (badge && badge.textContent.includes("Nouveau document déposé")) {
+      badge.remove();
+    }
+  }
+}
+
+function closeFilesModal() {
+  const modal = document.getElementById("filesModal");
+  if (modal) modal.classList.add("hidden");
 }
 
 // 🔁 Rafraîchit uniquement la liste "Pièces non conformes" sans recharger toute la modale
@@ -307,11 +313,6 @@ async function refreshNonConformesList(id) {
   } catch (err) {
     console.error("Erreur refreshNonConformesList:", err);
   }
-}
-
-function closeFilesModal() {
-  const modal = document.getElementById("filesModal");
-  if (modal) modal.classList.add("hidden");
 }
 
 function openActionsModal(id, commentaire = "") {
