@@ -225,6 +225,31 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // =====================================================
+// 💾 ENREGISTRER ET REPRENDRE PLUS TARD
+// =====================================================
+document.querySelectorAll('.btn.save').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const form = document.querySelector('#inscriptionForm');
+    const formData = new FormData(form);
+
+    // Sauvegarde la position actuelle (étape)
+    formData.append('current_step', currentStep);
+
+    const response = await fetch('/save_draft', {
+      method: 'POST',
+      body: formData
+    });
+
+    if (response.ok) {
+      alert("✅ Votre demande a été enregistrée. Un e-mail vous sera envoyé avec le lien pour la reprendre plus tard.");
+    } else {
+      alert("❌ Erreur lors de l'enregistrement. Veuillez réessayer.");
+    }
+  });
+});
+
+
   // === Initialisation ===
   showStep(0);
   refreshLocks();
@@ -261,4 +286,5 @@ if (saveDraftBtn) {
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
