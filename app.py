@@ -892,7 +892,7 @@ def admin_files_merge():
 
         # Trouver la colonne correspondante selon le label
         for key, (col, label_ref) in DOC_FIELDS.items():
-            if label_ref in label:
+            if label_ref in label or label in label_ref:
                 cur = conn.cursor()
                 lst = parse_list(row.get(col))
                 lst.append(os.path.join(UPLOAD_DIR, fname))
