@@ -354,6 +354,37 @@ def save_draft():
     send_mail(email, "Reprendre votre pré-inscription", html)
     return jsonify({"ok": True})
 
+    # =====================================================
+# 🔁 ROUTE DE REPRISE DU FORMULAIRE
+# =====================================================
+@app.route("/reprendre/<token>")
+def reprendre_formulaire(token):
+    import json, os
+    from flask import abort
+
+    DATA_DIR = os.getenv("DATA_DIR", "/data")
+    DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
+
+    if not os.path.exists(DRAFT_PATH):
+        abort(404)
+
+    with open(DRAFT_PATH, "r", encoding="utf-8") as f:
+        try:
+            drafts = json.load(f)
+        except:
+            drafts = []
+
+    draft = next((d for d in drafts if d["token"] == token), None)
+    if not draft:
+        abort(404)
+
+    data = draft["data"]
+    step = int(draft["step"])
+
+    # 🧩 On renvoie le formulaire principal avec les données sauvegardées
+    return render_template("index.html", saved_data=data, step=step, title="Reprendre votre demande")
+
+
 
 @app.route("/submit", methods=["POST"])
 def submit():
