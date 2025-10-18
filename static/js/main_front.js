@@ -225,38 +225,50 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // =====================================================
-// 💾 ENREGISTRER ET REPRENDRE PLUS TARD
+ // =====================================================
+// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (avec bannière visuelle)
 // =====================================================
 document.querySelectorAll('.btn.save').forEach(btn => {
   btn.addEventListener('click', async () => {
     const form = document.querySelector('#inscriptionForm');
     const formData = new FormData(form);
+    const flash = document.getElementById("flashMessage");
 
-    // Sauvegarde la position actuelle (étape)
     formData.append('current_step', currentStep);
 
-    const response = await fetch('/save_draft', {
-      method: 'POST',
-      body: formData
-    });
+    try {
+      const response = await fetch('/save_draft', {
+        method: 'POST',
+        body: formData
+      });
 
-    if (response.ok) {
-      alert("✅ Votre demande a été enregistrée. Un e-mail vous sera envoyé avec le lien pour la reprendre plus tard.");
-    } else {
-      alert("❌ Erreur lors de l'enregistrement. Veuillez réessayer.");
+      if (response.ok) {
+        showFlash("✅ Votre demande a été enregistrée. Un e-mail vous a été envoyé pour la reprendre plus tard.", "success");
+      } else {
+        showFlash("❌ Erreur lors de l'enregistrement. Veuillez réessayer.", "error");
+      }
+    } catch (e) {
+      showFlash("❌ Une erreur est survenue. Vérifiez votre connexion.", "error");
     }
   });
 });
 
+// --- Fonction d’affichage du message dynamique ---
+function showFlash(message, type = "success") {
+  const flash = document.getElementById("flashMessage");
+  if (!flash) return;
+  flash.textContent = message;
+  flash.className = `flash-message ${type} visible`;
+  setTimeout(() => {
+    flash.classList.remove("visible");
+    flash.classList.add("hidden");
+  }, 6000); // disparaît après 6 secondes
+}
 
-  // === Initialisation ===
-  showStep(0);
-  refreshLocks();
-  console.log("✅ main_front.js chargé avec succès");
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
 
