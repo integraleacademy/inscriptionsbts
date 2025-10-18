@@ -89,6 +89,39 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // 📨 Bouton "Enregistrer et notifier le candidat"
+    const notifyBtn = document.getElementById("notifyNonConformesBtn");
+    if (notifyBtn) {
+      notifyBtn.addEventListener("click", async () => {
+        if (!window.currentId) return;
+        const commentaire = document.getElementById("commentaireNonConforme").value.trim();
+
+        notifyBtn.disabled = true;
+        notifyBtn.textContent = "⏳ Envoi en cours...";
+
+        try {
+          const res = await fetch("/admin/files/notify-nonconformes", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id: window.currentId, commentaire })
+          });
+
+          const data = await res.json();
+          if (data.ok) {
+            showToast("📩 Notification envoyée au candidat", "#007bff");
+            setTimeout(() => closeFilesModal(), 1000);
+          } else {
+            alert("Erreur : " + (data.error || "notification impossible"));
+          }
+        } catch (err) {
+          alert("Erreur réseau : " + err);
+        } finally {
+          notifyBtn.disabled = false;
+          notifyBtn.textContent = "📩 Enregistrer et notifier le candidat";
+        }
+      });
+    }
+
     // ✅ / ❌ Marquer une pièce conforme ou non conforme
     filesModal.addEventListener("click", async (e) => {
       const btn = e.target.closest(".btn.small");
@@ -126,6 +159,19 @@ document.addEventListener("DOMContentLoaded", () => {
           decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
           decision === "conforme" ? "#28a745" : "#d9534f"
         );
+
+        // ✅ MAJ immédiate de la liste des pièces non conformes
+        if (decision === "non_conforme") {
+          const nonList = document.getElementById("nonConformesList");
+          if (nonList) {
+            const item = document.createElement("li");
+            item.textContent = filename + " (" + new Date().toLocaleString() + ")";
+            nonList.appendChild(item);
+            const first = nonList.querySelector("li");
+            if (first && first.textContent.includes("Aucune")) first.remove();
+          }
+        }
+
         await refreshCandidateStatus(window.currentId);
         setTimeout(() => { openFilesModal(window.currentId); }, 500);
       } else {
