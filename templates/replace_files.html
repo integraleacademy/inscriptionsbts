@@ -11,10 +11,23 @@
     <input type="hidden" name="sig" value="{{ sig }}">
 
     {% for piece in pieces %}
-    <div style="margin:20px 0;padding:15px;border:1px solid #ccc;border-radius:8px;">
-      <p style="margin:0;font-weight:600;">{{ piece }}</p>
-      <input type="file" name="piece_{{ loop.index }}" required style="margin-top:8px;">
-    </div>
+      {% set type_piece = "" %}
+      {% if "identité" in piece or "passeport" in piece %}
+        {% set type_piece = "ci" %}
+      {% elif "photo" in piece %}
+        {% set type_piece = "photo" %}
+      {% elif "vitale" in piece %}
+        {% set type_piece = "carte_vitale" %}
+      {% elif "cv" in piece or "C.V" in piece %}
+        {% set type_piece = "cv" %}
+      {% elif "motivation" in piece %}
+        {% set type_piece = "lm" %}
+      {% endif %}
+
+      <div style="margin:20px 0;padding:15px;border:1px solid #ccc;border-radius:8px;">
+        <p style="margin:0;font-weight:600;">{{ piece }}</p>
+        <input type="file" name="{{ type_piece or ('piece_' ~ loop.index) }}" required style="margin-top:8px;">
+      </div>
     {% endfor %}
 
     {% if commentaire %}
