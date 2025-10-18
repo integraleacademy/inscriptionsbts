@@ -280,7 +280,7 @@ filesModal.addEventListener("click", async (e) => {
       tr.querySelector("td:last-child")?.appendChild(badge);
     }
   });
-}); // ✅ FIN DU DOMCONTENTLOADED — TOUT LE CODE FRONT + ADMIN EST DEDANS
+}); // ✅ ici on ferme vraiment le DOMContentLoaded
 
 
 // =====================================================
@@ -438,3 +438,4 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
