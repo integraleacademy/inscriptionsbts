@@ -655,6 +655,21 @@ def admin_files(cid):
                 "status": status_info.get("etat", "en_attente"),
                 "horodatage": status_info.get("horodatage", "")
             })
+    # 🔁 Inclure les nouveaux fichiers redéposés
+    meta = json.loads(row.get("replace_meta") or "{}")
+    nouveaux = meta.get("nouveaux_fichiers", [])
+    for fname in nouveaux:
+        path = os.path.join(UPLOAD_DIR, fname)
+        files_data.append({
+            "type": "nouveau",
+            "label": "📥 Nouveau document déposé",
+            "filename": fname,
+            "path": path,
+            "status": "nouveau",
+            "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M")
+        })
+
+
 
     conn.close()
     return jsonify(files_data)
@@ -873,12 +888,25 @@ def replace_files_submit():
         f.save(path)
         saved_paths.append(path)
 
-    # 🔁 Mise à jour du candidat
+    # 🔁 Mise à jour du candidat : on sauvegarde aussi les nouveaux fichiers dans replace_meta
+    meta = json.loads(row.get("replace_meta") or "{}")
+    meta["nouveaux_fichiers"] = [os.path.basename(p) for p in saved_paths]
+
     cur.execute("""
         UPDATE candidats
-        SET nouveau_doc=1, statut=?, updated_at=?
+        SET nouveau_doc=1,
+            statut=?,
+            replace_meta=?,
+            updated_at=?
         WHERE id=?
-    """, ("preinscription", datetime.now().isoformat(), row["id"]))
+    """, (
+        "preinscription",
+        json.dumps(meta, ensure_ascii=False),
+        datetime.now().isoformat(),
+        row["id"]
+    ))
+
+
     conn.commit()
     conn.close()
 
