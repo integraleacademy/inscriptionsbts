@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; color: #222; }
+    .btn {
+      display: inline-block;
+      background: #f4c45a;
+      color: #000;
+      font-weight: bold;
+      padding: 10px 20px;
+      text-decoration: none;
+      border-radius: 6px;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <p>Bonjour {{ prenom }},</p>
+  <p>Après vérification de vos pièces justificatives, certaines ne sont pas conformes :</p>
+
+  <ul>
+    {% for p in pieces %}
+      <li>{{ p }}</li>
+    {% endfor %}
+  </ul>
+
+  {% if commentaire %}
+    <p><strong>Commentaire :</strong><br>{{ commentaire }}</p>
+  {% endif %}
+
+  <p>Merci de nous renvoyer les documents corrigés en cliquant sur le bouton ci-dessous :</p>
+
+  <p><a href="{{ link }}" class="btn">📤 Envoyer mes nouveaux documents</a></p>
+
+  <p>— L’équipe Intégrale Academy</p>
+</body>
+</html>
