@@ -25,22 +25,31 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // 🔄 Changement de statut
+    // 🔄 Changement de statut + mise à jour couleur
     table.querySelectorAll('.status-select').forEach(sel => {
       sel.addEventListener('change', async () => {
         const tr = sel.closest('tr');
         const id = tr.dataset.id;
         const value = sel.value;
+
+        // 🟢 Met à jour la couleur immédiatement
+        updateStatusColor(sel);
+
+        // 💾 Sauvegarde côté serveur
         await fetch('/admin/update-status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id, value })
         });
+
+        // ✅ Message + effet visuel
         showToast("📊 Statut mis à jour", "#007bff");
+        tr.classList.add("status-updated");
+        setTimeout(() => tr.classList.remove("status-updated"), 1500);
       });
     });
 
-    // ✅ Cases à cocher (labels)
+    // ✅ Cases à cocher (étiquettes)
     table.querySelectorAll('input.chk').forEach(chk => {
       chk.addEventListener('change', async () => {
         const tr = chk.closest('tr');
@@ -56,7 +65,7 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // 🟢 Boutons d’action
+    // ⚙️ Boutons ACTIONS
     table.querySelectorAll('.action-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.dataset.id;
@@ -73,6 +82,29 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
   } // ✅ FIN if(table)
+
+
+
+  // =====================================================
+  // 🎨 Appliquer la bonne couleur au select selon son statut
+  // =====================================================
+  function updateStatusColor(sel) {
+    const val = sel.value;
+    const root = getComputedStyle(document.documentElement);
+    let color = root.getPropertyValue(`--${val}`).trim();
+    if (!color) color = "#7d7d7d"; // gris par défaut
+    sel.style.background = color;
+    sel.style.color = (val === "confirmee") ? "#111" : "#fff";
+  }
+
+  // ✅ Initialisation des couleurs au chargement
+  document.querySelectorAll('.status-select').forEach(sel => updateStatusColor(sel));
+
+  // ✅ Ré-application de sécurité après 200ms
+  setTimeout(() => {
+    document.querySelectorAll('.status-select').forEach(sel => updateStatusColor(sel));
+  }, 200);
+
 
 
   // =====================================================
@@ -166,15 +198,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         await refreshCandidateStatus(window.currentId);
-
-
       } else {
         alert("Erreur : " + (data.error || "inconnue"));
         btn.disabled = false;
       }
     });
-
-
   } // ✅ FIN if(filesModal)
 
 }); // ✅ FIN DOMContentLoaded
@@ -206,11 +234,7 @@ async function refreshCandidateStatus(id) {
   const data = await res.json();
   if (data.ok && data.statut) {
     const select = row.querySelector(".status-select");
-    if (select) {
-      select.value = data.statut;
-      select.style.background = "black";
-      select.style.color = "white";
-    }
+    if (select) updateStatusColor(select);
   }
 }
 
@@ -234,10 +258,9 @@ function openFilesModal(id) {
 
       list.innerHTML = "";
       const nonConformes = [];
-      let nouveauBlocAjoute = false; // ✅ évite le double affichage du bloc “Nouveau document déposé”
+      let nouveauBlocAjoute = false;
 
       files.forEach(f => {
-        // 🆕 Si c’est un nouveau document déposé → bloc spécifique en haut une seule fois
         if (f.type === "nouveau") {
           if (!nouveauBlocAjoute) {
             const bloc = document.createElement("div");
@@ -252,10 +275,9 @@ function openFilesModal(id) {
             list.prepend(bloc);
             nouveauBlocAjoute = true;
           }
-          return; // on ne traite pas les boutons conforme/non conforme ici
+          return;
         }
 
-        // 📎 Documents classiques
         const div = document.createElement("div");
         div.className = "file-item";
         div.innerHTML = `
@@ -285,20 +307,16 @@ function openFilesModal(id) {
       console.error(err);
     });
 
-  // ✅ Réinitialise le flag "nouveau_doc" après consultation
   fetch(`/admin/update-field`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ id, field: "nouveau_doc", value: 0 })
   });
 
-  // ✅ Supprime le badge “Nouveau document déposé” dans la table dès ouverture
   const tr = document.querySelector(`tr[data-id='${id}']`);
   if (tr) {
     const badge = tr.querySelector("span");
-    if (badge && badge.textContent.includes("Nouveau document déposé")) {
-      badge.remove();
-    }
+    if (badge && badge.textContent.includes("Nouveau document déposé")) badge.remove();
   }
 }
 
@@ -323,9 +341,7 @@ function openActionsModal(id, commentaire = "") {
   modal.classList.remove("hidden");
   if (commentBox) commentBox.value = commentaire || "";
 
-  if (printLink) {
-    printLink.onclick = () => window.open(`/admin/print/${id}`, "_blank");
-  }
+  if (printLink) printLink.onclick = () => window.open(`/admin/print/${id}`, "_blank");
 
   if (reconfirmBtn) {
     reconfirmBtn.onclick = async () => {
@@ -362,23 +378,13 @@ function openActionsModal(id, commentaire = "") {
   }
 }
 
-
-
 function closeActionsModal() {
-  const modal = document.getElementById("actionsModal");
-  if (modal) modal.classList.add("hidden");
+  document.getElementById("actionsModal")?.classList.add("hidden");
 }
 
 function closeFilesModal() {
-  const modal = document.getElementById("filesModal");
-  if (modal) modal.classList.add("hidden");
+  document.getElementById("filesModal")?.classList.add("hidden");
 }
-
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
-
-
-
-
-
