@@ -174,17 +174,7 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
 
-    // === Vérifie "nouveaux documents"
-    document.querySelectorAll("tr[data-id]").forEach(tr => {
-      if (tr.dataset.nouveau === "1") {
-        const badge = document.createElement("span");
-        badge.textContent = "📥 Nouveau document déposé";
-        badge.style.color = "#28a745";
-        badge.style.fontWeight = "600";
-        badge.style.marginLeft = "8px";
-        tr.querySelector("td:last-child")?.appendChild(badge);
-      }
-    });
+
   } // ✅ FIN if(filesModal)
 
 }); // ✅ FIN DOMContentLoaded
@@ -382,4 +372,5 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
