@@ -255,36 +255,8 @@ document.querySelectorAll('.btn.save').forEach(btn => {
   refreshLocks();
   console.log("✅ main_front.js chargé avec succès");
 
-  // =====================================================
-// 💾 Enregistrement du brouillon ("reprendre plus tard")
-// =====================================================
-const saveDraftBtn = document.getElementById("saveDraftBtn");
-if (saveDraftBtn) {
-  saveDraftBtn.addEventListener("click", async () => {
-    const form = document.querySelector("form");
-    const formData = new FormData(form);
-    formData.append("current_step", currentStep);
-
-    try {
-      const response = await fetch("/save_draft", {
-        method: "POST",
-        body: formData
-      });
-      const result = await response.json();
-
-      if (result.ok) {
-        alert("✅ Votre demande a été enregistrée. Un lien pour la reprendre vous a été envoyé par e-mail !");
-      } else {
-        alert("❌ Erreur lors de l'enregistrement : " + (result.error || 'inconnue'));
-      }
-    } catch (err) {
-      alert("❌ Une erreur est survenue. Vérifiez votre connexion internet.");
-      console.error(err);
-    }
-  });
-}
-
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
