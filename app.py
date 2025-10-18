@@ -46,6 +46,13 @@ def load_verif_docs(row):
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
+import os
+
+@app.template_filter('basename')
+def basename_filter(path):
+    """Retourne juste le nom du fichier sans le chemin complet"""
+    return os.path.basename(path or "")
+
 
 # =====================================================
 # 💾 CONFIGURATION DU STOCKAGE PERSISTANT (Render)
