@@ -46,7 +46,7 @@ def load_verif_docs(row):
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
-import os
+
 
 @app.template_filter('basename')
 def basename_filter(path):
@@ -681,21 +681,27 @@ def admin_files(cid):
                 if row["id"] in f:
                     nouveaux.append(f)
 
-    for fname in nouveaux:
+    for info in nouveaux:
+        if isinstance(info, str):
+            fname, label_piece = info, "📥 Nouveau document déposé"
+        else:
+            fname = info.get("fichier")
+            label_piece = f"📥 Nouveau document déposé — {info.get('label', 'Pièce justificative')}"
+
         full_path = os.path.join(UPLOAD_DIR, fname)
         if os.path.exists(full_path):
             files_data.append({
                 "type": "nouveau",
-                "label": "📥 Nouveau document déposé",
+                "label": label_piece,
                 "filename": fname,
                 "path": full_path,
                 "status": "nouveau",
                 "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M")
             })
 
-
     conn.close()
     return jsonify(files_data)
+
 
 
 
@@ -899,25 +905,25 @@ def replace_files_submit():
 
     row = dict(row)
 
-    # 🔄 Récupère tous les fichiers envoyés, quel que soit le champ
-    saved_paths = []
+    # 🔁 Mise à jour du candidat : on sauvegarde aussi les nouveaux fichiers dans replace_meta
+    meta = json.loads(row.get("replace_meta") or "{}")
+
+    # 🆕 On capture à la fois le nom du fichier et le champ d'origine
+    nouveaux_meta = []
     for key, f in request.files.items():
         if not f or not f.filename:
             continue
         name = datetime.now().strftime("%Y%m%d%H%M%S_") + secure_filename(f.filename)
         path = os.path.join(UPLOAD_DIR, name)
         f.save(path)
-        saved_paths.append(path)
+        label_piece = DOC_FIELDS.get(key, ("", key))[1]  # récupère le label lisible si dispo
+        nouveaux_meta.append({
+            "fichier": os.path.basename(path),
+            "type": key,
+            "label": label_piece
+        })
 
-    if not saved_paths:
-        flash("Merci de sélectionner au moins un fichier.", "error")
-        return redirect(request.referrer or "/")
-
-
-
-    # 🔁 Mise à jour du candidat : on sauvegarde aussi les nouveaux fichiers dans replace_meta
-    meta = json.loads(row.get("replace_meta") or "{}")
-    meta["nouveaux_fichiers"] = [os.path.basename(p) for p in saved_paths]
+    meta["nouveaux_fichiers"] = nouveaux_meta
 
     cur.execute("""
         UPDATE candidats
@@ -933,7 +939,6 @@ def replace_files_submit():
         row["id"]
     ))
 
-
     conn.commit()
     conn.close()
 
@@ -943,14 +948,15 @@ def replace_files_submit():
         numero=row.get("numero_dossier", ""),
         nom=row.get("nom", ""),
         prenom=row.get("prenom", ""),
-        fichiers=[os.path.basename(p) for p in saved_paths]
+        fichiers=[n["fichier"] for n in nouveaux_meta]
     )
     from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
     send_mail(from_addr, f"[ADMIN] Nouvelles pièces déposées ({row.get('numero_dossier')})", admin_html)
 
-    log_event(row, "DOCS_RENVOYES", {"files": saved_paths})
+    log_event(row, "DOCS_RENVOYES", {"files": [n["fichier"] for n in nouveaux_meta]})
 
-    return render_template("replace_ok.html", title="Merci", fichiers=saved_paths)
+    return render_template("replace_ok.html", title="Merci", fichiers=[n["fichier"] for n in nouveaux_meta])
+
 
 
 
