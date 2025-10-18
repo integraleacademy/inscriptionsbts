@@ -746,6 +746,18 @@ def admin_files(cid):
                 "horodatage": datetime.now().strftime("%d/%m/%Y à %H:%M")
             })
 
+    # ✅ Correction : marquer les fichiers nouveaux à partir de replace_meta
+    if row.get("replace_meta"):
+        try:
+            meta = json.loads(row["replace_meta"])
+            nouveaux = [x["fichier"] for x in meta.get("nouveaux_fichiers", [])]
+            for f in files_data:
+                if f["filename"] in nouveaux:
+                    f["type"] = "nouveau"
+                    f["label"] = f"📥 Nouveau document déposé — {f['label']}"
+        except Exception as e:
+            print("⚠️ Erreur détection fichiers nouveaux :", e)
+
     conn.close()
     return jsonify(files_data)
 
