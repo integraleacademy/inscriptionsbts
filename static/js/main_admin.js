@@ -154,6 +154,36 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
+    // ✅ Bouton "Nouveau document contrôlé"
+const markDocsCheckedBtn = document.getElementById("markDocsCheckedBtn");
+if (markDocsCheckedBtn) {
+  markDocsCheckedBtn.addEventListener("click", async () => {
+    if (!window.currentId) return;
+    markDocsCheckedBtn.disabled = true;
+    markDocsCheckedBtn.textContent = "⏳ Mise à jour...";
+    try {
+      await fetch("/admin/update-field", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: window.currentId, field: "nouveau_doc", value: 0 })
+      });
+      // ✅ Enlève le badge côté interface
+      const tr = document.querySelector(`tr[data-id='${window.currentId}']`);
+      if (tr) {
+        const badge = tr.querySelector("span");
+        if (badge && badge.textContent.includes("Nouveau document déposé")) badge.remove();
+      }
+      showToast("✅ Document marqué comme contrôlé", "#28a745");
+    } catch (err) {
+      alert("Erreur : " + err);
+    } finally {
+      markDocsCheckedBtn.disabled = false;
+      markDocsCheckedBtn.textContent = "✅ Nouveau document contrôlé";
+    }
+  });
+}
+
+
     // ✅ / ❌ Marquer une pièce conforme ou non conforme
     filesModal.addEventListener("click", async (e) => {
       const btn = e.target.closest(".btn.small");
@@ -388,3 +418,4 @@ function closeFilesModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
