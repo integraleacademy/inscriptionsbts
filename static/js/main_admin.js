@@ -173,7 +173,10 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         await refreshCandidateStatus(window.currentId);
-        setTimeout(() => { openFilesModal(window.currentId); }, 500);
+        setTimeout(() => { openFilesModal(window.currentId); },setTimeout(() => {
+  refreshNonConformesList(window.currentId);
+}, 500);
+ 500);
       } else {
         alert("Erreur : " + (data.error || "inconnue"));
         btn.disabled = false;
@@ -345,6 +348,27 @@ function openActionsModal(id, commentaire = "") {
   }
 }
 
+// 🔁 Rafraîchit uniquement la liste "Pièces non conformes" sans recharger toute la modale
+async function refreshNonConformesList(id) {
+  const nonList = document.getElementById("nonConformesList");
+  if (!nonList) return;
+  try {
+    const res = await fetch(`/admin/files/${id}`);
+    const files = await res.json();
+    const nonConformes = files.filter(f => f.status === "non_conforme");
+    if (nonConformes.length) {
+      nonList.innerHTML = nonConformes
+        .map(f => `<li>${f.filename} (${f.horodatage || ""})</li>`)
+        .join("");
+    } else {
+      nonList.innerHTML = "<li>Aucune pièce non conforme</li>";
+    }
+  } catch (err) {
+    console.error("Erreur refreshNonConformesList:", err);
+  }
+}
+
+
 function closeActionsModal() {
   const modal = document.getElementById("actionsModal");
   if (modal) modal.classList.add("hidden");
@@ -352,4 +376,5 @@ function closeActionsModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
