@@ -212,6 +212,57 @@ function validateStep(stepIndex) {
   // 🎓 LOGIQUE SPÉCIFIQUE BTS MOS (CNAPS / APS)
   // =====================================================
   const btsSelect = document.querySelector('select[name="bts"]');
+  // === Bloc d'informations rassurant selon le BTS choisi ===
+const formationInfo = document.getElementById("formation-info");
+
+if (btsSelect && formationInfo) {
+  const infos = {
+    "MOS": `
+      <h4>🎓 BTS MOS – Management Opérationnel de la Sécurité</h4>
+      <p>✅ Diplôme d’État – niveau 5 (BAC +2) enregistré au <strong>RNCP n°38229</strong>.</p>
+      <p>Ce BTS forme les futurs responsables d’équipes de sécurité privée (surveillance, prévention, sûreté, incendie...)</p>
+      <p><strong>Durée :</strong> 2 ans — <strong>Examens officiels</strong> sous tutelle du Ministère de l’Éducation nationale.</p>
+    `,
+    "MCO": `
+      <h4>🎓 BTS MCO – Management Commercial Opérationnel</h4>
+      <p>✅ Diplôme d’État – niveau 5 (BAC +2) enregistré au <strong>RNCP n°38362</strong>.</p>
+      <p>Ce BTS prépare aux métiers du commerce, de la gestion et du management d’équipe dans tous secteurs d’activité.</p>
+    `,
+    "PI": `
+      <h4>🎓 BTS PI – Professions Immobilières</h4>
+      <p>✅ Diplôme d’État – niveau 5 (BAC +2) enregistré au <strong>RNCP n°38292</strong>.</p>
+      <p>Ce BTS forme les futurs négociateurs, gestionnaires et conseillers immobiliers pour agences et syndics.</p>
+    `,
+    "CI": `
+      <h4>🌍 BTS CI – Commerce International</h4>
+      <p>✅ Diplôme d’État – niveau 5 (BAC +2) enregistré au <strong>RNCP n°38365</strong>.</p>
+      <p>Ce BTS ouvre à des carrières à l’international : import-export, prospection, négociation et logistique internationale.</p>
+    `,
+    "NDRC": `
+      <h4>🤝 BTS NDRC – Négociation et Digitalisation de la Relation Client</h4>
+      <p>✅ Diplôme d’État – niveau 5 (BAC +2) enregistré au <strong>RNCP n°38368</strong>.</p>
+      <p>Formation orientée sur la relation client, la vente et le marketing digital. Idéale pour les profils commerciaux modernes.</p>
+    `,
+    "CG": `
+      <h4>📊 BTS CG – Comptabilité et Gestion</h4>
+      <p>✅ Diplôme d’État – niveau 5 (BAC +2) enregistré au <strong>RNCP n°38329</strong>.</p>
+      <p>Ce BTS prépare aux métiers de la gestion comptable, du contrôle et de la finance d’entreprise.</p>
+    `
+  };
+
+  // Quand la personne choisit une formation
+  btsSelect.addEventListener("change", () => {
+    const val = btsSelect.value;
+    if (infos[val]) {
+      formationInfo.innerHTML = infos[val];
+      formationInfo.style.display = "block";
+    } else {
+      formationInfo.style.display = "none";
+      formationInfo.innerHTML = "";
+    }
+  });
+}
+
   const mosSection = document.getElementById('mos-section');
   const blocBacAutre = document.getElementById('bloc-bac-autre');
   const mosExplication = document.getElementById('mos-explication');
@@ -297,6 +348,7 @@ function showFlash(message, type = "success") {
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
 
