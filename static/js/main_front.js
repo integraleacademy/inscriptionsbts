@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const info = document.getElementById("progressInfo");
   let currentStep = 0;
 
+  // === Barre de progression ===
   function updateProgressBar(index) {
     if (!progress || !info) return;
     const total = tabs.length;
@@ -33,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     animate();
   }
 
+  // === Affichage des étapes ===
   function showStep(index) {
     tabs.forEach((tab, i) => {
       tab.style.display = (i === index) ? 'block' : 'none';
@@ -45,9 +47,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     currentStep = index;
     updateProgressBar(index);
+    refreshLocks(); // 🔒 maj des cadenas
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  // === Validation des champs de l’étape ===
   function validateStep(stepIndex) {
     const currentTab = tabs[stepIndex];
     const inputs = currentTab.querySelectorAll('input, select, textarea');
@@ -60,10 +64,17 @@ document.addEventListener("DOMContentLoaded", () => {
     return true;
   }
 
+  // === Cadenas sur les boutons d’étapes ===
   tabButtons.forEach((btn, i) => {
-    btn.addEventListener('click', (e) => {
+    const lockIcon = document.createElement("span");
+    lockIcon.textContent = " 🔒";
+    lockIcon.classList.add("lock-icon");
+    btn.appendChild(lockIcon);
+
+    btn.addEventListener("click", (e) => {
       e.preventDefault();
       if (i > currentStep) {
+        btn.classList.add("locked");
         alert("⚠️ Merci de compléter les étapes précédentes avant de continuer.");
         return;
       }
@@ -71,6 +82,21 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
+  function refreshLocks() {
+    tabButtons.forEach((btn, i) => {
+      const icon = btn.querySelector(".lock-icon");
+      if (!icon) return;
+      if (i > currentStep) {
+        btn.classList.add("locked");
+        icon.style.display = "inline";
+      } else {
+        btn.classList.remove("locked");
+        icon.style.display = "none";
+      }
+    });
+  }
+
+  // === Boutons Suivant / Précédent ===
   document.querySelectorAll('.next').forEach(btn => {
     btn.addEventListener('click', () => {
       if (validateStep(currentStep)) {
@@ -104,7 +130,7 @@ document.addEventListener("DOMContentLoaded", () => {
     email2.addEventListener('input', check);
   }
 
-  // === Bloc mineur ===
+  // === Bloc mineur (responsable légal) ===
   const birth = document.querySelector('input[name="date_naissance"]');
   const blocResp = document.getElementById('bloc-resp-legal');
   const hiddenMineur = document.getElementById('est_mineur');
@@ -120,7 +146,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   if (birth) birth.addEventListener('change', updateMinor);
 
-  // === Sélection visuelle Présentiel / Distanciel ===
+  // === Sélection Présentiel / Distanciel ===
   const modeBtns = document.querySelectorAll('.mode-btn');
   modeBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -150,7 +176,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // === Initialisation ===
   showStep(0); // première étape visible
-  console.log("✅ main.js (Front) chargé avec succès");
+  refreshLocks(); // 🔒 initialise les cadenas
+  console.log("✅ main_front.js chargé avec succès");
 
 }); // ✅ fermeture du bloc DOMContentLoaded
