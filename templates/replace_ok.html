@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block body_class %}public-page{% endblock %}
+{% block content %}
+
+<div style="max-width:600px;margin:60px auto;text-align:center;background:white;padding:40px;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,.1);">
+  <h2 style="color:#28a745;">✅ Pièces envoyées avec succès</h2>
+  <p>Merci ! Vos nouvelles pièces justificatives ont bien été transmises à <strong>Intégrale Academy</strong>.</p>
+
+  {% if fichiers %}
+    <div style="text-align:left;margin-top:25px;">
+      <h4>📎 Fichiers reçus :</h4>
+      <ul>
+        {% for f in fichiers %}
+          <li>{{ f|basename }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <p style="margin-top:30px;">Notre équipe vous recontactera prochainement si un complément est nécessaire.</p>
+  <a href="/" class="btn primary" style="background:#28a745;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;">Retour à l’accueil</a>
+</div>
+
+{% endblock %}
