@@ -122,18 +122,36 @@
 
 <!-- 📎 MODALE – PIÈCES JUSTIFICATIVES -->
 <div id="filesModal" class="modal hidden">
-  <div class="modal-content" style="width:700px;max-height:90vh;overflow-y:auto;">
+  <div class="modal-content" style="width:750px;max-height:90vh;overflow-y:auto;">
     <h3>📎 Pièces justificatives</h3>
 
+    <!-- Liste des fichiers -->
     <div id="filesList" class="files-list">
       <p>Chargement des documents...</p>
     </div>
 
-    <div class="modal-actions">
+    <hr>
+
+    <!-- Récapitulatif des non conformes -->
+    <div id="nonConformesBlock" style="background:#fff8e1;padding:10px 15px;border-radius:8px;margin-top:10px;">
+      <h4 style="margin-top:0;">⚠️ Pièces non conformes</h4>
+      <ul id="nonConformesList" style="margin:0;padding-left:20px;font-size:14px;color:#c00;">
+        <li>Aucune pièce non conforme</li>
+      </ul>
+    </div>
+
+    <div style="margin-top:15px;">
+      <label for="commentaireNonConforme" style="font-weight:600;">🗒️ Commentaire (optionnel)</label><br>
+      <textarea id="commentaireNonConforme" rows="3" style="width:100%;border-radius:6px;padding:8px;border:1px solid #ccc;"></textarea>
+    </div>
+
+    <div class="modal-actions" style="margin-top:15px;">
+      <button id="notifyNonConformesBtn" class="btn danger">📩 Enregistrer et notifier le candidat</button>
       <button id="downloadAllBtn" class="btn pdf">⬇️ Télécharger toutes les pièces</button>
       <button class="btn" onclick="closeFilesModal()">Fermer</button>
     </div>
   </div>
 </div>
+
 
 {% endblock %}
