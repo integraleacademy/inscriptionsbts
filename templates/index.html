@@ -473,6 +473,32 @@ function verifierNumSecu() {
 });
 </script>
 
+{% if saved_data %}
+<script>
+  const saved = {{ saved_data|tojson|safe }};
+  const step = {{ step|default(0) }};
+  document.addEventListener("DOMContentLoaded", () => {
+    if (saved) {
+      for (const [key, value] of Object.entries(saved)) {
+        const field = document.querySelector(`[name="${key}"]`);
+        if (field) {
+          if (field.type === "checkbox" || field.type === "radio") {
+            field.checked = (field.value === value || value === "on");
+          } else {
+            field.value = value;
+          }
+        }
+      }
+      if (typeof showStep === "function") {
+        showStep(step);
+      }
+      alert("✅ Vos informations précédentes ont été rechargées automatiquement.");
+    }
+  });
+</script>
+{% endif %}
+
+
 {% endblock %}
 
 
