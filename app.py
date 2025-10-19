@@ -786,51 +786,65 @@ def admin_generate_certificat(id):
     print(f"✅ Certificat généré pour {full_name}")
     return send_file(output_docx, as_attachment=True)
 
+# =====================================================
+# 🏫 CERTIFICAT DE SCOLARITÉ PRÉSENTIEL
+# =====================================================
 @app.route("/admin/generate_certificat_presentiel/<id>")
 def admin_generate_certificat_presentiel(id):
     from docx import Document
     from datetime import datetime
+    import io
     from flask import send_file
 
-    # 📂 Chemin vers le modèle Word
-    model_path = os.path.join("static", "docs", "certificat_scolarite_presentiel.docx")
-
-    # 🧾 Récupérer les infos du candidat
+    # 📂 Récupérer les infos du candidat depuis la base SQLite
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id = ?", (id,))
+    cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id=?", (id,))
     row = cur.fetchone()
     conn.close()
+
     if not row:
-        return "Candidat introuvable", 404
+        abort(404, "Candidat introuvable")
 
     nom, prenom, bts = row
-    nom_prenom = f"{prenom} {nom}".upper()
-    formation = BTS_LABELS.get(bts.strip().upper(), bts).upper()
-    date_aujourdhui = datetime.now().strftime("%d/%m/%Y")
+    formation_dict = {
+        "MCO": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO)",
+        "MOS": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS)",
+        "PI": "BTS PROFESSIONS IMMOBILIÈRES (PI)",
+        "CI": "BTS COMMERCE INTERNATIONAL (CI)",
+        "NDRC": "BTS NÉGOCIATION ET DIGITALISATION DE LA RELATION CLIENT (NDRC)",
+        "CG": "BTS COMPTABILITÉ ET GESTION (CG)"
+    }
 
-    # 📄 Charger et remplacer les variables
+    formation_name = formation_dict.get(bts.strip().upper(), bts)
+    nom_prenom = f"{prenom.upper()} {nom.upper()}"
+    date_du_jour = datetime.now().strftime("%d/%m/%Y")
+
+    # 🔗 Modèle Word
+    model_path = os.path.join("static", "docs", "certificat_scolarite_presentiel.docx")
+    if not os.path.exists(model_path):
+        abort(404, f"Modèle introuvable : {model_path}")
+
     doc = Document(model_path)
+
+    # 🔄 Remplacements simples
     for p in doc.paragraphs:
-        if "{{NOM_PRENOM}}" in p.text:
-            p.text = p.text.replace("{{NOM_PRENOM}}", nom_prenom)
+        if "{{NOM}}" in p.text:
+            p.text = p.text.replace("{{NOM}}", nom_prenom)
         if "{{FORMATION}}" in p.text:
-            p.text = p.text.replace("{{FORMATION}}", formation)
-        if "{{DATE_AUJOURDHUI}}" in p.text:
-            p.text = p.text.replace("{{DATE_AUJOURDHUI}}", date_aujourdhui)
+            p.text = p.text.replace("{{FORMATION}}", formation_name)
+        if "{{DATE}}" in p.text:
+            p.text = p.text.replace("{{DATE}}", date_du_jour)
 
-    # 💾 Enregistrer le fichier généré
-    output_dir = os.path.join(DATA_DIR, "certificats")
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, f"certificat_presentiel_{id}.docx")
-    doc.save(output_path)
+    # 🧾 Enregistrement temporaire
+    output = io.BytesIO()
+    doc.save(output)
+    output.seek(0)
 
-    # 🪶 Log de génération
-    log_event({"id": id, "prenom": prenom, "nom": nom}, "DOC_GENERE",
-              {"type": "certificat_scolarite_presentiel", "file": output_path})
-
-    print(f"✅ Certificat PRÉSENTIEL généré pour {nom_prenom}")
-    return send_file(output_path, as_attachment=True)
+    # 🔽 Téléchargement
+    filename = f"Certificat_scolarite_presentiel_{nom}_{prenom}.docx"
+    print(f"✅ Certificat présentiel généré pour {nom_prenom}")
+    return send_file(output, as_attachment=True, download_name=filename)
 
 
 
