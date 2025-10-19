@@ -303,6 +303,7 @@ filesModal.addEventListener("click", async (e) => {
   }
 });
 
+}); // ✅ FIN if(filesModal)
 
 }); // ✅ FIN DOMContentLoaded
 
@@ -489,6 +490,7 @@ function closeFilesModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
