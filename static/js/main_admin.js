@@ -628,7 +628,7 @@ function closeGenerationDocsModal() {
 
 // placeholder à venir
 // =====================================================
-// 🕓 CHARGEMENT DE L'HISTORIQUE DES LOGS
+// 🕓 CHARGEMENT DE L'HISTORIQUE DES LOGS — VERSION LISIBLE + DATES FR
 // =====================================================
 async function loadLogs(id) {
   const logsList = document.getElementById("logsList");
@@ -646,9 +646,47 @@ async function loadLogs(id) {
     }
 
     logsList.innerHTML = "";
+
+    // 🗓️ Format date FR
+    const formatDateFR = (iso) => {
+      try {
+        const d = new Date(iso);
+        return d.toLocaleString("fr-FR", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).replace(",", " à");
+      } catch {
+        return iso;
+      }
+    };
+
     data.forEach(log => {
+      let text = "";
+      const t = log.type;
+      const payload = log.payload || "";
+      const dateFR = formatDateFR(log.created_at);
+
+      // 🔍 Traduction et mise en forme
+      if (t === "FIELD_UPDATE") {
+        text = `📄 Mise à jour du champ <b>${payload.split(" / ")[0]?.replace("field: ", "")}</b> → ${payload.split(" / ")[1]?.replace("value: ", "")}`;
+      } else if (t === "DOC_MARK") {
+        const [file, decision] = payload.split(" / decision: ");
+        text = `📎 Document <b>${file.split("/").pop()}</b> marqué : <span style="color:${decision === "conforme" ? "#28a745" : "#d9534f"}">${decision}</span>`;
+      } else if (t === "DOCS_RENVOYES") {
+        text = `📤 Documents renvoyés au candidat`;
+      } else if (t === "MAIL_ENVOYE") {
+        text = `✉️ Mail envoyé : ${payload.includes("non_conformes") ? "Notification de pièces non conformes" : "Autre envoi"}`;
+      } else if (t === "NEW_DOC") {
+        text = `📥 Nouveau document déposé`;
+      } else {
+        text = `🧩 ${t} — ${payload}`;
+      }
+
       const li = document.createElement("li");
-      li.innerHTML = `<b>${log.type}</b> — ${log.created_at}<br><small>${log.payload || ""}</small>`;
+      li.innerHTML = `${text}<br><small style="color:#777">${dateFR}</small>`;
       logsList.appendChild(li);
     });
   } catch (err) {
@@ -658,8 +696,10 @@ async function loadLogs(id) {
 
 
 
+
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
