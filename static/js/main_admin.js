@@ -648,20 +648,23 @@ async function loadLogs(id) {
     logsList.innerHTML = "";
 
     // 🗓️ Format date FR
-    const formatDateFR = (iso) => {
-      try {
-        const d = new Date(iso);
-        return d.toLocaleString("fr-FR", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        }).replace(",", " à");
-      } catch {
-        return iso;
-      }
-    };
+// 🗓️ Format date FR avec fuseau horaire de Paris
+const formatDateFR = (iso) => {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("fr-FR", {
+      timeZone: "Europe/Paris",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).replace(",", " à");
+  } catch {
+    return iso;
+  }
+};
+
 
     data.forEach(log => {
       let text = "";
@@ -699,6 +702,7 @@ async function loadLogs(id) {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
