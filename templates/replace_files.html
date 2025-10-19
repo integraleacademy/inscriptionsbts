@@ -11,16 +11,27 @@
     <input type="hidden" name="sig" value="{{ sig }}">
 
     {% for piece in pieces %}
+      {% set pl = piece|lower %}
       {% set type_piece = "" %}
-      {% if "identité" in piece or "passeport" in piece %}
-        {% set type_piece = "ci" %}
-      {% elif "photo" in piece %}
+
+      {# PHOTO d’abord pour ne pas matcher "identité" #}
+      {% if "photo d’identité" in pl or "photo d'identité" in pl or pl.startswith("📸") or " photo " in pl %}
         {% set type_piece = "photo" %}
-      {% elif "vitale" in piece %}
+
+      {# CI / PASSEPORT #}
+      {% elif "carte d’identité" in pl or "carte d'identité" in pl or "passeport" in pl or pl.startswith("🪪") %}
+        {% set type_piece = "ci" %}
+
+      {# CARTE VITALE #}
+      {% elif "carte vitale" in pl or "vitale" in pl or pl.startswith("💳") %}
         {% set type_piece = "carte_vitale" %}
-      {% elif "cv" in piece or "C.V" in piece %}
+
+      {# CV #}
+      {% elif " cv" in pl or "cv_" in pl or pl.startswith("📄") %}
         {% set type_piece = "cv" %}
-      {% elif "motivation" in piece %}
+
+      {# LETTRE DE MOTIVATION #}
+      {% elif "lettre de motivation" in pl or "motivation" in pl or pl.startswith("🖋️") %}
         {% set type_piece = "lm" %}
       {% endif %}
 
