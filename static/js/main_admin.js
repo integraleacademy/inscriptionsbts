@@ -574,7 +574,7 @@ function openGenerationDocsModal(id) {
   const modal = document.getElementById("generationDocsModal");
   modal?.classList.remove("hidden");
 
-  // 🧾 Bouton Certificat de scolarité
+  // 🧾 Certificat DISTANCIEL
   const generateCertificatBtn = document.getElementById("generateCertificatBtn");
   if (generateCertificatBtn) {
     generateCertificatBtn.onclick = () => {
@@ -586,7 +586,19 @@ function openGenerationDocsModal(id) {
     };
   }
 
-  // ✉️ Bouton Envoyer certificat
+  // 🏫 Certificat PRÉSENTIEL
+  const generateCertificatPresentielBtn = document.getElementById("generateCertificatPresentielBtn");
+  if (generateCertificatPresentielBtn) {
+    generateCertificatPresentielBtn.onclick = () => {
+      if (!window.currentId) {
+        alert("Aucun candidat sélectionné !");
+        return;
+      }
+      window.open(`/admin/generate_certificat_presentiel/${window.currentId}`, "_blank");
+    };
+  }
+
+  // ✉️ Envoi du certificat par mail
   const sendCertificatBtn = document.getElementById("sendCertificatBtn");
   if (sendCertificatBtn) {
     sendCertificatBtn.onclick = async () => {
@@ -618,7 +630,8 @@ function openGenerationDocsModal(id) {
       }, 4000);
     };
   }
-} // ✅ ici tu fermes bien la fonction openGenerationDocsModal
+}
+
 
 // 🧩 ensuite seulement :
 function closeGenerationDocsModal() {
@@ -709,6 +722,7 @@ const formatDateFR = (iso) => {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
