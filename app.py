@@ -800,69 +800,69 @@ def admin_generate_certificat(id):
 def admin_generate_certificat_presentiel(id):
     from docx import Document
     from datetime import datetime
-    import io
-    from flask import send_file, abort
+    from flask import send_file
 
-    # 📂 Récupération du candidat
+    # 📂 chemins
+    template_path = os.path.join("static", "templates", "certificat_scolarite_presentiel.docx")
+    output_dir = os.path.join(DATA_DIR, "certificats")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 🧾 récupérer infos candidat
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id=?", (id,))
+    cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id = ?", (id,))
     row = cur.fetchone()
     conn.close()
-
     if not row:
-        abort(404, "Candidat introuvable")
+        return "Candidat introuvable", 404
 
     nom, prenom, bts = row
-    nom_prenom = f"{prenom.upper()} {nom.upper()}"
-    formation_dict = {
-        "MCO": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO)",
-        "MOS": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS)",
-        "PI": "BTS PROFESSIONS IMMOBILIÈRES (PI)",
-        "CI": "BTS COMMERCE INTERNATIONAL (CI)",
-        "NDRC": "BTS NÉGOCIATION ET DIGITALISATION DE LA RELATION CLIENT (NDRC)",
-        "CG": "BTS COMPTABILITÉ ET GESTION (CG)"
+    full_name = f"{prenom.upper()} {nom.upper()}"
+    date_now = datetime.now().strftime("%d/%m/%Y")
+
+    # 🧩 Nom complet du BTS
+    bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
+
+    # 🔧 valeurs de remplacement
+    replacements = {
+        "{{NOM_PRENOM}}": full_name,
+        "{{FORMATION}}": bts_nom_complet,
+        "{{DATE_AUJOURDHUI}}": date_now,
+        "{{ANNEE_DEBUT}}": "2026",
+        "{{ANNEE_FIN}}": "2028",
     }
-    formation_name = formation_dict.get(bts.strip().upper(), bts)
-    date_auj = datetime.now().strftime("%d/%m/%Y")
 
-    # 🔗 Chemin du modèle Word
-    model_path = os.path.join("static", "docs", "certificat_scolarite_presentiel.docx")
-    if not os.path.exists(model_path):
-        abort(404, f"Modèle introuvable : {model_path}")
+    # 🧩 ouvrir modèle Word et remplacer les balises dans tous les paragraphes et tables
+    doc = Document(template_path)
 
-    # 🧩 Ouvrir le modèle et remplacer les balises
-    doc = Document(model_path)
-
-    def replace_text(text):
-        return (text.replace("{{NOM_PRENOM}}", nom_prenom)
-                    .replace("{{FORMATION}}", formation_name)
-                    .replace("{{DATE_AUJOURDHUI}}", date_auj))
+    def replace_text_in_paragraph(paragraph):
+        for key, val in replacements.items():
+            if key in paragraph.text:
+                for run in paragraph.runs:
+                    if key in run.text:
+                        run.text = run.text.replace(key, val)
 
     for p in doc.paragraphs:
-        p.text = replace_text(p.text)
+        replace_text_in_paragraph(p)
 
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
                 for p in cell.paragraphs:
-                    p.text = replace_text(p.text)
+                    replace_text_in_paragraph(p)
 
-    # 💾 Sauvegarde temporaire
-    output = io.BytesIO()
-    doc.save(output)
-    output.seek(0)
+    # 💾 sauvegarde du document Word généré
+    output_docx = os.path.join(output_dir, f"certificat_presentiel_{id}.docx")
+    doc.save(output_docx)
 
-    filename = f"Certificat_scolarite_presentiel_{nom}_{prenom}.docx"
-
-    # 🧩 Log
+    # 🧩 Log d’action
     log_event({"id": id}, "DOC_GENERE", {
         "type": "certificat_scolarite_presentiel",
-        "file": filename
+        "file": output_docx
     })
 
-    print(f"✅ Certificat présentiel généré pour {nom_prenom}")
-    return send_file(output, as_attachment=True, download_name=filename)
+    print(f"✅ Certificat présentiel généré pour {full_name}")
+    return send_file(output_docx, as_attachment=True)
 
 
 
