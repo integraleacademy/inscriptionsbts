@@ -49,8 +49,18 @@ def send_mail(to, subject, html, attachments=None):
             server.starttls(context=context)
             server.login(MAIL_USER, MAIL_PASS)
             server.send_message(msg)
-        print(f"✅ Mail envoyé à {to}")
+
+        print(f"✅ Mail envoyé à {to} — {subject}")
+
+        # 🪵 Enregistrement automatique du mail dans les logs
+        try:
+            from app import add_log  # si ton fichier principal s'appelle app.py
+            add_log("MAIL_ENVOYE", f"{subject} → {to}")
+        except Exception as log_err:
+            print(f"⚠️ Impossible d’enregistrer le log mail ({subject}):", log_err)
+
         return True
+
     except Exception as e:
         print(f"❌ Erreur envoi mail vers {to} :", e)
         return False
