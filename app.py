@@ -732,26 +732,32 @@ def admin_generate_certificat(id):
         return "Candidat introuvable", 404
 
     nom, prenom, bts, mode = row
-    full_name = f"{prenom.title()} {nom.upper()}"
+    full_name = f"{prenom.upper()} {nom.upper()}"  # ✅ tout en majuscules
+    formation = bts.strip()
     date_now = datetime.now().strftime("%d/%m/%Y")
 
-    # 🧩 ouvrir modèle et remplacer les champs
+    # 🧩 ouvrir modèle et remplacer les champs sans casser le style
     doc = Document(template_path)
+    replacements = {
+        "Clement VAILLANT": full_name,
+        "NOM DE LA FORMATION": formation,
+        "19/10/2025": date_now,
+    }
+
     for p in doc.paragraphs:
-        if "NOM Prénom" in p.text:
-            p.text = p.text.replace("NOM Prénom", full_name)
-        if "NOM DE LA FORMATION" in p.text:
-            p.text = p.text.replace("NOM DE LA FORMATION 2026-2028", f"{bts} 2026-2028")
-        if "METTRE LA DATE" in p.text:
-            p.text = p.text.replace("METTRE LA DATE", date_now)
+        for key, value in replacements.items():
+            if key in p.text:
+                for run in p.runs:
+                    if key in run.text:
+                        run.text = run.text.replace(key, value)
 
     # 💾 sauvegarde du document Word final
     output_docx = os.path.join(output_dir, f"certificat_{id}.docx")
     doc.save(output_docx)
 
-    # ✅ le fichier est prêt et sauvegardé, on peut le télécharger
-    print(f"✅ Certificat Word généré pour {full_name} ({bts})")
+    print(f"✅ Certificat Word généré pour {full_name} ({formation})")
     return send_file(output_docx, as_attachment=True)
+
 
 
 # =====================================================
