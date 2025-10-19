@@ -210,17 +210,19 @@
   <div class="modal-content" style="width:600px;">
     <h3>🧾 Génération de documents</h3>
     <p>Choisissez le document à générer pour ce candidat :</p>
-<div class="modal-actions">
-  <button id="generateCertificatBtn" class="btn pdf">📜 Générer certificat de scolarité</button>
-  <button id="sendCertificatBtn" class="btn btn-send-certificat">✉️ Envoyer certificat</button>
-</div>
 
+    <div class="modal-actions">
+      <button id="generateCertificatBtn" class="btn pdf">📜 Certificat de scolarité distanciel</button>
+      <button id="generateCertificatPresentielBtn" class="btn pdf">🏫 Certificat de scolarité présentiel</button>
+      <button id="sendCertificatBtn" class="btn btn-send-certificat">✉️ Envoyer certificat</button>
+    </div>
 
     <div class="comment-save">
       <button class="btn" onclick="closeGenerationDocsModal()">Fermer</button>
     </div>
   </div>
 </div>
+
 
 
 {% endblock %}
