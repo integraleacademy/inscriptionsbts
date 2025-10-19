@@ -839,6 +839,34 @@ def admin_send_certificat(id):
         print(f"❌ Erreur envoi certificat à {full_name} :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
+# =====================================================
+# 🕓 HISTORIQUE DES ACTIONS (LOGS)
+# =====================================================
+@app.route("/admin/logs/<cid>")
+def admin_logs(cid):
+    if not require_admin():
+        abort(403)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT type, payload, created_at 
+        FROM logs 
+        WHERE candidat_id=? 
+        ORDER BY datetime(created_at) DESC
+    """, (cid,))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+
+    # 🧩 Nettoyage : on affiche un résumé lisible
+    for r in rows:
+        try:
+            p = json.loads(r["payload"])
+            if isinstance(p, dict):
+                r["payload"] = " / ".join(f"{k}: {v}" for k, v in p.items())
+        except Exception:
+            pass
+    return jsonify(rows)
 
 
 # =====================================================
