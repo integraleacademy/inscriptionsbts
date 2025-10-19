@@ -680,9 +680,16 @@ const formatDateFR = (iso) => {
         text = `📎 Document <b>${file.split("/").pop()}</b> marqué : <span style="color:${decision === "conforme" ? "#28a745" : "#d9534f"}">${decision}</span>`;
       } else if (t === "DOCS_RENVOYES") {
         text = `📤 Documents renvoyés au candidat`;
-      } else if (t === "MAIL_ENVOYE") {
-        text = `✉️ Mail envoyé : ${payload.includes("non_conformes") ? "Notification de pièces non conformes" : "Autre envoi"}`;
-      } else if (t === "NEW_DOC") {
+  } else if (t === "MAIL_ENVOYE") {
+  if (payload.includes("non_conformes")) {
+    text = "✉️ Mail envoyé : Notification de pièces non conformes";
+  } else if (payload.toLowerCase().includes("certificat")) {
+    text = "✉️ Mail envoyé : Certificat de scolarité";
+  } else {
+    text = "✉️ Mail envoyé : Autre envoi";
+  }
+}
+ else if (t === "NEW_DOC") {
         text = `📥 Nouveau document déposé`;
       } else {
         text = `🧩 ${t} — ${payload}`;
@@ -702,6 +709,7 @@ const formatDateFR = (iso) => {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
