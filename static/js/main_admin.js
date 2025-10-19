@@ -432,6 +432,9 @@ function openActionsModal(id, commentaire = "") {
   const reconfirmBtn = document.getElementById("reconfirmBtn");
   const deleteBtn = document.getElementById("deleteBtn");
   const openFilesBtn = document.getElementById("openFilesFromActions");
+  const relancesBtn = document.getElementById("relancesBtn");
+  const logsBtn = document.getElementById("logsBtn");
+  const generationDocsBtn = document.getElementById("generationDocsBtn");
 
   if (openFilesBtn) {
     openFilesBtn.onclick = () => {
@@ -479,13 +482,8 @@ function openActionsModal(id, commentaire = "") {
       closeActionsModal();
     };
   }
-}
 
   // === ✉️ Boutons RELANCES / LOGS / DOCUMENTS ===
-  const relancesBtn = document.getElementById("relancesBtn");
-  const logsBtn = document.getElementById("logsBtn");
-  const generationDocsBtn = document.getElementById("generationDocsBtn");
-
   if (relancesBtn) {
     relancesBtn.onclick = () => {
       closeActionsModal();
@@ -506,7 +504,8 @@ function openActionsModal(id, commentaire = "") {
       openGenerationDocsModal(id);
     };
   }
-} // <--- ici se ferme openActionsModal
+} // ✅ FIN openActionsModal
+
 
 
 function closeActionsModal() {
@@ -554,6 +553,7 @@ function loadLogs(id) {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
