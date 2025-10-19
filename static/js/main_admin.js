@@ -308,6 +308,40 @@ filesModal.addEventListener("click", async (e) => {
 }); // ✅ FIN DOMContentLoaded
 
 
+// ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".btn-send-certificat");
+  if (!btn) return;
+
+  const id = btn.dataset.id;
+  if (!id) return;
+
+  btn.disabled = true;
+  btn.textContent = "📤 Envoi en cours…";
+
+  try {
+    const res = await fetch(`/admin/send_certificat/${id}`);
+    const data = await res.json();
+
+    if (data.ok) {
+      showToast("✉️ Certificat envoyé avec succès !", "#28a745");
+      btn.textContent = "✅ Envoyé";
+    } else {
+      showToast("⚠️ " + (data.error || "Erreur inconnue"), "#dc3545");
+      btn.textContent = "❌ Erreur";
+    }
+  } catch (err) {
+    showToast("❌ Erreur d’envoi : " + err.message, "#dc3545");
+    btn.textContent = "❌ Erreur";
+  }
+
+  setTimeout(() => {
+    btn.disabled = false;
+    btn.textContent = "✉️ Envoyer certificat";
+  }, 4000);
+});
+
+
 
 
 // =====================================================
@@ -566,6 +600,7 @@ function loadLogs(id) {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
