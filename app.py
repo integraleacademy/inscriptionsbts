@@ -708,14 +708,12 @@ def admin_export_json():
     rows = [dict(r) for r in cur.fetchall()]
     return jsonify(rows)
 
-    # =====================================================
-# 🧾 GÉNÉRATION CERTIFICAT DE SCOLARITÉ (DISTANCIEL)
+# =====================================================
+# 🧾 GÉNÉRATION CERTIFICAT DE SCOLARITÉ (DOCX UNIQUEMENT)
 # =====================================================
 @app.route("/admin/generate_certificat/<id>")
 def admin_generate_certificat(id):
-    import json
     from docx import Document
-    from docx2pdf import convert
     from datetime import datetime
     from flask import send_file
 
@@ -734,7 +732,7 @@ def admin_generate_certificat(id):
         return "Candidat introuvable", 404
 
     nom, prenom, bts, mode = row
-    full_name = f"{nom.upper()} {prenom.title()}"
+    full_name = f"{prenom.title()} {nom.upper()}"
     date_now = datetime.now().strftime("%d/%m/%Y")
 
     # 🧩 ouvrir modèle et remplacer les champs
@@ -747,19 +745,63 @@ def admin_generate_certificat(id):
         if "METTRE LA DATE" in p.text:
             p.text = p.text.replace("METTRE LA DATE", date_now)
 
-    # 💾 sauvegarde temporaire Word
+    # 💾 sauvegarde du document Word final
     output_docx = os.path.join(output_dir, f"certificat_{id}.docx")
     doc.save(output_docx)
 
-    # 📄 conversion PDF (mise en page Word conservée)
-    output_pdf = os.path.join(output_dir, f"certificat_{id}.pdf")
-    convert(output_docx, output_pdf)
+    # ✅ le fichier est prêt et sauvegardé, on peut le télécharger
+    print(f"✅ Certificat Word généré pour {full_name} ({bts})")
+    return send_file(output_docx, as_attachment=True)
 
-    # 🧱 log action (optionnel)
-    log_action(id, f"Certificat de scolarité généré ({mode}) le {date_now}")
 
-    # 📤 renvoyer le PDF
-    return send_file(output_pdf, as_attachment=True)
+# =====================================================
+# ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ PAR MAIL
+# =====================================================
+@app.route("/admin/send_certificat/<id>")
+def admin_send_certificat(id):
+    from flask import jsonify
+    from utils import send_mail
+    import os
+
+    # 📂 Chemins des certificats
+    cert_dir = os.path.join(DATA_DIR, "certificats")
+    cert_path = os.path.join(cert_dir, f"certificat_{id}.docx")
+
+    # 🔍 Vérifier que le fichier existe
+    if not os.path.exists(cert_path):
+        return jsonify({"ok": False, "error": "Le certificat n’a pas encore été généré."}), 404
+
+    # 🧾 Récupérer les infos du candidat
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT prenom, nom, email, bts FROM candidats WHERE id = ?", (id,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
+
+    prenom, nom, email, bts = row
+    full_name = f"{prenom.title()} {nom.upper()}"
+
+    # ✉️ Préparation du mail
+    subject = f"Votre certificat de scolarité – {bts} 2026-2028"
+    html = f"""
+    <p>Bonjour {prenom.title()},</p>
+    <p>Veuillez trouver ci-joint votre <strong>certificat de scolarité</strong> pour la formation <b>{bts}</b>.</p>
+    <p>Bien cordialement,<br>L’équipe <strong>Intégrale Academy</strong> 🎓</p>
+    """
+
+    try:
+        send_mail(email, subject, html, attachments=[cert_path])
+        print(f"✅ Certificat envoyé à {full_name} ({email})")
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"❌ Erreur envoi certificat à {full_name} :", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+
 
 
 # =====================================================
