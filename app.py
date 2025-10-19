@@ -918,6 +918,58 @@ def admin_send_certificat(id):
         print(f"❌ Erreur envoi certificat à {full_name} :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
+        # =====================================================
+# ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ PRÉSENTIEL PAR MAIL
+# =====================================================
+@app.route("/admin/send_certificat_presentiel/<id>")
+def admin_send_certificat_presentiel(id):
+    from flask import jsonify
+    from utils import send_mail
+    import os
+
+    # 📂 Chemins des certificats
+    cert_dir = os.path.join(DATA_DIR, "certificats")
+    cert_path = os.path.join(cert_dir, f"certificat_presentiel_{id}.docx")
+
+    # 🔍 Vérifier que le fichier existe
+    if not os.path.exists(cert_path):
+        return jsonify({"ok": False, "error": "Le certificat présentiel n’a pas encore été généré."}), 404
+
+    # 🧾 Récupérer les infos du candidat
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT prenom, nom, email, bts FROM candidats WHERE id = ?", (id,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
+
+    prenom, nom, email, bts = row
+    full_name = f"{prenom.title()} {nom.upper()}"
+
+    # 🧩 Nom complet du BTS (comme dans le certificat)
+    bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
+
+    # ✉️ Préparation du mail
+    subject = f"Votre certificat de scolarité – Présentiel ({bts_nom_complet} 2026-2028)"
+    html = f"""
+    <p>Bonjour {prenom.title()},</p>
+    <p>Veuillez trouver ci-joint votre <strong>certificat de scolarité – Présentiel</strong> pour la formation :</p>
+    <p><b>{bts_nom_complet}</b></p>
+    <p>Bien cordialement,<br>L’équipe <strong>Intégrale Academy</strong> 🎓</p>
+    """
+
+    try:
+        send_mail(email, subject, html, attachments=[cert_path])
+        log_event({"id": id}, "MAIL_ENVOYE", {"type": "certificat_presentiel"})
+        print(f"✅ Certificat présentiel envoyé à {full_name} ({email})")
+        return jsonify({"ok": True})
+    except Exception as e:
+        print(f"❌ Erreur envoi certificat présentiel à {full_name} :", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 # =====================================================
 # 🕓 HISTORIQUE DES ACTIONS (LOGS)
 # =====================================================
