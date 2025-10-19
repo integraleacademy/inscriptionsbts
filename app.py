@@ -788,6 +788,11 @@ def admin_files(cid):
 
     print(f"📎 {len(unique_files)} fichiers trouvés pour {cid} (dont {len(nouveaux_detectes)} nouveaux)")
 
+        # (Sécurité) on ignore les statuts fantômes
+    existing = {os.path.basename(f["path"]) for f in unique_files if os.path.exists(f["path"])}
+    verif = {k: v for k, v in verif.items() if k in existing}
+
+
     return jsonify(unique_files)
 
 
@@ -946,14 +951,27 @@ def admin_files_merge():
         "UPDATE candidats SET nouveau_doc=0, replace_meta=?, verif_docs=?, updated_at=? WHERE id=?",
         ("{}", json.dumps(verif, ensure_ascii=False), datetime.now().isoformat(), cid)
     )
-
     conn.commit()
-    conn.close()
-    # 🧽 Nettoyage des statuts orphelins dans verif_docs
+
+    # 🔄 Recharger la fiche (pour récupérer les listes MAJ après les UPDATE ci-dessus)
+    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+    row = dict(cur.fetchone())
+
+    # 🧽 Nettoyage des entrées orphelines dans verif_docs :
+    #    on ne garde que les fichiers qui existent encore dans les colonnes fichiers_*
     existing_files = []
     for key, (col, _) in DOC_FIELDS.items():
         existing_files += [os.path.basename(p) for p in parse_list(row.get(col))]
-    verif = {f: v for f, v in verif.items() if f in existing_files}
+
+    verif_purged = {f: v for f, v in load_verif_docs(row).items() if f in existing_files}
+
+    # Si le nettoyage change quelque chose, on persiste
+    cur.execute(
+        "UPDATE candidats SET verif_docs=?, updated_at=? WHERE id=?",
+        (json.dumps(verif_purged, ensure_ascii=False), datetime.now().isoformat(), cid)
+    )
+    conn.commit()
+    conn.close()
 
     return jsonify({"ok": True})
 
