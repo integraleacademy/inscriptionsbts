@@ -7,7 +7,7 @@
   <!-- 🔝 En-tête -->
   <header class="admin-header">
     <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
-    <div class="admin-actions">
+    <div class="admin-actionfs">
   <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
   <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
 
@@ -211,11 +211,13 @@
     <h3>🧾 Génération de documents</h3>
     <p>Choisissez le document à générer pour ce candidat :</p>
 
-    <div class="modal-actions">
-      <button id="generateCertificatBtn" class="btn pdf">📜 Certificat de scolarité distanciel</button>
-      <button id="generateCertificatPresentielBtn" class="btn pdf">🏫 Certificat de scolarité présentiel</button>
-      <button id="sendCertificatBtn" class="btn btn-send-certificat">✉️ Envoyer certificat</button>
-    </div>
+<div class="modal-actions">
+  <button id="generateCertificatDistBtn" class="btn pdf">📜 Générer certificat Distanciel</button>
+  <button id="generateCertificatPresBtn" class="btn pdf">📜 Générer certificat Présentiel</button>
+  <button id="sendCertificatDistBtn" class="btn secondary">✉️ Envoyer certificat Distanciel</button>
+  <button id="sendCertificatPresBtn" class="btn secondary">✉️ Envoyer certificat Présentiel</button>
+</div>
+
 
     <div class="comment-save">
       <button class="btn" onclick="closeGenerationDocsModal()">Fermer</button>
