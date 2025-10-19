@@ -301,11 +301,12 @@ filesModal.addEventListener("click", async (e) => {
     btn.disabled = false;
     btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
   }
-});
+}); // ✅ FIN du addEventListener pour les boutons conforme / non conforme
 
-}); // ✅ FIN if(filesModal)
+} // ✅ FIN if(filesModal)
 
 }); // ✅ FIN DOMContentLoaded
+
 
 
 
@@ -553,6 +554,7 @@ function loadLogs(id) {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
