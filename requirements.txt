@@ -8,4 +8,5 @@ WeasyPrint==62.3
 Babel==2.15.0
 gunicorn==22.0.0
 python-docx
+pypandoc
 
