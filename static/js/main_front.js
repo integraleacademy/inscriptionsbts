@@ -182,31 +182,37 @@ function validateStep(stepIndex) {
   });
 
   // === Vérif fichiers PDF ===
-  const form = document.querySelector('form');
-  if (form) {
-    form.addEventListener('submit', (e) => {
-          // Vérifie qu'un mode de formation est choisi (présentiel / distanciel)
-    const modeSelected = document.querySelector('input[name="mode"]:checked');
-    if (!modeSelected) {
-      e.preventDefault();
-      alert("⚠️ Merci de choisir un mode de formation (présentiel ou distanciel).");
-      return;
+// === Vérif fichiers PDF ===
+const form = document.querySelector('form');
+if (form) {
+  form.addEventListener('submit', (e) => {
+
+    // 🧩 Désactive la vérif sur la page de confirmation
+    if (!window.location.pathname.includes("confirm-inscription")) {
+      // Vérifie qu'un mode de formation est choisi (présentiel / distanciel)
+      const modeSelected = document.querySelector('input[name="mode"]:checked');
+      if (!modeSelected) {
+        e.preventDefault();
+        alert("⚠️ Merci de choisir un mode de formation (présentiel ou distanciel).");
+        return;
+      }
     }
 
-      const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
-      for (const name of pdfOnlyFields) {
-        const input = form.querySelector(`input[name="${name}"]`);
-        if (input && input.files.length > 0) {
-          const file = input.files[0];
-          if (!file.name.toLowerCase().endsWith('.pdf')) {
-            e.preventDefault();
-            alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
-            return;
-          }
+    // === Vérif fichiers PDF ===
+    const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
+    for (const name of pdfOnlyFields) {
+      const input = form.querySelector(`input[name="${name}"]`);
+      if (input && input.files.length > 0) {
+        const file = input.files[0];
+        if (!file.name.toLowerCase().endsWith('.pdf')) {
+          e.preventDefault();
+          alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
+          return;
         }
       }
-    });
-  }
+    }
+  });
+}
 
   // =====================================================
   // 🎓 LOGIQUE SPÉCIFIQUE BTS MOS (CNAPS / APS)
@@ -349,6 +355,7 @@ function showFlash(message, type = "success") {
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
 
