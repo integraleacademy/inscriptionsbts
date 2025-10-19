@@ -708,6 +708,60 @@ def admin_export_json():
     rows = [dict(r) for r in cur.fetchall()]
     return jsonify(rows)
 
+    # =====================================================
+# 🧾 GÉNÉRATION CERTIFICAT DE SCOLARITÉ (DISTANCIEL)
+# =====================================================
+@app.route("/admin/generate_certificat/<id>")
+def admin_generate_certificat(id):
+    import json
+    from docx import Document
+    from docx2pdf import convert
+    from datetime import datetime
+    from flask import send_file
+
+    # 📂 chemins
+    template_path = os.path.join("static", "templates", "certificat de scolarité 2026.docx")
+    output_dir = os.path.join(DATA_DIR, "certificats")
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 🧾 récupérer infos candidat
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT nom, prenom, bts, mode FROM candidats WHERE id = ?", (id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return "Candidat introuvable", 404
+
+    nom, prenom, bts, mode = row
+    full_name = f"{nom.upper()} {prenom.title()}"
+    date_now = datetime.now().strftime("%d/%m/%Y")
+
+    # 🧩 ouvrir modèle et remplacer les champs
+    doc = Document(template_path)
+    for p in doc.paragraphs:
+        if "NOM Prénom" in p.text:
+            p.text = p.text.replace("NOM Prénom", full_name)
+        if "NOM DE LA FORMATION" in p.text:
+            p.text = p.text.replace("NOM DE LA FORMATION 2026-2028", f"{bts} 2026-2028")
+        if "METTRE LA DATE" in p.text:
+            p.text = p.text.replace("METTRE LA DATE", date_now)
+
+    # 💾 sauvegarde temporaire Word
+    output_docx = os.path.join(output_dir, f"certificat_{id}.docx")
+    doc.save(output_docx)
+
+    # 📄 conversion PDF (mise en page Word conservée)
+    output_pdf = os.path.join(output_dir, f"certificat_{id}.pdf")
+    convert(output_docx, output_pdf)
+
+    # 🧱 log action (optionnel)
+    log_action(id, f"Certificat de scolarité généré ({mode}) le {date_now}")
+
+    # 📤 renvoyer le PDF
+    return send_file(output_pdf, as_attachment=True)
+
+
 # =====================================================
 # 📎 GESTION SIMPLIFIÉE DES PIÈCES JUSTIFICATIVES
 # =====================================================
