@@ -783,8 +783,15 @@ def admin_generate_certificat(id):
     output_docx = os.path.join(output_dir, f"certificat_{id}.docx")
     doc.save(output_docx)
 
+    # 🧩 Log d’action
+    log_event({"id": id}, "DOC_GENERE", {
+        "type": "certificat_scolarite_distanciel",
+        "file": output_docx
+    })
+
     print(f"✅ Certificat généré pour {full_name}")
     return send_file(output_docx, as_attachment=True)
+
 
 # =====================================================
 # 🏫 CERTIFICAT DE SCOLARITÉ PRÉSENTIEL
@@ -794,9 +801,9 @@ def admin_generate_certificat_presentiel(id):
     from docx import Document
     from datetime import datetime
     import io
-    from flask import send_file
+    from flask import send_file, abort
 
-    # 📂 Récupérer les infos du candidat depuis la base SQLite
+    # 📂 Récupération du candidat
     conn = db()
     cur = conn.cursor()
     cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id=?", (id,))
@@ -807,6 +814,7 @@ def admin_generate_certificat_presentiel(id):
         abort(404, "Candidat introuvable")
 
     nom, prenom, bts = row
+    nom_prenom = f"{prenom.upper()} {nom.upper()}"
     formation_dict = {
         "MCO": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO)",
         "MOS": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS)",
@@ -815,36 +823,47 @@ def admin_generate_certificat_presentiel(id):
         "NDRC": "BTS NÉGOCIATION ET DIGITALISATION DE LA RELATION CLIENT (NDRC)",
         "CG": "BTS COMPTABILITÉ ET GESTION (CG)"
     }
-
     formation_name = formation_dict.get(bts.strip().upper(), bts)
-    nom_prenom = f"{prenom.upper()} {nom.upper()}"
-    date_du_jour = datetime.now().strftime("%d/%m/%Y")
+    date_auj = datetime.now().strftime("%d/%m/%Y")
 
-    # 🔗 Modèle Word
+    # 🔗 Chemin du modèle Word
     model_path = os.path.join("static", "docs", "certificat_scolarite_presentiel.docx")
     if not os.path.exists(model_path):
         abort(404, f"Modèle introuvable : {model_path}")
 
+    # 🧩 Ouvrir le modèle et remplacer les balises
     doc = Document(model_path)
 
-    # 🔄 Remplacements simples
-    for p in doc.paragraphs:
-        if "{{NOM}}" in p.text:
-            p.text = p.text.replace("{{NOM}}", nom_prenom)
-        if "{{FORMATION}}" in p.text:
-            p.text = p.text.replace("{{FORMATION}}", formation_name)
-        if "{{DATE}}" in p.text:
-            p.text = p.text.replace("{{DATE}}", date_du_jour)
+    def replace_text(text):
+        return (text.replace("{{NOM_PRENOM}}", nom_prenom)
+                    .replace("{{FORMATION}}", formation_name)
+                    .replace("{{DATE_AUJOURDHUI}}", date_auj))
 
-    # 🧾 Enregistrement temporaire
+    for p in doc.paragraphs:
+        p.text = replace_text(p.text)
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    p.text = replace_text(p.text)
+
+    # 💾 Sauvegarde temporaire
     output = io.BytesIO()
     doc.save(output)
     output.seek(0)
 
-    # 🔽 Téléchargement
     filename = f"Certificat_scolarite_presentiel_{nom}_{prenom}.docx"
+
+    # 🧩 Log
+    log_event({"id": id}, "DOC_GENERE", {
+        "type": "certificat_scolarite_presentiel",
+        "file": filename
+    })
+
     print(f"✅ Certificat présentiel généré pour {nom_prenom}")
     return send_file(output, as_attachment=True, download_name=filename)
+
 
 
 
