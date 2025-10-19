@@ -574,63 +574,71 @@ function openGenerationDocsModal(id) {
   const modal = document.getElementById("generationDocsModal");
   modal?.classList.remove("hidden");
 
-  // 🧾 Certificat DISTANCIEL
-  const generateCertificatBtn = document.getElementById("generateCertificatBtn");
-  if (generateCertificatBtn) {
-    generateCertificatBtn.onclick = () => {
-      if (!window.currentId) {
-        alert("Aucun candidat sélectionné !");
-        return;
-      }
+  // === 📜 Générer certificat DISTANCIEL
+  const generateCertificatDistBtn = document.getElementById("generateCertificatDistBtn");
+  if (generateCertificatDistBtn) {
+    generateCertificatDistBtn.onclick = () => {
+      if (!window.currentId) return alert("Aucun candidat sélectionné !");
       window.open(`/admin/generate_certificat/${window.currentId}`, "_blank");
     };
   }
 
-  // 🏫 Certificat PRÉSENTIEL
-  const generateCertificatPresentielBtn = document.getElementById("generateCertificatPresentielBtn");
-  if (generateCertificatPresentielBtn) {
-    generateCertificatPresentielBtn.onclick = () => {
-      if (!window.currentId) {
-        alert("Aucun candidat sélectionné !");
-        return;
-      }
+  // === 🏫 Générer certificat PRÉSENTIEL
+  const generateCertificatPresBtn = document.getElementById("generateCertificatPresBtn");
+  if (generateCertificatPresBtn) {
+    generateCertificatPresBtn.onclick = () => {
+      if (!window.currentId) return alert("Aucun candidat sélectionné !");
       window.open(`/admin/generate_certificat_presentiel/${window.currentId}`, "_blank");
     };
   }
 
-  // ✉️ Envoi du certificat par mail
-  const sendCertificatBtn = document.getElementById("sendCertificatBtn");
-  if (sendCertificatBtn) {
-    sendCertificatBtn.onclick = async () => {
-      if (!window.currentId) {
-        alert("Aucun candidat sélectionné !");
-        return;
-      }
-      sendCertificatBtn.disabled = true;
-      sendCertificatBtn.textContent = "📤 Envoi en cours…";
-
+  // === ✉️ Envoyer certificat DISTANCIEL
+  const sendCertificatDistBtn = document.getElementById("sendCertificatDistBtn");
+  if (sendCertificatDistBtn) {
+    sendCertificatDistBtn.onclick = async () => {
+      if (!window.currentId) return alert("Aucun candidat sélectionné !");
+      sendCertificatDistBtn.disabled = true;
+      sendCertificatDistBtn.textContent = "📤 Envoi en cours…";
       try {
         const res = await fetch(`/admin/send_certificat/${window.currentId}`);
         const data = await res.json();
-        if (data.ok) {
-          showToast("✉️ Certificat envoyé avec succès !", "#28a745");
-          sendCertificatBtn.textContent = "✅ Envoyé";
-        } else {
-          showToast("⚠️ " + (data.error || "Erreur inconnue"), "#dc3545");
-          sendCertificatBtn.textContent = "❌ Erreur";
-        }
+        if (data.ok) showToast("✉️ Certificat distanciel envoyé", "#28a745");
+        else showToast("⚠️ " + (data.error || "Erreur inconnue"), "#dc3545");
       } catch (err) {
         showToast("❌ Erreur d’envoi : " + err.message, "#dc3545");
-        sendCertificatBtn.textContent = "❌ Erreur";
+      } finally {
+        setTimeout(() => {
+          sendCertificatDistBtn.disabled = false;
+          sendCertificatDistBtn.textContent = "✉️ Envoyer certificat Distanciel";
+        }, 4000);
       }
+    };
+  }
 
-      setTimeout(() => {
-        sendCertificatBtn.disabled = false;
-        sendCertificatBtn.textContent = "✉️ Envoyer certificat";
-      }, 4000);
+  // === ✉️ Envoyer certificat PRÉSENTIEL
+  const sendCertificatPresBtn = document.getElementById("sendCertificatPresBtn");
+  if (sendCertificatPresBtn) {
+    sendCertificatPresBtn.onclick = async () => {
+      if (!window.currentId) return alert("Aucun candidat sélectionné !");
+      sendCertificatPresBtn.disabled = true;
+      sendCertificatPresBtn.textContent = "📤 Envoi en cours…";
+      try {
+        const res = await fetch(`/admin/send_certificat_presentiel/${window.currentId}`);
+        const data = await res.json();
+        if (data.ok) showToast("✉️ Certificat présentiel envoyé", "#007bff");
+        else showToast("⚠️ " + (data.error || "Erreur inconnue"), "#dc3545");
+      } catch (err) {
+        showToast("❌ Erreur d’envoi : " + err.message, "#dc3545");
+      } finally {
+        setTimeout(() => {
+          sendCertificatPresBtn.disabled = false;
+          sendCertificatPresBtn.textContent = "✉️ Envoyer certificat Présentiel";
+        }, 4000);
+      }
     };
   }
 }
+
 
 
 // 🧩 ensuite seulement :
@@ -722,6 +730,7 @@ const formatDateFR = (iso) => {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
