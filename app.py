@@ -1103,28 +1103,24 @@ def replace_files_submit():
     meta = json.loads(row.get("replace_meta") or "{}")
     nouveaux = []
 
-for field_name, (col_name, label) in DOC_FIELDS.items():
-    files = request.files.getlist(field_name)
-    prefix = FILE_PREFIX.get(field_name, field_name)
+    for field_name, (col_name, label) in DOC_FIELDS.items():
+        files = request.files.getlist(field_name)
+        prefix = FILE_PREFIX.get(field_name, field_name)
 
-    # 📁 Dossier du candidat (même principe que save_files)
-    cand_dir = os.path.join(UPLOAD_DIR, row["id"])
-    os.makedirs(cand_dir, exist_ok=True)
+        # 📁 Dossier du candidat (même principe que save_files)
+        cand_dir = os.path.join(UPLOAD_DIR, row["id"])
+        os.makedirs(cand_dir, exist_ok=True)
 
-    idx = 1
-    for f in files:
-        if not f or not f.filename:
-            continue
-        _, ext = os.path.splitext(secure_filename(f.filename))
-        base = f"{prefix}_{row['id']}{'' if idx == 1 else f'_{idx}'}{ext.lower()}"
-        dest = os.path.join(cand_dir, base)
-        f.save(dest)
-        nouveaux.append({"fichier": base, "label": label})
-        idx += 1
-
-
-
-
+        idx = 1
+        for f in files:
+            if not f or not f.filename:
+                continue
+            _, ext = os.path.splitext(secure_filename(f.filename))
+            base = f"{prefix}_{row['id']}{'' if idx == 1 else f'_{idx}'}{ext.lower()}"
+            dest = os.path.join(cand_dir, base)
+            f.save(dest)
+            nouveaux.append({"fichier": base, "label": label})
+            idx += 1
 
     meta["nouveaux_fichiers"] = nouveaux
 
@@ -1158,6 +1154,7 @@ for field_name, (col_name, label) in DOC_FIELDS.items():
     log_event(row, "DOCS_RENVOYES", {"files": [n["fichier"] for n in nouveaux]})
 
     return render_template("replace_ok.html", title="Merci", fichiers=[n["fichier"] for n in nouveaux])
+
 
 
 
