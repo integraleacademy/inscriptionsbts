@@ -876,9 +876,6 @@ def admin_files_mark():
     return jsonify({"ok": True, "horodatage": horodatage})
 
 
-    # =====================================================
-# 💾 ROUTE : Fusionner les nouveaux fichiers dans les pièces normales
-# =====================================================
 # 💾 ROUTE : Fusionner les nouveaux fichiers dans les pièces normales
 @app.route("/admin/files/merge", methods=["POST"])
 def admin_files_merge():
@@ -922,12 +919,12 @@ def admin_files_merge():
                 cur = conn.cursor()
                 lst = parse_list(row.get(col))
 
-                # 🧹 Supprime les anciens fichiers du même type (même préfixe)
+                # 🧹 Supprime les anciens fichiers du même type
                 prefix = fname.split("_")[0]
-                lst = [p for p in lst if prefix not in os.path.basename(p)]
+                lst = [p for p in lst if not os.path.basename(p).startswith(prefix)]
 
-                # ➕ Ajoute la nouvelle version propre
-                lst.append(os.path.join(UPLOAD_DIR, fname))
+                # ➕ Ajoute la nouvelle version propre (avec le bon chemin)
+                lst.append(os.path.join(UPLOAD_DIR, row["id"], fname))
 
                 cur.execute(
                     f"UPDATE candidats SET {col}=?, updated_at=? WHERE id=?",
@@ -951,19 +948,17 @@ def admin_files_merge():
     )
     conn.commit()
 
-    # 🔄 Recharger la fiche (pour récupérer les listes MAJ après les UPDATE ci-dessus)
+    # 🔄 Recharger la fiche pour nettoyage
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
     row = dict(cur.fetchone())
 
-    # 🧽 Nettoyage des entrées orphelines dans verif_docs :
-    #    on ne garde que les fichiers qui existent encore dans les colonnes fichiers_*
+    # 🧽 Nettoyage des entrées orphelines dans verif_docs
     existing_files = []
     for key, (col, _) in DOC_FIELDS.items():
         existing_files += [os.path.basename(p) for p in parse_list(row.get(col))]
 
     verif_purged = {f: v for f, v in load_verif_docs(row).items() if f in existing_files}
 
-    # Si le nettoyage change quelque chose, on persiste
     cur.execute(
         "UPDATE candidats SET verif_docs=?, updated_at=? WHERE id=?",
         (json.dumps(verif_purged, ensure_ascii=False), datetime.now().isoformat(), cid)
