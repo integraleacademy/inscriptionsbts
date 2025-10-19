@@ -627,14 +627,40 @@ function closeGenerationDocsModal() {
 
 
 // placeholder à venir
-function loadLogs(id) {
+// =====================================================
+// 🕓 CHARGEMENT DE L'HISTORIQUE DES LOGS
+// =====================================================
+async function loadLogs(id) {
   const logsList = document.getElementById("logsList");
-  if (logsList) logsList.innerHTML = "<li>Chargement des logs...</li>";
+  if (!logsList) return;
+  logsList.innerHTML = "<li>⏳ Chargement des logs...</li>";
+
+  try {
+    const res = await fetch(`/admin/logs/${id}`);
+    if (!res.ok) throw new Error(`Erreur serveur (${res.status})`);
+    const data = await res.json();
+
+    if (!data.length) {
+      logsList.innerHTML = "<li>Aucune action enregistrée pour ce candidat.</li>";
+      return;
+    }
+
+    logsList.innerHTML = "";
+    data.forEach(log => {
+      const li = document.createElement("li");
+      li.innerHTML = `<b>${log.type}</b> — ${log.created_at}<br><small>${log.payload || ""}</small>`;
+      logsList.appendChild(li);
+    });
+  } catch (err) {
+    logsList.innerHTML = `<li style="color:red;">Erreur de chargement : ${err.message}</li>`;
+  }
 }
+
 
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
