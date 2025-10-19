@@ -238,56 +238,71 @@ if (mergeDocsBtn) {
 
 
 
-    // ✅ / ❌ Marquer une pièce conforme ou non conforme
-    filesModal.addEventListener("click", async (e) => {
-      const btn = e.target.closest(".btn.small");
-      if (!btn) return;
+// ✅ / ❌ Marquer une pièce conforme ou non conforme
+filesModal.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".btn.small");
+  if (!btn) return;
 
-      const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
-      const filename = btn.dataset.filename;
+  const decision = btn.textContent.includes("Conforme") ? "conforme" : "non_conforme";
+  const filename = btn.dataset.filename;
+  const fileItem = btn.closest(".file-item");
 
-      if (!window.currentId) {
-        const tr = btn.closest("tr[data-id]");
-        if (tr) window.currentId = tr.dataset.id;
-      }
+  if (!window.currentId || !filename) return;
 
-      if (!window.currentId || !filename) return;
+  btn.textContent = "⏳...";
+  btn.disabled = true;
 
-      btn.textContent = "⏳...";
-      btn.disabled = true;
+  const res = await fetch("/admin/files/mark", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: window.currentId, filename, decision })
+  });
 
-      const res = await fetch("/admin/files/mark", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: window.currentId, filename, decision })
-      });
+  const data = await res.json();
+  if (data.ok) {
+    showToast(
+      decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
+      decision === "conforme" ? "#28a745" : "#d9534f"
+    );
 
-      const data = await res.json();
-      if (data.ok) {
-        showToast(
-          decision === "conforme" ? "✅ Document conforme" : "❌ Document non conforme",
-          decision === "conforme" ? "#28a745" : "#d9534f"
-        );
-
-        // ✅ MAJ immédiate de la liste des pièces non conformes
-        if (decision === "non_conforme") {
-          const nonList = document.getElementById("nonConformesList");
-          if (nonList) {
-            const item = document.createElement("li");
-            item.textContent = filename + " (" + new Date().toLocaleString() + ")";
-            nonList.appendChild(item);
-            const first = nonList.querySelector("li");
-            if (first && first.textContent.includes("Aucune")) first.remove();
-          }
-        }
-
-        await refreshCandidateStatus(window.currentId);
+    // 🎨 Feedback visuel immédiat dans la modale
+    if (fileItem) {
+      const header = fileItem.querySelector(".file-header");
+      if (decision === "conforme") {
+        header.style.background = "#e8ffe8";
+        header.style.border = "1px solid #28a745";
+        header.querySelector("em")?.remove();
+        const p = document.createElement("p");
+        p.style.margin = "4px 0 0";
+        p.style.color = "#28a745";
+        p.innerHTML = `<em>✅ Conforme le ${new Date().toLocaleString()}</em>`;
+        header.appendChild(p);
       } else {
-        alert("Erreur : " + (data.error || "inconnue"));
-        btn.disabled = false;
+        header.style.background = "#ffeaea";
+        header.style.border = "1px solid #d9534f";
+        header.querySelector("em")?.remove();
+        const p = document.createElement("p");
+        p.style.margin = "4px 0 0";
+        p.style.color = "#d9534f";
+        p.innerHTML = `<em>❌ Non conforme le ${new Date().toLocaleString()}</em>`;
+        header.appendChild(p);
       }
-    });
-  } // ✅ FIN if(filesModal)
+
+      // 🔒 Désactive les boutons après validation
+      const buttons = fileItem.querySelectorAll(".btn.small");
+      buttons.forEach(b => b.disabled = true);
+    }
+
+    // ✅ Met à jour le statut dans le tableau principal (persistant)
+    await refreshCandidateStatus(window.currentId);
+
+  } else {
+    alert("Erreur : " + (data.error || "inconnue"));
+    btn.disabled = false;
+    btn.textContent = decision === "conforme" ? "✅ Conforme" : "❌ Non conforme";
+  }
+});
+
 
 }); // ✅ FIN DOMContentLoaded
 
@@ -474,6 +489,7 @@ function closeFilesModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
