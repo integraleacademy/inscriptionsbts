@@ -1302,12 +1302,25 @@ def data_json():
 # =====================================================
 @app.route("/uploads/<path:filename>")
 def preview_upload(filename):
-    file_path = os.path.join(UPLOAD_DIR, filename)
-    if not os.path.exists(file_path):
-        abort(404)
-    return send_file(file_path)
+    # 🧩 Normalisation du nom
+    filename = os.path.basename(filename)
 
-    # =====================================================
+    # 🧩 Chemin direct (compatibilité)
+    direct_path = os.path.join(UPLOAD_DIR, filename)
+    if os.path.exists(direct_path):
+        return send_file(direct_path)
+
+    # 🔎 Recherche dans les sous-dossiers candidats
+    for cid in os.listdir(UPLOAD_DIR):
+        sub_path = os.path.join(UPLOAD_DIR, cid, filename)
+        if os.path.exists(sub_path):
+            return send_file(sub_path)
+
+    print(f"⚠️ Fichier introuvable : {filename}")
+    abort(404)
+
+
+# =====================================================
 # 🧹 NETTOYAGE AUTOMATIQUE DES DOSSIERS ORPHELINS
 # =====================================================
 def cleanup_orphan_folders():
