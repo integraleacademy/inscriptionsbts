@@ -837,6 +837,7 @@ def admin_files_mark():
         "label": label_associe or "Pièce justificative"
     }
 
+    cur = conn.cursor()
 
     # ❌ Si non conforme → supprimer physiquement le fichier
     if decision == "non_conforme":
@@ -844,19 +845,16 @@ def admin_files_mark():
             file_list = parse_list(row.get(field))
             new_list = [p for p in file_list if not p.endswith(fname)]
             if len(new_list) != len(file_list):
-                # fichier supprimé de la liste
-                cur = conn.cursor()
                 cur.execute(
                     f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
                     (json.dumps(new_list), datetime.now().isoformat(), cid)
                 )
                 try:
-                    os.remove(os.path.join(UPLOAD_DIR, fname))
+                    os.remove(os.path.join(UPLOAD_DIR, cid, fname))
                 except FileNotFoundError:
                     pass
 
-        # ✅ Marquer le statut global en "docs_non_conformes"
-        cur = conn.cursor()
+        # ✅ Mettre à jour le statut global
         cur.execute(
             "UPDATE candidats SET statut=?, verif_docs=?, updated_at=? WHERE id=?",
             ("docs_non_conformes", json.dumps(verif, ensure_ascii=False),
@@ -865,7 +863,6 @@ def admin_files_mark():
 
     else:
         # ✅ conforme → juste mise à jour
-        cur = conn.cursor()
         cur.execute(
             "UPDATE candidats SET verif_docs=?, updated_at=? WHERE id=?",
             (json.dumps(verif, ensure_ascii=False), datetime.now().isoformat(), cid)
@@ -877,6 +874,7 @@ def admin_files_mark():
     log_event(row, "DOC_MARK", {"file": fname, "decision": decision})
     print(f"✅ Pièce {fname} marquée comme {decision}")
     return jsonify({"ok": True, "horodatage": horodatage})
+
 
     # =====================================================
 # 💾 ROUTE : Fusionner les nouveaux fichiers dans les pièces normales
@@ -1309,6 +1307,40 @@ def preview_upload(filename):
         abort(404)
     return send_file(file_path)
 
+    # =====================================================
+# 🧹 NETTOYAGE AUTOMATIQUE DES DOSSIERS ORPHELINS
+# =====================================================
+def cleanup_orphan_folders():
+    print("🧹 Vérification des dossiers orphelins dans /uploads...")
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT id FROM candidats")
+    valid_ids = {r[0] for r in cur.fetchall()}
+    conn.close()
+
+    import shutil
+    removed = 0
+
+    for f in os.listdir(UPLOAD_DIR):
+        full = os.path.join(UPLOAD_DIR, f)
+        if os.path.isdir(full) and f not in valid_ids:
+            try:
+                shutil.rmtree(full)
+                removed += 1
+            except Exception as e:
+                print(f"⚠️ Impossible de supprimer {f}: {e}")
+
+    if removed:
+        print(f"✅ {removed} dossier(s) orphelin(s) supprimé(s) du répertoire uploads.")
+    else:
+        print("✅ Aucun dossier orphelin trouvé.")
+
+
+# Lancer le nettoyage une fois au démarrage
+with app.app_context():
+    cleanup_orphan_folders()
+
+
 print("🚀 Application Flask démarrée – gestion CNAPS & pièces justificatives OK")
 
 @app.route("/admin/clear-db", methods=["POST"])
@@ -1324,11 +1356,14 @@ def admin_clear_db():
     conn.commit()
     conn.close()
 
-    # Supprimer tous les fichiers uploadés
+    # 🧹 Supprimer tous les sous-dossiers candidats dans /uploads
     try:
+        import shutil
         for f in os.listdir(UPLOAD_DIR):
             full = os.path.join(UPLOAD_DIR, f)
-            if os.path.isfile(full):
+            if os.path.isdir(full):
+                shutil.rmtree(full)
+            elif os.path.isfile(full):
                 os.remove(full)
     except Exception as e:
         print("⚠️ Erreur suppression fichiers :", e)
