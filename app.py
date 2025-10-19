@@ -786,6 +786,52 @@ def admin_generate_certificat(id):
     print(f"✅ Certificat généré pour {full_name}")
     return send_file(output_docx, as_attachment=True)
 
+@app.route("/admin/generate_certificat_presentiel/<id>")
+def admin_generate_certificat_presentiel(id):
+    from docx import Document
+    from datetime import datetime
+    from flask import send_file
+
+    # 📂 Chemin vers le modèle Word
+    model_path = os.path.join("static", "docs", "certificat_scolarite_presentiel.docx")
+
+    # 🧾 Récupérer les infos du candidat
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id = ?", (id,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        return "Candidat introuvable", 404
+
+    nom, prenom, bts = row
+    nom_prenom = f"{prenom} {nom}".upper()
+    formation = BTS_LABELS.get(bts.strip().upper(), bts).upper()
+    date_aujourdhui = datetime.now().strftime("%d/%m/%Y")
+
+    # 📄 Charger et remplacer les variables
+    doc = Document(model_path)
+    for p in doc.paragraphs:
+        if "{{NOM_PRENOM}}" in p.text:
+            p.text = p.text.replace("{{NOM_PRENOM}}", nom_prenom)
+        if "{{FORMATION}}" in p.text:
+            p.text = p.text.replace("{{FORMATION}}", formation)
+        if "{{DATE_AUJOURDHUI}}" in p.text:
+            p.text = p.text.replace("{{DATE_AUJOURDHUI}}", date_aujourdhui)
+
+    # 💾 Enregistrer le fichier généré
+    output_dir = os.path.join(DATA_DIR, "certificats")
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, f"certificat_presentiel_{id}.docx")
+    doc.save(output_path)
+
+    # 🪶 Log de génération
+    log_event({"id": id, "prenom": prenom, "nom": nom}, "DOC_GENERE",
+              {"type": "certificat_scolarite_presentiel", "file": output_path})
+
+    print(f"✅ Certificat PRÉSENTIEL généré pour {nom_prenom}")
+    return send_file(output_path, as_attachment=True)
+
 
 
 
