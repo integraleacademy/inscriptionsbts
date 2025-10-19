@@ -709,6 +709,19 @@ def admin_export_json():
     return jsonify(rows)
 
 # =====================================================
+# 📘 NOMS COMPLETS DES BTS
+# =====================================================
+BTS_LABELS = {
+    "MCO": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO)",
+    "MOS": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS)",
+    "PI": "BTS PROFESSIONS IMMOBILIÈRES (PI)",
+    "NDRC": "BTS NÉGOCIATION ET DIGITALISATION DE LA RELATION CLIENT (NDRC)",
+    "CG": "BTS COMPTABILITÉ ET GESTION (CG)",
+    "CI": "BTS COMMERCE INTERNATIONAL (CI)"
+}
+
+
+# =====================================================
 # 🧾 GÉNÉRATION CERTIFICAT DE SCOLARITÉ (DOCX UNIQUEMENT)
 # =====================================================
 @app.route("/admin/generate_certificat/<id>")
@@ -735,10 +748,13 @@ def admin_generate_certificat(id):
     full_name = f"{prenom.upper()} {nom.upper()}"
     date_now = datetime.now().strftime("%d/%m/%Y")
 
+    # 🧩 Nom complet du BTS
+    bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
+
     # 🔧 valeurs de remplacement
     replacements = {
         "{{NOM_PRENOM}}": full_name,
-        "{{FORMATION}}": bts.strip(),
+        "{{FORMATION}}": bts_nom_complet,
         "{{DATE_AUJOURDHUI}}": date_now,
         "{{ANNEE_DEBUT}}": "2026",
         "{{ANNEE_FIN}}": "2028",
@@ -803,11 +819,15 @@ def admin_send_certificat(id):
     prenom, nom, email, bts = row
     full_name = f"{prenom.title()} {nom.upper()}"
 
+    # 🧩 Nom complet du BTS (comme dans le certificat)
+    bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
+
     # ✉️ Préparation du mail
-    subject = f"Votre certificat de scolarité – {bts} 2026-2028"
+    subject = f"Votre certificat de scolarité – {bts_nom_complet} 2026-2028"
     html = f"""
     <p>Bonjour {prenom.title()},</p>
-    <p>Veuillez trouver ci-joint votre <strong>certificat de scolarité</strong> pour la formation <b>{bts}</b>.</p>
+    <p>Veuillez trouver ci-joint votre <strong>certificat de scolarité</strong> pour la formation :</p>
+    <p><b>{bts_nom_complet}</b></p>
     <p>Bien cordialement,<br>L’équipe <strong>Intégrale Academy</strong> 🎓</p>
     """
 
@@ -818,8 +838,6 @@ def admin_send_certificat(id):
     except Exception as e:
         print(f"❌ Erreur envoi certificat à {full_name} :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
-
-
 
 
 
