@@ -9,4 +9,6 @@ Babel==2.15.0
 gunicorn==22.0.0
 python-docx
 pypandoc
+docx2pdf
+
 
