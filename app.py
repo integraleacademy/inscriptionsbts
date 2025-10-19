@@ -918,7 +918,14 @@ def admin_files_merge():
             if label_ref in label or label in label_ref:
                 cur = conn.cursor()
                 lst = parse_list(row.get(col))
+
+                # 🧹 Supprime les anciens fichiers du même type (même préfixe)
+                prefix = fname.split("_")[0]
+                lst = [p for p in lst if prefix not in os.path.basename(p)]
+
+                # ➕ Ajoute la nouvelle version propre
                 lst.append(os.path.join(UPLOAD_DIR, fname))
+
                 cur.execute(
                     f"UPDATE candidats SET {col}=?, updated_at=? WHERE id=?",
                     (json.dumps(lst, ensure_ascii=False), datetime.now().isoformat(), cid)
@@ -933,7 +940,7 @@ def admin_files_merge():
 
                 break
 
-    # 🧩 Enregistrer le dictionnaire verif mis à jour
+    # 🧩 Enregistrer le dictionnaire verif mis à jour et nettoyer replace_meta
     cur = conn.cursor()
     cur.execute(
         "UPDATE candidats SET nouveau_doc=0, replace_meta=?, verif_docs=?, updated_at=? WHERE id=?",
@@ -942,9 +949,13 @@ def admin_files_merge():
 
     conn.commit()
     conn.close()
+    # 🧽 Nettoyage des statuts orphelins dans verif_docs
+    existing_files = []
+    for key, (col, _) in DOC_FIELDS.items():
+        existing_files += [os.path.basename(p) for p in parse_list(row.get(col))]
+    verif = {f: v for f, v in verif.items() if f in existing_files}
 
     return jsonify({"ok": True})
-
 
 
 # =====================================================
