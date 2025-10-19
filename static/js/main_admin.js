@@ -585,11 +585,46 @@ function openGenerationDocsModal(id) {
       window.open(`/admin/generate_certificat/${window.currentId}`, "_blank");
     };
   }
-}
 
+  // ✉️ Bouton Envoyer certificat
+  const sendCertificatBtn = document.getElementById("sendCertificatBtn");
+  if (sendCertificatBtn) {
+    sendCertificatBtn.onclick = async () => {
+      if (!window.currentId) {
+        alert("Aucun candidat sélectionné !");
+        return;
+      }
+      sendCertificatBtn.disabled = true;
+      sendCertificatBtn.textContent = "📤 Envoi en cours…";
+
+      try {
+        const res = await fetch(`/admin/send_certificat/${window.currentId}`);
+        const data = await res.json();
+        if (data.ok) {
+          showToast("✉️ Certificat envoyé avec succès !", "#28a745");
+          sendCertificatBtn.textContent = "✅ Envoyé";
+        } else {
+          showToast("⚠️ " + (data.error || "Erreur inconnue"), "#dc3545");
+          sendCertificatBtn.textContent = "❌ Erreur";
+        }
+      } catch (err) {
+        showToast("❌ Erreur d’envoi : " + err.message, "#dc3545");
+        sendCertificatBtn.textContent = "❌ Erreur";
+      }
+
+      setTimeout(() => {
+        sendCertificatBtn.disabled = false;
+        sendCertificatBtn.textContent = "✉️ Envoyer certificat";
+      }, 4000);
+    };
+  }
+} // ✅ ici tu fermes bien la fonction openGenerationDocsModal
+
+// 🧩 ensuite seulement :
 function closeGenerationDocsModal() {
   document.getElementById("generationDocsModal")?.classList.add("hidden");
 }
+
 
 // placeholder à venir
 function loadLogs(id) {
@@ -600,6 +635,7 @@ function loadLogs(id) {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
