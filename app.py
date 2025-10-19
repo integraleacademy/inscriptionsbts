@@ -305,29 +305,30 @@ def index():
 def save_files(field_key: str, cand_id: str):
     """
     Sauvegarde les fichiers du champ `field_key` pour le candidat `cand_id`
-    avec un nom DÉTERMINISTE : <PREFIX>_<cand_id><ext>
-    - Si plusieurs fichiers sont envoyés pour un même type, on suffixe _2, _3, ...
-    - Retourne la liste des chemins absolus enregistrés.
+    dans un dossier dédié : /uploads/<cand_id>/
+    avec un nom clair : <PREFIX>_<cand_id>[_2].ext
     """
     files = request.files.getlist(field_key)
     saved = []
     prefix = FILE_PREFIX.get(field_key, field_key)
 
+    # 📁 Crée un sous-dossier par candidat
+    cand_dir = os.path.join(UPLOAD_DIR, cand_id)
+    os.makedirs(cand_dir, exist_ok=True)
+
     idx = 1
     for f in files:
         if not f or not f.filename:
             continue
-        # extension propre
         _, ext = os.path.splitext(secure_filename(f.filename))
         base = f"{prefix}_{cand_id}{'' if idx == 1 else f'_{idx}'}{ext.lower()}"
-        dest = os.path.join(UPLOAD_DIR, base)
-
-        # on écrit par-dessus si ça existe (cas du remplacement)
+        dest = os.path.join(cand_dir, base)
         f.save(dest)
         saved.append(dest)
         idx += 1
 
     return saved
+
 
 
 # =====================================================
@@ -740,11 +741,12 @@ def admin_files(cid):
                 "horodatage": status_info.get("horodatage", "")
             })
 
-    # === Étape 2 : Détection automatique des nouveaux fichiers sur le disque ===
+    # === Étape 2 : Détection automatique des nouveaux fichiers dans le dossier du candidat ===
+    cand_dir = os.path.join(UPLOAD_DIR, cid)
     try:
-        all_on_disk = os.listdir(UPLOAD_DIR)
+        all_on_disk = os.listdir(cand_dir)
     except Exception as e:
-        print(f"⚠️ Erreur lecture UPLOAD_DIR : {e}")
+        print(f"⚠️ Erreur lecture du dossier candidat {cid} : {e}")
         all_on_disk = []
 
     existing_filenames = {os.path.basename(f["filename"]) for f in files_data}
@@ -752,7 +754,7 @@ def admin_files(cid):
 
     for f in all_on_disk:
         if f not in existing_filenames:
-            full_path = os.path.join(UPLOAD_DIR, f)
+            full_path = os.path.join(cand_dir, f)
             if os.path.isfile(full_path):
                 files_data.append({
                     "type": "nouveau",
@@ -788,13 +790,11 @@ def admin_files(cid):
 
     print(f"📎 {len(unique_files)} fichiers trouvés pour {cid} (dont {len(nouveaux_detectes)} nouveaux)")
 
-        # (Sécurité) on ignore les statuts fantômes
+    # (Sécurité) on ignore les statuts fantômes
     existing = {os.path.basename(f["path"]) for f in unique_files if os.path.exists(f["path"])}
     verif = {k: v for k, v in verif.items() if k in existing}
 
-
     return jsonify(unique_files)
-
 
 
 
@@ -1103,19 +1103,26 @@ def replace_files_submit():
     meta = json.loads(row.get("replace_meta") or "{}")
     nouveaux = []
 
-    for field_name, (col_name, label) in DOC_FIELDS.items():
-        files = request.files.getlist(field_name)
-        prefix = FILE_PREFIX.get(field_name, field_name)
-        idx = 1
-        for f in files:
-            if not f or not f.filename:
-                continue
-            _, ext = os.path.splitext(secure_filename(f.filename))
-            base = f"{prefix}_{row['id']}{'' if idx == 1 else f'_{idx}'}{ext.lower()}"
-            dest = os.path.join(UPLOAD_DIR, base)
-            f.save(dest)
-            nouveaux.append({"fichier": base, "label": label})
-            idx += 1
+for field_name, (col_name, label) in DOC_FIELDS.items():
+    files = request.files.getlist(field_name)
+    prefix = FILE_PREFIX.get(field_name, field_name)
+
+    # 📁 Dossier du candidat (même principe que save_files)
+    cand_dir = os.path.join(UPLOAD_DIR, row["id"])
+    os.makedirs(cand_dir, exist_ok=True)
+
+    idx = 1
+    for f in files:
+        if not f or not f.filename:
+            continue
+        _, ext = os.path.splitext(secure_filename(f.filename))
+        base = f"{prefix}_{row['id']}{'' if idx == 1 else f'_{idx}'}{ext.lower()}"
+        dest = os.path.join(cand_dir, base)
+        f.save(dest)
+        nouveaux.append({"fichier": base, "label": label})
+        idx += 1
+
+
 
 
 
