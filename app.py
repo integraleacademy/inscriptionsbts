@@ -725,38 +725,51 @@ def admin_generate_certificat(id):
     # 🧾 récupérer infos candidat
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT nom, prenom, bts, mode FROM candidats WHERE id = ?", (id,))
+    cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id = ?", (id,))
     row = cur.fetchone()
     conn.close()
     if not row:
         return "Candidat introuvable", 404
 
-    nom, prenom, bts, mode = row
-    full_name = f"{prenom.upper()} {nom.upper()}"  # ✅ tout en majuscules
-    formation = bts.strip()
+    nom, prenom, bts = row
+    full_name = f"{prenom.upper()} {nom.upper()}"
     date_now = datetime.now().strftime("%d/%m/%Y")
 
-    # 🧩 ouvrir modèle et remplacer les champs sans casser le style
-    doc = Document(template_path)
+    # 🔧 valeurs de remplacement
     replacements = {
-        "Clement VAILLANT": full_name,
-        "NOM DE LA FORMATION": formation,
-        "19/10/2025": date_now,
+        "{{NOM_PRENOM}}": full_name,
+        "{{FORMATION}}": bts.strip(),
+        "{{DATE_AUJOURDHUI}}": date_now,
+        "{{ANNEE_DEBUT}}": "2026",
+        "{{ANNEE_FIN}}": "2028",
     }
 
-    for p in doc.paragraphs:
-        for key, value in replacements.items():
-            if key in p.text:
-                for run in p.runs:
-                    if key in run.text:
-                        run.text = run.text.replace(key, value)
+    # 🧩 ouvrir modèle Word et remplacer les balises dans tous les paragraphes et tables
+    doc = Document(template_path)
 
-    # 💾 sauvegarde du document Word final
+    def replace_text_in_paragraph(paragraph):
+        for key, val in replacements.items():
+            if key in paragraph.text:
+                for run in paragraph.runs:
+                    if key in run.text:
+                        run.text = run.text.replace(key, val)
+
+    for p in doc.paragraphs:
+        replace_text_in_paragraph(p)
+
+    for table in doc.tables:
+        for row in table.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    replace_text_in_paragraph(p)
+
+    # 💾 sauvegarde du document Word généré
     output_docx = os.path.join(output_dir, f"certificat_{id}.docx")
     doc.save(output_docx)
 
-    print(f"✅ Certificat Word généré pour {full_name} ({formation})")
+    print(f"✅ Certificat généré pour {full_name}")
     return send_file(output_docx, as_attachment=True)
+
 
 
 
