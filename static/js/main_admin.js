@@ -480,6 +480,34 @@ function openActionsModal(id, commentaire = "") {
   }
 }
 
+  // === ✉️ Boutons RELANCES / LOGS / DOCUMENTS ===
+  const relancesBtn = document.getElementById("relancesBtn");
+  const logsBtn = document.getElementById("logsBtn");
+  const generationDocsBtn = document.getElementById("generationDocsBtn");
+
+  if (relancesBtn) {
+    relancesBtn.onclick = () => {
+      closeActionsModal();
+      openRelancesModal(id);
+    };
+  }
+
+  if (logsBtn) {
+    logsBtn.onclick = () => {
+      closeActionsModal();
+      openLogsModal(id);
+    };
+  }
+
+  if (generationDocsBtn) {
+    generationDocsBtn.onclick = () => {
+      closeActionsModal();
+      openGenerationDocsModal(id);
+    };
+  }
+} // <--- ici se ferme openActionsModal
+
+
 function closeActionsModal() {
   document.getElementById("actionsModal")?.classList.add("hidden");
 }
@@ -488,8 +516,44 @@ function closeFilesModal() {
   document.getElementById("filesModal")?.classList.add("hidden");
 }
 
+function openRelancesModal(id) {
+  window.currentId = id;
+  document.getElementById("relancesModal")?.classList.remove("hidden");
+}
+
+function closeRelancesModal() {
+  document.getElementById("relancesModal")?.classList.add("hidden");
+}
+
+function openLogsModal(id) {
+  window.currentId = id;
+  document.getElementById("logsModal")?.classList.remove("hidden");
+  loadLogs(id);
+}
+
+function closeLogsModal() {
+  document.getElementById("logsModal")?.classList.add("hidden");
+}
+
+function openGenerationDocsModal(id) {
+  window.currentId = id;
+  document.getElementById("generationDocsModal")?.classList.remove("hidden");
+}
+
+function closeGenerationDocsModal() {
+  document.getElementById("generationDocsModal")?.classList.add("hidden");
+}
+
+// placeholder à venir
+function loadLogs(id) {
+  const logsList = document.getElementById("logsList");
+  if (logsList) logsList.innerHTML = "<li>Chargement des logs...</li>";
+}
+
+
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
