@@ -124,6 +124,13 @@
       <button id="openFilesFromActions" class="btn secondary">📎 Pièces justificatives</button>
     </div>
 
+    <div class="modal-actions" style="margin-top:10px;">
+      <button id="relancesBtn" class="btn secondary">📧 Relances / Mails</button>
+      <button id="logsBtn" class="btn secondary">🕓 Logs</button>
+      <button id="generationDocsBtn" class="btn pdf">🧾 Génération documents</button>
+    </div>
+
+
     <hr>
     <h4>💬 Commentaires</h4>
     <textarea id="commentBox" rows="4" placeholder="Ajouter ou modifier un commentaire..."></textarea>
@@ -166,5 +173,51 @@
     </div>
   </div>
 </div>
+
+<!-- 📧 MODALE — RELANCES / MAILS -->
+<div id="relancesModal" class="modal hidden">
+  <div class="modal-content" style="width:600px;">
+    <h3>📧 Relances / Mails</h3>
+    <p>Choisissez le mail à envoyer au candidat :</p>
+    <div class="modal-actions">
+      <button class="btn secondary" data-mail="certificat">📜 Certificat de scolarité</button>
+      <button class="btn secondary" data-mail="candidature_validee">✅ Candidature validée</button>
+      <button class="btn secondary" data-mail="inscription_confirmee">📩 Inscription confirmée</button>
+      <button class="btn secondary" data-mail="inscription_non_confirmee">⚠️ Inscription non confirmée</button>
+      <button class="btn secondary" data-mail="docs_non_conformes">🚫 Documents non conformes</button>
+    </div>
+    <div class="comment-save">
+      <button class="btn" onclick="closeRelancesModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- 🕓 MODALE — LOGS -->
+<div id="logsModal" class="modal hidden">
+  <div class="modal-content" style="width:700px;max-height:90vh;overflow-y:auto;">
+    <h3>🕓 Historique des actions</h3>
+    <ul id="logsList" style="list-style:none;padding:0;margin:0;font-size:14px;">
+      <li>Chargement des logs...</li>
+    </ul>
+    <div class="comment-save">
+      <button class="btn" onclick="closeLogsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- 🧾 MODALE — GÉNÉRATION DOCUMENTS -->
+<div id="generationDocsModal" class="modal hidden">
+  <div class="modal-content" style="width:600px;">
+    <h3>🧾 Génération de documents</h3>
+    <p>Choisissez le document à générer pour ce candidat :</p>
+    <div class="modal-actions">
+      <button id="generateCertificatBtn" class="btn pdf">📜 Certificat de scolarité (Distanciel)</button>
+    </div>
+    <div class="comment-save">
+      <button class="btn" onclick="closeGenerationDocsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
 
 {% endblock %}
