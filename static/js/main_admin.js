@@ -537,7 +537,20 @@ function closeLogsModal() {
 
 function openGenerationDocsModal(id) {
   window.currentId = id;
-  document.getElementById("generationDocsModal")?.classList.remove("hidden");
+  const modal = document.getElementById("generationDocsModal");
+  modal?.classList.remove("hidden");
+
+  // 🧾 Bouton Certificat de scolarité
+  const generateCertificatBtn = document.getElementById("generateCertificatBtn");
+  if (generateCertificatBtn) {
+    generateCertificatBtn.onclick = () => {
+      if (!window.currentId) {
+        alert("Aucun candidat sélectionné !");
+        return;
+      }
+      window.open(`/admin/generate_certificat/${window.currentId}`, "_blank");
+    };
+  }
 }
 
 function closeGenerationDocsModal() {
@@ -553,6 +566,7 @@ function loadLogs(id) {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
