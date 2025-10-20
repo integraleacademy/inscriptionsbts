@@ -95,16 +95,25 @@
             <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
           </td>
           <td>
+<td>
+  <a href="{{ url_for('admin_espace_candidat', cid=r.id) }}" 
+     class="btn small" 
+     target="_blank"
+     style="background:#f4c45a;color:#111;font-weight:600;">
+     👁️ Espace
+  </a>
+
   <button class="btn small action-btn" 
           data-id="{{ r.id }}" 
           data-commentaire="{{ r.commentaires|default('')|escape }}">
-    ACTIONS
+    ⚙️ Actions
   </button>
 
   {% if r.nouveau_doc %}
     <span style="color:#28a745;font-weight:600;margin-left:8px;">📥 Nouveau document déposé</span>
   {% endif %}
 </td>
+
 
         </tr>
         {% endfor %}
