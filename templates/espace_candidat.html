@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Espace candidat – {{ row.prenom }} {{ row.nom }}{% endblock %}
+{% block content %}
+<div class="candidate-container">
+  <h1>👤 Espace candidat</h1>
+  <p class="subtitle">Suivi de votre dossier en temps réel</p>
+
+  <section class="card">
+    <h2>Informations personnelles</h2>
+    <p><strong>Nom :</strong> {{ row.nom }}</p>
+    <p><strong>Prénom :</strong> {{ row.prenom }}</p>
+    <p><strong>E-mail :</strong> {{ row.email }}</p>
+    <p><strong>Téléphone :</strong> {{ row.tel }}</p>
+    <p><strong>BTS choisi :</strong> {{ row.bts }}</p>
+    <p><strong>Numéro de dossier :</strong> {{ row.numero_dossier }}</p>
+  </section>
+
+  <section class="card">
+    <h2>Statut de votre dossier</h2>
+    <p class="statut {{ statut }}">🕓 {{ explication_statut }}</p>
+  </section>
+
+  <section class="card">
+    <h2>Commentaire de l’équipe</h2>
+    {% if commentaire %}
+      <div class="commentaire">{{ commentaire }}</div>
+    {% else %}
+      <p>Aucun commentaire pour le moment.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Besoin d’aide ?</h2>
+    <p>
+      📞 <a href="tel:+33422470768">04 22 47 07 68</a><br>
+      💬 <a href="https://assistance-alw9.onrender.com/" target="_blank">Contacter l’assistance en ligne</a>
+    </p>
+  </section>
+</div>
+{% endblock %}
