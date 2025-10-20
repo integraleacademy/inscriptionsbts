@@ -1671,6 +1671,72 @@ def admin_clear_db():
     flash("Base de données et fichiers effacés ✅", "success")
     return redirect(url_for("admin"))
 
+    # =====================================================
+# 🧩 AJOUT DU SLUG PUBLIC (IDENTIFIANT UNIQUE)
+# =====================================================
+def ensure_slug_public():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(candidats)")
+    cols = [r[1] for r in cur.fetchall()]
+    if "slug_public" not in cols:
+        print("🧩 Ajout de la colonne slug_public...")
+        cur.execute("ALTER TABLE candidats ADD COLUMN slug_public TEXT DEFAULT ''")
+        conn.commit()
+
+    # Génération automatique d’un slug pour les candidats sans identifiant public
+    cur.execute("SELECT id, slug_public FROM candidats")
+    rows = cur.fetchall()
+    for cid, slug in rows:
+        if not slug:
+            new_slug = uuid.uuid4().hex[:10]
+            cur.execute("UPDATE candidats SET slug_public=? WHERE id=?", (new_slug, cid))
+    conn.commit()
+    conn.close()
+
+with app.app_context():
+    ensure_slug_public()
+
+    # =====================================================
+# 👤 PAGE PUBLIQUE – ESPACE CANDIDAT
+# =====================================================
+@app.route("/espace/<slug>")
+def espace_candidat(slug):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM candidats WHERE slug_public=?", (slug,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        abort(404)
+
+    row = dict(row)
+    statut = (row.get("statut") or "").lower()
+    commentaire = row.get("commentaires") or ""
+
+    explications = {
+        "preinscription": "Votre candidature a bien été enregistrée. Elle est en cours d’examen par notre équipe.",
+        "validee": "Votre candidature est validée. Vous allez recevoir un mail pour confirmer votre inscription.",
+        "confirmee": "Votre inscription est confirmée 🎓. Bienvenue à Intégrale Academy !",
+        "reconf_en_cours": "Une reconfirmation est en attente de votre part. Consultez vos e-mails pour finaliser.",
+        "reconfirmee": "Votre reconfirmation a été validée ✅.",
+        "docs_non_conformes": "Certains documents ont été jugés non conformes. Veuillez consulter votre e-mail pour les renvoyer.",
+        "annulee": "Votre inscription a été annulée. Pour toute question, contactez notre équipe.",
+    }
+
+    explication_statut = explications.get(statut, "Le traitement de votre dossier est en cours.")
+
+    return render_template(
+        "espace_candidat.html",
+        row=row,
+        statut=statut,
+        explication_statut=explication_statut,
+        commentaire=commentaire
+    )
+
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
