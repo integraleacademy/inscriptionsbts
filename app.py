@@ -505,9 +505,30 @@ def submit():
     }
     log_event(candidat, "PREINSCRIPTION_RECU", {"email": candidat["email"]})
 
-    html = render_template("mail_accuse.html", prenom=form.get("prenom", ""), numero=numero)
+    # 🧩 Récupération du slug_public du candidat
+    cur.execute("SELECT slug_public FROM candidats WHERE id=?", (cand_id,))
+    slug = cur.fetchone()[0]
+    lien_espace = url_for("espace_candidat", slug=slug, _external=True)
+
+    # ✉️ Mail avec lien vers l’espace candidat
+    html = render_template(
+        "mail_accuse.html",
+        prenom=form.get("prenom", ""),
+        numero=numero,
+        lien_espace=lien_espace
+    )
     send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription", html)
+
+    # 🧾 Log après envoi du mail
     log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
+
+    # 📩 Mail interne admin
+    admin_html = render_template("mail_admin_notif.html", numero=numero, nom=form.get("nom", ""), prenom=form.get("prenom", ""))
+    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
+    send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
+
+    return render_template("submit_ok.html", title="Merci", numero=numero)
+
 
     admin_html = render_template("mail_admin_notif.html", numero=numero, nom=form.get("nom", ""), prenom=form.get("prenom", ""))
     from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
