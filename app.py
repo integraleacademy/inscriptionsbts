@@ -1735,6 +1735,27 @@ def espace_candidat(slug):
         commentaire=commentaire
     )
 
+    # =====================================================
+# 👁️ LIEN DIRECT DEPUIS L’ADMIN VERS L’ESPACE CANDIDAT
+# =====================================================
+@app.route("/admin/candidat/<cid>/espace")
+def admin_espace_candidat(cid):
+    if not require_admin():
+        abort(403)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT slug_public FROM candidats WHERE id=?", (cid,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row or not row["slug_public"]:
+        abort(404)
+
+    slug = row["slug_public"]
+    return redirect(url_for("espace_candidat", slug=slug))
+
+
 
 
 
