@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      background: #f6f6f6;
+      font-family: "Segoe UI", Arial, sans-serif;
+      margin: 0; padding: 40px 0;
+      color: #222;
+    }
+    .email-container {
+      background: #fff;
+      max-width: 680px;
+      margin: auto;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      overflow: hidden;
+      border-top: 6px solid #f4c45a;
+    }
+    .header {
+      text-align: center;
+      padding: 25px;
+    }
+    .header img {
+      max-height: 70px;
+      margin-bottom: 10px;
+    }
+    .content {
+      padding: 25px 35px;
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    .btn {
+      display: inline-block;
+      background: #f4c45a;
+      color: #111;
+      font-weight: bold;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      margin-top: 20px;
+    }
+    .footer {
+      text-align: center;
+      font-size: 13px;
+      color: #888;
+      padding: 20px;
+      border-top: 1px solid #eee;
+    }
+  </style>
+</head>
+<body>
+  <div class="email-container">
+    <div class="header">
+      <img src="https://integraleacademy.com/static/logo-integrale.png" alt="Intégrale Academy">
+      <h2>{% block email_title %}{% endblock %}</h2>
+    </div>
+    <div class="content">
+      {% block email_content %}{% endblock %}
+    </div>
+    <div class="footer">
+      © Intégrale Academy — Merci de votre confiance 💛<br>
+      <a href="https://integraleacademy.com" style="color:#f4c45a;text-decoration:none;">integraleacademy.com</a>
+    </div>
+  </div>
+</body>
+</html>
