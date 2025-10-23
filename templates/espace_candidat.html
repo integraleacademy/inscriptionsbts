@@ -248,21 +248,73 @@ body.espace-candidat {
     <p class="statut-explication">{{ explication_statut }}</p>
   </div>
 
-  <!-- === Barre de progression === -->
-  <div class="progress-container">
-    <div class="progress-line"></div>
-    <div class="progress-line-fill" id="progressFill"></div>
-    <div class="progress-step" id="step1">🕓</div>
-    <div class="progress-step" id="step2">✅</div>
-    <div class="progress-step" id="step3">🎓</div>
-    <div class="progress-step" id="step4">💚</div>
+<!-- === Nouvelle frise chronologique complète === -->
+<div class="timeline">
+
+  <!-- 1️⃣ Pré-inscription reçue -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕓</div>
+    <div class="label">Pré-inscription reçue</div>
+    <div class="date">{{ row.created_at[:10] if row.created_at else '' }}</div>
   </div>
-  <div class="progress-labels">
-    <span>Pré-inscription</span>
-    <span>Validée</span>
-    <span>Confirmée</span>
-    <span>Reconfirmée</span>
+
+  <!-- 2️⃣ Candidature en attente de validation -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">📨</div>
+    <div class="label">Candidature en attente de validation</div>
   </div>
+
+  <!-- 3️⃣ Candidature validée -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">✅</div>
+    <div class="label">Candidature validée</div>
+    {% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] %}
+      <div class="date">{{ row.updated_at[:10] }}</div>
+      <div class="info">Votre candidature a été validée ✅<br>Un mail vous a été envoyé pour confirmer votre inscription.</div>
+    {% endif %}
+  </div>
+
+  <!-- 4️⃣ Inscription en attente de confirmation -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">✉️</div>
+    <div class="label">Inscription en attente de confirmation</div>
+    {% if statut == 'validee' %}
+      <div class="info">👉 Consultez votre e-mail pour confirmer votre inscription.</div>
+    {% endif %}
+  </div>
+
+  <!-- 5️⃣ Inscription validée -->
+  <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🎓</div>
+    <div class="label">Inscription validée</div>
+    {% if statut == 'confirmee' %}
+      <div class="info">Bienvenue à Intégrale Academy 🎓</div>
+    {% endif %}
+  </div>
+
+  <!-- 6️⃣ Reconfirmation en attente -->
+  <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕒</div>
+    <div class="label">En attente de reconfirmation (août 2026)</div>
+    <div class="info">En août 2026, vous recevrez un mail pour confirmer votre volonté d’intégrer l’école.</div>
+  </div>
+
+  <!-- 7️⃣ Reconfirmation validée -->
+  <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
+    <div class="icon">💚</div>
+    <div class="label">Reconfirmation validée</div>
+    {% if statut == 'reconfirmee' %}
+      <div class="date">{{ row.updated_at[:10] }}</div>
+    {% endif %}
+  </div>
+
+  <!-- 8️⃣ Rentrée septembre 2026 -->
+  <div class="step {{ 'active' if statut == 'rentree' else '' }}">
+    <div class="icon">🎉</div>
+    <div class="label">Rentrée septembre 2026</div>
+  </div>
+
+</div>
 
   {% if commentaire %}
   <div class="commentaire-block">
@@ -299,3 +351,4 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 {% endblock %}
+
