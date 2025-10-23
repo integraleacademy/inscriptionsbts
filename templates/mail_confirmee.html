@@ -1,17 +1,30 @@
+{% extends "email_base.html" %}
+
+{% block email_title %}Inscription confirmée 🎓{% endblock %}
+
+{% block email_content %}
 <p>Bonjour {{ prenom }},</p>
 
-<p>🎉 Félicitations, votre <strong>inscription à Intégrale Academy</strong> est bien confirmée !</p>
+<p>🎉 Félicitations, votre <strong>inscription à Intégrale Academy</strong> est désormais <strong>confirmée</strong> !</p>
+
 <p>Vous recevrez prochainement par courrier votre <strong>carte étudiante officielle</strong> ainsi que votre <strong>certificat de scolarité</strong>.</p>
 
 {% if aps %}
-<hr>
+<hr style="border:none;border-top:1px solid #eee;margin:25px 0;">
 <p><strong>🛡️ Formation Agent de Sécurité Privée (APS)</strong></p>
 <p>Vous avez choisi de suivre la formation <strong>Agent de Sécurité Privée</strong>.</p>
-<p>Merci de déposer dès que possible vos documents pour la demande d’<strong>autorisation préalable CNAPS</strong> en cliquant ici :<br>
-➡️ <a href="https://cnapsv5-1.onrender.com/" target="_blank">https://cnapsv5-1.onrender.com/</a></p>
+<p>Merci de déposer dès que possible vos documents pour la demande d’<strong>autorisation préalable CNAPS</strong> en cliquant sur le lien ci-dessous :</p>
+
+<p style="text-align:center;margin:20px 0;">
+  <a href="https://cnapsv5-1.onrender.com/" target="_blank" class="btn">
+    📎 Accéder au dépôt CNAPS
+  </a>
+</p>
+
 <p>💶 Merci d’envoyer également votre <strong>chèque de 950 €</strong> par courrier à l’ordre de <strong>Intégrale Academy</strong>.</p>
 {% endif %}
 
-<hr>
+<hr style="border:none;border-top:1px solid #eee;margin:25px 0;">
 <p>À très bientôt,<br>
-L’équipe <strong>Intégrale Academy</strong></p>
+<strong>L’équipe Intégrale Academy</strong></p>
+{% endblock %}
