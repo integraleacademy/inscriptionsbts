@@ -1,6 +1,24 @@
+{% extends "email_base.html" %}
+
+{% block email_title %}Candidature validée ✅{% endblock %}
+
+{% block email_content %}
 <p>Bonjour {{ prenom }},</p>
-<p>Nous avons le plaisir de vous informer que votre <strong>candidature est validée</strong> pour le BTS {{ bts }}.</p>
-<p>Pour confirmer votre inscription, merci de cliquer sur le bouton ci‑dessous :</p>
-<p><a href="{{ link }}" style="display:inline-block;padding:10px 16px;background:#0b5ed7;color:#fff;text-decoration:none;border-radius:6px">Je souhaite valider mon inscription</a></p>
-<p>Votre numéro de dossier : <strong>{{ numero }}</strong></p>
-<p>— Intégrale Academy</p>
+
+<p>🎉 Nous avons le plaisir de vous informer que votre <strong>candidature est validée</strong> pour le programme <strong>BTS {{ bts }}</strong>.</p>
+
+<p>Pour confirmer officiellement votre inscription, merci de cliquer sur le bouton ci-dessous :</p>
+
+<p style="text-align:center;margin:25px 0;">
+  <a href="{{ link }}" target="_blank" class="btn">
+    ✍️ Je confirme mon inscription
+  </a>
+</p>
+
+<p>📄 <strong>Numéro de dossier :</strong> {{ numero }}</p>
+
+<p>Nous avons hâte de vous accueillir au sein de <strong>Intégrale Academy</strong> 🎓</p>
+
+<p>Bien cordialement,<br>
+<strong>L’équipe Intégrale Academy</strong></p>
+{% endblock %}
