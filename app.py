@@ -338,6 +338,7 @@ def save_files(field_key: str, cand_id: str):
 def save_draft():
     import json, uuid, os
     from datetime import datetime
+    from utils import send_mail
 
     DATA_DIR = os.getenv("DATA_DIR", "/data")
     DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
@@ -377,17 +378,15 @@ def save_draft():
     with open(DRAFT_PATH, "w", encoding="utf-8") as f:
         json.dump(drafts, f, indent=2, ensure_ascii=False)
 
-    # Envoi du mail avec le lien de reprise
-    from utils import send_mail
+    # ✉️ Envoi du mail avec le lien de reprise
     resume_link = f"{request.url_root}reprendre/{token}"
-    html = f"""
-    <p>Bonjour,</p>
-    <p>Votre pré-inscription a été enregistrée. Vous pouvez la reprendre à tout moment via le lien ci-dessous :</p>
-    <p><a href="{resume_link}" style="background:#28a745;color:white;padding:10px 16px;border-radius:6px;text-decoration:none;">▶️ Reprendre ma demande</a></p>
-    <p>Bien cordialement,<br>L’équipe <strong>Intégrale Academy</strong></p>
-    """
-
+    html = render_template(
+        "mail_reprendre.html",
+        prenom=request.form.get("prenom", ""),
+        resume_link=resume_link
+    )
     send_mail(email, "Reprendre votre pré-inscription", html)
+
     return jsonify({"ok": True})
 
 
@@ -924,12 +923,12 @@ def admin_send_certificat(id):
 
     # ✉️ Préparation du mail
     subject = f"Votre certificat de scolarité – {bts_nom_complet} 2026-2028"
-    html = f"""
-    <p>Bonjour {prenom.title()},</p>
-    <p>Veuillez trouver ci-joint votre <strong>certificat de scolarité</strong> pour la formation :</p>
-    <p><b>{bts_nom_complet}</b></p>
-    <p>Bien cordialement,<br>L’équipe <strong>Intégrale Academy</strong> 🎓</p>
-    """
+    html = render_template(
+    "mail_certificat.html",
+    prenom=prenom.title(),
+    bts_nom_complet=bts_nom_complet
+)
+
 
     try:
         send_mail(email, subject, html, attachments=[cert_path])
@@ -974,12 +973,12 @@ def admin_send_certificat_presentiel(id):
 
     # ✉️ Préparation du mail
     subject = f"Votre certificat de scolarité – Présentiel ({bts_nom_complet} 2026-2028)"
-    html = f"""
-    <p>Bonjour {prenom.title()},</p>
-    <p>Veuillez trouver ci-joint votre <strong>certificat de scolarité – Présentiel</strong> pour la formation :</p>
-    <p><b>{bts_nom_complet}</b></p>
-    <p>Bien cordialement,<br>L’équipe <strong>Intégrale Academy</strong> 🎓</p>
-    """
+    html = render_template(
+    "mail_certificat_presentiel.html",
+    prenom=prenom.title(),
+    bts_nom_complet=bts_nom_complet
+)
+
 
     try:
         send_mail(email, subject, html, attachments=[cert_path])
