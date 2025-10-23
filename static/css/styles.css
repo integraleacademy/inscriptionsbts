@@ -1029,3 +1029,16 @@ tr.status-updated { animation: flashRow 1.5s ease; }
 .statut.confirmee { color: #28a745; }
 .statut.annulee { color: #d93025; }
 .statut.docs_non_conformes { color: #e67e22; }
+
+/* =======================================================
+   🎓 MAIN SPÉCIFIQUE À L'ESPACE CANDIDAT
+   ======================================================= */
+
+main.container.candidat {
+  max-width: 1800px;          /* largeur élargie */
+  background: transparent;    /* le fond blanc est déjà géré par .candidat-container */
+  padding: 0;                 /* plus de marge interne */
+  box-shadow: none;           /* pas d’ombre sur le container global */
+  border-radius: 0;           /* angles droits */
+}
+
