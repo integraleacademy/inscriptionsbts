@@ -1,4 +1,10 @@
+{% extends "email_base.html" %}
+{% block email_title %}Pré-inscription reçue{% endblock %}
+{% block email_content %}
 <p>Bonjour {{ prenom }},</p>
-<p>Nous avons bien reçu votre pré‑inscription. Votre numéro de dossier est <strong>{{ numero }}</strong>.</p>
-<p>Vous recevrez notre retour (avis favorable ou défavorable) sous 15 jours.</p>
-<p>— Intégrale Academy</p>
+<p>Nous avons bien reçu votre dossier de pré-inscription pour la session 2026.</p>
+<p>Votre numéro de dossier est <strong>{{ numero }}</strong>.</p>
+<p>Vous pouvez suivre l’état de votre candidature via le lien suivant :</p>
+<a href="{{ lien_espace }}" class="btn">Accéder à mon espace candidat</a>
+<p>Notre équipe vous contactera sous 48h pour la validation de votre candidature.</p>
+{% endblock %}
