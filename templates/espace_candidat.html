@@ -276,7 +276,7 @@ body.espace-candidat {
     <!-- Étape 2 (activée dès préinscription) -->
     <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
       <div class="icon">📨</div>
-      <div class="label">Candidature en attente de validation</div>
+      <div class="label">Candidature en cours d'analyse</div>
     </div>
 
     <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
@@ -326,3 +326,4 @@ body.espace-candidat {
 </div>
 
 {% endblock %}
+
