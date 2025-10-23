@@ -1,39 +1,34 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: Arial, sans-serif; color: #222; }
-    .btn {
-      display: inline-block;
-      background: #f4c45a;
-      color: #000;
-      font-weight: bold;
-      padding: 10px 20px;
-      text-decoration: none;
-      border-radius: 6px;
-      margin-top: 15px;
-    }
-  </style>
-</head>
-<body>
-  <p>Bonjour {{ prenom }},</p>
-  <p>Après vérification de vos pièces justificatives, certaines ne sont pas conformes :</p>
+{% extends "email_base.html" %}
 
-  <ul>
-    {% for p in pieces %}
-      <li>{{ p }}</li>
-    {% endfor %}
-  </ul>
+{% block email_title %}Documents non conformes 🟠{% endblock %}
 
-  {% if commentaire %}
-    <p><strong>Commentaire :</strong><br>{{ commentaire }}</p>
-  {% endif %}
+{% block email_content %}
+<p>Bonjour {{ prenom }},</p>
 
-  <p>Merci de nous renvoyer les documents corrigés en cliquant sur le bouton ci-dessous :</p>
+<p>Après vérification, un ou plusieurs de vos documents transmis ont été jugés <strong>non conformes</strong> par notre équipe.</p>
 
-  <p><a href="{{ link }}" class="btn">📤 Envoyer mes nouveaux documents</a></p>
+{% if pieces %}
+<p>Voici la liste concernée :</p>
+<ul>
+  {% for p in pieces %}
+    <li>{{ p }}</li>
+  {% endfor %}
+</ul>
+{% endif %}
 
-  <p>— L’équipe Intégrale Academy</p>
-</body>
-</html>
+{% if commentaire %}
+<p><strong>Commentaire de l’administration :</strong><br>
+<em>{{ commentaire }}</em></p>
+{% endif %}
+
+<p>Merci de remplacer les documents concernés en cliquant sur le bouton ci-dessous :</p>
+
+<p style="text-align:center;margin:25px 0;">
+  <a href="{{ link }}" target="_blank" class="btn">📎 Remplacer mes documents</a>
+</p>
+
+<p>⏳ Ce lien est valable <strong>7 jours</strong>.</p>
+
+<p>Cordialement,<br>
+<strong>L’équipe Intégrale Academy</strong></p>
+{% endblock %}
