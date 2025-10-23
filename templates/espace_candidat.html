@@ -8,29 +8,33 @@ body.espace-candidat {
   background: linear-gradient(180deg, #fff 0%, #fff9e6 100%);
   font-family: "Segoe UI", system-ui, sans-serif;
   color: #222;
+  margin: 0;
+  padding: 0;
 }
 
 .candidat-container {
-  max-width: 850px;
+  width: 95%;
+  max-width: 1400px;
   margin: 40px auto;
   background: white;
   border-radius: 16px;
   box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-  padding: 35px 45px;
+  padding: 40px 60px;
+  box-sizing: border-box;
 }
 
 /* === En-tête === */
 .header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
 }
 .header img {
-  max-height: 90px;
+  max-height: 100px;
   display: block;
   margin: 0 auto 15px;
 }
 .header h1 {
-  font-size: 28px;
+  font-size: 30px;
   margin: 0;
   color: #111;
 }
@@ -40,7 +44,7 @@ body.espace-candidat {
   margin-top: 5px;
 }
 .divider {
-  width: 80px;
+  width: 100px;
   height: 4px;
   background: #f4c45a;
   margin: 10px auto 25px;
@@ -74,7 +78,7 @@ body.espace-candidat {
   overflow-wrap: anywhere;
 }
 
-/* === Statut === */
+/* === Statut principal === */
 .statut-section {
   text-align: center;
   margin-top: 40px;
@@ -95,67 +99,76 @@ body.espace-candidat {
   color: #333;
 }
 
-/* === Barre de progression === */
-.progress-container {
+/* === Frise chronologique === */
+.timeline {
   position: relative;
-  width: 100%;
-  margin: 35px auto 10px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  max-width: 650px;
-  height: 70px;
-}
-.progress-line {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  height: 6px;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: 50px auto;
+  padding: 20px 10px;
   width: 100%;
-  background: #ddd;
-  border-radius: 4px;
-  transform: translateY(-50%);
-  z-index: 0;
+  border-top: 4px solid #f4c45a;
 }
-.progress-line-fill {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  height: 6px;
-  background: linear-gradient(90deg, #f4c45a, #f1b233);
-  border-radius: 4px;
-  transform: translateY(-50%);
-  z-index: 1;
-  transition: width 1s ease-in-out;
-}
-.progress-step {
+
+.timeline .step {
   position: relative;
-  z-index: 2;
-  width: 42px;
-  height: 42px;
-  border-radius: 50%;
-  background: #eee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  color: #888;
-  transition: all 0.3s ease;
-  transform: translateY(-10%);
+  text-align: center;
+  flex: 1;
+  min-width: 150px;
 }
-.progress-step.active {
+
+.timeline .step .icon {
+  width: 55px;
+  height: 55px;
+  line-height: 55px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 24px;
+  transition: all 0.3s ease;
+}
+
+.timeline .step.active .icon {
   background: #f4c45a;
   color: #111;
+  box-shadow: 0 0 10px rgba(244,196,90,0.5);
   transform: scale(1.1);
-  box-shadow: 0 0 10px rgba(244,196,90,0.6);
 }
-.progress-labels {
-  display: flex;
-  justify-content: space-between;
+
+.timeline .step .label {
+  font-size: 15px;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.timeline .step .date {
   font-size: 13px;
-  color: #555;
-  max-width: 650px;
-  margin: 10px auto 0;
+  color: #777;
+}
+
+/* Lignes de liaison entre les étapes */
+.timeline .step::after {
+  content: "";
+  position: absolute;
+  top: 27px;
+  right: -50%;
+  width: 100%;
+  height: 4px;
+  background: #ddd;
+  z-index: -1;
+}
+
+.timeline .step.active::after {
+  background: #f4c45a;
+}
+
+.timeline .step:last-child::after {
+  display: none;
 }
 
 /* === Commentaire === */
@@ -203,111 +216,12 @@ body.espace-candidat {
 }
 
 /* === Responsive === */
-@media (max-width:600px){
+@media (max-width:800px){
   .candidat-container { padding: 25px 20px; }
-  .progress-labels { font-size: 11px; }
-  .info-card p { font-size: 14px; }
+  .timeline { flex-direction: column; align-items: center; border-top: none; }
+  .timeline .step { margin-bottom: 25px; }
+  .timeline .step::after { width: 4px; height: 40px; top: 60px; left: 50%; transform: translateX(-50%); }
 }
-
-  /* === Frise chronologique (timeline) === */
-.timeline {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  margin: 50px auto;
-  padding: 20px 10px;
-  max-width: 850px;
-  border-top: 4px solid #f4c45a;
-}
-
-.timeline .step {
-  position: relative;
-  text-align: center;
-  flex: 1;
-  min-width: 120px;
-}
-
-.timeline .step .icon {
-  width: 50px;
-  height: 50px;
-  line-height: 50px;
-  border-radius: 50%;
-  background: #e0e0e0;
-  display: inline-block;
-  margin-bottom: 8px;
-  font-size: 22px;
-  transition: all 0.3s ease;
-}
-
-.timeline .step.active .icon {
-  background: #f4c45a;
-  color: #111;
-  box-shadow: 0 0 10px rgba(244,196,90,0.5);
-  transform: scale(1.1);
-}
-
-.timeline .step .label {
-  font-size: 14px;
-  color: #333;
-  font-weight: 600;
-  margin-bottom: 5px;
-}
-
-.timeline .step .date {
-  font-size: 13px;
-  color: #777;
-}
-
-.timeline .step .info {
-  font-size: 13px;
-  color: #555;
-  margin-top: 5px;
-  line-height: 1.4;
-}
-
-/* Lignes de liaison entre les étapes */
-.timeline .step::after {
-  content: "";
-  position: absolute;
-  top: 25px;
-  right: -50%;
-  width: 100%;
-  height: 4px;
-  background: #ddd;
-  z-index: -1;
-}
-
-.timeline .step.active::after {
-  background: #f4c45a;
-}
-
-.timeline .step:last-child::after {
-  display: none;
-}
-
-/* Responsive */
-@media (max-width: 700px) {
-  .timeline {
-    flex-direction: column;
-    align-items: center;
-    border-top: none;
-  }
-  .timeline .step {
-    margin-bottom: 25px;
-  }
-  .timeline .step::after {
-    width: 4px;
-    height: 40px;
-    top: 60px;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-}
-
-  
 </style>
 
 <div class="candidat-container">
@@ -315,7 +229,7 @@ body.espace-candidat {
     <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Intégrale Academy">
     <h1>🎓 Espace Candidat</h1>
     <div class="divider"></div>
-    <p>Bienvenue {{ row.prenom }} {{ row.nom }}</p>
+    <p>Bienvenue {{ row.prenom|upper }} {{ row.nom|upper }}</p>
   </div>
 
   <div class="info-grid">
@@ -332,8 +246,9 @@ body.espace-candidat {
       {% elif statut == 'validee' %}#007bff
       {% elif statut == 'confirmee' %}#f4c45a
       {% elif statut == 'reconfirmee' %}#2ecc71
+      {% elif statut == 'reconf_en_cours' %}#555
       {% elif statut == 'docs_non_conformes' %}#e74c3c
-      {% else %}#555{% endif %};
+      {% else %}#777{% endif %};
     ">
       {% if statut == "preinscription" %}🕓 Pré-inscription en attente
       {% elif statut == "validee" %}✅ Candidature validée
@@ -348,73 +263,51 @@ body.espace-candidat {
     <p class="statut-explication">{{ explication_statut }}</p>
   </div>
 
-<!-- === Nouvelle frise chronologique complète === -->
-<div class="timeline">
+  <!-- === Frise chronologique simplifiée === -->
+  <div class="timeline">
 
-  <!-- 1️⃣ Pré-inscription reçue -->
-  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-    <div class="icon">🕓</div>
-    <div class="label">Pré-inscription reçue</div>
-    <div class="date">{{ row.created_at[:10] if row.created_at else '' }}</div>
+    <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+      <div class="icon">🕓</div>
+      <div class="label">Pré-inscription reçue</div>
+      <div class="date">
+        {% if row.created_at %}{{ row.created_at[:10].split('-')[2] }}/{{ row.created_at[:10].split('-')[1] }}/{{ row.created_at[:10].split('-')[0] }}{% endif %}
+      </div>
+    </div>
+
+    <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+      <div class="icon">📨</div>
+      <div class="label">Candidature en attente de validation</div>
+    </div>
+
+    <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+      <div class="icon">✅</div>
+      <div class="label">Candidature validée</div>
+      <div class="date">
+        {% if row.updated_at %}{{ row.updated_at[:10].split('-')[2] }}/{{ row.updated_at[:10].split('-')[1] }}/{{ row.updated_at[:10].split('-')[0] }}{% endif %}
+      </div>
+    </div>
+
+    <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+      <div class="icon">🎓</div>
+      <div class="label">Inscription validée</div>
+    </div>
+
+    <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
+      <div class="icon">🕒</div>
+      <div class="label">Reconfirmation en attente (août 2026)</div>
+    </div>
+
+    <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
+      <div class="icon">💚</div>
+      <div class="label">Reconfirmation validée</div>
+    </div>
+
+    <div class="step {{ 'active' if statut == 'rentree' else '' }}">
+      <div class="icon">🎉</div>
+      <div class="label">Rentrée septembre 2026</div>
+    </div>
+
   </div>
-
-  <!-- 2️⃣ Candidature en attente de validation -->
-  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-    <div class="icon">📨</div>
-    <div class="label">Candidature en attente de validation</div>
-  </div>
-
-  <!-- 3️⃣ Candidature validée -->
-  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-    <div class="icon">✅</div>
-    <div class="label">Candidature validée</div>
-    {% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] %}
-      <div class="date">{{ row.updated_at[:10] }}</div>
-      <div class="info">Votre candidature a été validée ✅<br>Un mail vous a été envoyé pour confirmer votre inscription.</div>
-    {% endif %}
-  </div>
-
-  <!-- 4️⃣ Inscription en attente de confirmation -->
-  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-    <div class="icon">✉️</div>
-    <div class="label">Inscription en attente de confirmation</div>
-    {% if statut == 'validee' %}
-      <div class="info">👉 Consultez votre e-mail pour confirmer votre inscription.</div>
-    {% endif %}
-  </div>
-
-  <!-- 5️⃣ Inscription validée -->
-  <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-    <div class="icon">🎓</div>
-    <div class="label">Inscription validée</div>
-    {% if statut == 'confirmee' %}
-      <div class="info">Bienvenue à Intégrale Academy 🎓</div>
-    {% endif %}
-  </div>
-
-  <!-- 6️⃣ Reconfirmation en attente -->
-  <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
-    <div class="icon">🕒</div>
-    <div class="label">En attente de reconfirmation (août 2026)</div>
-    <div class="info">En août 2026, vous recevrez un mail pour confirmer votre volonté d’intégrer l’école.</div>
-  </div>
-
-  <!-- 7️⃣ Reconfirmation validée -->
-  <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
-    <div class="icon">💚</div>
-    <div class="label">Reconfirmation validée</div>
-    {% if statut == 'reconfirmee' %}
-      <div class="date">{{ row.updated_at[:10] }}</div>
-    {% endif %}
-  </div>
-
-  <!-- 8️⃣ Rentrée septembre 2026 -->
-  <div class="step {{ 'active' if statut == 'rentree' else '' }}">
-    <div class="icon">🎉</div>
-    <div class="label">Rentrée septembre 2026</div>
-  </div>
-
-</div>
 
   {% if commentaire %}
   <div class="commentaire-block">
@@ -432,24 +325,4 @@ body.espace-candidat {
   </div>
 </div>
 
-<script>
-/* === Script progression dynamique === */
-document.addEventListener("DOMContentLoaded", () => {
-  const statut = "{{ statut }}";
-  const steps = ["preinscription","validee","confirmee","reconfirmee"];
-  const activeIndex = steps.indexOf(statut);
-  const fill = document.getElementById("progressFill");
-  const stepElems = [document.getElementById("step1"), document.getElementById("step2"), document.getElementById("step3"), document.getElementById("step4")];
-
-  stepElems.forEach((el, i) => {
-    if (i <= activeIndex) el.classList.add("active");
-  });
-
-  const percent = activeIndex >= 0 ? (activeIndex / (steps.length - 1)) * 100 : 0;
-  fill.style.width = percent + "%";
-});
-</script>
-
 {% endblock %}
-
-
