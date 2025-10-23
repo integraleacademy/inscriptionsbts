@@ -1,0 +1,16 @@
+{% extends "email_base.html" %}
+{% block email_title %}Votre certificat de scolarité{% endblock %}
+{% block email_content %}
+<p>Bonjour {{ prenom }},</p>
+
+<p>Veuillez trouver ci-joint votre <strong>certificat de scolarité</strong> pour la formation :</p>
+
+<p style="font-size: 16px; font-weight: 600; margin-top: 10px;">
+  🎓 {{ bts_nom_complet }}
+</p>
+
+<p>Ce document atteste officiellement de votre inscription au sein de <strong>Intégrale Academy</strong>.</p>
+
+<p>Bien cordialement,<br>
+<strong>L’équipe Intégrale Academy</strong></p>
+{% endblock %}
