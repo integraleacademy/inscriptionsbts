@@ -25,17 +25,26 @@ body.espace-candidat {
   margin-bottom: 30px;
 }
 .header img {
-  height: 70px;
-  margin-bottom: 10px;
+  max-height: 90px;
+  display: block;
+  margin: 0 auto 15px;
 }
 .header h1 {
-  font-size: 26px;
+  font-size: 28px;
   margin: 0;
   color: #111;
 }
 .header p {
   font-size: 16px;
   color: #555;
+  margin-top: 5px;
+}
+.divider {
+  width: 80px;
+  height: 4px;
+  background: #f4c45a;
+  margin: 10px auto 25px;
+  border-radius: 2px;
 }
 
 /* === Infos principales === */
@@ -61,6 +70,8 @@ body.espace-candidat {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* === Statut === */
@@ -78,13 +89,6 @@ body.espace-candidat {
   color: white;
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
 }
-.statut-preinscription { background: gray; }
-.statut-validee { background: #007bff; }
-.statut-confirmee { background: #28a745; }
-.statut-reconf_en_cours { background: #f39c12; }
-.statut-reconfirmee { background: #2ecc71; }
-.statut-docs_non_conformes { background: #e74c3c; }
-.statut-annulee { background: #555; }
 .statut-explication {
   font-size: 16px;
   margin-top: 10px;
@@ -95,11 +99,12 @@ body.espace-candidat {
 .progress-container {
   position: relative;
   width: 100%;
-  margin: 35px auto 15px;
+  margin: 35px auto 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   max-width: 650px;
+  height: 70px;
 }
 .progress-line {
   position: absolute;
@@ -121,7 +126,7 @@ body.espace-candidat {
   border-radius: 4px;
   transform: translateY(-50%);
   z-index: 1;
-  transition: width 0.6s ease;
+  transition: width 1s ease-in-out;
 }
 .progress-step {
   position: relative;
@@ -136,6 +141,7 @@ body.espace-candidat {
   font-size: 20px;
   color: #888;
   transition: all 0.3s ease;
+  transform: translateY(-10%);
 }
 .progress-step.active {
   background: #f4c45a;
@@ -170,6 +176,17 @@ body.espace-candidat {
   line-height: 1.5;
 }
 
+/* === Infos utiles === */
+.info-box {
+  background: #f8f8f8;
+  border-left: 4px solid #f4c45a;
+  padding: 12px 18px;
+  margin-top: 25px;
+  border-radius: 8px;
+  color: #333;
+  font-size: 14px;
+}
+
 /* === Assistance === */
 .assistance {
   text-align: center;
@@ -184,24 +201,40 @@ body.espace-candidat {
 .assistance a:hover {
   text-decoration: underline;
 }
+
+/* === Responsive === */
+@media (max-width:600px){
+  .candidat-container { padding: 25px 20px; }
+  .progress-labels { font-size: 11px; }
+  .info-card p { font-size: 14px; }
+}
 </style>
 
 <div class="candidat-container">
   <div class="header">
     <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Intégrale Academy">
     <h1>🎓 Espace Candidat</h1>
+    <div class="divider"></div>
     <p>Bienvenue {{ row.prenom }} {{ row.nom }}</p>
   </div>
 
   <div class="info-grid">
     <div class="info-card"><h3>Numéro de dossier</h3><p>{{ row.numero_dossier }}</p></div>
-    <div class="info-card"><h3>Formation</h3><p>{{ row.bts }}</p></div>
-    <div class="info-card"><h3>Mode</h3><p>{{ row.mode }}</p></div>
+    <div class="info-card"><h3>Formation</h3><p>{{ row.bts_label }}</p></div>
+    <div class="info-card"><h3>Mode</h3><p>{{ row.mode_label }}</p></div>
     <div class="info-card"><h3>Email</h3><p>{{ row.email }}</p></div>
   </div>
 
   <div class="statut-section">
-    <span class="statut-badge statut-{{ statut }}">
+    <span class="statut-badge" style="
+      background:
+      {% if statut == 'preinscription' %}gray
+      {% elif statut == 'validee' %}#007bff
+      {% elif statut == 'confirmee' %}#f4c45a
+      {% elif statut == 'reconfirmee' %}#2ecc71
+      {% elif statut == 'docs_non_conformes' %}#e74c3c
+      {% else %}#555{% endif %};
+    ">
       {% if statut == "preinscription" %}🕓 Pré-inscription en attente
       {% elif statut == "validee" %}✅ Candidature validée
       {% elif statut == "confirmee" %}🎓 Inscription confirmée
@@ -237,6 +270,10 @@ body.espace-candidat {
     <p>{{ commentaire }}</p>
   </div>
   {% endif %}
+
+  <div class="info-box">
+    ℹ️ Vous pouvez consulter l’avancement de votre dossier à tout moment depuis cette page.
+  </div>
 
   <div class="assistance">
     <p>❓ Une question ? <a href="https://assistance-alw9.onrender.com/" target="_blank">Contactez l’assistance</a> ou appelez le <strong>04 22 47 07 68</strong>.</p>
