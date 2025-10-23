@@ -1,285 +1,67 @@
-{% extends "base.html" %}
-{% block body_class %}espace-candidat{% endblock %}
-{% block content %}
+<!-- === Nouvelle frise chronologique complète === -->
+<div class="timeline">
 
-<style>
-/* === 🎨 STYLE ESPACE CANDIDAT === */
-body.espace-candidat {
-  background: linear-gradient(180deg, #fff 0%, #fff9e6 100%);
-  font-family: "Segoe UI", system-ui, sans-serif;
-  color: #222;
-}
-
-.candidat-container {
-  max-width: 950px;
-  margin: 40px auto;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-  padding: 35px 45px;
-}
-
-/* === En-tête === */
-.header {
-  text-align: center;
-  margin-bottom: 30px;
-}
-.header img {
-  max-height: 100px;
-  display: block;
-  margin: 0 auto 15px;
-}
-.header h1 {
-  font-size: 28px;
-  margin: 0;
-  color: #111;
-}
-.header p {
-  font-size: 16px;
-  color: #555;
-  margin-top: 5px;
-}
-.divider {
-  width: 80px;
-  height: 4px;
-  background: #f4c45a;
-  margin: 10px auto 25px;
-  border-radius: 2px;
-}
-
-/* === Infos principales === */
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 15px;
-  margin-top: 25px;
-}
-.info-card {
-  background: #fafafa;
-  border: 1px solid #eee;
-  border-radius: 10px;
-  padding: 15px 20px;
-}
-.info-card h3 {
-  margin: 0 0 5px 0;
-  font-size: 14px;
-  color: #777;
-  text-transform: uppercase;
-}
-.info-card p {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  word-wrap: break-word;
-  overflow-wrap: anywhere;
-}
-
-/* === Statut === */
-.statut-section {
-  text-align: center;
-  margin-top: 40px;
-  margin-bottom: 25px;
-}
-.statut-badge {
-  display: inline-block;
-  padding: 12px 22px;
-  border-radius: 25px;
-  font-weight: bold;
-  font-size: 18px;
-  color: white;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-}
-.statut-explication {
-  font-size: 16px;
-  margin-top: 10px;
-  color: #333;
-}
-
-/* === Timeline === */
-.timeline {
-  display:flex;justify-content:space-between;align-items:flex-start;
-  flex-wrap:nowrap;overflow-x:auto;margin:50px auto;padding-bottom:10px;
-  max-width:1100px;position:relative;
-}
-.timeline::before {
-  content:"";position:absolute;top:35px;left:0;right:0;height:4px;
-  background:#ddd;z-index:0;border-radius:2px;
-}
-.step {text-align:center;flex:1;min-width:120px;position:relative;z-index:1;color:#aaa;}
-.step.active{color:#111;}
-.step .icon{width:45px;height:45px;background:#eee;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;margin:0 auto 10px;
-  font-size:22px;transition:all .3s ease;}
-.step.active .icon{background:#f4c45a;box-shadow:0 0 10px rgba(244,196,90,.6);}
-.step .label{font-weight:600;font-size:13px;line-height:1.3;}
-.step .date{font-size:12px;color:#666;margin-top:4px;}
-.step .info{font-size:12px;color:#333;background:#fff8d4;border-radius:6px;
-  padding:6px 10px;margin-top:6px;max-width:180px;display:inline-block;}
-@media(max-width:768px){.timeline{overflow-x:scroll;}.step{min-width:140px;}}
-
-/* === Commentaire === */
-.commentaire-block {
-  background: #fdf8e7;
-  border-left: 5px solid #f4c45a;
-  padding: 15px 20px;
-  border-radius: 8px;
-  margin-top: 30px;
-}
-.commentaire-block h3 {
-  margin: 0 0 10px 0;
-  font-size: 18px;
-}
-.commentaire-block p {
-  margin: 0;
-  color: #444;
-  line-height: 1.5;
-}
-
-/* === Infos utiles === */
-.info-box {
-  background: #f8f8f8;
-  border-left: 4px solid #f4c45a;
-  padding: 12px 18px;
-  margin-top: 25px;
-  border-radius: 8px;
-  color: #333;
-  font-size: 14px;
-}
-
-/* === Assistance === */
-.assistance {
-  text-align: center;
-  margin-top: 40px;
-  font-size: 15px;
-}
-.assistance a {
-  color: #1a73e8;
-  font-weight: bold;
-  text-decoration: none;
-}
-.assistance a:hover {
-  text-decoration: underline;
-}
-
-/* === Responsive === */
-@media (max-width:600px){
-  .candidat-container { padding: 25px 20px; }
-  .info-card p { font-size: 14px; }
-}
-</style>
-
-<div class="candidat-container">
-  <div class="header">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Intégrale Academy">
-    <h1>🎓 Espace Candidat</h1>
-    <div class="divider"></div>
-    <p>Bienvenue {{ row.prenom }} {{ row.nom }}</p>
+  <!-- 1️⃣ Pré-inscription reçue -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕓</div>
+    <div class="label">Pré-inscription reçue</div>
+    <div class="date">{{ row.created_at[:10] if row.created_at else '' }}</div>
   </div>
 
-  <div class="info-grid">
-    <div class="info-card"><h3>Numéro de dossier</h3><p>{{ row.numero_dossier }}</p></div>
-    <div class="info-card"><h3>Formation</h3><p>{{ row.bts_label }}</p></div>
-    <div class="info-card"><h3>Mode</h3><p>{{ row.mode_label }}</p></div>
-    <div class="info-card"><h3>Email</h3><p>{{ row.email }}</p></div>
+  <!-- 2️⃣ Candidature en attente de validation -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">📨</div>
+    <div class="label">Candidature en attente de validation</div>
   </div>
 
-  <div class="statut-section">
-    <span class="statut-badge" style="
-      background:
-      {% if statut == 'preinscription' %}gray
-      {% elif statut == 'validee' %}#007bff
-      {% elif statut == 'confirmee' %}#f4c45a
-      {% elif statut == 'reconf_en_cours' %}#ff9800
-      {% elif statut == 'reconfirmee' %}#2ecc71
-      {% elif statut == 'docs_non_conformes' %}#e74c3c
-      {% else %}#555{% endif %};
-    ">
-      {% if statut == "preinscription" %}🕓 Pré-inscription en attente
-      {% elif statut == "validee" %}✅ Candidature validée
-      {% elif statut == "confirmee" %}🎓 Inscription confirmée
-      {% elif statut == "reconf_en_cours" %}🔁 Reconfirmation en attente
-      {% elif statut == "reconfirmee" %}💚 Reconfirmation validée
-      {% elif statut == "docs_non_conformes" %}⚠️ Documents non conformes
-      {% elif statut == "annulee" %}❌ Annulée
-      {% else %}🗂️ En cours
-      {% endif %}
-    </span>
-    <p class="statut-explication">{{ explication_statut }}</p>
+  <!-- 3️⃣ Candidature validée -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">✅</div>
+    <div class="label">Candidature validée</div>
+    {% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] %}
+      <div class="date">{{ row.updated_at[:10] }}</div>
+      <div class="info">Votre candidature a été validée ✅<br>Un mail vous a été envoyé pour confirmer votre inscription.</div>
+    {% endif %}
   </div>
 
-  <!-- === Timeline complète === -->
-  <div class="timeline">
-
-    <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🕓</div>
-      <div class="label">Pré-inscription reçue</div>
-      <div class="date">{{ row.created_at[:10] if row.created_at else '' }}</div>
-    </div>
-
-    <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">📨</div>
-      <div class="label">Candidature en attente de validation</div>
-    </div>
-
-    <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">✅</div>
-      <div class="label">Candidature validée</div>
-      {% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] %}
-        <div class="date">{{ row.updated_at[:10] }}</div>
-        <div class="info">Votre candidature a été validée ✅<br>Un mail vous a été envoyé pour confirmer votre inscription.</div>
-      {% endif %}
-    </div>
-
-    <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">✉️</div>
-      <div class="label">Inscription en attente de confirmation</div>
-      {% if statut == 'validee' %}
-        <div class="info">👉 Consultez votre e-mail pour confirmer votre inscription.</div>
-      {% endif %}
-    </div>
-
-    <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🎓</div>
-      <div class="label">Inscription validée</div>
-      {% if statut == 'confirmee' %}
-        <div class="info">Bienvenue à Intégrale Academy 🎓</div>
-      {% endif %}
-    </div>
-
-    <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🕒</div>
-      <div class="label">En attente de reconfirmation (août 2026)</div>
-      <div class="info">En août 2026, vous recevrez un mail pour confirmer votre volonté d’intégrer l’école.</div>
-    </div>
-
-    <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
-      <div class="icon">💚</div>
-      <div class="label">Reconfirmation validée</div>
-      {% if statut == 'reconfirmee' %}
-        <div class="date">{{ row.updated_at[:10] }}</div>
-      {% endif %}
-    </div>
-
-    <div class="step {{ 'active' if statut == 'rentree' else '' }}">
-      <div class="icon">🎉</div>
-      <div class="label">Rentrée septembre 2026</div>
-    </div>
-
+  <!-- 4️⃣ Inscription en attente de confirmation -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">✉️</div>
+    <div class="label">Inscription en attente de confirmation</div>
+    {% if statut == 'validee' %}
+      <div class="info">👉 Consultez votre e-mail pour confirmer votre inscription.</div>
+    {% endif %}
   </div>
 
-  {% if commentaire %}
-  <div class="commentaire-block">
-    <h3>💬 Message de l’administration</h3>
-    <p>{{ commentaire }}</p>
-  </div>
-  {% endif %}
-
-  <div class="info-box">
-    ℹ️ Vous pouvez consulter l’avancement de votre dossier à tout moment depuis cette page.
+  <!-- 5️⃣ Inscription validée -->
+  <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🎓</div>
+    <div class="label">Inscription validée</div>
+    {% if statut == 'confirmee' %}
+      <div class="info">Bienvenue à Intégrale Academy 🎓</div>
+    {% endif %}
   </div>
 
-  <div class="assistance">
-    <p>❓ Une question ? <a href="https://assistance-alw9.onrender.com/" target="_blank">Contactez l’assistance</a> ou appelez le <strong>04 22 47 07 68</strong>.</p>
+  <!-- 6️⃣ En attente de reconfirmation -->
+  <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕒</div>
+    <div class="label">En attente de reconfirmation (août 2026)</div>
+    <div class="info">En août 2026, vous recevrez un mail pour confirmer votre volonté d’intégrer l’école.</div>
   </div>
+
+  <!-- 7️⃣ Reconfirmation validée -->
+  <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
+    <div class="icon">💚</div>
+    <div class="label">Reconfirmation validée</div>
+    {% if statut == 'reconfirmee' %}
+      <div class="date">{{ row.updated_at[:10] }}</div>
+    {% endif %}
+  </div>
+
+  <!-- 8️⃣ Rentrée septembre 2026 -->
+  <div class="step {{ 'active' if statut == 'rentree' else '' }}">
+    <div class="icon">🎉</div>
+    <div class="label">Rentrée septembre 2026</div>
+  </div>
+
 </div>
-{% endblock %}
