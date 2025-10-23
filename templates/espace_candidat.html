@@ -294,12 +294,12 @@ body.espace-candidat {
 
     <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
       <div class="icon">🕒</div>
-      <div class="label">Reconfirmation en attente (août 2026)</div>
+      <div class="label">Reconfirmation d'inscription en attente (août 2026)</div>
     </div>
 
     <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
       <div class="icon">💚</div>
-      <div class="label">Reconfirmation validée</div>
+      <div class="label">Reconfirmation d'inscription validée</div>
     </div>
 
     <div class="step {{ 'active' if statut == 'rentree' else '' }}">
@@ -326,4 +326,5 @@ body.espace-candidat {
 </div>
 
 {% endblock %}
+
 
