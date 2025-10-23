@@ -1,0 +1,16 @@
+{% extends "email_base.html" %}
+{% block email_title %}Reprendre ma pré-inscription{% endblock %}
+{% block email_content %}
+<p>Bonjour {{ prenom or "" }},</p>
+<p>Votre pré-inscription a bien été enregistrée ✅</p>
+<p>Vous pouvez la reprendre à tout moment en cliquant sur le bouton ci-dessous :</p>
+
+<p style="text-align:center;margin:25px 0;">
+  <a href="{{ resume_link }}" target="_blank" class="btn">
+    ▶️ Reprendre ma demande
+  </a>
+</p>
+
+<p>Bien cordialement,<br>
+<strong>L’équipe Intégrale Academy</strong></p>
+{% endblock %}
