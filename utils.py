@@ -86,3 +86,28 @@ def make_signed_link(path: str, token: str) -> str:
     sig = sign_token(token)
     base = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
     return f"{base}{path}?token={token}&sig={sig}"
+
+# =====================================================
+# 📱 ENVOI DE SMS AVEC BREVO
+# =====================================================
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
+
+def send_sms_brevo(phone_number, message):
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = "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"
+
+    api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
+    sender = "INTACAD"  # 11 caractères max, pas d’espace
+    sms = sib_api_v3_sdk.SendTransacSms(
+        sender=sender,
+        recipient=phone_number,
+        content=message
+    )
+
+    try:
+        response = api_instance.send_transac_sms(sms)
+        print(f"✅ SMS envoyé à {phone_number} : {response}")
+    except ApiException as e:
+        print(f"❌ Erreur envoi SMS : {e}")
+
