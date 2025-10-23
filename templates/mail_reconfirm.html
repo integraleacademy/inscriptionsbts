@@ -1,4 +1,20 @@
+{% extends "email_base.html" %}
+
+{% block email_title %}Reconfirmation d’inscription 📩{% endblock %}
+
+{% block email_content %}
 <p>Bonjour {{ prenom }},</p>
-<p>Merci de <strong>reconfirmer votre inscription</strong> pour la rentrée de septembre :</p>
-<p><a href="{{ link }}" style="display:inline-block;padding:10px 16px;background:#0b5ed7;color:#fff;text-decoration:none;border-radius:6px">Je confirme mon inscription</a></p>
-<p>— Intégrale Academy</p>
+
+<p>Il est temps de <strong>reconfirmer votre inscription</strong> pour la prochaine rentrée de septembre à <strong>Intégrale Academy</strong>.</p>
+
+<p style="text-align:center;margin:25px 0;">
+  <a href="{{ link }}" target="_blank" class="btn">
+    ✅ Je confirme mon inscription
+  </a>
+</p>
+
+<p>Merci de procéder à cette confirmation dans les plus brefs délais afin de garantir votre place.</p>
+
+<p>À très bientôt,<br>
+<strong>L’équipe Intégrale Academy</strong></p>
+{% endblock %}
