@@ -94,26 +94,34 @@ import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 
 def send_sms_brevo(phone_number, message):
+    import sib_api_v3_sdk
+    from sib_api_v3_sdk.rest import ApiException
+
+    api_key = os.getenv("BREVO_API_KEY")
+    if not api_key:
+        print("❌ BREVO_API_KEY manquant.")
+        return False
+
     configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
+    configuration.api_key["api-key"] = api_key
 
     api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
-    sender = "INTACAD"  # 11 caractères max, pas d’espace
-    sms = sib_api_v3_sdk.SendTransacSms(
-        sender=sender,
-        recipient=phone_number,
-        content=message
-    )
+    sender = "INTACAD"  # 11 caractères max, sans espace
+
+    sms_data = {
+        "sender": sender,
+        "recipient": phone_number,
+        "content": message
+    }
 
     try:
-        response = api_instance.send_transac_sms(sms)
-        print(f"✅ SMS envoyé à {phone_number} : {response}")
-
-        # ✅ on renvoie une valeur exploitable
-        if hasattr(response, "message_id"):
-            return response.message_id  # l’ID du SMS
-        else:
-            return True  # simple succès
+        response = api_instance.send_transac_sms(sms_data)
+        print(f"✅ SMS envoyé à {phone_number} — ID: {getattr(response, 'message_id', 'N/A')}")
+        return getattr(response, "message_id", True)
     except ApiException as e:
-        print(f"❌ Erreur envoi SMS : {e}")
+        print(f"❌ Erreur envoi SMS Brevo : {e}")
         return False
+    except Exception as e:
+        print(f"❌ Erreur inattendue SMS : {e}")
+        return False
+
