@@ -98,7 +98,7 @@ def send_sms_brevo(phone_number, message):
     configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
 
     api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
-    sender = "INTACAD"  # 11 caractères max, pas d’espace
+    sender = "INTACADEMY"  # 11 caractères max, pas d’espace
     sms = sib_api_v3_sdk.SendTransacSms(
         sender=sender,
         recipient=phone_number,
