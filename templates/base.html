@@ -16,7 +16,7 @@
   </header>
 
   <!-- ✅ Main avec condition spéciale pour l'espace candidat -->
-  <main class="{% if 'admin' in request.path %}admin-full{% elif 'espace' in request.path %}container candidat{% else %}container{% endif %}">
+  <main class="{% if 'admin' in request.path or 'parcoursup' in request.path %}admin-full{% elif 'espace' in request.path %}container candidat{% else %}container{% endif %}">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-area">
