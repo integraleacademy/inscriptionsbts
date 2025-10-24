@@ -17,7 +17,9 @@ def db():
     conn.row_factory = sqlite3.Row
     return conn
 
-# Initialisation table Parcoursup
+# =====================================================
+# 🧱 Initialisation table Parcoursup
+# =====================================================
 def init_parcoursup_table():
     conn = db()
     cur = conn.cursor()
@@ -43,12 +45,34 @@ def init_parcoursup_table():
 init_parcoursup_table()
 
 # =====================================================
-# 🏠 PAGE PRINCIPALE
+# 🏠 PAGE PRINCIPALE AVEC SYNCHRONISATION AUTO
 # =====================================================
 @bp_parcoursup.route("/parcoursup")
 def dashboard():
     conn = db()
     cur = conn.cursor()
+
+    # 🔄 Synchronise les statuts avec la table principale "candidats"
+    try:
+        cur.execute("SELECT id, email, telephone FROM parcoursup_candidats")
+        parcoursup_rows = cur.fetchall()
+
+        for r in parcoursup_rows:
+            email = r["email"]
+            tel = r["telephone"]
+
+            # Vérifie si ce candidat existe dans la table principale
+            cur2 = conn.execute("SELECT statut FROM candidats WHERE email=? OR telephone=?", (email, tel))
+            existing = cur2.fetchone()
+
+            if existing:
+                nouveau_statut = existing["statut"] or "Candidature validée"
+                cur.execute("UPDATE parcoursup_candidats SET statut=? WHERE id=?", (nouveau_statut, r["id"]))
+        conn.commit()
+    except Exception as e:
+        print("⚠️ Erreur de synchronisation Parcoursup ↔ Candidats :", e)
+
+    # 🔍 Affichage des données à jour
     cur.execute("SELECT * FROM parcoursup_candidats ORDER BY created_at DESC")
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
@@ -91,15 +115,13 @@ def import_file():
             # Normalisation basique
             email = (email or "").strip().lower()
             telephone = (str(telephone or "")).strip().replace(" ", "")
-
-            # Conversion automatique vers le format international (+33)
             if telephone.startswith("0"):
                 telephone = "+33" + telephone[1:]
 
             nom = (nom or "").strip().upper()
             prenom = (prenom or "").strip().title()
 
-            # Vérif doublon (email ou téléphone)
+            # Vérif doublon
             cur.execute("SELECT id FROM parcoursup_candidats WHERE email=? OR telephone=?", (email, telephone))
             if cur.fetchone():
                 duplicates += 1
@@ -147,7 +169,6 @@ def import_file():
     conn.close()
     os.remove(temp_path)
 
-    # Message de récapitulatif
     recap = f"{imported} candidatures importées, {mails_sent} mails envoyés, {sms_sent} SMS envoyés, {duplicates} doublons ignorés, {errors} erreurs."
     flash(recap, "success")
 
@@ -227,5 +248,3 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
-
-
