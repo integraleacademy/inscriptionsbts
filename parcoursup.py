@@ -292,3 +292,18 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
+# =====================================================
+# 🕓 LIRE LES LOGS D'UN CANDIDAT
+# =====================================================
+@bp_parcoursup.route("/parcoursup/logs/<cid>")
+def get_logs(cid):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT logs FROM parcoursup_candidats WHERE id=?", (cid,))
+    row = cur.fetchone()
+    conn.close()
+    logs = json.loads(row["logs"]) if row and row["logs"] else []
+    return jsonify(logs)
+
+
