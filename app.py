@@ -230,8 +230,19 @@ def ensure_schema():
             f"ALTER TABLE candidats ADD COLUMN {col} {typ} DEFAULT {json.dumps(default) if typ=='TEXT' else default}"
         )
 
+    # 🧩 Ajout automatique des nouvelles étiquettes
+    new_columns = {
+        "label_ypareo": "INTEGER DEFAULT 0",
+        "label_carte_etudiante": "INTEGER DEFAULT 0"
+    }
+
+    for col, definition in new_columns.items():
+        if col not in existing:
+            cur.execute(f"ALTER TABLE candidats ADD COLUMN {col} {definition}")
+
     conn.commit()
     conn.close()
+
 
 # ✅ Appel après définition
 with app.app_context():
@@ -584,7 +595,12 @@ def admin_update_field():
     cid = data.get("id")
     field = data.get("field")
     value = data.get("value")
-    allowed = {"nom","prenom","bts","mode","tel","email","label_aps","label_aut_ok","label_cheque_ok","commentaires","nouveau_doc"}
+    allowed = {
+    "nom","prenom","bts","mode","tel","email",
+    "label_aps","label_aut_ok","label_cheque_ok",
+    "label_ypareo","label_carte_etudiante",
+    "commentaires","nouveau_doc"
+}
     if field not in allowed: return jsonify({"ok":False,"error":"field not allowed"}), 400
     conn = db(); cur = conn.cursor()
     cur.execute(f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?", (value, datetime.now().isoformat(), cid))
