@@ -180,8 +180,10 @@ def check_file():
             erreurs.append(f"Ligne {ligne_num} : prénom manquant")
 
         # Vérif téléphone
-        tel = str(telephone or "").strip()
-        if not tel.isdigit() or len(tel) != 10:
+        tel = str(telephone or "").strip().replace(" ", "")
+        # Accepte soit 0XXXXXXXXX, soit +33XXXXXXXXX
+        import re
+        if not re.match(r"^(?:\+33|0)[1-9]\d{8}$", tel):
             erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
 
         # Vérif e-mail
@@ -206,6 +208,7 @@ def check_file():
         flash("✅ Aucun problème détecté : le fichier est prêt à être importé.", "success")
 
     return redirect(url_for("parcoursup.dashboard"))
+
 
 
 
