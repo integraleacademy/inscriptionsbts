@@ -25,6 +25,21 @@
 
   <hr>
 
+  <!-- 🔎 Barre de filtre -->
+  <form method="get" action="{{ url_for('parcoursup.dashboard') }}" style="margin-bottom:20px;display:flex;gap:10px;align-items:center;">
+    <label for="statut" style="font-weight:600;">🎯 Filtrer par statut :</label>
+    <select id="statut" name="statut" style="padding:5px 10px;border-radius:6px;">
+      <option value="">Tous les statuts</option>
+      {% for key, value in STATUTS_STYLE.items() %}
+        <option value="{{ key }}" {% if request.args.get('statut') == key %}selected{% endif %}>
+          {{ value[0] }}
+        </option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn primary">Filtrer</button>
+    <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary">↻ Réinitialiser</a>
+  </form>
+
   <h3>📋 Liste des candidats Parcoursup</h3>
   {% if rows %}
   <table border="1" cellpadding="8" cellspacing="0" style="width:100%;border-collapse:collapse;">
@@ -53,10 +68,11 @@
         <td>{{ r.mode }}</td>
         <td>{% if r.mail_ok %}✅{% else %}❌{% endif %}</td>
         <td>{% if r.sms_ok %}✅{% else %}❌{% endif %}</td>
+
         {% set libelle, couleur = STATUTS_STYLE.get(r.statut, (r.statut, '#ccc')) %}
-<td style="background:{{ couleur }};color:#fff;font-weight:600;text-align:center;border-radius:6px;padding:4px 8px;">
-  {{ libelle }}
-</td>
+        <td style="background:{{ couleur }};color:#fff;font-weight:600;text-align:center;border-radius:6px;padding:4px 8px;">
+          {{ libelle }}
+        </td>
 
         <td style="text-align:center;">
           <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
@@ -73,4 +89,3 @@
 </div>
 
 {% endblock %}
-
