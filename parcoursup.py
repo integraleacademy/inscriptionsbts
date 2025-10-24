@@ -7,16 +7,14 @@ from utils import send_mail, send_sms_brevo
 from openpyxl import load_workbook
 
 STATUTS_STYLE = {
-    "preinscription": ("Pré-inscription à traiter", "#f4c45a"),
-    "candidature_validee": ("Candidature validée", "#3498db"),
-    "inscription_confirmee": ("Inscription confirmée", "#28a745"),
-    "reconfirmation_en_attente": ("Reconfirmation en attente", "#ff9800"),
-    "reconfirmation_validee": ("Reconfirmation validée", "#2ecc71"),
-    "docs_non_conformes": ("Documents non conformes", "#e74c3c"),
-    "incomplet": ("Dossier incomplet", "#f39c12"),
-    "traite": ("Dossier traité", "#16a085")
+    "preinscription": {"label": "Pré-inscription à traiter", "color": "#f0ad4e"},   # orange
+    "validee": {"label": "Candidature validée", "color": "#0275d8"},               # bleu
+    "confirmee": {"label": "Inscription confirmée", "color": "#5cb85c"},           # vert
+    "reconf_en_cours": {"label": "Reconfirmation en cours", "color": "#f0ad4e"},   # orange clair
+    "reconfirmee": {"label": "Inscription re-confirmée", "color": "#5cb85c"},      # vert
+    "annulee": {"label": "Inscription annulée", "color": "#d9534f"},               # rouge
+    "docs_non_conformes": {"label": "Documents non conformes", "color": "#292b2c"} # noir/gris
 }
-
 
 # Blueprint Parcoursup
 bp_parcoursup = Blueprint("parcoursup", __name__, template_folder="templates")
@@ -304,6 +302,7 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
 
 
