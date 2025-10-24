@@ -10,13 +10,13 @@ from openpyxl import load_workbook
 # 🎨 Styles des statuts
 # =====================================================
 STATUTS_STYLE = {
-    "preinscription": {"label": "Pré-inscription à traiter", "color": "#808080"},  # gris
-    "validee": {"label": "Candidature validée", "color": "#3498db"},               # bleu
-    "confirmee": {"label": "Inscription confirmée", "color": "#f4c45a"},           # doré
-    "reconf_en_cours": {"label": "Reconfirmation en cours", "color": "#ff9800"},   # orange
-    "reconfirmee": {"label": "Inscription re-confirmée", "color": "#2ecc71"},      # vert
-    "annulee": {"label": "Inscription annulée", "color": "#e74c3c"},               # rouge
-    "docs_non_conformes": {"label": "Documents non conformes", "color": "#000000"} # noir
+    "preinscription": {"label": "Pré-inscription à traiter", "color": "#808080"},
+    "validee": {"label": "Candidature validée", "color": "#3498db"},
+    "confirmee": {"label": "Inscription confirmée", "color": "#f4c45a"},
+    "reconf_en_cours": {"label": "Reconfirmation en cours", "color": "#ff9800"},
+    "reconfirmee": {"label": "Inscription re-confirmée", "color": "#2ecc71"},
+    "annulee": {"label": "Inscription annulée", "color": "#e74c3c"},
+    "docs_non_conformes": {"label": "Documents non conformes", "color": "#000000"}
 }
 
 # =====================================================
@@ -49,13 +49,12 @@ def init_parcoursup_table():
         mode TEXT,
         mail_ok INTEGER DEFAULT 0,
         sms_ok INTEGER DEFAULT 0,
-        sms_message_id TEXT DEFAULT '',      -- ✅ ajouté
+        sms_message_id TEXT DEFAULT '',
         statut TEXT DEFAULT 'En attente de candidature',
         logs TEXT DEFAULT '[]',
         created_at TEXT
     );
     """)
-    # Index pour éviter les doublons coûteux
     cur.execute("CREATE INDEX IF NOT EXISTS idx_ps_email ON parcoursup_candidats(email)")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_ps_tel   ON parcoursup_candidats(telephone)")
     conn.commit()
@@ -90,11 +89,28 @@ def ensure_parcoursup_schema():
     conn.commit()
     conn.close()
 
-# Appelé automatiquement quand le blueprint est enregistré
 @bp_parcoursup.record_once
 def _setup(state):
     init_parcoursup_table()
     ensure_parcoursup_schema()
+
+# =====================================================
+# 🪵 Fonction pour ajouter un log à un candidat
+# =====================================================
+def add_log(cid, action, result):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT logs FROM parcoursup_candidats WHERE id=?", (cid,))
+    row = cur.fetchone()
+    logs = json.loads(row["logs"]) if row and row["logs"] else []
+    logs.append({
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "action": action,
+        "result": result
+    })
+    cur.execute("UPDATE parcoursup_candidats SET logs=? WHERE id=?", (json.dumps(logs, ensure_ascii=False), cid))
+    conn.commit()
+    conn.close()
 
 # =====================================================
 # 🏠 PAGE PRINCIPALE
@@ -104,7 +120,6 @@ def dashboard():
     conn = db()
     cur = conn.cursor()
 
-    # 🔄 Synchronisation avec la table "candidats" (Admin)
     try:
         cur.execute("SELECT id, email, telephone FROM parcoursup_candidats")
         parcoursup_rows = cur.fetchall()
@@ -124,7 +139,6 @@ def dashboard():
     except Exception as e:
         print("⚠️ Erreur de synchronisation Parcoursup ↔ Admin :", e)
 
-    # 🔍 Filtrage optionnel
     selected_status = request.args.get("statut")
     if selected_status:
         cur.execute("SELECT * FROM parcoursup_candidats WHERE statut=? ORDER BY created_at DESC", (selected_status,))
@@ -195,9 +209,15 @@ def import_file():
             <p><a href='https://inscriptionsbts.onrender.com/'><b>👉 Formulaire de pré-inscription</b></a></p>
             <p>À bientôt,<br><b>L’équipe Intégrale Academy</b></p>
             """
-            if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", html):
-                cur.execute("UPDATE parcoursup_candidats SET mail_ok=1 WHERE id=?", (cid,))
-                mails_sent += 1
+            try:
+                if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", html):
+                    cur.execute("UPDATE parcoursup_candidats SET mail_ok=1 WHERE id=?", (cid,))
+                    mails_sent += 1
+                    add_log(cid, "Mail envoyé", f"✅ {email}")
+                else:
+                    add_log(cid, "Mail échoué", f"❌ {email}")
+            except Exception as e:
+                add_log(cid, "Mail erreur", str(e))
 
             # === Envoi du SMS ===
             sms_msg = f"Bonjour {prenom}, nous avons bien reçu votre candidature Parcoursup pour le BTS {formation}. Pour finaliser : inscriptionsbts.onrender.com"
@@ -205,8 +225,10 @@ def import_file():
                 message_id = send_sms_brevo(telephone, sms_msg)
                 cur.execute("UPDATE parcoursup_candidats SET sms_ok=1, sms_message_id=? WHERE id=?", (message_id, cid))
                 sms_sent += 1
+                add_log(cid, "SMS envoyé", f"✅ {telephone} — ID {message_id}")
             except Exception as e:
                 print("❌ Erreur SMS :", e)
+                add_log(cid, "SMS erreur", str(e))
 
             conn.commit()
 
@@ -220,7 +242,7 @@ def import_file():
     return redirect(url_for("parcoursup.dashboard"))
 
 # =====================================================
-# 🕵️‍♂️ VÉRIFICATION DU FICHIER EXCEL (AVANT IMPORT)
+# 🕵️‍♂️ VÉRIFICATION DU FICHIER EXCEL
 # =====================================================
 @bp_parcoursup.route("/parcoursup/check", methods=["POST"])
 def check_file():
