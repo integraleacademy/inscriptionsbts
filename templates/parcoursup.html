@@ -2,9 +2,11 @@
 {% block body_class %}parcoursup-page{% endblock %}
 {% block content %}
 
-<div class="container" style="padding:30px;">
-  <h2>🎓 Gestion Parcoursup</h2>
-  <p>Importez les candidatures Parcoursup et gérez leur suivi ici.</p>
+<div class="admin-wrapper">
+  <header class="admin-header">
+    <h2>🎓 Gestion Parcoursup</h2>
+    <p>Importez les candidatures Parcoursup et gérez leur suivi ici.</p>
+  </header>
 
   <hr>
 
@@ -12,12 +14,10 @@
     <label for="file" style="font-weight:600;">📤 Importer ou vérifier un fichier Excel (.xlsx)</label><br>
     <input type="file" name="file" accept=".xlsx" required>
 
-    <!-- 🕵️‍♂️ Bouton de vérification -->
     <button formaction="{{ url_for('parcoursup.check_file') }}" class="btn secondary">
       🕵️‍♂️ Vérifier le fichier
     </button>
 
-    <!-- 📥 Bouton d’import -->
     <button formaction="{{ url_for('parcoursup.import_file') }}" class="btn primary" style="margin-left:10px;">
       📥 Importer les candidatures
     </button>
@@ -25,17 +25,16 @@
 
   <hr>
 
-  <!-- 🔎 Barre de filtre -->
-  <form method="get" action="{{ url_for('parcoursup.dashboard') }}" style="margin-bottom:20px;display:flex;gap:10px;align-items:center;">
+  <form method="get" action="{{ url_for('parcoursup.dashboard') }}" 
+        style="margin-bottom:20px;display:flex;gap:10px;align-items:center;">
     <label for="statut" style="font-weight:600;">🎯 Filtrer par statut :</label>
     <select id="statut" name="statut" style="padding:5px 10px;border-radius:6px;">
       <option value="">Tous les statuts</option>
-    {% for key, style in STATUTS_STYLE.items() %}
-  <option value="{{ key }}" {% if request.args.get('statut') == key %}selected{% endif %}>
-    {{ style.label }}
-  </option>
-{% endfor %}
-
+      {% for key, style in STATUTS_STYLE.items() %}
+        <option value="{{ key }}" {% if request.args.get('statut') == key %}selected{% endif %}>
+          {{ style.label }}
+        </option>
+      {% endfor %}
     </select>
     <button type="submit" class="btn primary">Filtrer</button>
     <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary">↻ Réinitialiser</a>
@@ -43,8 +42,8 @@
 
   <h3>📋 Liste des candidats Parcoursup</h3>
   {% if rows %}
-  <table border="1" cellpadding="8" cellspacing="0" style="width:100%;border-collapse:collapse;">
-    <thead style="background:#f4c45a;">
+  <table class="admin-table">
+    <thead>
       <tr>
         <th>Nom</th>
         <th>Prénom</th>
@@ -71,17 +70,16 @@
         <td>{% if r.sms_ok %}✅{% else %}❌{% endif %}</td>
 
         {% set style = STATUTS_STYLE.get(r.statut) %}
-<td style="
-  text-align:center;
-  font-weight:600;
-  color:white;
-  background:{{ style.color if style else '#999' }};
-  border-radius:6px;
-  padding:4px 8px;
-">
-  {{ style.label if style else r.statut }}
-</td>
-
+        <td style="
+          text-align:center;
+          font-weight:600;
+          color:white;
+          background:{{ style.color if style else '#999' }};
+          border-radius:6px;
+          padding:4px 8px;
+        ">
+          {{ style.label if style else r.statut }}
+        </td>
 
         <td style="text-align:center;">
           <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
@@ -98,4 +96,3 @@
 </div>
 
 {% endblock %}
-
