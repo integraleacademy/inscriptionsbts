@@ -52,31 +52,40 @@ def dashboard():
     conn = db()
     cur = conn.cursor()
 
-    # 🔄 Synchronise les statuts avec la table principale "candidats"
     try:
+        # 🔄 Synchronisation avec la table ADMIN (candidats)
         cur.execute("SELECT id, email, telephone FROM parcoursup_candidats")
         parcoursup_rows = cur.fetchall()
 
         for r in parcoursup_rows:
-            email = r["email"]
-            tel = r["telephone"]
+            email = (r["email"] or "").strip().lower()
+            tel = (r["telephone"] or "").replace(" ", "").replace("+33", "0").strip()
 
-            # Vérifie si ce candidat existe dans la table principale
-            cur2 = conn.execute("SELECT statut FROM candidats WHERE email=? OR telephone=?", (email, tel))
+            # ✅ compare avec la table "candidats" (colonne tel)
+            cur2 = conn.execute("""
+                SELECT statut FROM candidats
+                WHERE LOWER(TRIM(email)) = ?
+                   OR REPLACE(REPLACE(tel, ' ', ''), '+33', '0') = ?
+            """, (email, tel))
             existing = cur2.fetchone()
 
-            if existing:
-                nouveau_statut = existing["statut"] or "Candidature validée"
-                cur.execute("UPDATE parcoursup_candidats SET statut=? WHERE id=?", (nouveau_statut, r["id"]))
-        conn.commit()
-    except Exception as e:
-        print("⚠️ Erreur de synchronisation Parcoursup ↔ Candidats :", e)
+            if existing and existing["statut"]:
+                cur.execute("UPDATE parcoursup_candidats SET statut=? WHERE id=?", (existing["statut"], r["id"]))
 
-    # 🔍 Affichage des données à jour
+        conn.commit()
+        print("✅ Synchronisation Parcoursup ↔ Admin réussie")
+
+    except Exception as e:
+        print("⚠️ Erreur de synchronisation Parcoursup ↔ Admin :", e)
+
+    # 🔍 Affichage à jour
     cur.execute("SELECT * FROM parcoursup_candidats ORDER BY created_at DESC")
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
+
     return render_template("parcoursup.html", title="Gestion Parcoursup", rows=rows)
+
+
 
 # =====================================================
 # 📤 IMPORTER UN FICHIER EXCEL (.xlsx)
@@ -248,3 +257,4 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
