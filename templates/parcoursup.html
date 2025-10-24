@@ -53,7 +53,11 @@
         <td>{{ r.mode }}</td>
         <td>{% if r.mail_ok %}✅{% else %}❌{% endif %}</td>
         <td>{% if r.sms_ok %}✅{% else %}❌{% endif %}</td>
-        <td>{{ r.statut }}</td>
+        {% set libelle, couleur = STATUTS_STYLE.get(r.statut, (r.statut, '#ccc')) %}
+<td style="background:{{ couleur }};color:#fff;font-weight:600;text-align:center;border-radius:6px;padding:4px 8px;">
+  {{ libelle }}
+</td>
+
         <td style="text-align:center;">
           <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
             <button type="submit" class="btn small danger" onclick="return confirm('Supprimer cette candidature ?')">🗑️</button>
@@ -69,3 +73,4 @@
 </div>
 
 {% endblock %}
+
