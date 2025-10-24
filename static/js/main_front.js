@@ -181,14 +181,16 @@ function validateStep(stepIndex) {
     });
   });
 
-  // === Vérif fichiers PDF ===
 // === Vérif fichiers PDF ===
 const form = document.querySelector('form');
 if (form) {
   form.addEventListener('submit', (e) => {
 
-    // 🧩 Désactive la vérif sur la page de confirmation
-    if (!window.location.pathname.includes("confirm-inscription")) {
+    // 🧩 Désactive la vérif sur la page de confirmation et sur la page Parcoursup
+    if (
+      !window.location.pathname.includes("confirm-inscription") &&
+      !window.location.pathname.includes("parcoursup")
+    ) {
       // Vérifie qu'un mode de formation est choisi (présentiel / distanciel)
       const modeSelected = document.querySelector('input[name="mode"]:checked');
       if (!modeSelected) {
@@ -213,6 +215,7 @@ if (form) {
     }
   });
 }
+
 
   // =====================================================
   // 🎓 LOGIQUE SPÉCIFIQUE BTS MOS (CNAPS / APS)
@@ -355,6 +358,7 @@ function showFlash(message, type = "success") {
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
 
