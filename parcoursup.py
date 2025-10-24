@@ -1,5 +1,5 @@
 # parcoursup.py
-import os, uuid, sqlite3, json
+import os, uuid, sqlite3, json, re
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
@@ -42,7 +42,9 @@ def init_parcoursup_table():
 
 init_parcoursup_table()
 
-# Page principale
+# =====================================================
+# 🏠 PAGE PRINCIPALE
+# =====================================================
 @bp_parcoursup.route("/parcoursup")
 def dashboard():
     conn = db()
@@ -51,6 +53,7 @@ def dashboard():
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
     return render_template("parcoursup.html", title="Gestion Parcoursup", rows=rows)
+
 # =====================================================
 # 📤 IMPORTER UN FICHIER EXCEL (.xlsx)
 # =====================================================
@@ -87,7 +90,12 @@ def import_file():
 
             # Normalisation basique
             email = (email or "").strip().lower()
-            telephone = (str(telephone or "")).strip()
+            telephone = (str(telephone or "")).strip().replace(" ", "")
+
+            # Conversion automatique vers le format international (+33)
+            if telephone.startswith("0"):
+                telephone = "+33" + telephone[1:]
+
             nom = (nom or "").strip().upper()
             prenom = (prenom or "").strip().title()
 
@@ -181,8 +189,6 @@ def check_file():
 
         # Vérif téléphone
         tel = str(telephone or "").strip().replace(" ", "")
-        # Accepte soit 0XXXXXXXXX, soit +33XXXXXXXXX
-        import re
         if not re.match(r"^(?:\+33|0)[1-9]\d{8}$", tel):
             erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
 
@@ -208,9 +214,3 @@ def check_file():
         flash("✅ Aucun problème détecté : le fichier est prêt à être importé.", "success")
 
     return redirect(url_for("parcoursup.dashboard"))
-
-
-
-
-
-
