@@ -85,6 +85,8 @@
           <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
             <button type="submit" class="btn small danger" onclick="return confirm('Supprimer cette candidature ?')">🗑️</button>
           </form>
+          <button class="btn small" style="background:#555;color:white;"
+                  onclick="openLogsModal('{{ r.id }}')">🕓 Logs</button>
         </td>
       </tr>
       {% endfor %}
@@ -94,5 +96,34 @@
   <p>Aucune candidature importée pour le moment.</p>
   {% endif %}
 </div>
+
+<!-- 🕓 MODALE LOGS -->
+<div id="logsModal" class="modal hidden">
+  <div class="modal-content" style="width:600px;max-height:80vh;overflow-y:auto;">
+    <h3>🕓 Historique des actions</h3>
+    <ul id="logsList" style="list-style:none;padding:0;font-size:14px;"></ul>
+    <div style="text-align:center;margin-top:15px;">
+      <button class="btn" onclick="closeLogsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openLogsModal(cid) {
+  fetch(`/parcoursup/logs/${cid}`)
+    .then(r => r.json())
+    .then(logs => {
+      const list = document.getElementById("logsList");
+      list.innerHTML = logs.length
+        ? logs.map(l => `<li>📅 <b>${l.timestamp}</b> — ${l.action}: ${l.result}</li>`).join("")
+        : "<li>Aucune action enregistrée</li>";
+      document.getElementById("logsModal").classList.remove("hidden");
+    })
+    .catch(err => alert("Erreur de chargement des logs : " + err));
+}
+function closeLogsModal() {
+  document.getElementById("logsModal").classList.add("hidden");
+}
+</script>
 
 {% endblock %}
