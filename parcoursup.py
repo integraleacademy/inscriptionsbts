@@ -7,14 +7,15 @@ from utils import send_mail, send_sms_brevo
 from openpyxl import load_workbook
 
 STATUTS_STYLE = {
-    "preinscription": {"label": "Pré-inscription à traiter", "color": "#f0ad4e"},   # orange
-    "validee": {"label": "Candidature validée", "color": "#0275d8"},               # bleu
-    "confirmee": {"label": "Inscription confirmée", "color": "#5cb85c"},           # vert
-    "reconf_en_cours": {"label": "Reconfirmation en cours", "color": "#f0ad4e"},   # orange clair
-    "reconfirmee": {"label": "Inscription re-confirmée", "color": "#5cb85c"},      # vert
-    "annulee": {"label": "Inscription annulée", "color": "#d9534f"},               # rouge
-    "docs_non_conformes": {"label": "Documents non conformes", "color": "#292b2c"} # noir/gris
+    "preinscription": {"label": "Pré-inscription à traiter", "color": "#808080"},  # gris
+    "validee": {"label": "Candidature validée", "color": "#3498db"},               # bleu
+    "confirmee": {"label": "Inscription confirmée", "color": "#f4c45a"},           # doré
+    "reconf_en_cours": {"label": "Reconfirmation en cours", "color": "#ff9800"},   # orange
+    "reconfirmee": {"label": "Inscription re-confirmée", "color": "#2ecc71"},      # vert
+    "annulee": {"label": "Inscription annulée", "color": "#e74c3c"},               # rouge
+    "docs_non_conformes": {"label": "Documents non conformes", "color": "#000000"} # noir
 }
+
 
 # Blueprint Parcoursup
 bp_parcoursup = Blueprint("parcoursup", __name__, template_folder="templates")
@@ -302,6 +303,7 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
 
 
