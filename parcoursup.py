@@ -90,17 +90,25 @@ def dashboard():
     except Exception as e:
         print("⚠️ Erreur de synchronisation Parcoursup ↔ Admin :", e)
 
-    # 🔍 Affichage à jour
-    cur.execute("SELECT * FROM parcoursup_candidats ORDER BY created_at DESC")
+    # 🔍 Filtrage optionnel par statut
+    selected_status = request.args.get("statut")
+    if selected_status:
+        cur.execute(
+            "SELECT * FROM parcoursup_candidats WHERE statut=? ORDER BY created_at DESC",
+            (selected_status,)
+        )
+    else:
+        cur.execute("SELECT * FROM parcoursup_candidats ORDER BY created_at DESC")
+
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
 
     return render_template(
-    "parcoursup.html",
-    title="Gestion Parcoursup",
-    rows=rows,
-    STATUTS_STYLE=STATUTS_STYLE
-)
+        "parcoursup.html",
+        title="Gestion Parcoursup",
+        rows=rows,
+        STATUTS_STYLE=STATUTS_STYLE
+    )
 
 
 
@@ -275,4 +283,5 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
