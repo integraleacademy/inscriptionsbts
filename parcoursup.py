@@ -100,7 +100,29 @@ def dashboard():
     else:
         cur.execute("SELECT * FROM parcoursup_candidats ORDER BY created_at DESC")
 
+    # ✅ ICI on garde bien l’indentation à l’intérieur de la fonction
     rows = [dict(r) for r in cur.fetchall()]
+
+    # 🔧 Harmonisation des statuts pour correspondre aux clés de STATUTS_STYLE
+    for r in rows:
+        s = (r["statut"] or "").strip().lower()
+        if "pré" in s or "preinscription" in s:
+            r["statut"] = "preinscription"
+        elif "validée" in s and "candidature" in s:
+            r["statut"] = "candidature_validee"
+        elif "confirmée" in s:
+            r["statut"] = "inscription_confirmee"
+        elif "reconfirmation" in s and "attente" in s:
+            r["statut"] = "reconfirmation_en_attente"
+        elif "reconfirmation" in s and "validée" in s:
+            r["statut"] = "reconfirmation_validee"
+        elif "non conforme" in s:
+            r["statut"] = "docs_non_conformes"
+        elif "incomplet" in s:
+            r["statut"] = "incomplet"
+        elif "traité" in s:
+            r["statut"] = "traite"
+
     conn.close()
 
     return render_template(
@@ -109,7 +131,6 @@ def dashboard():
         rows=rows,
         STATUTS_STYLE=STATUTS_STYLE
     )
-
 
 
 
@@ -283,5 +304,6 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
 
