@@ -186,6 +186,7 @@ def import_file():
                 telephone = "+33" + telephone[1:]
             nom, prenom = (nom or "").upper(), (prenom or "").title()
 
+            # 🔍 Vérif doublon
             cur.execute("SELECT id FROM parcoursup_candidats WHERE email=? OR telephone=?", (email, telephone))
             if cur.fetchone():
                 duplicates += 1
@@ -210,7 +211,8 @@ def import_file():
             <p>À bientôt,<br><b>L’équipe Intégrale Academy</b></p>
             """
             try:
-                if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", html):
+                mail_result = send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", html)
+                if mail_result:
                     cur.execute("UPDATE parcoursup_candidats SET mail_ok=1 WHERE id=?", (cid,))
                     mails_sent += 1
                     add_log(cid, "Mail envoyé", f"✅ {email}")
@@ -222,10 +224,13 @@ def import_file():
             # === Envoi du SMS ===
             sms_msg = f"Bonjour {prenom}, nous avons bien reçu votre candidature Parcoursup pour le BTS {formation}. Pour finaliser : inscriptionsbts.onrender.com"
             try:
-                message_id = send_sms_brevo(telephone, sms_msg)
-                cur.execute("UPDATE parcoursup_candidats SET sms_ok=1, sms_message_id=? WHERE id=?", (message_id, cid))
-                sms_sent += 1
-                add_log(cid, "SMS envoyé", f"✅ {telephone} — ID {message_id}")
+                sms_result = send_sms_brevo(telephone, sms_msg)
+                if sms_result:
+                    cur.execute("UPDATE parcoursup_candidats SET sms_ok=1 WHERE id=?", (cid,))
+                    sms_sent += 1
+                    add_log(cid, "SMS envoyé", f"✅ {telephone}")
+                else:
+                    add_log(cid, "SMS échoué", f"❌ {telephone}")
             except Exception as e:
                 print("❌ Erreur SMS :", e)
                 add_log(cid, "SMS erreur", str(e))
@@ -240,6 +245,7 @@ def import_file():
     os.remove(temp_path)
     flash(f"{imported} candidatures importées — {mails_sent} mails envoyés — {sms_sent} SMS envoyés — {duplicates} doublons ignorés — {errors} erreurs.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
 # =====================================================
 # 🕵️‍♂️ VÉRIFICATION DU FICHIER EXCEL
@@ -305,5 +311,6 @@ def get_logs(cid):
     conn.close()
     logs = json.loads(row["logs"]) if row and row["logs"] else []
     return jsonify(logs)
+
 
 
