@@ -145,5 +145,69 @@ def import_file():
 
     return redirect(url_for("parcoursup.dashboard"))
 
+# =====================================================
+# 🕵️‍♂️ VÉRIFICATION DU FICHIER EXCEL (AVANT IMPORT)
+# =====================================================
+@bp_parcoursup.route("/parcoursup/check", methods=["POST"])
+def check_file():
+    if "file" not in request.files:
+        flash("Aucun fichier sélectionné", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+
+    file = request.files["file"]
+    if not file.filename.endswith(".xlsx"):
+        flash("Format de fichier non supporté. Utilisez un fichier .xlsx", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+
+    temp_path = os.path.join(DATA_DIR, secure_filename(file.filename))
+    file.save(temp_path)
+
+    wb = load_workbook(temp_path)
+    ws = wb.active
+
+    erreurs = []
+    ligne_num = 2
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        nom, prenom, telephone, email, formation, mode = row[:6]
+
+        # Vérif nom
+        if not nom:
+            erreurs.append(f"Ligne {ligne_num} : nom manquant")
+
+        # Vérif prénom
+        if not prenom:
+            erreurs.append(f"Ligne {ligne_num} : prénom manquant")
+
+        # Vérif téléphone
+        tel = str(telephone or "").strip()
+        if not tel.isdigit() or len(tel) != 10:
+            erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
+
+        # Vérif e-mail
+        mail = (email or "").strip().lower()
+        if "@" not in mail or "." not in mail:
+            erreurs.append(f"Ligne {ligne_num} : e-mail invalide ({mail})")
+
+        # Vérif mode
+        if (mode or "").strip().lower() not in ("presentiel", "présentiel", "distanciel"):
+            erreurs.append(f"Ligne {ligne_num} : mode invalide ({mode})")
+
+        ligne_num += 1
+
+    os.remove(temp_path)
+
+    if erreurs:
+        msg = f"❌ {len(erreurs)} erreur(s) détectée(s) :<br>" + "<br>".join(erreurs[:20])
+        if len(erreurs) > 20:
+            msg += f"<br>… et {len(erreurs) - 20} autres lignes à corriger."
+        flash(msg, "error")
+    else:
+        flash("✅ Aucun problème détecté : le fichier est prêt à être importé.", "success")
+
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+
 
 
