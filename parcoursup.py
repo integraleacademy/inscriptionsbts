@@ -17,6 +17,17 @@ def db():
     conn.row_factory = sqlite3.Row
     return conn
 
+STATUTS_STYLE = {
+    "preinscription": {"label": "Pré-inscription à traiter", "color": "#808080"},
+    "validee": {"label": "Candidature validée", "color": "#3498db"},
+    "confirmee": {"label": "Inscription confirmée", "color": "#f4c45a"},
+    "reconf_en_cours": {"label": "Reconfirmation en cours", "color": "#ff9800"},
+    "reconfirmee": {"label": "Inscription re-confirmée", "color": "#2ecc71"},
+    "annulee": {"label": "Inscription annulée", "color": "#e74c3c"},
+    "docs_non_conformes": {"label": "Documents non conformes", "color": "#000000"},
+}
+
+
 # =====================================================
 # 🧱 Initialisation table Parcoursup
 # =====================================================
@@ -83,7 +94,13 @@ def dashboard():
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
 
-    return render_template("parcoursup.html", title="Gestion Parcoursup", rows=rows)
+    return render_template(
+    "parcoursup.html",
+    title="Gestion Parcoursup",
+    rows=rows,
+    STATUTS_STYLE=STATUTS_STYLE  # ← ajoute ça
+)
+
 
 
 
@@ -257,3 +274,4 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
