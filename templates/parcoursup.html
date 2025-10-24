@@ -9,20 +9,19 @@
   <hr>
 
   <form method="post" enctype="multipart/form-data" style="margin-bottom:20px;">
-  <label for="file" style="font-weight:600;">📤 Importer ou vérifier un fichier Excel (.xlsx)</label><br>
-  <input type="file" name="file" accept=".xlsx" required>
+    <label for="file" style="font-weight:600;">📤 Importer ou vérifier un fichier Excel (.xlsx)</label><br>
+    <input type="file" name="file" accept=".xlsx" required>
 
-  <!-- 🕵️‍♂️ Bouton de vérification -->
-  <button formaction="{{ url_for('parcoursup.check_file') }}" class="btn secondary">
-    🕵️‍♂️ Vérifier le fichier
-  </button>
+    <!-- 🕵️‍♂️ Bouton de vérification -->
+    <button formaction="{{ url_for('parcoursup.check_file') }}" class="btn secondary">
+      🕵️‍♂️ Vérifier le fichier
+    </button>
 
-  <!-- 📥 Bouton d’import -->
-  <button formaction="{{ url_for('parcoursup.import_file') }}" class="btn primary" style="margin-left:10px;">
-    📥 Importer les candidatures
-  </button>
-</form>
-
+    <!-- 📥 Bouton d’import -->
+    <button formaction="{{ url_for('parcoursup.import_file') }}" class="btn primary" style="margin-left:10px;">
+      📥 Importer les candidatures
+    </button>
+  </form>
 
   <hr>
 
@@ -40,6 +39,7 @@
         <th>Mail OK</th>
         <th>SMS OK</th>
         <th>Statut</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
@@ -54,6 +54,11 @@
         <td>{% if r.mail_ok %}✅{% else %}❌{% endif %}</td>
         <td>{% if r.sms_ok %}✅{% else %}❌{% endif %}</td>
         <td>{{ r.statut }}</td>
+        <td style="text-align:center;">
+          <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
+            <button type="submit" class="btn small danger" onclick="return confirm('Supprimer cette candidature ?')">🗑️</button>
+          </form>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
@@ -64,4 +69,3 @@
 </div>
 
 {% endblock %}
-
