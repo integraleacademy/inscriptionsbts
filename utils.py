@@ -88,15 +88,12 @@ def make_signed_link(path: str, token: str) -> str:
     return f"{base}{path}?token={token}&sig={sig}"
 
 # =====================================================
-# 📱 ENVOI DE SMS AVEC BREVO
+# 📱 ENVOI DE SMS AVEC BREVO (VERSION FINALE VALIDÉE)
 # =====================================================
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
 
 def send_sms_brevo(phone_number, message):
-    import sib_api_v3_sdk
-    from sib_api_v3_sdk.rest import ApiException
-
     api_key = os.getenv("BREVO_API_KEY")
     print("🟡 DEBUG — Début send_sms_brevo()")
     print("🟡 DEBUG — Numéro :", phone_number)
@@ -106,27 +103,24 @@ def send_sms_brevo(phone_number, message):
         print("❌ BREVO_API_KEY manquant.")
         return False
 
-
     configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key["api-key"] = api_key
-
+    configuration.api_key['api-key'] = api_key
     api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
-    sender = "INTACAD"  # 11 caractères max, sans espace
+    sender = "INTACAD"  # 11 caractères max, pas d’espace
 
-    sms_data = {
-        "sender": sender,
-        "recipient": phone_number,
-        "content": message
-    }
+    sms = sib_api_v3_sdk.SendTransacSms(
+        sender=sender,
+        recipient=phone_number,
+        content=message
+    )
 
     try:
-        response = api_instance.send_transac_sms(sms_data)
+        response = api_instance.send_transac_sms(sms)
         print(f"✅ SMS envoyé à {phone_number} — ID: {getattr(response, 'message_id', 'N/A')}")
         return getattr(response, "message_id", True)
     except ApiException as e:
-        print(f"❌ Erreur envoi SMS Brevo : {e}")
+        print(f"❌ Erreur API Brevo : {e}")
         return False
     except Exception as e:
         print(f"❌ Erreur inattendue SMS : {e}")
         return False
-
