@@ -6,6 +6,18 @@ from werkzeug.utils import secure_filename
 from utils import send_mail, send_sms_brevo
 from openpyxl import load_workbook
 
+STATUTS_STYLE = {
+    "preinscription": ("Pré-inscription à traiter", "#f4c45a"),
+    "candidature_validee": ("Candidature validée", "#3498db"),
+    "inscription_confirmee": ("Inscription confirmée", "#28a745"),
+    "reconfirmation_en_attente": ("Reconfirmation en attente", "#ff9800"),
+    "reconfirmation_validee": ("Reconfirmation validée", "#2ecc71"),
+    "docs_non_conformes": ("Documents non conformes", "#e74c3c"),
+    "incomplet": ("Dossier incomplet", "#f39c12"),
+    "traite": ("Dossier traité", "#16a085")
+}
+
+
 # Blueprint Parcoursup
 bp_parcoursup = Blueprint("parcoursup", __name__, template_folder="templates")
 
@@ -83,7 +95,13 @@ def dashboard():
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
 
-    return render_template("parcoursup.html", title="Gestion Parcoursup", rows=rows)
+    return render_template(
+    "parcoursup.html",
+    title="Gestion Parcoursup",
+    rows=rows,
+    STATUTS_STYLE=STATUTS_STYLE
+)
+
 
 
 
