@@ -98,9 +98,14 @@ def send_sms_brevo(phone_number, message):
     from sib_api_v3_sdk.rest import ApiException
 
     api_key = os.getenv("BREVO_API_KEY")
+    print("🟡 DEBUG — Début send_sms_brevo()")
+    print("🟡 DEBUG — Numéro :", phone_number)
+    print("🟡 DEBUG — Clé Brevo détectée :", "OUI" if api_key else "NON")
+
     if not api_key:
         print("❌ BREVO_API_KEY manquant.")
         return False
+
 
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key["api-key"] = api_key
