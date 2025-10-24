@@ -1042,3 +1042,17 @@ main.container.candidat {
   border-radius: 0;           /* angles droits */
 }
 
+.btn.small.danger {
+  background-color: #c0392b;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+.btn.small.danger:hover {
+  background-color: #e74c3c;
+}
+
