@@ -30,11 +30,12 @@
     <label for="statut" style="font-weight:600;">🎯 Filtrer par statut :</label>
     <select id="statut" name="statut" style="padding:5px 10px;border-radius:6px;">
       <option value="">Tous les statuts</option>
-      {% for key, value in STATUTS_STYLE.items() %}
-        <option value="{{ key }}" {% if request.args.get('statut') == key %}selected{% endif %}>
-          {{ value[0] }}
-        </option>
-      {% endfor %}
+    {% for key, style in STATUTS_STYLE.items() %}
+  <option value="{{ key }}" {% if request.args.get('statut') == key %}selected{% endif %}>
+    {{ style.label }}
+  </option>
+{% endfor %}
+
     </select>
     <button type="submit" class="btn primary">Filtrer</button>
     <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary">↻ Réinitialiser</a>
@@ -69,10 +70,18 @@
         <td>{% if r.mail_ok %}✅{% else %}❌{% endif %}</td>
         <td>{% if r.sms_ok %}✅{% else %}❌{% endif %}</td>
 
-        {% set libelle, couleur = STATUTS_STYLE.get(r.statut, (r.statut, '#ccc')) %}
-        <td style="background:{{ couleur }};color:#fff;font-weight:600;text-align:center;border-radius:6px;padding:4px 8px;">
-          {{ libelle }}
-        </td>
+        {% set style = STATUTS_STYLE.get(r.statut) %}
+<td style="
+  text-align:center;
+  font-weight:600;
+  color:white;
+  background:{{ style.color if style else '#999' }};
+  border-radius:6px;
+  padding:4px 8px;
+">
+  {{ style.label if style else r.statut }}
+</td>
+
 
         <td style="text-align:center;">
           <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
@@ -89,3 +98,4 @@
 </div>
 
 {% endblock %}
+
