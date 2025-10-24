@@ -4,6 +4,8 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from werkzeug.utils import secure_filename
 from utils import send_mail, dossier_number, new_token, sign_token, make_signed_link
 from dotenv import load_dotenv
+from parcoursup import bp_parcoursup
+
 
 load_dotenv()
 
@@ -56,6 +58,7 @@ def load_verif_docs(row):
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
+app.register_blueprint(bp_parcoursup)
 
 
 @app.template_filter('basename')
