@@ -214,3 +214,18 @@ def check_file():
         flash("✅ Aucun problème détecté : le fichier est prêt à être importé.", "success")
 
     return redirect(url_for("parcoursup.dashboard"))
+
+# =====================================================
+# 🗑️ SUPPRIMER UN CANDIDAT
+# =====================================================
+@bp_parcoursup.route("/parcoursup/delete/<cid>", methods=["POST"])
+def delete_candidat(cid):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM parcoursup_candidats WHERE id=?", (cid,))
+    conn.commit()
+    conn.close()
+    flash("Candidature supprimée avec succès.", "success")
+    return redirect(url_for("parcoursup.dashboard"))
+
+
