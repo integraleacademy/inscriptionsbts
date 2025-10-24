@@ -89,13 +89,15 @@
               {% endfor %}
             </select>
           </td>
-          <td class="etiquettes">
-            <label><input type="checkbox" class="chk" data-field="label_aps" {% if r.label_aps %}checked{% endif %}> APS</label>
-            <label><input type="checkbox" class="chk" data-field="label_aut_ok" {% if r.label_aut_ok %}checked{% endif %}> AUT OK</label>
-            <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
-          </td>
-          <td>
-<td>
+     <td class="etiquettes">
+  <label><input type="checkbox" class="chk" data-field="label_aps" {% if r.label_aps %}checked{% endif %}> APS</label>
+  <label><input type="checkbox" class="chk" data-field="label_aut_ok" {% if r.label_aut_ok %}checked{% endif %}> AUT OK</label>
+  <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
+  <label><input type="checkbox" class="chk" data-field="label_ypareo" {% if r.label_ypareo %}checked{% endif %}> YPAREO</label>
+  <label><input type="checkbox" class="chk" data-field="label_carte_etudiante" {% if r.label_carte_etudiante %}checked{% endif %}> Carte étudiante</label>
+</td>
+
+<td style="text-align:center; white-space:nowrap;">
   <a href="{{ url_for('admin_espace_candidat', cid=r.id) }}" 
      class="btn small" 
      target="_blank"
@@ -113,6 +115,7 @@
     <span style="color:#28a745;font-weight:600;margin-left:8px;">📥 Nouveau document déposé</span>
   {% endif %}
 </td>
+
 
 
         </tr>
