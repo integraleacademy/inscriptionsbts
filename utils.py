@@ -108,6 +108,12 @@ def send_sms_brevo(phone_number, message):
     try:
         response = api_instance.send_transac_sms(sms)
         print(f"✅ SMS envoyé à {phone_number} : {response}")
+
+        # ✅ on renvoie une valeur exploitable
+        if hasattr(response, "message_id"):
+            return response.message_id  # l’ID du SMS
+        else:
+            return True  # simple succès
     except ApiException as e:
         print(f"❌ Erreur envoi SMS : {e}")
-
+        return False
