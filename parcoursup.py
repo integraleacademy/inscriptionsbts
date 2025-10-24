@@ -1,5 +1,5 @@
 # parcoursup.py
-import os, uuid, sqlite3, json, re
+import os, uuid, sqlite3, json, re, time
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
@@ -26,7 +26,6 @@ STATUTS_STYLE = {
     "annulee": {"label": "Inscription annulée", "color": "#e74c3c"},
     "docs_non_conformes": {"label": "Documents non conformes", "color": "#000000"},
 }
-
 
 # =====================================================
 # 🧱 Initialisation table Parcoursup
@@ -64,7 +63,6 @@ def dashboard():
     cur = conn.cursor()
 
     try:
-        # 🔄 Synchronisation avec la table ADMIN (candidats)
         cur.execute("SELECT id, email, telephone FROM parcoursup_candidats")
         parcoursup_rows = cur.fetchall()
 
@@ -72,7 +70,6 @@ def dashboard():
             email = (r["email"] or "").strip().lower()
             tel = (r["telephone"] or "").replace(" ", "").replace("+33", "0").strip()
 
-            # ✅ compare avec la table "candidats" (colonne tel)
             cur2 = conn.execute("""
                 SELECT statut FROM candidats
                 WHERE LOWER(TRIM(email)) = ?
@@ -89,23 +86,14 @@ def dashboard():
     except Exception as e:
         print("⚠️ Erreur de synchronisation Parcoursup ↔ Admin :", e)
 
-    # 🔍 Affichage à jour
     cur.execute("SELECT * FROM parcoursup_candidats ORDER BY created_at DESC")
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
 
-    return render_template(
-    "parcoursup.html",
-    title="Gestion Parcoursup",
-    rows=rows,
-    STATUTS_STYLE=STATUTS_STYLE  # ← ajoute ça
-)
-
-
-
+    return render_template("parcoursup.html", title="Gestion Parcoursup", rows=rows, STATUTS_STYLE=STATUTS_STYLE)
 
 # =====================================================
-# 📤 IMPORTER UN FICHIER EXCEL (.xlsx)
+# 📤 IMPORTER UN FICHIER EXCEL (.xlsx) — AVEC LOGS + PAUSES
 # =====================================================
 @bp_parcoursup.route("/parcoursup/import", methods=["POST"])
 def import_file():
@@ -115,89 +103,94 @@ def import_file():
 
     file = request.files["file"]
     if not file.filename.endswith(".xlsx"):
-        flash("Format de fichier non supporté. Utilisez un fichier .xlsx", "error")
+        flash("Format non supporté. Utilisez un fichier .xlsx", "error")
         return redirect(url_for("parcoursup.dashboard"))
 
-    # Sauvegarde temporaire
     temp_path = os.path.join(DATA_DIR, secure_filename(file.filename))
     file.save(temp_path)
-
     wb = load_workbook(temp_path)
     ws = wb.active
 
+    LOT_SIZE = 100
+    total_rows = ws.max_row - 1
+    total_lots = (total_rows // LOT_SIZE) + (1 if total_rows % LOT_SIZE else 0)
+
+    print(f"🚀 Import total : {total_rows} lignes ({total_lots} lots de {LOT_SIZE})")
+
     conn = db()
     cur = conn.cursor()
+    imported = mails_sent = sms_sent = duplicates = errors = 0
+    row_index = 0
 
-    imported = 0
-    mails_sent = 0
-    sms_sent = 0
-    duplicates = 0
-    errors = 0
+    try:
+        for lot_index in range(total_lots):
+            start_row = 2 + lot_index * LOT_SIZE
+            end_row = min(start_row + LOT_SIZE - 1, ws.max_row)
+            print(f"➡️ Traitement du lot {lot_index + 1}/{total_lots} (lignes {start_row}-{end_row})")
 
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        try:
-            nom, prenom, telephone, email, formation, mode = row[:6]
+            for row in ws.iter_rows(min_row=start_row, max_row=end_row, values_only=True):
+                try:
+                    nom, prenom, telephone, email, formation, mode = row[:6]
+                    if not email or not telephone:
+                        continue
 
-            # Normalisation basique
-            email = (email or "").strip().lower()
-            telephone = (str(telephone or "")).strip().replace(" ", "")
-            if telephone.startswith("0"):
-                telephone = "+33" + telephone[1:]
+                    email = email.strip().lower()
+                    telephone = str(telephone).strip().replace(" ", "")
+                    if telephone.startswith("0"):
+                        telephone = "+33" + telephone[1:]
 
-            nom = (nom or "").strip().upper()
-            prenom = (prenom or "").strip().title()
+                    cur.execute("SELECT id FROM parcoursup_candidats WHERE email=? OR telephone=?", (email, telephone))
+                    if cur.fetchone():
+                        duplicates += 1
+                        continue
 
-            # Vérif doublon
-            cur.execute("SELECT id FROM parcoursup_candidats WHERE email=? OR telephone=?", (email, telephone))
-            if cur.fetchone():
-                duplicates += 1
-                continue
+                    cid = str(uuid.uuid4())
+                    now = datetime.now().isoformat()
 
-            cid = str(uuid.uuid4())
-            now = datetime.now().isoformat()
+                    cur.execute("""
+                        INSERT INTO parcoursup_candidats 
+                        (id, nom, prenom, telephone, email, formation, mode, mail_ok, sms_ok, statut, logs, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'En attente de candidature', '[]', ?)
+                    """, (cid, nom, prenom, telephone, email, formation, mode, now))
+                    imported += 1
 
-            # Insère la ligne
-            cur.execute("""
-                INSERT INTO parcoursup_candidats 
-                (id, nom, prenom, telephone, email, formation, mode, mail_ok, sms_ok, statut, logs, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'En attente de candidature', '[]', ?)
-            """, (cid, nom, prenom, telephone, email, formation, mode, now))
+                    # === Envoi du mail ===
+                    html = f"""
+                    <p>Bonjour {prenom},</p>
+                    <p>Nous avons bien reçu votre candidature Parcoursup pour le BTS <b>{formation}</b>.</p>
+                    <p>Merci de compléter votre pré-inscription ici :</p>
+                    <p><a href='https://inscriptionsbts.onrender.com/'><b>👉 Formulaire de pré-inscription</b></a></p>
+                    <p>À bientôt,<br><b>L’équipe Intégrale Academy</b></p>
+                    """
+                    if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", html):
+                        mails_sent += 1
+                        cur.execute("UPDATE parcoursup_candidats SET mail_ok=1 WHERE id=?", (cid,))
+                        cur.execute("UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type', 'mail', 'dest', ?, 'date', ?)) WHERE id=?", (email, now, cid))
+
+                    # === Envoi du SMS ===
+                    sms_msg = f"Bonjour {prenom}, nous avons bien reçu votre candidature Parcoursup pour le BTS {formation}. Pour finaliser : inscriptionsbts.onrender.com"
+                    sms_id = send_sms_brevo(telephone, sms_msg)
+                    if sms_id:
+                        sms_sent += 1
+                        cur.execute("UPDATE parcoursup_candidats SET sms_ok=1 WHERE id=?", (cid,))
+                        cur.execute("UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type', 'sms', 'dest', ?, 'id', ?, 'date', ?)) WHERE id=?", (telephone, str(sms_id), now, cid))
+
+                    row_index += 1
+
+                except Exception as e:
+                    errors += 1
+                    print(f"⚠️ Erreur ligne {row_index}: {e}")
+
             conn.commit()
-            imported += 1
+            print(f"✅ Lot {lot_index + 1}/{total_lots} terminé — total partiel : {imported} importés, {mails_sent} mails, {sms_sent} SMS")
+            time.sleep(2)  # 💤 pause 2 secondes entre lots
 
-            # --- Mail ---
-            html = f"""
-            <p>Bonjour {prenom},</p>
-            <p>Nous avons bien reçu votre candidature Parcoursup pour le BTS <b>{formation}</b>.</p>
-            <p>Si vous souhaitez intégrer notre école, merci de compléter votre pré-inscription ici :</p>
-            <p><a href='https://inscriptionsbts.onrender.com/'><b>👉 Formulaire de pré-inscription</b></a></p>
-            <p>À très bientôt,<br><b>L’équipe Intégrale Academy</b></p>
-            """
-            if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", html):
-                cur.execute("UPDATE parcoursup_candidats SET mail_ok=1 WHERE id=?", (cid,))
-                mails_sent += 1
+    finally:
+        conn.close()
+        os.remove(temp_path)
 
-            # --- SMS ---
-            message_sms = f"Bonjour {prenom}, nous avons bien reçu votre candidature Parcoursup pour le BTS {formation}. Pour finaliser : inscriptionsbts.onrender.com"
-            try:
-                send_sms_brevo(telephone, message_sms)
-                cur.execute("UPDATE parcoursup_candidats SET sms_ok=1 WHERE id=?", (cid,))
-                sms_sent += 1
-            except Exception as e:
-                print("❌ Erreur SMS :", e)
-
-            conn.commit()
-
-        except Exception as e:
-            print("❌ Erreur ligne :", e)
-            errors += 1
-
-    conn.close()
-    os.remove(temp_path)
-
-    recap = f"{imported} candidatures importées, {mails_sent} mails envoyés, {sms_sent} SMS envoyés, {duplicates} doublons ignorés, {errors} erreurs."
-    flash(recap, "success")
-
+    flash(f"{imported} importés — {mails_sent} mails — {sms_sent} SMS — {duplicates} doublons — {errors} erreurs.", "success")
+    print("🏁 Import terminé avec succès.")
     return redirect(url_for("parcoursup.dashboard"))
 
 # =====================================================
@@ -216,7 +209,6 @@ def check_file():
 
     temp_path = os.path.join(DATA_DIR, secure_filename(file.filename))
     file.save(temp_path)
-
     wb = load_workbook(temp_path)
     ws = wb.active
 
@@ -225,33 +217,25 @@ def check_file():
 
     for row in ws.iter_rows(min_row=2, values_only=True):
         nom, prenom, telephone, email, formation, mode = row[:6]
-
-        # Vérif nom
         if not nom:
             erreurs.append(f"Ligne {ligne_num} : nom manquant")
-
-        # Vérif prénom
         if not prenom:
             erreurs.append(f"Ligne {ligne_num} : prénom manquant")
 
-        # Vérif téléphone
         tel = str(telephone or "").strip().replace(" ", "")
         if not re.match(r"^(?:\+33|0)[1-9]\d{8}$", tel):
             erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
 
-        # Vérif e-mail
         mail = (email or "").strip().lower()
         if "@" not in mail or "." not in mail:
             erreurs.append(f"Ligne {ligne_num} : e-mail invalide ({mail})")
 
-        # Vérif mode
         if (mode or "").strip().lower() not in ("presentiel", "présentiel", "distanciel"):
             erreurs.append(f"Ligne {ligne_num} : mode invalide ({mode})")
 
         ligne_num += 1
 
     os.remove(temp_path)
-
     if erreurs:
         msg = f"❌ {len(erreurs)} erreur(s) détectée(s) :<br>" + "<br>".join(erreurs[:20])
         if len(erreurs) > 20:
@@ -274,4 +258,3 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
-
