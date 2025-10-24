@@ -95,7 +95,7 @@ from sib_api_v3_sdk.rest import ApiException
 
 def send_sms_brevo(phone_number, message):
     configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = "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"
+    configuration.api_key['api-key'] = os.getenv("BREVO_API_KEY")
 
     api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
     sender = "INTACAD"  # 11 caractères max, pas d’espace
