@@ -8,11 +8,21 @@
 
   <hr>
 
-  <form action="{{ url_for('parcoursup.import_file') }}" method="post" enctype="multipart/form-data" style="margin-bottom:20px;">
-    <label for="file" style="font-weight:600;">📤 Importer un fichier Excel (.xlsx)</label><br>
-    <input type="file" name="file" accept=".xlsx" required>
-    <button type="submit" class="btn primary" style="margin-left:10px;">Importer les candidatures</button>
-  </form>
+  <form method="post" enctype="multipart/form-data" style="margin-bottom:20px;">
+  <label for="file" style="font-weight:600;">📤 Importer ou vérifier un fichier Excel (.xlsx)</label><br>
+  <input type="file" name="file" accept=".xlsx" required>
+
+  <!-- 🕵️‍♂️ Bouton de vérification -->
+  <button formaction="{{ url_for('parcoursup.check_file') }}" class="btn secondary">
+    🕵️‍♂️ Vérifier le fichier
+  </button>
+
+  <!-- 📥 Bouton d’import -->
+  <button formaction="{{ url_for('parcoursup.import_file') }}" class="btn primary" style="margin-left:10px;">
+    📥 Importer les candidatures
+  </button>
+</form>
+
 
   <hr>
 
@@ -54,3 +64,4 @@
 </div>
 
 {% endblock %}
+
