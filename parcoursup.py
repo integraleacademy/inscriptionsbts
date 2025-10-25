@@ -17,6 +17,29 @@ def db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_stats_parcoursup():
+    conn = db()
+    cur = conn.cursor()
+    # Totaux
+    total = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats").fetchone()[0]
+    mail_ok = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=1").fetchone()[0]
+    sms_ok  = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE sms_ok=1").fetchone()[0]
+    both_ok = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=1 AND sms_ok=1").fetchone()[0]
+    only_mail = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=1 AND sms_ok=0").fetchone()[0]
+    only_sms  = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=0 AND sms_ok=1").fetchone()[0]
+    none_ok   = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=0 AND sms_ok=0").fetchone()[0]
+    conn.close()
+    return {
+        "total": total,
+        "mail_ok": mail_ok,
+        "sms_ok": sms_ok,
+        "both_ok": both_ok,
+        "only_mail": only_mail,
+        "only_sms": only_sms,
+        "none_ok": none_ok,
+        "incomplete": only_mail + only_sms + none_ok,  # tout ce qui n'a pas les 2 OK
+    }
+
 STATUTS_STYLE = {
     "preinscription": {"label": "Pré-inscription à traiter", "color": "#808080"},
     "validee": {"label": "Candidature validée", "color": "#3498db"},
@@ -90,7 +113,16 @@ def dashboard():
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
 
-    return render_template("parcoursup.html", title="Gestion Parcoursup", rows=rows, STATUTS_STYLE=STATUTS_STYLE)
+    stats = get_stats_parcoursup()  # ← bien aligné ici
+    return render_template(
+        "parcoursup.html",
+        title="Gestion Parcoursup",
+        rows=rows,
+        STATUTS_STYLE=STATUTS_STYLE,
+        stats=stats
+    )
+
+
 
 # =====================================================
 # 📤 IMPORTER UN FICHIER EXCEL (.xlsx) — AVEC LOGS + PAUSES
@@ -258,3 +290,4 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
