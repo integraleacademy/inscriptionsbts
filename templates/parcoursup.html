@@ -80,18 +80,22 @@
 ">
 <form method="get" action="{{ url_for('parcoursup.dashboard') }}" style="display:flex;flex-wrap:wrap;gap:15px;align-items:flex-end;">
 
-  <!-- 🔍 Recherche -->
-  <div style="flex:1.5;min-width:220px;">
-    <label for="search" style="font-weight:600;display:block;margin-bottom:4px;">🔎 Recherche</label>
+<!-- 🔍 Recherche instantanée -->
+<div style="flex:1.5;min-width:220px;">
+  <label for="searchInput" style="font-weight:600;display:block;margin-bottom:4px;">🔎 Recherche instantanée</label>
+  <div style="display:flex;align-items:center;gap:6px;">
     <input
       type="text"
-      id="search"
-      name="search"
-      value="{{ request.args.get('search', '') }}"
+      id="searchInput"
       placeholder="Nom, prénom ou e-mail..."
+      value="{{ request.args.get('search', '') }}"
       style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid #ccc;"
     >
+    <button type="button" class="btn secondary" disabled style="opacity:0.6;cursor:default;">🔍</button>
   </div>
+  <small style="color:#666;">(Recherche automatique en temps réel)</small>
+</div>
+
 
   <!-- 📌 Statut -->
   <div style="flex:1;min-width:180px;">
@@ -293,6 +297,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
