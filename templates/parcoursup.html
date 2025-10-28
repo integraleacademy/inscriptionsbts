@@ -232,8 +232,10 @@
           <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
             <button type="submit" class="btn small danger" onclick="return confirm('Supprimer cette candidature ?')">🗑️</button>
           </form>
-          <button class="btn small" style="background:#555;color:white;"
-                  onclick="openLogsModal('{{ r.id }}')">🕓 Logs</button>
+          <button class="btn small btn-logs" data-id="{{ r.id }}" style="background:#555;color:white;">
+  🕓 Logs
+</button>
+
         </td>
       </tr>
       {% endfor %}
@@ -255,48 +257,8 @@
   </div>
 </div>
 
-<script>
-function openLogsModal(cid) {
-  fetch(`/parcoursup/logs/${cid}`)
-    .then(r => r.json())
-    .then(logs => {
-      const list = document.getElementById("logsList");
-
-      if (!Array.isArray(logs) || logs.length === 0) {
-        list.innerHTML = "<li>Aucune action enregistrée</li>";
-      } else {
-        list.innerHTML = logs.map(l => {
-          const date = l.date ? l.date.slice(0, 19).replace("T", " ") : "inconnue";
-          const type = l.type || "inconnu";
-          let details = "";
-
-          if (l.event) {
-            // ex: delivered / failed / pending
-            const color =
-              l.event === "delivered" ? "#2ecc71" :
-              l.event === "failed" ? "#e74c3c" :
-              l.event === "pending" ? "#f4c45a" : "#999";
-            details = `<span style="color:${color};font-weight:600;">${l.event}</span>`;
-          } else if (l.dest) {
-            details = `<span style="color:#555;">${l.dest}</span>`;
-          }
-
-          return `<li>📅 <b>${date}</b> — <span style="color:#3498db;">${type}</span> ${details}</li>`;
-        }).join("");
-      }
-
-      document.getElementById("logsModal").classList.remove("hidden");
-    })
-    .catch(err => alert("Erreur de chargement des logs : " + err));
-}
-
-function closeLogsModal() {
-  document.getElementById("logsModal").classList.add("hidden");
-}
-</script>
-
-
 {% endblock %}
+
 
 
 
