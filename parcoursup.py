@@ -346,6 +346,9 @@ def check_sms_status_all():
             url = f"https://api.brevo.com/v3/transactionalSMS/statistics/events?messageId={message_id}"
             r = requests.get(url, headers=headers, timeout=15)
 
+            print("📦 Réponse complète Brevo:", r.text)
+
+
             if not r.ok:
                 current_app.logger.warning(f"⚠️ Requête non OK ({r.status_code}): {r.text[:300]}")
                 return "unknown"
@@ -431,6 +434,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
