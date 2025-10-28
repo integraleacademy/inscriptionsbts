@@ -1,68 +1,121 @@
-import os, smtplib, ssl, secrets, hmac, hashlib
+import os, secrets, hmac, hashlib, ssl, smtplib
+from datetime import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
 from email.utils import formataddr
-from datetime import datetime
+import requests
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 
 # =====================================================
 # ⚙️ Configuration des variables d'environnement
 # =====================================================
-MAIL_HOST = os.getenv("MAIL_SMTP_HOST", "smtp.gmail.com")
-MAIL_PORT = int(os.getenv("MAIL_SMTP_PORT", "587"))
-MAIL_USER = os.getenv("MAIL_USERNAME")
-MAIL_PASS = os.getenv("MAIL_PASSWORD")
-MAIL_FROM = os.getenv("MAIL_FROM", MAIL_USER or "no-reply@example.com")
-BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
+MAIL_FROM = os.getenv("SENDER_EMAIL", "ecole@integraleacademy.com")
+BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com")
+BREVO_KEY = os.getenv("BREVO_API_KEY")
 
 # =====================================================
-# ✉️ Fonction d'envoi d'e-mail (avec pièces jointes optionnelles)
+# ✉️ Envoi d’e-mail via Brevo API (avec suivi)
 # =====================================================
 def send_mail(to, subject, html, attachments=None):
-    if not MAIL_USER or not MAIL_PASS:
-        print("❌ Envoi annulé : MAIL_USERNAME / MAIL_PASSWORD manquant.")
+    """
+    Envoie un e-mail via l’API transactionnelle de Brevo
+    et renvoie le messageId pour le suivi via webhook.
+    """
+    api_key = BREVO_KEY
+    sender_email = MAIL_FROM
+
+    if not api_key:
+        print("❌ Clé Brevo manquante, mail non envoyé.")
         return False
 
-    msg = MIMEMultipart()
-    msg["Subject"] = subject
-    msg["From"] = formataddr(("Intégrale Academy", MAIL_FROM))
-    msg["To"] = to
+    url = "https://api.brevo.com/v3/smtp/email"
+    headers = {
+        "accept": "application/json",
+        "api-key": api_key,
+        "content-type": "application/json",
+    }
 
-    # 🧾 Corps HTML
-    msg.attach(MIMEText(html, "html", "utf-8"))
+    data = {
+        "sender": {"email": sender_email, "name": "Intégrale Academy"},
+        "to": [{"email": to}],
+        "subject": subject,
+        "htmlContent": html,
+        "tags": ["parcoursup"],
+    }
 
-    # 📎 Pièces jointes (facultatives)
+    # 📎 Gestion des pièces jointes
     if attachments:
+        files = []
         for path in attachments:
             try:
                 with open(path, "rb") as f:
-                    part = MIMEApplication(f.read(), Name=os.path.basename(path))
-                part["Content-Disposition"] = f'attachment; filename="{os.path.basename(path)}"'
-                msg.attach(part)
-                print(f"📎 Pièce jointe ajoutée : {os.path.basename(path)}")
+                    b64 = f.read().encode("base64")
+                    files.append({
+                        "content": b64,
+                        "name": os.path.basename(path)
+                    })
             except Exception as e:
-                print(f"⚠️ Erreur ajout pièce jointe {path} :", e)
+                print(f"⚠️ Erreur ajout pièce jointe {path}: {e}")
+        if files:
+            data["attachment"] = files
 
     try:
-        context = ssl.create_default_context()
-        with smtplib.SMTP(MAIL_HOST, MAIL_PORT) as server:
-            server.starttls(context=context)
-            server.login(MAIL_USER, MAIL_PASS)
-            server.send_message(msg)
+        r = requests.post(url, headers=headers, json=data, timeout=15)
+        print("📦 Réponse Brevo mail:", r.text)
 
-        print(f"✅ Mail envoyé à {to} — {subject}")
+        if not r.ok:
+            print(f"⚠️ Erreur envoi mail ({r.status_code}): {r.text}")
+            return False
 
-        # 🪵 Enregistrement automatique du mail dans les logs
-        try:
-            from app import add_log  # si ton fichier principal s'appelle app.py
-            add_log("MAIL_ENVOYE", f"{subject} → {to}")
-        except Exception as log_err:
-            print(f"⚠️ Impossible d’enregistrer le log mail ({subject}):", log_err)
-
-        return True
+        resp = r.json()
+        message_id = resp.get("messageId") or (resp.get("messageIds") or [None])[0]
+        print(f"✅ Mail envoyé via Brevo à {to} — ID: {message_id}")
+        return message_id
 
     except Exception as e:
-        print(f"❌ Erreur envoi mail vers {to} :", e)
+        print(f"❌ Erreur envoi mail via Brevo: {e}")
+        return False
+
+# =====================================================
+# 📱 ENVOI DE SMS AVEC BREVO (VERSION 2025 FINALE)
+# =====================================================
+def send_sms_brevo(phone_number, message):
+    api_key = BREVO_KEY
+    print("🟡 DEBUG — Début send_sms_brevo()")
+    print("🟡 DEBUG — Numéro :", phone_number)
+    print("🟡 DEBUG — Clé Brevo détectée :", "OUI" if api_key else "NON")
+
+    if not api_key:
+        print("❌ BREVO_API_KEY manquant.")
+        return False
+
+    configuration = sib_api_v3_sdk.Configuration()
+    configuration.api_key['api-key'] = api_key
+    api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
+    sender = "INTACAD"  # 11 caractères max, pas d’espace
+
+    sms = sib_api_v3_sdk.SendTransacSms(
+        sender=sender,
+        recipient=phone_number,
+        content=message
+    )
+
+    try:
+        response = api_instance.send_transac_sms(sms)
+        print("📦 Réponse Brevo SMS complète:", response)
+
+        sms_id = getattr(response, "messageId", None) or getattr(response, "message_id", None)
+        print(f"✅ SMS envoyé à {phone_number} — ID: {sms_id}")
+
+        return sms_id
+
+    except ApiException as e:
+        print(f"❌ Erreur API Brevo : {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Erreur inattendue SMS : {e}")
         return False
 
 # =====================================================
@@ -86,49 +139,3 @@ def make_signed_link(path: str, token: str) -> str:
     sig = sign_token(token)
     base = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
     return f"{base}{path}?token={token}&sig={sig}"
-
-# =====================================================
-# 📱 ENVOI DE SMS AVEC BREVO (VERSION 2025 FINALE)
-# =====================================================
-import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
-
-def send_sms_brevo(phone_number, message):
-    api_key = os.getenv("BREVO_API_KEY")
-    print("🟡 DEBUG — Début send_sms_brevo()")
-    print("🟡 DEBUG — Numéro :", phone_number)
-    print("🟡 DEBUG — Clé Brevo détectée :", "OUI" if api_key else "NON")
-
-    if not api_key:
-        print("❌ BREVO_API_KEY manquant.")
-        return False
-
-    configuration = sib_api_v3_sdk.Configuration()
-    configuration.api_key['api-key'] = api_key
-    api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
-    sender = "INTACAD"  # 11 caractères max, pas d’espace
-
-    sms = sib_api_v3_sdk.SendTransacSms(
-        sender=sender,
-        recipient=phone_number,
-        content=message
-    )
-
-    try:
-        response = api_instance.send_transac_sms(sms)
-        # 🔍 Afficher la réponse complète pour analyse
-        print("📦 Réponse Brevo SMS complète:", response)
-
-        # ✅ Récupération correcte de l'identifiant message
-        sms_id = getattr(response, "messageId", None) or getattr(response, "message_id", None)
-        print(f"✅ SMS envoyé à {phone_number} — ID: {sms_id}")
-
-        # Renvoie du vrai messageId pour suivi ultérieur
-        return sms_id
-
-    except ApiException as e:
-        print(f"❌ Erreur API Brevo : {e}")
-        return False
-    except Exception as e:
-        print(f"❌ Erreur inattendue SMS : {e}")
-        return False
