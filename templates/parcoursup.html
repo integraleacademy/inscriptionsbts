@@ -109,17 +109,21 @@
 </td>
 
 <td>
-  {% if r.sms_ok and r.sms_date %}
-    <span class="status-icon ok"
-          title="SMS envoyé le {{ r.sms_date[:10] }} à {{ r.sms_date[11:16] }} ✅">
-      ✅
-    </span>
-  {% elif r.sms_ok %}
-    <span class="status-icon ok" title="SMS envoyé (date inconnue)">✅</span>
+  {% if r.sms_ok %}
+    {% if r.sms_status == "delivered" %}
+      <span class="status-icon ok" title="SMS livré 🟢">✅</span> <small style="color:#2ecc71;">🟢 Livré</small>
+    {% elif r.sms_status == "failed" %}
+      <span class="status-icon fail" title="Échec de livraison 🔴">❌</span> <small style="color:#e74c3c;">🔴 Échoué</small>
+    {% elif r.sms_status == "unknown" %}
+      <span class="status-icon" title="Statut inconnu ⚪">⚪</span> <small style="color:#999;">Inconnu</small>
+    {% else %}
+      <span class="status-icon" title="En attente 🟡">⏳</span> <small style="color:#f4c45a;">🟡 En attente</small>
+    {% endif %}
   {% else %}
     <span class="status-icon fail" title="SMS non envoyé ❌">❌</span>
   {% endif %}
 </td>
+
 
 
 
@@ -182,6 +186,7 @@ function closeLogsModal() {
 </script>
 
 {% endblock %}
+
 
 
 
