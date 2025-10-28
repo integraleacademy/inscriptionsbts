@@ -332,6 +332,7 @@ def check_sms_status_all():
     headers = {"api-key": BREVO_KEY}
     delivered = failed = pending = 0
 
+    # ✅ Fonction interne correctement indentée
     def last_event(message_id: str):
         """Retourne l'événement le plus récent pour ce SMS Brevo (delivered/failed/...)."""
         try:
@@ -341,13 +342,15 @@ def check_sms_status_all():
                 return None
             data = r.json()
             events = data.get("events") or []
+            print("📡 SMS status:", message_id, events)  # Debug dans les logs Render
             if not events:
-                return None
-            return events[-1].get("event")  # delivered / failed / etc.
+                return "pending"
+            return events[-1].get("event") or "unknown"
         except Exception as e:
             print("❌ check_sms_status error:", e)
             return None
 
+    # Boucle principale
     for r in rows:
         try:
             raw_logs = r["logs"] or "[]"
@@ -400,6 +403,26 @@ def check_sms_status_all():
 
     flash(f"SMS livrés ✅ {delivered} — échoués ❌ {failed} — en attente ⏳ {pending}", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
+
+@bp_parcoursup.route("/parcoursup/logs/<cid>")
+def get_logs(cid):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT logs FROM parcoursup_candidats WHERE id=?", (cid,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify([])
+
+    try:
+        logs = json.loads(row["logs"])
+    except Exception:
+        logs = []
+    return jsonify(logs)
+
+
 
 
 
