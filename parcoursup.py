@@ -435,6 +435,70 @@ def get_logs(cid):
         logs = []
     return jsonify(logs)
 
+# =====================================================
+# 📡 WEBHOOK BREVO – Suivi automatique des SMS
+# =====================================================
+@bp_parcoursup.route("/brevo-sms-webhook", methods=["POST"])
+def brevo_sms_webhook():
+    """Réception des événements Brevo (sent / delivered / failed)."""
+    from flask import request
+
+    try:
+        data = request.get_json(force=True)
+        print("📩 Webhook Brevo reçu :", data)
+
+        event = data.get("event")
+        message_id = str(data.get("message-id") or data.get("messageId") or "")
+        phone = str(data.get("recipient") or data.get("phone") or "").replace(" ", "")
+        now = datetime.now().isoformat()
+
+        if not message_id or not event:
+            print("⚠️ Webhook ignoré : données incomplètes.")
+            return ("Missing data", 400)
+
+        # Connexion à la base
+        conn = db()
+        cur = conn.cursor()
+        cur.execute("SELECT id, logs FROM parcoursup_candidats WHERE logs LIKE ?", (f"%{message_id}%",))
+        row = cur.fetchone()
+
+        if not row:
+            print(f"⚠️ Aucun candidat trouvé pour message_id={message_id}")
+            conn.close()
+            return ("No match", 200)
+
+        logs = json.loads(row["logs"] or "[]")
+        logs.append({
+            "type": "sms_status",
+            "event": event,
+            "date": now
+        })
+
+        # Statut en fonction de l’événement reçu
+        if event == "delivered":
+            sms_ok = 1
+        elif event == "failed" or event == "error":
+            sms_ok = 0
+        else:
+            sms_ok = row.get("sms_ok", 0)
+
+        cur.execute("""
+            UPDATE parcoursup_candidats
+            SET sms_ok=?, logs=?
+            WHERE id=?
+        """, (sms_ok, json.dumps(logs), row["id"]))
+        conn.commit()
+        conn.close()
+
+        print(f"✅ Webhook SMS mis à jour — {event} pour {phone}")
+        return ("OK", 200)
+
+    except Exception as e:
+        print("❌ Erreur traitement webhook Brevo :", e)
+        return ("Error", 500)
+
+
+
 
 
 
