@@ -1102,5 +1102,21 @@ main.container.candidat {
 .stat-card.sms { border-top: 5px solid #f4c45a; }
 .stat-card.incomplete { border-top: 5px solid #e74c3c; }
 
+/* === Infobulles sur les icônes Mail / SMS === */
+.status-icon {
+  display: inline-block;
+  font-size: 1.1rem;
+  cursor: help;
+  transition: transform 0.15s ease;
+}
+
+.status-icon.ok { color: #2ecc71; }    /* vert */
+.status-icon.fail { color: #e74c3c; }  /* rouge */
+
+.status-icon:hover {
+  transform: scale(1.2);
+}
+
+
 
 
