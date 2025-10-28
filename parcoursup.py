@@ -125,6 +125,16 @@ def dashboard():
         except Exception as e:
             r["mail_date"] = r["sms_date"] = None
 
+        # 🔍 Ajout du dernier statut SMS pour affichage direct
+    for r in rows:
+        try:
+            logs = json.loads(r.get("logs", "[]"))
+            sms_status = next((l.get("event") for l in reversed(logs) if l.get("type") == "sms_status"), None)
+            r["sms_status"] = sms_status or "unknown"
+        except Exception:
+            r["sms_status"] = "unknown"
+
+
     stats = get_stats_parcoursup()
     return render_template(
         "parcoursup.html",
@@ -390,6 +400,7 @@ def check_sms_status_all():
 
     flash(f"SMS livrés ✅ {delivered} — échoués ❌ {failed} — en attente ⏳ {pending}", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
 
 
