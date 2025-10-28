@@ -444,7 +444,7 @@ def submit():
     counter = get_counter_for_today(conn)
     numero = dossier_number(counter=counter)
 
-    # ici ton bloc NIR ↓
+    # ✅ Vérification du numéro de sécurité sociale (NIR)
     nir = form.get("num_secu", "")
     date_naiss = form.get("date_naissance", "")
     sexe = form.get("sexe", "")
@@ -453,23 +453,23 @@ def submit():
         flash(msg, "error")
         return redirect(request.referrer or url_for("index"))
 
-
-
+    # 🧩 Création du candidat
     cand_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
 
     def b(v): return 1 if v in ("on", "true", "1", "yes") else 0
 
+    # 📎 Sauvegarde des fichiers
     fichiers_ci = save_files("ci", cand_id)
     fichiers_photo = save_files("photo", cand_id)
     fichiers_carte_vitale = save_files("carte_vitale", cand_id)
     fichiers_cv = save_files("cv", cand_id)
     fichiers_lm = save_files("lm", cand_id)
 
-
     token_confirm = new_token()
     token_confirm_exp = (datetime.now() + timedelta(days=30)).isoformat()
 
+    # 💾 Insertion en base
     cur.execute("""
     INSERT INTO candidats (
         id, numero_dossier, created_at, updated_at,
@@ -504,12 +504,12 @@ def submit():
         json.dumps(fichiers_carte_vitale), json.dumps(fichiers_cv), json.dumps(fichiers_lm),
         "preinscription", 1 if form.get("aps_souhaitee") else 0, 0, 0,
         token_confirm, token_confirm_exp,
-        "", "",   # 🧩 colonnes manquantes ajoutées : token_reconfirm, token_reconfirm_exp
+        "", "",   # token_reconfirm, token_reconfirm_exp
         ""        # commentaires
     ))
     conn.commit()
 
-    # --- Logs et mails
+    # 🧾 Logs et mails
     candidat = {
         "id": cand_id,
         "numero_dossier": numero,
@@ -518,12 +518,15 @@ def submit():
     }
     log_event(candidat, "PREINSCRIPTION_RECU", {"email": candidat["email"]})
 
-    # 🧩 Récupération du slug_public du candidat
+    # ✉️ Mail au candidat avec lien espace
     cur.execute("SELECT slug_public FROM candidats WHERE id=?", (cand_id,))
-    slug = cur.fetchone()[0]
-    lien_espace = url_for("espace_candidat", slug=slug, _external=True)
+    row = cur.fetchone()
+    slug = row[0] if row and row[0] else uuid.uuid4().hex[:10]
+    if not row or not row[0]:
+        cur.execute("UPDATE candidats SET slug_public=? WHERE id=?", (slug, cand_id))
+        conn.commit()
 
-    # ✉️ Mail avec lien vers l’espace candidat
+    lien_espace = url_for("espace_candidat", slug=slug, _external=True)
     html = render_template(
         "mail_accuse.html",
         prenom=form.get("prenom", ""),
@@ -536,18 +539,20 @@ def submit():
     log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
     # 📩 Mail interne admin
-    admin_html = render_template("mail_admin_notif.html", numero=numero, nom=form.get("nom", ""), prenom=form.get("prenom", ""))
+    admin_html = render_template(
+        "mail_admin_notif.html",
+        numero=numero,
+        nom=form.get("nom", ""),
+        prenom=form.get("prenom", "")
+    )
     from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
     send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
-    return render_template("submit_ok.html", title="Merci", numero=numero)
+    # 🚀 Redirection directe vers l’espace candidat
+    return redirect(lien_espace)
 
 
-    admin_html = render_template("mail_admin_notif.html", numero=numero, nom=form.get("nom", ""), prenom=form.get("prenom", ""))
-    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
-    send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
-    return render_template("submit_ok.html", title="Merci", numero=numero)
 
 # ---------------- Admin ----------------
 
