@@ -562,64 +562,6 @@ function closeRelancesModal() {
   document.getElementById("relancesModal")?.classList.add("hidden");
 }
 
-// =====================================================
-// 📜 CHARGEMENT DES LOGS DANS LA MODALE ADMIN
-// =====================================================
-async function loadLogs(id) {
-  const list = document.getElementById("logsList");
-  if (!list) return;
-  list.innerHTML = "<li>⏳ Chargement des logs...</li>";
-
-  try {
-    const res = await fetch(`/admin/logs/${id}`, { headers: { "Accept": "application/json" } });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const logs = await res.json();
-
-    if (!Array.isArray(logs) || !logs.length) {
-      list.innerHTML = "<li>Aucune action enregistrée pour ce candidat.</li>";
-      return;
-    }
-
-    const icons = { mail:"📧", mail_status:"✉️", sms:"📱", sms_status:"💬", other:"🧩" };
-
-    const html = logs.map(l => {
-      const type = (l.type || "other").toLowerCase();
-      const icon = icons[type] || "🧩";
-      const date = l.date ? new Date(l.date).toLocaleString("fr-FR") : "";
-      const evt  = (l.event || "").toLowerCase();
-
-      let msg = "";
-      if (type === "mail") msg = `Mail envoyé à <b>${l.dest || ""}</b>`;
-      else if (type === "mail_status") {
-        if (evt.includes("delivered")) msg = "📬 Mail <b>délivré</b>";
-        else if (evt.includes("opened")) msg = "👀 Mail <b>ouvert</b>";
-        else if (evt.includes("click")) msg = "🔗 Lien <b>cliqué</b>";
-        else msg = `✉️ Évènement mail : ${evt}`;
-      } else if (type === "sms") msg = `SMS envoyé à <b>${l.dest || ""}</b>`;
-      else if (type === "sms_status") {
-        if (evt === "delivered") msg = "✅ SMS <b>délivré</b>";
-        else if (evt === "failed") msg = "❌ SMS <b>échoué</b>";
-        else msg = `💬 Statut SMS : ${evt}`;
-      } else {
-        msg = `${type} ${evt}`;
-      }
-
-      return `
-        <li class="log-item">
-          <div class="log-icon">${icon}</div>
-          <div class="log-content">
-            <div class="log-message">${msg}</div>
-            <div class="log-date">${date}</div>
-          </div>
-        </li>`;
-    }).join("");
-
-    list.innerHTML = `<ul class="timeline">${html}</ul>`;
-  } catch (err) {
-    list.innerHTML = `<li style="color:#c0392b;">Erreur de chargement : ${err.message}</li>`;
-  }
-}
-
 function openLogsModal(id) {
   window.currentId = id;
   document.getElementById("logsModal")?.classList.remove("hidden");
@@ -708,6 +650,84 @@ function closeGenerationDocsModal() {
 }
 
 
+// placeholder à venir
+// =====================================================
+// 🕓 CHARGEMENT DE L'HISTORIQUE DES LOGS — VERSION LISIBLE + DATES FR
+// =====================================================
+async function loadLogs(id) {
+  const logsList = document.getElementById("logsList");
+  if (!logsList) return;
+  logsList.innerHTML = "<li>⏳ Chargement des logs...</li>";
+
+  try {
+    const res = await fetch(`/admin/logs/${id}`);
+    if (!res.ok) throw new Error(`Erreur serveur (${res.status})`);
+    const data = await res.json();
+
+    if (!data.length) {
+      logsList.innerHTML = "<li>Aucune action enregistrée pour ce candidat.</li>";
+      return;
+    }
+
+    logsList.innerHTML = "";
+
+    // 🗓️ Format date FR
+// 🗓️ Format date FR avec fuseau horaire de Paris
+const formatDateFR = (iso) => {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString("fr-FR", {
+      timeZone: "Europe/Paris",
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).replace(",", " à");
+  } catch {
+    return iso;
+  }
+};
+
+
+    data.forEach(log => {
+      let text = "";
+      const t = log.type;
+      const payload = log.payload || "";
+      const dateFR = formatDateFR(log.created_at);
+
+      // 🔍 Traduction et mise en forme
+      if (t === "FIELD_UPDATE") {
+        text = `📄 Mise à jour du champ <b>${payload.split(" / ")[0]?.replace("field: ", "")}</b> → ${payload.split(" / ")[1]?.replace("value: ", "")}`;
+      } else if (t === "DOC_MARK") {
+        const [file, decision] = payload.split(" / decision: ");
+        text = `📎 Document <b>${file.split("/").pop()}</b> marqué : <span style="color:${decision === "conforme" ? "#28a745" : "#d9534f"}">${decision}</span>`;
+      } else if (t === "DOCS_RENVOYES") {
+        text = `📤 Documents renvoyés au candidat`;
+  } else if (t === "MAIL_ENVOYE") {
+  if (payload.includes("non_conformes")) {
+    text = "✉️ Mail envoyé : Notification de pièces non conformes";
+  } else if (payload.toLowerCase().includes("certificat")) {
+    text = "✉️ Mail envoyé : Certificat de scolarité";
+  } else {
+    text = "✉️ Mail envoyé : Autre envoi";
+  }
+}
+ else if (t === "NEW_DOC") {
+        text = `📥 Nouveau document déposé`;
+      } else {
+        text = `🧩 ${t} — ${payload}`;
+      }
+
+      const li = document.createElement("li");
+      li.innerHTML = `${text}<br><small style="color:#777">${dateFR}</small>`;
+      logsList.appendChild(li);
+    });
+  } catch (err) {
+    logsList.innerHTML = `<li style="color:red;">Erreur de chargement : ${err.message}</li>`;
+  }
+}
+
 // === 🔍 Recherche instantanée Parcoursup ===
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("searchInput");
@@ -737,24 +757,87 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-
-// 🕓 Ouverture de la modale Logs depuis le bouton
-document.addEventListener("click", (e) => {
+// === 🕓 Parcoursup : affichage visuel de l'historique des logs ===
+document.addEventListener("click", async (e) => {
   const btn = e.target.closest(".btn-logs");
   if (!btn) return;
+
   const id = btn.dataset.id;
-  openLogsModal(id); // ouvre la modale et charge les logs
+  const modal = document.getElementById("logsModal");
+  const list  = document.getElementById("logsList");
+  if (!modal || !list) return;
+
+  modal.classList.remove("hidden");
+  list.innerHTML = "<li>⏳ Chargement des logs...</li>";
+
+  try {
+    const res = await fetch(`/parcoursup/logs/${id}`, { headers: { "Accept": "application/json" } });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const logs = await res.json();
+
+    if (!Array.isArray(logs) || !logs.length) {
+      list.innerHTML = "<li>Aucune action enregistrée pour ce candidat.</li>";
+      return;
+    }
+
+    const icons = {
+      mail: "📧",
+      mail_status: "✉️",
+      sms: "📱",
+      sms_status: "💬",
+      other: "🧩"
+    };
+
+    const html = logs.map(l => {
+      const type = l.type || "other";
+      const icon = icons[type] || "🧩";
+      const date = l.date ? new Date(l.date).toLocaleString("fr-FR") : "";
+      const event = l.event ? `<span class='log-event'>${l.event}</span>` : "";
+      const dest = l.dest ? `<span class='log-dest'>${l.dest}</span>` : "";
+      const message = (() => {
+        if (type === "mail") return `Mail envoyé à <b>${l.dest}</b>`;
+        if (type === "mail_status") {
+          const evt = (l.event || "").toLowerCase();
+          if (evt.includes("delivered")) return `📬 Mail <b>délivré</b>`;
+          if (evt.includes("opened")) return `👀 Mail <b>ouvert</b>`;
+          if (evt.includes("click")) return `🔗 Lien <b>cliqué</b>`;
+          return `✉️ Évènement mail : ${evt}`;
+        }
+        if (type === "sms") return `SMS envoyé à <b>${l.dest}</b>`;
+        if (type === "sms_status") {
+          if (l.event === "delivered") return `✅ SMS <b>délivré</b>`;
+          if (l.event === "failed") return `❌ SMS <b>échoué</b>`;
+          return `💬 Statut SMS : ${l.event}`;
+        }
+        return `${type} ${event} ${dest}`;
+      })();
+
+      return `
+        <li class="log-item">
+          <div class="log-icon">${icon}</div>
+          <div class="log-content">
+            <div class="log-message">${message}</div>
+            <div class="log-date">${date}</div>
+          </div>
+        </li>
+      `;
+    }).join("");
+
+    list.innerHTML = `<ul class="timeline">${html}</ul>`;
+
+  } catch (err) {
+    list.innerHTML = `<li style="color:#c0392b;">Erreur de chargement : ${err.message}</li>`;
+  }
 });
+
+
+
+
+
 
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
-
-
-
-
-
-
 
 
 
