@@ -211,6 +211,22 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
 
+      // === Vérif spécifique APS ===
+const apsCheckbox = document.querySelector('input[name="aps_souhaitee"]');
+const apsSessions = document.querySelectorAll('input[name="aps_session"]');
+
+if (apsCheckbox && apsSessions.length > 0) {
+  const apsSelected = Array.from(apsSessions).some(r => r.checked);
+  if (apsCheckbox.checked && !apsSelected) {
+    e.preventDefault();
+    alert("⚠️ Merci de sélectionner une session APS avant de continuer.");
+    const mosSection = document.getElementById('mos-section');
+    if (mosSection) mosSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+}
+
+
       // === Affiche l’overlay de transmission ===
       const overlay = document.createElement("div");
       overlay.className = "sending-overlay";
@@ -354,5 +370,6 @@ if (apsCheckbox && apsBloc) {
     apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
   });
 }
+
 
 
