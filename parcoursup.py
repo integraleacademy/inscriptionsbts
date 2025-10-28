@@ -9,6 +9,11 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from werkzeug.utils import secure_filename
 from utils import send_mail, send_sms_brevo
 from openpyxl import load_workbook
+import unicodedata
+
+def normalize(s):
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
 
 # Blueprint Parcoursup
 bp_parcoursup = Blueprint("parcoursup", __name__, template_folder="templates")
@@ -144,6 +149,7 @@ def dashboard():
     statut_q = request.args.get("statut", "").strip()
     formation_q = request.args.get("formation", "").strip()
     mode_q = request.args.get("mode", "").strip()
+    search_q = request.args.get("search", "").strip()
 
     where = []
     params = []
@@ -159,6 +165,14 @@ def dashboard():
     if mode_q:
         where.append("LOWER(mode) = LOWER(?)")
         params.append(mode_q)
+
+    if search_q:
+        where.append("(LOWER(nom) LIKE ? OR LOWER(prenom) LIKE ? OR LOWER(email) LIKE ?)")
+        pattern = f"%{normalize(search_q.lower())}%"
+        params.extend([pattern, pattern, pattern])
+
+
+
 
     where_sql = (" WHERE " + " AND ".join(where)) if where else ""
     cur.execute(f"SELECT * FROM parcoursup_candidats {where_sql} ORDER BY created_at DESC", params)
@@ -651,6 +665,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
