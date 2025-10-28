@@ -14,29 +14,44 @@
 
   <hr>
 
-  <!-- 🧾 Statistiques globales -->
+<!-- 🧾 Statistiques globales -->
 <div class="stats-container">
   <div class="stat-card total">
     <h3>{{ stats.total }}</h3>
     <p>Total de candidatures</p>
   </div>
-  <div class="stat-card ok">
-    <h3>{{ stats.both_ok }}</h3>
-    <p>Mails + SMS envoyés ✅</p>
-  </div>
+
   <div class="stat-card mail">
-    <h3>{{ stats.mail_ok }}</h3>
+    <h3>{{ stats.mail_sent }}</h3>
     <p>Mails envoyés 📧</p>
   </div>
+
+  <div class="stat-card mail">
+    <h3>{{ stats.mail_delivered }}</h3>
+    <p>Mails délivrés 🟢</p>
+  </div>
+
+  <div class="stat-card mail">
+    <h3>{{ stats.mail_opened }}</h3>
+    <p>Mails ouverts 👁️</p>
+  </div>
+
+  <div class="stat-card mail">
+    <h3>{{ stats.mail_clicked }}</h3>
+    <p>Mails cliqués 🔗</p>
+  </div>
+
   <div class="stat-card sms">
-    <h3>{{ stats.sms_ok }}</h3>
+    <h3>{{ stats.sms_sent }}</h3>
     <p>SMS envoyés 📱</p>
   </div>
-  <div class="stat-card incomplete">
-    <h3>{{ stats.incomplete }}</h3>
-    <p>Incomplets ⚠️</p>
+
+  <div class="stat-card sms">
+    <h3>{{ stats.sms_delivered }}</h3>
+    <p>SMS délivrés 🟢</p>
   </div>
 </div>
+
 
 
   <form method="post" enctype="multipart/form-data" style="margin-bottom:20px;">
@@ -229,6 +244,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
