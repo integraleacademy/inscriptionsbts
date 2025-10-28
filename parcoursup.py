@@ -55,12 +55,15 @@ def get_stats_parcoursup():
                     if evt == "delivered" and "delivered" not in seen:
                         stats["mail_delivered"] += 1
                         seen.add("delivered")
-                    elif evt in ["opened", "unique_opened"] and "opened" not in seen:
-                        stats["mail_opened"] += 1
-                        seen.add("opened")
-                    elif evt == "click" and "click" not in seen:
-                        stats["mail_clicked"] += 1
-                        seen.add("click")
+                    elif evt in ["opened", "unique_opened", "click"]:
+                        # 🧩 Gestion propre des statuts mail
+                        if "opened" not in seen:
+                            stats["mail_opened"] += 1
+                            seen.add("opened")
+                        if evt == "click" and "click" not in seen:
+                            stats["mail_clicked"] += 1
+                            seen.add("click")
+
                 elif log.get("type") == "sms":
                     stats["sms_sent"] += 1
                 elif log.get("type") == "sms_status" and log.get("event") == "delivered":
@@ -71,6 +74,7 @@ def get_stats_parcoursup():
 
     conn.close()
     return stats
+
 
 
 
@@ -665,6 +669,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
