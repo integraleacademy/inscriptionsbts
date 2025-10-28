@@ -725,11 +725,42 @@ const formatDateFR = (iso) => {
   }
 }
 
+// === 🔍 Recherche instantanée Parcoursup ===
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("searchInput");
+  if (!input) return;
+
+  input.addEventListener("input", () => {
+    const query = input.value.trim();
+    const url = new URL(window.location.href);
+    
+    if (query) {
+      url.searchParams.set("search", query);
+    } else {
+      url.searchParams.delete("search");
+    }
+    
+    // ⚡ Recharge juste le tableau sans recharger la page entière
+    fetch(url)
+      .then(res => res.text())
+      .then(html => {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, "text/html");
+        const newTable = doc.querySelector("table");
+        const currentTable = document.querySelector("table");
+        if (newTable && currentTable) currentTable.replaceWith(newTable);
+      })
+      .catch(err => console.error("Erreur recherche :", err));
+  });
+});
+
+
 
 
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
