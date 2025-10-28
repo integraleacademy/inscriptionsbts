@@ -70,30 +70,37 @@ if (intro && formContainer) {
 function validateStep(stepIndex) {
   const currentTab = tabs[stepIndex];
   const inputs = currentTab.querySelectorAll('input, select, textarea');
+  let valid = true;
 
   for (let input of inputs) {
     const style = window.getComputedStyle(input);
     const visible = style.display !== 'none' && style.visibility !== 'hidden';
-    if (!visible) continue; // ignore les champs masqués
-
+    if (!visible) continue;
     if (!input.checkValidity()) {
+      input.classList.add('invalid');
       input.reportValidity();
-      return false;
+      valid = false;
+    } else {
+      input.classList.remove('invalid');
     }
   }
-  return true;
+
+  return valid;
 }
 
 
+
   // === Cadenas sur les boutons d’étapes (version corrigée) ===
-  tabButtons.forEach((btn, i) => {
-    // Empêche la création de plusieurs icônes 🔒
-    if (!btn.querySelector(".lock-icon")) {
-      const lockIcon = document.createElement("span");
-      lockIcon.textContent = " 🔒";
-      lockIcon.classList.add("lock-icon");
-      btn.appendChild(lockIcon);
-    }
+tabButtons.forEach((btn, i) => {
+  // ✅ Supprime les éventuels cadenas en double
+  btn.querySelectorAll(".lock-icon:not(:first-child)").forEach(e => e.remove());
+
+  if (!btn.querySelector(".lock-icon")) {
+    const lockIcon = document.createElement("span");
+    lockIcon.textContent = " 🔒";
+    lockIcon.classList.add("lock-icon");
+    btn.appendChild(lockIcon);
+  }
 
     btn.addEventListener("click", (e) => {
       e.preventDefault();
@@ -355,9 +362,26 @@ function showFlash(message, type = "success") {
   }, 6000); // disparaît après 6 secondes
 }
 
+  // === Message "Transmission en cours" ===
+const formSubmit = document.getElementById("inscriptionForm");
+if (formSubmit) {
+  formSubmit.addEventListener("submit", (e) => {
+    const overlay = document.createElement("div");
+    overlay.className = "sending-overlay";
+    overlay.innerHTML = `
+      <div class="sending-box">
+        <div class="loader"></div>
+        <h3>⏳ Pré-inscription en cours de transmission...</h3>
+        <p>Merci de ne pas fermer la page pendant l’envoi.</p>
+      </div>`;
+    document.body.appendChild(overlay);
+  });
+}
+
 
 
 }); // ✅ fermeture DOMContentLoaded
+
 
 
 
