@@ -343,7 +343,7 @@ def check_sms_status_all():
         headers = {"api-key": BREVO_KEY}
         try:
             # ✅ Nouvelle route correcte
-            url = f"https://api.brevo.com/v3/transactionalSMS/statistics/events?messageId={message_id}"
+            url = f"https://api.brevo.com/v3/transactionalSMS/messages/{message_id}"
             r = requests.get(url, headers=headers, timeout=15)
 
             print("📦 Réponse complète Brevo:", r.text)
@@ -434,6 +434,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
