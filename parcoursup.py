@@ -332,21 +332,24 @@ def check_sms_status_all():
     headers = {"api-key": BREVO_KEY}
     delivered = failed = pending = 0
 
-    # ✅ Fonction interne correctement indentée (doit être DEDANS)
+    # ✅ Fonction interne bien indentée ici ↓↓↓
     def last_event(message_id: str):
         """Retourne le statut du SMS via Brevo (delivered/failed/pending...)."""
         try:
             url = f"https://api.brevo.com/v3/transactionalSMS/statistics/messages?messageId={message_id}"
+            print(f"🔍 Vérification statut SMS : {url}")
             r = requests.get(url, headers=headers, timeout=15)
+            print(f"📡 Réponse HTTP {r.status_code}: {r.text[:500]}")
             if not r.ok:
-                print(f"❌ Erreur API Brevo ({r.status_code}):", r.text)
                 return "unknown"
             data = r.json()
-            print("📡 SMS status API:", data)
-            return data.get("status", "unknown")
+            print("✅ JSON décodé:", data)
+            return data.get("status", data.get("event", "unknown"))
         except Exception as e:
-            print("❌ check_sms_status error:", e)
+            print("❌ Erreur check_sms_status:", e)
             return "unknown"
+
+
 
     # Boucle principale
     for r in rows:
@@ -420,6 +423,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
