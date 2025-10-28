@@ -286,7 +286,7 @@
       </label><br>
       <label>
         <input type="radio" name="aps_session" value="autre">
-        8 juillet → 12 août 2026 — Autre lieu
+        7 septembre → 9 octobre 2026 — Intégrale Academy (Puget-sur-Argens)
       </label>
     </div>
   </div>
@@ -555,6 +555,56 @@ function verifierNumSecu() {
   });
 </script>
 {% endif %}
+
+<style>
+/* --- Style validation et chargement --- */
+input.invalid, select.invalid, textarea.invalid {
+  border:2px solid red !important;
+  background:#ffeaea !important;
+}
+
+.sending-overlay {
+  position: fixed;
+  top:0; left:0; right:0; bottom:0;
+  background: rgba(255,255,255,0.9);
+  z-index: 9999;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+}
+.sending-box {
+  text-align:center;
+  background:#fff;
+  padding:30px 40px;
+  border-radius:12px;
+  box-shadow:0 4px 14px rgba(0,0,0,0.2);
+  animation:fadeIn .3s ease;
+}
+.loader {
+  border:4px solid #eee;
+  border-top:4px solid #f4c45a;
+  border-radius:50%;
+  width:45px; height:45px;
+  margin:auto;
+  margin-bottom:20px;
+  animation:spin 1s linear infinite;
+}
+@keyframes spin { 0%{transform:rotate(0);} 100%{transform:rotate(360deg);} }
+#bloc-resp-legal {
+  background:#fff8e1;
+  border:2px solid #f4c45a;
+  border-radius:10px;
+  padding:20px;
+  margin-top:20px;
+  box-shadow:0 3px 10px rgba(0,0,0,0.1);
+}
+#bloc-resp-legal h4 {
+  text-align:center;
+  margin-top:0;
+}
+</style>
+
 
 
 {% endblock %}
