@@ -139,10 +139,36 @@ def dashboard():
         print("⚠️ Erreur de synchronisation Parcoursup ↔ Admin :", e)
 
     # ==========================================================
-    # 📦 On récupère les candidats et on décode les logs ici
+    # 📦 Chargement avec filtres (statut / formation / mode)
     # ==========================================================
-    cur.execute("SELECT * FROM parcoursup_candidats ORDER BY created_at DESC")
+    statut_q = request.args.get("statut", "").strip()
+    formation_q = request.args.get("formation", "").strip()
+    mode_q = request.args.get("mode", "").strip()
+
+    where = []
+    params = []
+
+    if statut_q:
+        where.append("statut = ?")
+        params.append(statut_q)
+
+    if formation_q:
+        where.append("formation = ?")
+        params.append(formation_q)
+
+    if mode_q:
+        where.append("LOWER(mode) = LOWER(?)")
+        params.append(mode_q)
+
+    where_sql = (" WHERE " + " AND ".join(where)) if where else ""
+    cur.execute(f"SELECT * FROM parcoursup_candidats {where_sql} ORDER BY created_at DESC", params)
     rows = [dict(r) for r in cur.fetchall()]
+
+    # Pour alimenter les listes déroulantes dans les filtres
+    formations = [r[0] for r in cur.execute("SELECT DISTINCT formation FROM parcoursup_candidats ORDER BY formation").fetchall() if r[0]]
+    modes = [r[0] for r in cur.execute("SELECT DISTINCT mode FROM parcoursup_candidats ORDER BY mode").fetchall() if r[0]]
+
+
 
     # 🧩 On décode les logs JSON ici (au lieu du |fromjson dans Jinja)
     for r in rows:
@@ -211,7 +237,10 @@ def dashboard():
         title="Gestion Parcoursup",
         rows=rows,
         STATUTS_STYLE=STATUTS_STYLE,
-        stats=stats
+        stats=stats,
+        formations=formations,
+        modes=modes
+
     )
 
 
@@ -622,6 +651,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
