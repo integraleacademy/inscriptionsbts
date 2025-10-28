@@ -92,26 +92,31 @@
         <td>{{ r.formation }}</td>
         <td>{{ r.mode }}</td>
         <td>
-  {% if r.mail_ok %}
+  {% if r.mail_ok and r.mail_date %}
     <span class="status-icon ok"
           title="Mail envoyé le {{ r.mail_date[:10] }} à {{ r.mail_date[11:16] }} ✅">
       ✅
     </span>
+  {% elif r.mail_ok %}
+    <span class="status-icon ok" title="Mail envoyé (date inconnue)">✅</span>
   {% else %}
     <span class="status-icon fail" title="Mail non envoyé ❌">❌</span>
   {% endif %}
 </td>
 
 <td>
-  {% if r.sms_ok %}
+  {% if r.sms_ok and r.sms_date %}
     <span class="status-icon ok"
           title="SMS envoyé le {{ r.sms_date[:10] }} à {{ r.sms_date[11:16] }} ✅">
       ✅
     </span>
+  {% elif r.sms_ok %}
+    <span class="status-icon ok" title="SMS envoyé (date inconnue)">✅</span>
   {% else %}
     <span class="status-icon fail" title="SMS non envoyé ❌">❌</span>
   {% endif %}
 </td>
+
 
 
 
@@ -173,6 +178,7 @@ function closeLogsModal() {
 </script>
 
 {% endblock %}
+
 
 
 
