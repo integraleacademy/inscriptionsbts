@@ -316,7 +316,6 @@ def delete_candidat(cid):
 
 @bp_parcoursup.route("/parcoursup/check-sms", methods=["POST"])
 def check_sms_status_all():
-    # Vérifie la clé API Brevo
     BREVO_KEY = os.getenv("BREVO_API_KEY")
     if not BREVO_KEY:
         flash("BREVO_API_KEY manquant dans les variables d'environnement.", "error")
@@ -324,63 +323,56 @@ def check_sms_status_all():
 
     conn = db()
     cur = conn.cursor()
-
-    # On ne vérifie que ceux pour lesquels on a (a priori) envoyé un SMS
     cur.execute("SELECT id, logs FROM parcoursup_candidats WHERE sms_ok=1")
     rows = cur.fetchall()
 
     headers = {"api-key": BREVO_KEY}
     delivered = failed = pending = 0
 
-    # ✅ Fonction interne bien indentée ici ↓↓↓
+    # ✅ Fonction de vérification du statut SMS
     def last_event(message_id: str):
-        """Retourne le statut du SMS via Brevo (delivered/failed/pending...)."""
+        """Retourne le statut du SMS via Brevo (affiche le JSON complet pour debug)."""
         try:
             url = f"https://api.brevo.com/v3/transactionalSMS/statistics/messages?messageId={message_id}"
             print(f"🔍 Vérification statut SMS : {url}")
             r = requests.get(url, headers=headers, timeout=15)
-            print(f"📡 Réponse HTTP {r.status_code}: {r.text[:1000]}")  # on log tout le JSON brut
+            print(f"📡 HTTP {r.status_code}")
+            print("🧾 Réponse brute complète (1000 premiers caractères) :")
+            print(r.text[:1000])
+
             if not r.ok:
+                print("⚠️ Requête non OK:", r.text[:300])
                 return "unknown"
 
             try:
                 data = r.json()
             except Exception:
-                print("❌ JSON illisible :", r.text[:200])
+                print("❌ JSON non décodable :", r.text[:200])
                 return "unknown"
 
-            # Affiche toutes les clés du JSON pour comprendre la structure
-            print("🧩 Clés disponibles dans la réponse:", list(data.keys()))
+            print("🧩 Clés disponibles :", list(data.keys()))
+            print("📦 Contenu complet JSON :", json.dumps(data, indent=2)[:1000])
 
-            # Essaie plusieurs options pour trouver le statut réel
             if "status" in data:
                 return data["status"]
             if "event" in data:
                 return data["event"]
             if "messages" in data and isinstance(data["messages"], list) and data["messages"]:
                 msg = data["messages"][0]
-                print("📦 Détails message :", msg)
+                print("📨 Détails message :", msg)
                 return msg.get("status") or msg.get("event") or "unknown"
 
             return "unknown"
 
         except Exception as e:
-            print("❌ Erreur check_sms_status:", e)
+            print("❌ Exception last_event():", e)
             return "unknown"
 
-
-
-
-    # Boucle principale
+    # 🔁 Boucle principale
     for r in rows:
         try:
             raw_logs = r["logs"] or "[]"
-            try:
-                logs = json.loads(raw_logs)
-            except Exception:
-                logs = []
-
-            # Cherche l’entrée de type "sms" qui contient l’id Brevo
+            logs = json.loads(raw_logs) if raw_logs else []
             sms_log = next((l for l in logs if l.get("type") == "sms" and l.get("id")), None)
             if not sms_log:
                 continue
@@ -390,40 +382,36 @@ def check_sms_status_all():
 
             if evt == "delivered":
                 delivered += 1
-                cur.execute(
-                    "UPDATE parcoursup_candidats "
-                    "SET sms_ok=1, logs=json_insert(logs, '$[#]', json_object('type','sms_status','event',?,'date',?)) "
-                    "WHERE id=?",
-                    (evt, now, r["id"])
-                )
+                cur.execute("""
+                    UPDATE parcoursup_candidats
+                    SET sms_ok=1, logs=json_insert(logs, '$[#]',
+                        json_object('type','sms_status','event',?,'date',?))
+                    WHERE id=?""", (evt, now, r["id"]))
             elif evt == "failed":
                 failed += 1
-                cur.execute(
-                    "UPDATE parcoursup_candidats "
-                    "SET sms_ok=0, logs=json_insert(logs, '$[#]', json_object('type','sms_status','event',?,'date',?)) "
-                    "WHERE id=?",
-                    (evt, now, r["id"])
-                )
+                cur.execute("""
+                    UPDATE parcoursup_candidats
+                    SET sms_ok=0, logs=json_insert(logs, '$[#]',
+                        json_object('type','sms_status','event',?,'date',?))
+                    WHERE id=?""", (evt, now, r["id"]))
             else:
                 pending += 1
-                cur.execute(
-                    "UPDATE parcoursup_candidats "
-                    "SET logs=json_insert(logs, '$[#]', json_object('type','sms_status','event',?,'date',?)) "
-                    "WHERE id=?",
-                    (evt or "unknown", now, r["id"])
-                )
+                cur.execute("""
+                    UPDATE parcoursup_candidats
+                    SET logs=json_insert(logs, '$[#]',
+                        json_object('type','sms_status','event',?,'date',?))
+                    WHERE id=?""", (evt or "unknown", now, r["id"]))
 
         except Exception as e:
             print("❌ boucle check_sms_status:", e)
         finally:
-            # On évite de saturer l’API Brevo
             time.sleep(0.15)
 
     conn.commit()
     conn.close()
-
     flash(f"SMS livrés ✅ {delivered} — échoués ❌ {failed} — en attente ⏳ {pending}", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
 
 
@@ -443,6 +431,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
