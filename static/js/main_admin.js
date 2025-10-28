@@ -757,7 +757,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
-// === Parcoursup : affichage des logs (FIX) ===
+// === 🕓 Parcoursup : affichage visuel de l'historique des logs ===
 document.addEventListener("click", async (e) => {
   const btn = e.target.closest(".btn-logs");
   if (!btn) return;
@@ -767,7 +767,6 @@ document.addEventListener("click", async (e) => {
   const list  = document.getElementById("logsList");
   if (!modal || !list) return;
 
-  // Ouvre la modale et affiche un état de chargement
   modal.classList.remove("hidden");
   list.innerHTML = "<li>⏳ Chargement des logs...</li>";
 
@@ -781,17 +780,53 @@ document.addEventListener("click", async (e) => {
       return;
     }
 
+    const icons = {
+      mail: "📧",
+      mail_status: "✉️",
+      sms: "📱",
+      sms_status: "💬",
+      other: "🧩"
+    };
+
     const html = logs.map(l => {
+      const type = l.type || "other";
+      const icon = icons[type] || "🧩";
       const date = l.date ? new Date(l.date).toLocaleString("fr-FR") : "";
-      const type = l.type || "";
-      const evt  = l.event || "";
-      const dest = l.dest ? ` → ${l.dest}` : "";
-      return `<li><b>${type}</b> ${evt}${dest} <span class="log-date" style="color:#777;margin-left:6px;">${date}</span></li>`;
+      const event = l.event ? `<span class='log-event'>${l.event}</span>` : "";
+      const dest = l.dest ? `<span class='log-dest'>${l.dest}</span>` : "";
+      const message = (() => {
+        if (type === "mail") return `Mail envoyé à <b>${l.dest}</b>`;
+        if (type === "mail_status") {
+          const evt = (l.event || "").toLowerCase();
+          if (evt.includes("delivered")) return `📬 Mail <b>délivré</b>`;
+          if (evt.includes("opened")) return `👀 Mail <b>ouvert</b>`;
+          if (evt.includes("click")) return `🔗 Lien <b>cliqué</b>`;
+          return `✉️ Évènement mail : ${evt}`;
+        }
+        if (type === "sms") return `SMS envoyé à <b>${l.dest}</b>`;
+        if (type === "sms_status") {
+          if (l.event === "delivered") return `✅ SMS <b>délivré</b>`;
+          if (l.event === "failed") return `❌ SMS <b>échoué</b>`;
+          return `💬 Statut SMS : ${l.event}`;
+        }
+        return `${type} ${event} ${dest}`;
+      })();
+
+      return `
+        <li class="log-item">
+          <div class="log-icon">${icon}</div>
+          <div class="log-content">
+            <div class="log-message">${message}</div>
+            <div class="log-date">${date}</div>
+          </div>
+        </li>
+      `;
     }).join("");
 
-    list.innerHTML = html;
+    list.innerHTML = `<ul class="timeline">${html}</ul>`;
+
   } catch (err) {
-    list.innerHTML = `<li style="color:#c0392b;">Impossible de récupérer l'historique (${err.message}).</li>`;
+    list.innerHTML = `<li style="color:#c0392b;">Erreur de chargement : ${err.message}</li>`;
   }
 });
 
@@ -800,8 +835,10 @@ document.addEventListener("click", async (e) => {
 
 
 
+
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
