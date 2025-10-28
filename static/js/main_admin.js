@@ -754,12 +754,58 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+// === Parcoursup : affichage des logs ===
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".btn-logs");
+  if (!btn) return;
+
+  const id = btn.dataset.id;
+  try {
+    const res = await fetch(`/parcoursup/logs/${id}`, { headers: { "Accept": "application/json" } });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const logs = await res.json();
+
+    // Construire le HTML des logs
+    let html = "";
+    if (Array.isArray(logs) && logs.length) {
+      html = `<ul class="logs-list">` + logs.map(l => {
+        const date = l.date ? new Date(l.date).toLocaleString("fr-FR") : "";
+        const type = l.type || "";
+        const evt  = l.event || "";
+        const dest = l.dest ? ` → ${l.dest}` : "";
+        return `<li><b>${type}</b> ${evt}${dest} <span class="log-date">${date}</span></li>`;
+      }).join("") + `</ul>`;
+    } else {
+      html = `<p>Aucune action enregistrée pour ce candidat.</p>`;
+    }
+
+    // Ouvre la modale (adapte si ta modale a une API différente)
+    const modal = document.getElementById("logsModal");
+    if (modal) {
+      modal.querySelector(".modal-body").innerHTML = html;
+      modal.classList.add("open");
+    } else {
+      alert(html.replace(/<[^>]+>/g, "")); // fallback simple
+    }
+  } catch (err) {
+    console.error("Erreur fetch logs:", err);
+    const modal = document.getElementById("logsModal");
+    if (modal) {
+      modal.querySelector(".modal-body").innerHTML =
+        `<p>Impossible de récupérer l'historique pour l’instant.</p>`;
+      modal.classList.add("open");
+    }
+  }
+});
+
+
 
 
 
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
