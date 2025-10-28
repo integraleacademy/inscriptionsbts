@@ -113,7 +113,18 @@ def dashboard():
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
 
-    stats = get_stats_parcoursup()  # ← bien aligné ici
+    # 🔍 Extraction des dates d’envoi Mail/SMS depuis les logs
+    for r in rows:
+        try:
+            logs = json.loads(r.get("logs", "[]"))
+            mail_log = next((log for log in logs if log.get("type") == "mail"), None)
+            sms_log = next((log for log in logs if log.get("type") == "sms"), None)
+            r["mail_date"] = mail_log.get("date") if mail_log else None
+            r["sms_date"] = sms_log.get("date") if sms_log else None
+        except Exception as e:
+            r["mail_date"] = r["sms_date"] = None
+
+    stats = get_stats_parcoursup()
     return render_template(
         "parcoursup.html",
         title="Gestion Parcoursup",
@@ -121,6 +132,7 @@ def dashboard():
         STATUTS_STYLE=STATUTS_STYLE,
         stats=stats
     )
+
 
 
 
@@ -290,4 +302,5 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
