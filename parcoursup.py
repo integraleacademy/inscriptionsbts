@@ -336,7 +336,7 @@ def check_sms_status_all():
     def last_event(message_id: str):
         """Retourne le statut du SMS via Brevo (affiche le JSON complet pour debug)."""
         try:
-            url = f"https://api.brevo.com/v3/transactionalSMS/messages/{message_id}"
+            url = f"https://api.brevo.com/v3/transactionalSMS/statistics/messages/{message_id}"
             current_app.logger.info(f"🔍 Vérification statut SMS : {url}")
             r = requests.get(url, headers=headers, timeout=15)
             current_app.logger.info(f"📡 HTTP {r.status_code}")
@@ -438,6 +438,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
