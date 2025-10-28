@@ -462,4 +462,23 @@ async function loadLogs(id) {
   }
 }
 
+function openLogsModal(id) {
+  window.currentId = id;
+  document.getElementById("logsModal")?.classList.remove("hidden");
+  loadLogs(id);
+}
+
+function closeLogsModal() {
+  document.getElementById("logsModal")?.classList.add("hidden");
+}
+
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".btn-logs");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  openLogsModal(id);
+});
+
+
+
 
