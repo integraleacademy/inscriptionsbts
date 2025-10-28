@@ -144,7 +144,7 @@ def dashboard():
         except Exception:
             r["logs"] = []
 
-    # 🔍 Extraction des dates d’envoi Mail/SMS depuis les logs
+    # 🔍 Extraction des dates d’envoi Mail/SMS et statuts détaillés
     for r in rows:
         try:
             logs = r.get("logs", [])
@@ -152,8 +152,28 @@ def dashboard():
             sms_log = next((log for log in logs if log.get("type") == "sms"), None)
             r["mail_date"] = mail_log.get("date") if mail_log else None
             r["sms_date"] = sms_log.get("date") if sms_log else None
+
+            # Détermination du dernier statut mail
+            mail_status = next((l.get("event") for l in reversed(logs) if l.get("type") == "mail_status"), None)
+            if mail_status in ["click"]:
+                r["mail_status_label"] = "Cliqué"
+                r["mail_status_color"] = "#8e44ad"  # violet
+            elif mail_status in ["opened", "unique_opened"]:
+                r["mail_status_label"] = "Ouvert"
+                r["mail_status_color"] = "#3498db"  # bleu
+            elif mail_status == "delivered":
+                r["mail_status_label"] = "Délivré"
+                r["mail_status_color"] = "#2ecc71"  # vert
+            elif mail_log:
+                r["mail_status_label"] = "Envoyé"
+                r["mail_status_color"] = "#f1c40f"  # jaune
+            else:
+                r["mail_status_label"] = "Non envoyé"
+                r["mail_status_color"] = "#7f8c8d"
+
         except Exception:
-            r["mail_date"] = r["sms_date"] = None
+            r["mail_status_label"] = "Inconnu"
+            r["mail_status_color"] = "#7f8c8d"
 
     # 🔍 Ajout du dernier statut SMS pour affichage direct
     for r in rows:
@@ -174,6 +194,7 @@ def dashboard():
         STATUTS_STYLE=STATUTS_STYLE,
         stats=stats
     )
+
 
 
 
@@ -581,6 +602,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
