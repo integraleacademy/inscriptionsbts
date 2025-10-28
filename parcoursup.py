@@ -1,6 +1,9 @@
 # parcoursup.py
 import os, uuid, sqlite3, json, re, time
 import requests
+from flask import current_app  # <— nouveau
+import sys                     # <— nouveau
+sys.stdout.reconfigure(line_buffering=True)
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
@@ -334,24 +337,27 @@ def check_sms_status_all():
         """Retourne le statut du SMS via Brevo (affiche le JSON complet pour debug)."""
         try:
             url = f"https://api.brevo.com/v3/transactionalSMS/statistics/messages?messageId={message_id}"
-            print(f"🔍 Vérification statut SMS : {url}")
+            current_app.logger.info(f"🔍 Vérification statut SMS : {url}")
             r = requests.get(url, headers=headers, timeout=15)
-            print(f"📡 HTTP {r.status_code}")
-            print("🧾 Réponse brute complète (1000 premiers caractères) :")
-            print(r.text[:1000])
+            current_app.logger.info(f"📡 HTTP {r.status_code}")
+            current_app.logger.info("🧾 Réponse brute (1000 premiers caractères) : " + r.text[:1000])
 
             if not r.ok:
-                print("⚠️ Requête non OK:", r.text[:300])
+                current_app.logger.warning("⚠️ Requête non OK: " + r.text[:300])
                 return "unknown"
 
             try:
                 data = r.json()
             except Exception:
-                print("❌ JSON non décodable :", r.text[:200])
+                current_app.logger.error("❌ JSON non décodable : " + r.text[:200])
                 return "unknown"
 
-            print("🧩 Clés disponibles :", list(data.keys()))
-            print("📦 Contenu complet JSON :", json.dumps(data, indent=2)[:1000])
+            current_app.logger.info("🧩 Clés disponibles : " + ", ".join(list(data.keys())))
+            # Astuce: si tu veux voir tout l’objet:
+            try:
+                current_app.logger.info("📦 JSON tronqué : " + json.dumps(data, indent=2)[:1000])
+            except Exception:
+                pass
 
             if "status" in data:
                 return data["status"]
@@ -359,13 +365,13 @@ def check_sms_status_all():
                 return data["event"]
             if "messages" in data and isinstance(data["messages"], list) and data["messages"]:
                 msg = data["messages"][0]
-                print("📨 Détails message :", msg)
+                current_app.logger.info("📨 Détails message : " + json.dumps(msg)[:500])
                 return msg.get("status") or msg.get("event") or "unknown"
 
             return "unknown"
 
         except Exception as e:
-            print("❌ Exception last_event():", e)
+            current_app.logger.exception(f"❌ Exception last_event(): {e}")
             return "unknown"
 
     # 🔁 Boucle principale
@@ -403,7 +409,7 @@ def check_sms_status_all():
                     WHERE id=?""", (evt or "unknown", now, r["id"]))
 
         except Exception as e:
-            print("❌ boucle check_sms_status:", e)
+            current_app.logger.exception(f"❌ boucle check_sms_status: {e}")
         finally:
             time.sleep(0.15)
 
@@ -411,6 +417,7 @@ def check_sms_status_all():
     conn.close()
     flash(f"SMS livrés ✅ {delivered} — échoués ❌ {failed} — en attente ⏳ {pending}", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
 
 
 
@@ -431,6 +438,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
