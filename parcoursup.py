@@ -436,67 +436,67 @@ def get_logs(cid):
     return jsonify(logs)
 
 # =====================================================
-# 📡 WEBHOOK BREVO – Suivi automatique des SMS
+# 📬 WEBHOOK SMS BREVO — MISE À JOUR STATUTS SMS
 # =====================================================
 @bp_parcoursup.route("/brevo-sms-webhook", methods=["POST"])
 def brevo_sms_webhook():
-    """Réception des événements Brevo (sent / delivered / failed)."""
-    from flask import request
-
+    """Réception des notifications SMS de Brevo (sent, delivered, failed)."""
     try:
-        data = request.get_json(force=True)
-        print("📩 Webhook Brevo reçu :", data)
+        data = request.get_json(force=True, silent=True) or {}
+        print(f"📩 Webhook Brevo reçu : {data}")
 
-        event = data.get("event")
-        message_id = str(data.get("message-id") or data.get("messageId") or "")
-        phone = str(data.get("recipient") or data.get("phone") or "").replace(" ", "")
+        # On récupère les champs selon les variantes possibles
+        msg_status = data.get("msg_status") or data.get("event") or ""
+        message_id = str(data.get("messageId") or data.get("message_id") or "").strip()
+        phone = str(data.get("to") or data.get("recipient") or "").replace(" ", "").replace("0033", "+33")
         now = datetime.now().isoformat()
 
-        if not message_id or not event:
+        if not message_id or not msg_status:
             print("⚠️ Webhook ignoré : données incomplètes.")
-            return ("Missing data", 400)
+            return jsonify({"status": "ignored"}), 400
 
-        # Connexion à la base
+        # Connexion BDD
         conn = db()
         cur = conn.cursor()
-        cur.execute("SELECT id, logs FROM parcoursup_candidats WHERE logs LIKE ?", (f"%{message_id}%",))
-        row = cur.fetchone()
 
-        if not row:
-            print(f"⚠️ Aucun candidat trouvé pour message_id={message_id}")
-            conn.close()
-            return ("No match", 200)
+        # On recherche le candidat correspondant à ce messageId
+        cur.execute("SELECT id, logs FROM parcoursup_candidats")
+        rows = cur.fetchall()
+        found = False
+        for r in rows:
+            logs = json.loads(r["logs"] or "[]")
+            for l in logs:
+                if str(l.get("id")) == message_id:
+                    found = True
+                    cur.execute("""
+                        UPDATE parcoursup_candidats
+                        SET sms_ok = CASE
+                            WHEN ? = 'delivered' THEN 1
+                            WHEN ? IN ('failed', 'rejected', 'error') THEN 0
+                            ELSE sms_ok END,
+                        logs = json_insert(
+                            logs, '$[#]',
+                            json_object('type', 'sms_status', 'event', ?, 'date', ?)
+                        )
+                        WHERE id = ?
+                    """, (msg_status, msg_status, msg_status, now, r["id"]))
+                    conn.commit()
+                    print(f"✅ Statut SMS mis à jour : {msg_status} pour {phone}")
+                    break
+            if found:
+                break
 
-        logs = json.loads(row["logs"] or "[]")
-        logs.append({
-            "type": "sms_status",
-            "event": event,
-            "date": now
-        })
-
-        # Statut en fonction de l’événement reçu
-        if event == "delivered":
-            sms_ok = 1
-        elif event == "failed" or event == "error":
-            sms_ok = 0
-        else:
-            sms_ok = row.get("sms_ok", 0)
-
-        cur.execute("""
-            UPDATE parcoursup_candidats
-            SET sms_ok=?, logs=?
-            WHERE id=?
-        """, (sms_ok, json.dumps(logs), row["id"]))
-        conn.commit()
         conn.close()
 
-        print(f"✅ Webhook SMS mis à jour — {event} pour {phone}")
-        return ("OK", 200)
+        if not found:
+            print(f"⚠️ Aucun candidat trouvé pour message_id={message_id}")
+            return jsonify({"status": "not_found"}), 404
+
+        return jsonify({"status": "ok"}), 200
 
     except Exception as e:
-        print("❌ Erreur traitement webhook Brevo :", e)
-        return ("Error", 500)
-
+        print(f"❌ Erreur traitement webhook SMS : {e}")
+        return jsonify({"status": "error", "error": str(e)}), 500
 
 
 
