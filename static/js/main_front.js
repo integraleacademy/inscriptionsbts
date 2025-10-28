@@ -4,19 +4,17 @@ window.currentId = null;
 document.addEventListener("DOMContentLoaded", () => {
 
   // === Écran d’intro avant formulaire ===
-const intro = document.getElementById("intro-screen");
-const formContainer = document.querySelector(".tabs-form");
+  const intro = document.getElementById("intro-screen");
+  const formContainer = document.querySelector(".tabs-form");
 
-if (intro && formContainer) {
-  formContainer.style.display = "none"; // cache le formulaire au départ
-  document.getElementById("startForm").addEventListener("click", () => {
-    intro.style.display = "none";
-    formContainer.style.display = "block";
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  });
-}
-
-  
+  if (intro && formContainer) {
+    formContainer.style.display = "none";
+    document.getElementById("startForm").addEventListener("click", () => {
+      intro.style.display = "none";
+      formContainer.style.display = "block";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }
 
   // =====================================================
   // 🌐 NAVIGATION FORMULAIRE PUBLIC
@@ -27,29 +25,38 @@ if (intro && formContainer) {
   const info = document.getElementById("progressInfo");
   let currentStep = 0;
 
+  // === Création unique des cadenas (zéro doublon) ===
+  tabButtons.forEach((btn) => {
+    btn.querySelectorAll(".lock-icon").forEach(e => e.remove());
+    const lockIcon = document.createElement("span");
+    lockIcon.textContent = " 🔒";
+    lockIcon.classList.add("lock-icon");
+    btn.appendChild(lockIcon);
+  });
+
+  function refreshLocks() {
+    tabButtons.forEach((btn, i) => {
+      const icon = btn.querySelector(".lock-icon");
+      if (i > currentStep) {
+        btn.classList.add("locked");
+        if (icon) icon.style.display = "inline";
+      } else {
+        btn.classList.remove("locked");
+        if (icon) icon.style.display = "none";
+      }
+    });
+  }
+
   // === Barre de progression ===
   function updateProgressBar(index) {
     if (!progress || !info) return;
     const total = tabs.length;
-    const targetPercent = ((index + 1) / total) * 100;
-    const currentWidth = parseFloat(progress.style.width) || 0;
-    const step = (targetPercent - currentWidth) / 20;
-    let currentPercent = currentWidth;
-
-    const animate = () => {
-      currentPercent += step;
-      if ((step > 0 && currentPercent >= targetPercent) || (step < 0 && currentPercent <= targetPercent)) {
-        currentPercent = targetPercent;
-      } else {
-        requestAnimationFrame(animate);
-      }
-      progress.style.width = currentPercent + "%";
-      info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(((index + 1) / total) * 100)} % complété`;
-    };
-    animate();
+    const percent = ((index + 1) / total) * 100;
+    progress.style.width = percent + "%";
+    info.textContent = `Étape ${index + 1} sur ${total} — ${Math.round(percent)} % complété`;
   }
 
-  // === Affichage des étapes ===
+  // === Affichage d’une étape ===
   function showStep(index) {
     tabs.forEach((tab, i) => {
       tab.style.display = (i === index) ? 'block' : 'none';
@@ -62,70 +69,49 @@ if (intro && formContainer) {
     });
     currentStep = index;
     updateProgressBar(index);
-    refreshLocks(); // 🔒 maj des cadenas
+    refreshLocks();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // === Validation des champs ===
-function validateStep(stepIndex) {
-  const currentTab = tabs[stepIndex];
-  const inputs = currentTab.querySelectorAll('input, select, textarea');
-  let valid = true;
+  function validateStep(stepIndex) {
+    const currentTab = tabs[stepIndex];
+    const inputs = currentTab.querySelectorAll('input, select, textarea');
+    let valid = true;
 
-  for (let input of inputs) {
-    const style = window.getComputedStyle(input);
-    const visible = style.display !== 'none' && style.visibility !== 'hidden';
-    if (!visible) continue;
-    if (!input.checkValidity()) {
-      input.classList.add('invalid');
-      input.reportValidity();
-      valid = false;
-    } else {
-      input.classList.remove('invalid');
+    for (let input of inputs) {
+      const style = window.getComputedStyle(input);
+      const visible = style.display !== 'none' && style.visibility !== 'hidden';
+      if (!visible) continue;
+      if (!input.checkValidity()) {
+        input.classList.add('invalid');
+        input.reportValidity();
+        valid = false;
+      } else {
+        input.classList.remove('invalid');
+      }
     }
+
+    // 🔎 Vérifie aussi le NIR sur la 1ʳᵉ étape
+    if (stepIndex === 0 && typeof verifierNumSecu === "function") {
+      const nirOK = verifierNumSecu();
+      if (!nirOK) valid = false;
+    }
+
+    return valid;
   }
 
-  return valid;
-}
-
-
-
-  // === Cadenas sur les boutons d’étapes (version corrigée) ===
-tabButtons.forEach((btn, i) => {
-  // ✅ Supprime les éventuels cadenas en double
-  btn.querySelectorAll(".lock-icon:not(:first-child)").forEach(e => e.remove());
-
-  if (!btn.querySelector(".lock-icon")) {
-    const lockIcon = document.createElement("span");
-    lockIcon.textContent = " 🔒";
-    lockIcon.classList.add("lock-icon");
-    btn.appendChild(lockIcon);
-  }
-
+  // === Navigation avec clics sur onglets ===
+  tabButtons.forEach((btn, i) => {
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       if (i > currentStep) {
-        btn.classList.add("locked");
         alert("⚠️ Merci de compléter les étapes précédentes avant de continuer.");
         return;
       }
       showStep(i);
     });
   });
-
-  function refreshLocks() {
-    tabButtons.forEach((btn, i) => {
-      const icon = btn.querySelector(".lock-icon");
-      if (!icon) return;
-      if (i > currentStep) {
-        btn.classList.add("locked");
-        icon.style.display = "inline";
-      } else {
-        btn.classList.remove("locked");
-        icon.style.display = "none";
-      }
-    });
-  }
 
   // === Boutons Suivant / Précédent ===
   document.querySelectorAll('.next').forEach(btn => {
@@ -175,7 +161,10 @@ tabButtons.forEach((btn, i) => {
     if (blocResp) blocResp.style.display = (age < 18) ? 'block' : 'none';
     if (hiddenMineur) hiddenMineur.value = (age < 18) ? '1' : '0';
   };
-  if (birth) birth.addEventListener('change', updateMinor);
+  if (birth) {
+    birth.addEventListener('change', updateMinor);
+    if (birth.value) updateMinor(); // ✅ met à jour si date déjà remplie
+  }
 
   // === Sélection Présentiel / Distanciel ===
   const modeBtns = document.querySelectorAll('.mode-btn');
@@ -188,208 +177,94 @@ tabButtons.forEach((btn, i) => {
     });
   });
 
-// === Vérif fichiers PDF ===
-const form = document.querySelector('form');
-if (form) {
-  form.addEventListener('submit', (e) => {
+  // === Vérif fichiers PDF + NIR avant envoi ===
+  const form = document.querySelector('#inscriptionForm');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      // Vérifie NIR
+      if (typeof verifierNumSecu === "function" && !verifierNumSecu()) {
+        e.preventDefault();
+        alert("❌ Votre numéro de sécurité sociale est incohérent. Veuillez le corriger avant de continuer.");
+        showStep(0);
+        return;
+      }
 
-    // 🧩 Désactive la vérif sur la page de confirmation et sur la page Parcoursup
-    if (
-      !window.location.pathname.includes("confirm-inscription") &&
-      !window.location.pathname.includes("parcoursup")
-    ) {
-      // Vérifie qu'un mode de formation est choisi (présentiel / distanciel)
+      // Vérifie qu'un mode est choisi
       const modeSelected = document.querySelector('input[name="mode"]:checked');
       if (!modeSelected) {
         e.preventDefault();
-        alert("⚠️ Merci de choisir un mode de formation (présentiel ou distanciel).");
+        alert("⚠️ Merci de choisir un mode de formation.");
         return;
       }
-    }
 
-    // === Vérif fichiers PDF ===
-    const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
-    for (const name of pdfOnlyFields) {
-      const input = form.querySelector(`input[name="${name}"]`);
-      if (input && input.files.length > 0) {
-        const file = input.files[0];
-        if (!file.name.toLowerCase().endsWith('.pdf')) {
-          e.preventDefault();
-          alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
-          return;
+      // Vérif fichiers PDF
+      const pdfOnlyFields = ['carte_vitale', 'cv', 'lm'];
+      for (const name of pdfOnlyFields) {
+        const input = form.querySelector(`input[name="${name}"]`);
+        if (input && input.files.length > 0) {
+          const file = input.files[0];
+          if (!file.name.toLowerCase().endsWith('.pdf')) {
+            e.preventDefault();
+            alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
+            return;
+          }
         }
       }
-    }
-  });
-}
 
-
-  // =====================================================
-  // 🎓 LOGIQUE SPÉCIFIQUE BTS MOS (CNAPS / APS)
-  // =====================================================
-  const btsSelect = document.querySelector('select[name="bts"]');
- // === Bloc d'informations rassurant selon le BTS choisi ===
-const formationInfo = document.getElementById("formation-info");
-
-if (btsSelect && formationInfo) {
-  const infos = {
-    "MOS": `
-      <h4>🎓 BTS MOS – Management Opérationnel de la Sécurité</h4>
-      <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38229</strong>.</p>
-      <p>Ce BTS forme les futurs responsables d’équipes de sécurité privée (surveillance, prévention, sûreté, incendie...)</p>
-      <p><strong>Durée :</strong> 2 ans — <strong>Examens officiels</strong> sous tutelle du Ministère de l’Éducation nationale.</p>
-    `,
-    "MCO": `
-      <h4>🎓 BTS MCO – Management Commercial Opérationnel</h4>
-      <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38362</strong>.</p>
-      <p>Ce BTS prépare aux métiers du commerce, de la gestion et du management d’équipe dans tous les secteurs d’activité.</p>
-    `,
-    "PI": `
-      <h4>🏡 BTS PI – Professions Immobilières</h4>
-      <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38292</strong>.</p>
-      <p>Ce BTS forme les futurs négociateurs, gestionnaires et conseillers immobiliers pour agences et syndics.</p>
-    `,
-    "CI": `
-      <h4>🌍 BTS CI – Commerce International</h4>
-      <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38365</strong>.</p>
-      <p>Ce BTS ouvre à des carrières à l’international : import-export, prospection, négociation et logistique internationale.</p>
-    `,
-    "NDRC": `
-      <h4>🤝 BTS NDRC – Négociation et Digitalisation de la Relation Client</h4>
-      <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38368</strong>.</p>
-      <p>Formation orientée sur la relation client, la vente et le marketing digital. Idéale pour les profils commerciaux modernes.</p>
-    `,
-    "CG": `
-      <h4>📊 BTS CG – Comptabilité et Gestion</h4>
-      <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38329</strong>.</p>
-      <p>Ce BTS prépare aux métiers de la gestion comptable, du contrôle et de la finance d’entreprise.</p>
-    `
-  };
-
-  // Quand la personne choisit une formation
-  btsSelect.addEventListener("change", () => {
-    const val = btsSelect.value;
-    if (infos[val]) {
-      formationInfo.innerHTML = infos[val];
-      formationInfo.style.display = "block";
-    } else {
-      formationInfo.style.display = "none";
-      formationInfo.innerHTML = "";
-    }
-  });
-}
-
-
-  const mosSection = document.getElementById('mos-section');
-  const blocBacAutre = document.getElementById('bloc-bac-autre');
-  const mosExplication = document.getElementById('mos-explication');
-  const apsCheckbox = document.querySelector('input[name="aps_souhaitee"]');
-  const apsBloc = document.getElementById('bloc-aps-session');
-
-  // --- Afficher le bloc MOS quand le BTS MOS est choisi
-  if (btsSelect) {
-    btsSelect.addEventListener('change', () => {
-      if (btsSelect.value === 'MOS') {
-        mosSection.style.display = 'block';
-      } else {
-        mosSection.style.display = 'none';
-      }
+      // === Affiche l’overlay de transmission ===
+      const overlay = document.createElement("div");
+      overlay.className = "sending-overlay";
+      overlay.innerHTML = `
+        <div class="sending-box">
+          <div class="loader"></div>
+          <h3>⏳ Pré-inscription en cours de transmission...</h3>
+          <p>Merci de ne pas fermer la page pendant l’envoi.</p>
+        </div>`;
+      document.body.appendChild(overlay);
     });
   }
 
-  // --- Afficher "autre bac" et CNAPS
-  const bacRadios = document.querySelectorAll('input[name="bac_status"]');
-  bacRadios.forEach(r => {
-    r.addEventListener('change', () => {
-      if (r.value === 'autre') {
-        blocBacAutre.style.display = 'block';
-      } else {
-        blocBacAutre.style.display = 'none';
-      }
-      // Si CNAPS ou autre => explication MOS
-      if (r.value === 'carte_cnaps' || r.value === 'autre') {
-        mosExplication.style.display = 'block';
-      } else {
-        mosExplication.style.display = 'none';
+  // =====================================================
+  // 💾 ENREGISTRER ET REPRENDRE PLUS TARD
+  // =====================================================
+  document.querySelectorAll('.btn.save').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const form = document.querySelector('#inscriptionForm');
+      const formData = new FormData(form);
+      formData.append('current_step', currentStep);
+
+      try {
+        const response = await fetch('/save_draft', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.ok) {
+          showFlash("✅ Votre demande a été enregistrée. Un e-mail vous a été envoyé pour la reprendre plus tard.", "success");
+        } else {
+          showFlash("❌ Erreur lors de l'enregistrement. Veuillez réessayer.", "error");
+        }
+      } catch {
+        showFlash("❌ Une erreur est survenue. Vérifiez votre connexion.", "error");
       }
     });
   });
 
-  // --- Bloc APS : apparition si case cochée
-  if (apsCheckbox && apsBloc) {
-    apsCheckbox.addEventListener('change', () => {
-      apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
-    });
-  }
-
- // =====================================================
-// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (avec bannière visuelle)
-// =====================================================
-document.querySelectorAll('.btn.save').forEach(btn => {
-  btn.addEventListener('click', async () => {
-    const form = document.querySelector('#inscriptionForm');
-    const formData = new FormData(form);
+  function showFlash(message, type = "success") {
     const flash = document.getElementById("flashMessage");
+    if (!flash) return;
+    flash.textContent = message;
+    flash.className = `flash-message ${type} visible`;
+    setTimeout(() => {
+      flash.classList.remove("visible");
+      flash.classList.add("hidden");
+    }, 6000);
+  }
 
-    formData.append('current_step', currentStep);
+  // ✅ Rendez les fonctions accessibles globalement
+  window.showStep = showStep;
+  window.getCurrentStep = () => currentStep;
 
-    try {
-      const response = await fetch('/save_draft', {
-        method: 'POST',
-        body: formData
-      });
-
-      if (response.ok) {
-        showFlash("✅ Votre demande a été enregistrée. Un e-mail vous a été envoyé pour la reprendre plus tard.", "success");
-      } else {
-        showFlash("❌ Erreur lors de l'enregistrement. Veuillez réessayer.", "error");
-      }
-    } catch (e) {
-      showFlash("❌ Une erreur est survenue. Vérifiez votre connexion.", "error");
-    }
-  });
+  refreshLocks();
+  showStep(0);
 });
-
-// --- Fonction d’affichage du message dynamique ---
-function showFlash(message, type = "success") {
-  const flash = document.getElementById("flashMessage");
-  if (!flash) return;
-  flash.textContent = message;
-  flash.className = `flash-message ${type} visible`;
-  setTimeout(() => {
-    flash.classList.remove("visible");
-    flash.classList.add("hidden");
-  }, 6000); // disparaît après 6 secondes
-}
-
-  // === Message "Transmission en cours" ===
-const formSubmit = document.getElementById("inscriptionForm");
-if (formSubmit) {
-  formSubmit.addEventListener("submit", (e) => {
-    const overlay = document.createElement("div");
-    overlay.className = "sending-overlay";
-    overlay.innerHTML = `
-      <div class="sending-box">
-        <div class="loader"></div>
-        <h3>⏳ Pré-inscription en cours de transmission...</h3>
-        <p>Merci de ne pas fermer la page pendant l’envoi.</p>
-      </div>`;
-    document.body.appendChild(overlay);
-  });
-}
-
-
-
-}); // ✅ fermeture DOMContentLoaded
-
-
-
-
-
-
-
-
-
-
-
-
