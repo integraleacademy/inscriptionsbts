@@ -24,25 +24,43 @@ def db():
 def get_stats_parcoursup():
     conn = db()
     cur = conn.cursor()
-    # Totaux
-    total = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats").fetchone()[0]
-    mail_ok = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=1").fetchone()[0]
-    sms_ok  = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE sms_ok=1").fetchone()[0]
-    both_ok = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=1 AND sms_ok=1").fetchone()[0]
-    only_mail = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=1 AND sms_ok=0").fetchone()[0]
-    only_sms  = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=0 AND sms_ok=1").fetchone()[0]
-    none_ok   = cur.execute("SELECT COUNT(*) FROM parcoursup_candidats WHERE mail_ok=0 AND sms_ok=0").fetchone()[0]
-    conn.close()
-    return {
-        "total": total,
-        "mail_ok": mail_ok,
-        "sms_ok": sms_ok,
-        "both_ok": both_ok,
-        "only_mail": only_mail,
-        "only_sms": only_sms,
-        "none_ok": none_ok,
-        "incomplete": only_mail + only_sms + none_ok,  # tout ce qui n'a pas les 2 OK
+
+    stats = {
+        "total": cur.execute("SELECT COUNT(*) FROM parcoursup_candidats").fetchone()[0],
+        "mail_sent": 0,
+        "mail_delivered": 0,
+        "mail_opened": 0,
+        "mail_clicked": 0,
+        "sms_sent": 0,
+        "sms_delivered": 0,
     }
+
+    # On lit tous les logs JSON
+    rows = cur.execute("SELECT logs FROM parcoursup_candidats").fetchall()
+    for (raw_logs,) in rows:
+        try:
+            logs = json.loads(raw_logs or "[]")
+            for log in logs:
+                if log.get("type") == "mail":
+                    stats["mail_sent"] += 1
+                elif log.get("type") == "mail_status":
+                    evt = log.get("event")
+                    if evt == "delivered":
+                        stats["mail_delivered"] += 1
+                    elif evt in ["opened", "unique_opened"]:
+                        stats["mail_opened"] += 1
+                    elif evt == "click":
+                        stats["mail_clicked"] += 1
+                elif log.get("type") == "sms":
+                    stats["sms_sent"] += 1
+                elif log.get("type") == "sms_status" and log.get("event") == "delivered":
+                    stats["sms_delivered"] += 1
+        except Exception:
+            continue
+
+    conn.close()
+    return stats
+
 
 STATUTS_STYLE = {
     "preinscription": {"label": "Pré-inscription à traiter", "color": "#808080"},
@@ -552,6 +570,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
