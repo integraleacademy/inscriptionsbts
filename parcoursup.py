@@ -1,5 +1,6 @@
 # parcoursup.py
 import os, uuid, sqlite3, json, re, time
+import requests
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
@@ -302,5 +303,94 @@ def delete_candidat(cid):
     conn.close()
     flash("Candidature supprimée avec succès.", "success")
     return redirect(url_for("parcoursup.dashboard"))
+
+@bp_parcoursup.route("/parcoursup/check-sms", methods=["POST"])
+def check_sms_status_all():
+    # Vérifie la clé API Brevo
+    BREVO_KEY = os.getenv("BREVO_API_KEY")
+    if not BREVO_KEY:
+        flash("BREVO_API_KEY manquant dans les variables d'environnement.", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+
+    conn = db()
+    cur = conn.cursor()
+
+    # On ne vérifie que ceux pour lesquels on a (a priori) envoyé un SMS
+    cur.execute("SELECT id, logs FROM parcoursup_candidats WHERE sms_ok=1")
+    rows = cur.fetchall()
+
+    headers = {"api-key": BREVO_KEY}
+    delivered = failed = pending = 0
+
+    def last_event(message_id: str):
+        """Retourne l'événement le plus récent pour ce SMS Brevo (delivered/failed/...)."""
+        try:
+            url = f"https://api.brevo.com/v3/transactionalSMS/statistics/events?messageId={message_id}"
+            r = requests.get(url, headers=headers, timeout=15)
+            if not r.ok:
+                return None
+            data = r.json()
+            events = data.get("events") or []
+            if not events:
+                return None
+            return events[-1].get("event")  # delivered / failed / etc.
+        except Exception as e:
+            print("❌ check_sms_status error:", e)
+            return None
+
+    for r in rows:
+        try:
+            raw_logs = r["logs"] or "[]"
+            try:
+                logs = json.loads(raw_logs)
+            except Exception:
+                logs = []
+
+            # Cherche l’entrée de type "sms" qui contient l’id Brevo
+            sms_log = next((l for l in logs if l.get("type") == "sms" and l.get("id")), None)
+            if not sms_log:
+                continue
+
+            evt = last_event(sms_log["id"])
+            now = datetime.now().isoformat()
+
+            if evt == "delivered":
+                delivered += 1
+                cur.execute(
+                    "UPDATE parcoursup_candidats "
+                    "SET sms_ok=1, logs=json_insert(logs, '$[#]', json_object('type','sms_status','event',?,'date',?)) "
+                    "WHERE id=?",
+                    (evt, now, r["id"])
+                )
+            elif evt == "failed":
+                failed += 1
+                cur.execute(
+                    "UPDATE parcoursup_candidats "
+                    "SET sms_ok=0, logs=json_insert(logs, '$[#]', json_object('type','sms_status','event',?,'date',?)) "
+                    "WHERE id=?",
+                    (evt, now, r["id"])
+                )
+            else:
+                pending += 1
+                cur.execute(
+                    "UPDATE parcoursup_candidats "
+                    "SET logs=json_insert(logs, '$[#]', json_object('type','sms_status','event',?,'date',?)) "
+                    "WHERE id=?",
+                    (evt or "unknown", now, r["id"])
+                )
+
+        except Exception as e:
+            print("❌ boucle check_sms_status:", e)
+        finally:
+            # On évite de saturer l’API Brevo
+            time.sleep(0.15)
+
+    conn.commit()
+    conn.close()
+
+    flash(f"SMS livrés ✅ {delivered} — échoués ❌ {failed} — en attente ⏳ {pending}", "success")
+    return redirect(url_for("parcoursup.dashboard"))
+
+
 
 
