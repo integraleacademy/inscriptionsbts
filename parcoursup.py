@@ -498,6 +498,63 @@ def brevo_sms_webhook():
         print(f"❌ Erreur traitement webhook SMS : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
 
+@bp_parcoursup.route("/brevo-mail-webhook", methods=["POST"])
+def brevo_mail_webhook():
+    """Webhook Brevo pour suivi des e-mails Parcoursup."""
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        print(f"📩 Webhook Brevo MAIL reçu : {data}")
+
+        message_id = str(data.get("messageId") or data.get("message-id") or "").strip()
+        event = data.get("event") or data.get("type") or ""
+        email = (data.get("email") or "").lower().strip()
+        now = datetime.now().isoformat()
+
+        if not message_id or not event:
+            print("⚠️ Webhook mail ignoré : données incomplètes.")
+            return jsonify({"status": "ignored"}), 400
+
+        conn = db()
+        cur = conn.cursor()
+        cur.execute("SELECT id, logs FROM parcoursup_candidats")
+        rows = cur.fetchall()
+        found = False
+
+        for r in rows:
+            logs = json.loads(r["logs"] or "[]")
+            for l in logs:
+                if str(l.get("id")) == message_id or l.get("dest") == email:
+                    found = True
+                    cur.execute("""
+                        UPDATE parcoursup_candidats
+                        SET mail_ok = CASE
+                            WHEN ? IN ('delivered', 'opened', 'clicked') THEN 1
+                            ELSE mail_ok END,
+                        logs = json_insert(
+                            logs, '$[#]',
+                            json_object('type','mail_status','event',?, 'date',?)
+                        )
+                        WHERE id = ?
+                    """, (event, event, now, r["id"]))
+                    conn.commit()
+                    print(f"✅ Statut mail mis à jour : {event} pour {email}")
+                    break
+            if found:
+                break
+
+        conn.close()
+        if not found:
+            print(f"⚠️ Aucun candidat trouvé pour mail_id={message_id}")
+            return jsonify({"status": "not_found"}), 404
+
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as e:
+        print(f"❌ Erreur traitement webhook MAIL : {e}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+
+
 
 
 
