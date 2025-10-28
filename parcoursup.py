@@ -332,23 +332,21 @@ def check_sms_status_all():
     headers = {"api-key": BREVO_KEY}
     delivered = failed = pending = 0
 
-    # ✅ Fonction interne correctement indentée
+    # ✅ Fonction interne correctement indentée (doit être DEDANS)
     def last_event(message_id: str):
-        """Retourne l'événement le plus récent pour ce SMS Brevo (delivered/failed/...)."""
+        """Retourne le statut du SMS via Brevo (delivered/failed/pending...)."""
         try:
-            url = f"https://api.brevo.com/v3/transactionalSMS/statistics/events?messageId={message_id}"
+            url = f"https://api.brevo.com/v3/transactionalSMS/statistics/messages?messageId={message_id}"
             r = requests.get(url, headers=headers, timeout=15)
             if not r.ok:
-                return None
+                print(f"❌ Erreur API Brevo ({r.status_code}):", r.text)
+                return "unknown"
             data = r.json()
-            events = data.get("events") or []
-            print("📡 SMS status:", message_id, events)  # Debug dans les logs Render
-            if not events:
-                return "pending"
-            return events[-1].get("event") or "unknown"
+            print("📡 SMS status API:", data)
+            return data.get("status", "unknown")
         except Exception as e:
             print("❌ check_sms_status error:", e)
-            return None
+            return "unknown"
 
     # Boucle principale
     for r in rows:
@@ -405,6 +403,7 @@ def check_sms_status_all():
     return redirect(url_for("parcoursup.dashboard"))
 
 
+
 @bp_parcoursup.route("/parcoursup/logs/<cid>")
 def get_logs(cid):
     conn = db()
@@ -421,6 +420,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
