@@ -96,17 +96,37 @@
         <td>{{ r.formation }}</td>
         <td>{{ r.mode }}</td>
         <td>
-  {% if r.mail_ok and r.mail_date %}
-    <span class="status-icon ok"
-          title="Mail envoyé le {{ r.mail_date[:10] }} à {{ r.mail_date[11:16] }} ✅">
-      ✅
-    </span>
+  {% set last_mail_status = "" %}
+  {% if r.logs %}
+    {% for log in r.logs | fromjson | reverse %}
+      {% if log.type == "mail_status" %}
+        {% set last_mail_status = log.event %}
+        {% break %}
+      {% endif %}
+    {% endfor %}
+  {% endif %}
+
+  {% if last_mail_status == "delivered" %}
+    <span class="status-icon ok" title="Mail livré 🟢">✅</span> 
+    <small style="color:#2ecc71;">🟢 Livré</small>
+  {% elif last_mail_status in ["opened", "unique_opened"] %}
+    <span class="status-icon ok" title="Mail ouvert 👁️">👁️</span> 
+    <small style="color:#3498db;">👁️ Ouvert</small>
+  {% elif last_mail_status == "click" %}
+    <span class="status-icon ok" title="Lien cliqué 🔗">🔗</span> 
+    <small style="color:#f4c45a;">🔗 Cliqué</small>
+  {% elif last_mail_status in ["bounced", "hard_bounce", "soft_bounce"] %}
+    <span class="status-icon fail" title="Mail non délivré ❌">❌</span> 
+    <small style="color:#e74c3c;">❌ Échec</small>
   {% elif r.mail_ok %}
-    <span class="status-icon ok" title="Mail envoyé (date inconnue)">✅</span>
+    <span class="status-icon ok" title="Mail envoyé ✅">✅</span> 
+    <small style="color:#999;">✅ Envoyé</small>
   {% else %}
-    <span class="status-icon fail" title="Mail non envoyé ❌">❌</span>
+    <span class="status-icon fail" title="Mail non envoyé ❌">❌</span> 
+    <small style="color:#999;">⏳ En attente</small>
   {% endif %}
 </td>
+
 
 <td>
   {% if r.sms_ok %}
@@ -209,6 +229,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
