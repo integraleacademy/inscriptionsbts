@@ -110,37 +110,29 @@
         <td>{{ r.email }}</td>
         <td>{{ r.formation }}</td>
         <td>{{ r.mode }}</td>
-        <td>
-  {% set last_mail_status = "" %}
-  {% if r.logs %}
-  {% for log in r.logs | reverse %}
-    {% if log.type == "mail_status" and last_mail_status == "" %}
-      {% set last_mail_status = log.event %}
-    {% endif %}
-  {% endfor %}
-{% endif %}
-
-
-  {% if last_mail_status == "delivered" %}
-    <span class="status-icon ok" title="Mail livré 🟢">✅</span> 
-    <small style="color:#2ecc71;">🟢 Livré</small>
-  {% elif last_mail_status in ["opened", "unique_opened"] %}
-    <span class="status-icon ok" title="Mail ouvert 👁️">👁️</span> 
-    <small style="color:#3498db;">👁️ Ouvert</small>
-  {% elif last_mail_status == "click" %}
-    <span class="status-icon ok" title="Lien cliqué 🔗">🔗</span> 
-    <small style="color:#f4c45a;">🔗 Cliqué</small>
-  {% elif last_mail_status in ["bounced", "hard_bounce", "soft_bounce"] %}
-    <span class="status-icon fail" title="Mail non délivré ❌">❌</span> 
-    <small style="color:#e74c3c;">❌ Échec</small>
-  {% elif r.mail_ok %}
-    <span class="status-icon ok" title="Mail envoyé ✅">✅</span> 
-    <small style="color:#999;">✅ Envoyé</small>
+       <td style="text-align:center;">
+  {% if r.mail_status_label %}
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px;">
+      {% if r.mail_status_label == 'Cliqué' %}
+        🔗
+      {% elif r.mail_status_label == 'Ouvert' %}
+        👁️
+      {% elif r.mail_status_label == 'Délivré' %}
+        ✅
+      {% elif r.mail_status_label == 'Envoyé' %}
+        📤
+      {% else %}
+        ⚪
+      {% endif %}
+      <span style="color:{{ r.mail_status_color }};font-weight:600;">
+        {{ r.mail_status_label }}
+      </span>
+    </div>
   {% else %}
-    <span class="status-icon fail" title="Mail non envoyé ❌">❌</span> 
-    <small style="color:#999;">⏳ En attente</small>
+    <span style="color:#999;">⏳ En attente</span>
   {% endif %}
 </td>
+
 
 
 <td>
@@ -244,6 +236,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
