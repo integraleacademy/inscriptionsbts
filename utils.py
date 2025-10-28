@@ -88,7 +88,7 @@ def make_signed_link(path: str, token: str) -> str:
     return f"{base}{path}?token={token}&sig={sig}"
 
 # =====================================================
-# 📱 ENVOI DE SMS AVEC BREVO (VERSION FINALE VALIDÉE)
+# 📱 ENVOI DE SMS AVEC BREVO (VERSION 2025 FINALE)
 # =====================================================
 import sib_api_v3_sdk
 from sib_api_v3_sdk.rest import ApiException
@@ -116,8 +116,16 @@ def send_sms_brevo(phone_number, message):
 
     try:
         response = api_instance.send_transac_sms(sms)
-        print(f"✅ SMS envoyé à {phone_number} — ID: {getattr(response, 'message_id', 'N/A')}")
-        return getattr(response, "message_id", True)
+        # 🔍 Afficher la réponse complète pour analyse
+        print("📦 Réponse Brevo SMS complète:", response)
+
+        # ✅ Récupération correcte de l'identifiant message
+        sms_id = getattr(response, "messageId", None) or getattr(response, "message_id", None)
+        print(f"✅ SMS envoyé à {phone_number} — ID: {sms_id}")
+
+        # Renvoie du vrai messageId pour suivi ultérieur
+        return sms_id
+
     except ApiException as e:
         print(f"❌ Erreur API Brevo : {e}")
         return False
