@@ -91,8 +91,34 @@
         <td>{{ r.email }}</td>
         <td>{{ r.formation }}</td>
         <td>{{ r.mode }}</td>
-        <td>{% if r.mail_ok %}✅{% else %}❌{% endif %}</td>
-        <td>{% if r.sms_ok %}✅{% else %}❌{% endif %}</td>
+        <td title="
+  {% if r.mail_ok %}
+    Mail envoyé ✅
+  {% else %}
+    Mail non envoyé ❌
+  {% endif %}
+">
+  {% if r.mail_ok %}
+    <span class="status-icon ok" title="Mail envoyé ✅">✅</span>
+  {% else %}
+    <span class="status-icon fail" title="Mail non envoyé ❌">❌</span>
+  {% endif %}
+</td>
+
+<td title="
+  {% if r.sms_ok %}
+    SMS envoyé ✅
+  {% else %}
+    SMS non envoyé ❌
+  {% endif %}
+">
+  {% if r.sms_ok %}
+    <span class="status-icon ok" title="SMS envoyé ✅">✅</span>
+  {% else %}
+    <span class="status-icon fail" title="SMS non envoyé ❌">❌</span>
+  {% endif %}
+</td>
+
 
         {% set style = STATUTS_STYLE.get(r.statut) %}
         <td style="
@@ -152,4 +178,5 @@ function closeLogsModal() {
 </script>
 
 {% endblock %}
+
 
