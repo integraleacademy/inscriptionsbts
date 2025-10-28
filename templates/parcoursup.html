@@ -113,7 +113,7 @@
         <td>
   {% set last_mail_status = "" %}
   {% if r.logs %}
-  {% for log in r.logs | fromjson | reverse %}
+  {% for log in r.logs | reverse %}
     {% if log.type == "mail_status" and last_mail_status == "" %}
       {% set last_mail_status = log.event %}
     {% endif %}
@@ -244,6 +244,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
