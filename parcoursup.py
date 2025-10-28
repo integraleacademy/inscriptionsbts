@@ -307,6 +307,21 @@ def check_file():
 # =====================================================
 # 🗑️ SUPPRIMER UN CANDIDAT
 # =====================================================
+@bp_parcoursup.route("/parcoursup/delete/<cid>", methods=["POST"])
+def delete_candidat(cid):
+    """Supprime un candidat Parcoursup depuis le tableau d'administration."""
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM parcoursup_candidats WHERE id=?", (cid,))
+    conn.commit()
+    conn.close()
+    flash("Candidature supprimée avec succès.", "success")
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+# =====================================================
+# 📬 VÉRIFIER LES STATUTS SMS
+# =====================================================
 @bp_parcoursup.route("/parcoursup/check-sms", methods=["POST"])
 def check_sms_status_all():
     BREVO_KEY = os.getenv("BREVO_API_KEY")
@@ -416,6 +431,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
