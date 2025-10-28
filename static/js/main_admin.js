@@ -693,7 +693,7 @@ document.addEventListener("click", async (e) => {
   list.innerHTML = "<li>⏳ Chargement des logs...</li>";
 
   try {
-    const res = await fetch(`/parcoursup/logs/${id}`, { headers: { "Accept": "application/json" } });
+    const res = await fetch(`/admin/logs/${id}`, { headers: { "Accept": "application/json" } });
     if (!res.ok) throw new Error("HTTP " + res.status);
     const logs = await res.json();
 
@@ -760,6 +760,7 @@ document.addEventListener("click", async (e) => {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
