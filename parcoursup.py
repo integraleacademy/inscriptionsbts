@@ -131,30 +131,40 @@ def dashboard():
     except Exception as e:
         print("⚠️ Erreur de synchronisation Parcoursup ↔ Admin :", e)
 
+    # ==========================================================
+    # 📦 On récupère les candidats et on décode les logs ici
+    # ==========================================================
     cur.execute("SELECT * FROM parcoursup_candidats ORDER BY created_at DESC")
     rows = [dict(r) for r in cur.fetchall()]
-    conn.close()
+
+    # 🧩 On décode les logs JSON ici (au lieu du |fromjson dans Jinja)
+    for r in rows:
+        try:
+            r["logs"] = json.loads(r.get("logs", "[]"))
+        except Exception:
+            r["logs"] = []
 
     # 🔍 Extraction des dates d’envoi Mail/SMS depuis les logs
     for r in rows:
         try:
-            logs = json.loads(r.get("logs", "[]"))
+            logs = r.get("logs", [])
             mail_log = next((log for log in logs if log.get("type") == "mail"), None)
             sms_log = next((log for log in logs if log.get("type") == "sms"), None)
             r["mail_date"] = mail_log.get("date") if mail_log else None
             r["sms_date"] = sms_log.get("date") if sms_log else None
-        except Exception as e:
+        except Exception:
             r["mail_date"] = r["sms_date"] = None
 
-        # 🔍 Ajout du dernier statut SMS pour affichage direct
+    # 🔍 Ajout du dernier statut SMS pour affichage direct
     for r in rows:
         try:
-            logs = json.loads(r.get("logs", "[]"))
+            logs = r.get("logs", [])
             sms_status = next((l.get("event") for l in reversed(logs) if l.get("type") == "sms_status"), None)
             r["sms_status"] = sms_status or "unknown"
         except Exception:
             r["sms_status"] = "unknown"
 
+    conn.close()
 
     stats = get_stats_parcoursup()
     return render_template(
@@ -164,6 +174,7 @@ def dashboard():
         STATUTS_STYLE=STATUTS_STYLE,
         stats=stats
     )
+
 
 
 
@@ -570,6 +581,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
