@@ -84,6 +84,61 @@
     <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary">↻ Réinitialiser</a>
   </form>
 
+  <!-- 🎯 FILTRES AVANCÉS -->
+<div class="filters-card" style="
+  background:#f8fff8;
+  border:1px solid #cfe5cf;
+  border-radius:10px;
+  padding:15px 20px;
+  margin:25px 0;
+  box-shadow:0 1px 3px rgba(0,0,0,0.1);
+">
+  <form method="get" action="{{ url_for('parcoursup.dashboard') }}" style="display:flex;flex-wrap:wrap;gap:15px;align-items:flex-end;">
+    
+    <div style="flex:1;min-width:180px;">
+      <label for="statut" style="font-weight:600;display:block;margin-bottom:4px;">📌 Statut</label>
+      <select id="statut" name="statut" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
+        <option value="">Tous</option>
+        {% for key, style in STATUTS_STYLE.items() %}
+          <option value="{{ key }}" {% if request.args.get('statut') == key %}selected{% endif %}>
+            {{ style.label }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex:1;min-width:180px;">
+      <label for="formation" style="font-weight:600;display:block;margin-bottom:4px;">🎓 Formation</label>
+      <select id="formation" name="formation" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
+        <option value="">Toutes</option>
+        {% for f in formations %}
+          <option value="{{ f }}" {% if request.args.get('formation') == f %}selected{% endif %}>
+            {{ f }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="flex:1;min-width:180px;">
+      <label for="mode" style="font-weight:600;display:block;margin-bottom:4px;">💻 Mode</label>
+      <select id="mode" name="mode" style="width:100%;padding:6px 10px;border-radius:6px;border:1px solid #ccc;">
+        <option value="">Tous</option>
+        {% for m in modes %}
+          <option value="{{ m }}" {% if request.args.get('mode') == m %}selected{% endif %}>
+            {{ m }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display:flex;gap:10px;">
+      <button type="submit" class="btn primary">🔍 Filtrer</button>
+      <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary">♻️ Réinitialiser</a>
+    </div>
+  </form>
+</div>
+
+
   <h3>📋 Liste des candidats Parcoursup</h3>
   {% if rows %}
   <table class="admin-table">
@@ -236,6 +291,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
