@@ -181,6 +181,35 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.querySelector('#inscriptionForm');
   if (form) {
     form.addEventListener('submit', (e) => {
+
+      // ✅ Vérif téléphone
+      const tel = document.querySelector('input[name="tel"]');
+      if (tel && /^0{10}$/.test(tel.value)) {
+        e.preventDefault();
+        alert("⚠️ Numéro de téléphone invalide.");
+        tel.focus();
+        return;
+      }
+
+      // ✅ Vérif BTS choisi
+      const btsSelect = document.querySelector('select[name="bts"]');
+      if (btsSelect && !btsSelect.value) {
+        e.preventDefault();
+        alert("⚠️ Merci de sélectionner une formation BTS avant de continuer.");
+        showStep(1);
+        return;
+      }
+
+      // ✅ Vérif Bac “Autre” précisé
+      const bacType = document.querySelector('select[name="bac_type"]');
+      const bacAutre = document.querySelector('input[name="bac_autre"]');
+      if (bacType && bacAutre && bacType.value === "Autre" && !bacAutre.value.trim()) {
+        e.preventDefault();
+        alert("⚠️ Merci de préciser votre type de bac.");
+        bacAutre.focus();
+        return;
+      }
+
       // Vérifie NIR
       if (typeof verifierNumSecu === "function" && !verifierNumSecu()) {
         e.preventDefault();
@@ -208,24 +237,28 @@ document.addEventListener("DOMContentLoaded", () => {
             alert(`❌ Le fichier "${file.name}" doit être au format PDF.`);
             return;
           }
+          // ✅ Vérif fichier vide
+          if (file.size < 10 * 1024) {
+            e.preventDefault();
+            alert(`⚠️ Le fichier "${file.name}" semble vide ou corrompu.`);
+            return;
+          }
         }
       }
 
       // === Vérif spécifique APS ===
-const apsCheckbox = document.querySelector('input[name="aps_souhaitee"]');
-const apsSessions = document.querySelectorAll('input[name="aps_session"]');
-
-if (apsCheckbox && apsSessions.length > 0) {
-  const apsSelected = Array.from(apsSessions).some(r => r.checked);
-  if (apsCheckbox.checked && !apsSelected) {
-    e.preventDefault();
-    alert("⚠️ Merci de sélectionner une session APS avant de continuer.");
-    const mosSection = document.getElementById('mos-section');
-    if (mosSection) mosSection.scrollIntoView({ behavior: "smooth", block: "start" });
-    return;
-  }
-}
-
+      const apsCheckbox = document.querySelector('input[name="aps_souhaitee"]');
+      const apsSessions = document.querySelectorAll('input[name="aps_session"]');
+      if (apsCheckbox && apsSessions.length > 0) {
+        const apsSelected = Array.from(apsSessions).some(r => r.checked);
+        if (apsCheckbox.checked && !apsSelected) {
+          e.preventDefault();
+          alert("⚠️ Merci de sélectionner une session APS avant de continuer.");
+          const mosSection = document.getElementById('mos-section');
+          if (mosSection) mosSection.scrollIntoView({ behavior: "smooth", block: "start" });
+          return;
+        }
+      }
 
       // === Affiche l’overlay de transmission ===
       const overlay = document.createElement("div");
@@ -370,6 +403,3 @@ if (apsCheckbox && apsBloc) {
     apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
   });
 }
-
-
-
