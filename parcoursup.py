@@ -40,26 +40,33 @@ def get_stats_parcoursup():
     for (raw_logs,) in rows:
         try:
             logs = json.loads(raw_logs or "[]")
+            seen = set()  # ⚡ compteur unique par candidat
+
             for log in logs:
                 if log.get("type") == "mail":
                     stats["mail_sent"] += 1
                 elif log.get("type") == "mail_status":
                     evt = log.get("event")
-                    if evt == "delivered":
+                    if evt == "delivered" and "delivered" not in seen:
                         stats["mail_delivered"] += 1
-                    elif evt in ["opened", "unique_opened"]:
+                        seen.add("delivered")
+                    elif evt in ["opened", "unique_opened"] and "opened" not in seen:
                         stats["mail_opened"] += 1
-                    elif evt == "click":
+                        seen.add("opened")
+                    elif evt == "click" and "click" not in seen:
                         stats["mail_clicked"] += 1
+                        seen.add("click")
                 elif log.get("type") == "sms":
                     stats["sms_sent"] += 1
                 elif log.get("type") == "sms_status" and log.get("event") == "delivered":
                     stats["sms_delivered"] += 1
+
         except Exception:
             continue
 
     conn.close()
     return stats
+
 
 
 STATUTS_STYLE = {
@@ -615,6 +622,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
