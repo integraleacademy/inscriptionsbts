@@ -537,37 +537,20 @@ def check_sms_status_all():
 
 @bp_parcoursup.route("/parcoursup/logs/<cid>")
 def get_logs(cid):
-    """Renvoie les logs enregistrés pour un candidat Parcoursup."""
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT logs FROM parcoursup_candidats WHERE id=?", (cid,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify([])
+
     try:
-        conn = db()
-        cur = conn.cursor()
-        cur.execute("SELECT logs FROM parcoursup_candidats WHERE id=?", (cid,))
-        row = cur.fetchone()
-        conn.close()
-
-        if not row:
-            return jsonify([{"type": "other", "event": "Aucun candidat trouvé", "date": datetime.now().isoformat()}])
-
-        raw_logs = row["logs"] or "[]"
-        try:
-            logs = json.loads(raw_logs)
-        except Exception:
-            logs = []
-
-        # ✅ Si aucun log, on renvoie un message de test pour confirmation
-        if not logs:
-            logs = [{
-                "type": "other",
-                "event": "Aucun log enregistré pour ce candidat (colonne vide)",
-                "date": datetime.now().isoformat()
-            }]
-
-        return jsonify(logs)
-
-    except Exception as e:
-        print(f"❌ Erreur route /parcoursup/logs : {e}")
-        return jsonify([{"type": "error", "event": str(e), "date": datetime.now().isoformat()}]), 500
-
+        logs = json.loads(row["logs"])
+    except Exception:
+        logs = []
+    return jsonify(logs)
 
 # =====================================================
 # 📬 WEBHOOK SMS BREVO — MISE À JOUR STATUTS SMS
@@ -686,8 +669,6 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
-
-
 
 
 
