@@ -339,15 +339,35 @@ def check_sms_status_all():
             url = f"https://api.brevo.com/v3/transactionalSMS/statistics/messages?messageId={message_id}"
             print(f"🔍 Vérification statut SMS : {url}")
             r = requests.get(url, headers=headers, timeout=15)
-            print(f"📡 Réponse HTTP {r.status_code}: {r.text[:500]}")
+            print(f"📡 Réponse HTTP {r.status_code}: {r.text[:1000]}")  # on log tout le JSON brut
             if not r.ok:
                 return "unknown"
-            data = r.json()
-            print("✅ JSON décodé:", data)
-            return data.get("status", data.get("event", "unknown"))
+
+            try:
+                data = r.json()
+            except Exception:
+                print("❌ JSON illisible :", r.text[:200])
+                return "unknown"
+
+            # Affiche toutes les clés du JSON pour comprendre la structure
+            print("🧩 Clés disponibles dans la réponse:", list(data.keys()))
+
+            # Essaie plusieurs options pour trouver le statut réel
+            if "status" in data:
+                return data["status"]
+            if "event" in data:
+                return data["event"]
+            if "messages" in data and isinstance(data["messages"], list) and data["messages"]:
+                msg = data["messages"][0]
+                print("📦 Détails message :", msg)
+                return msg.get("status") or msg.get("event") or "unknown"
+
+            return "unknown"
+
         except Exception as e:
             print("❌ Erreur check_sms_status:", e)
             return "unknown"
+
 
 
 
@@ -423,6 +443,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
