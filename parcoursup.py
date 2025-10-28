@@ -175,12 +175,24 @@ def dashboard():
             r["mail_status_label"] = "Inconnu"
             r["mail_status_color"] = "#7f8c8d"
 
-    # 🔍 Ajout du dernier statut SMS pour affichage direct
+    # 🔍 Ajout du dernier statut SMS pour affichage direct (priorité au "delivered")
     for r in rows:
         try:
             logs = r.get("logs", [])
-            sms_status = next((l.get("event") for l in reversed(logs) if l.get("type") == "sms_status"), None)
-            r["sms_status"] = sms_status or "unknown"
+            # on cherche d’abord un statut livré
+            sms_delivered = next(
+                (l for l in logs if l.get("type") == "sms_status" and l.get("event") == "delivered"),
+                None
+            )
+            if sms_delivered:
+                r["sms_status"] = "delivered"
+            else:
+                # sinon on prend le dernier évènement connu
+                sms_status = next(
+                    (l.get("event") for l in reversed(logs) if l.get("type") == "sms_status"),
+                    None
+                )
+                r["sms_status"] = sms_status or "unknown"
         except Exception:
             r["sms_status"] = "unknown"
 
@@ -194,6 +206,7 @@ def dashboard():
         STATUTS_STYLE=STATUTS_STYLE,
         stats=stats
     )
+
 
 
 
@@ -602,6 +615,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
