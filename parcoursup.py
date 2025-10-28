@@ -307,16 +307,6 @@ def check_file():
 # =====================================================
 # 🗑️ SUPPRIMER UN CANDIDAT
 # =====================================================
-@bp_parcoursup.route("/parcoursup/delete/<cid>", methods=["POST"])
-def delete_candidat(cid):
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("DELETE FROM parcoursup_candidats WHERE id=?", (cid,))
-    conn.commit()
-    conn.close()
-    flash("Candidature supprimée avec succès.", "success")
-    return redirect(url_for("parcoursup.dashboard"))
-
 @bp_parcoursup.route("/parcoursup/check-sms", methods=["POST"])
 def check_sms_status_all():
     BREVO_KEY = os.getenv("BREVO_API_KEY")
@@ -332,43 +322,30 @@ def check_sms_status_all():
     headers = {"api-key": BREVO_KEY}
     delivered = failed = pending = 0
 
-    # ✅ Fonction de vérification du statut SMS
+    # ✅ Fonction interne pour vérifier le statut SMS
     def last_event(message_id: str):
-        """Retourne le statut du SMS via Brevo (affiche le JSON complet pour debug)."""
+        """Retourne le dernier statut du SMS via Brevo (version compatible 2025)."""
+        headers = {"api-key": BREVO_KEY}
         try:
-            url = f"https://api.brevo.com/v3/transactionalSMS/statistics/messages/{message_id}"
-            current_app.logger.info(f"🔍 Vérification statut SMS : {url}")
+            # ✅ Nouvelle route correcte
+            url = f"https://api.brevo.com/v3/transactionalSMS/statistics/events?messageId={message_id}"
             r = requests.get(url, headers=headers, timeout=15)
-            current_app.logger.info(f"📡 HTTP {r.status_code}")
-            current_app.logger.info("🧾 Réponse brute (1000 premiers caractères) : " + r.text[:1000])
 
             if not r.ok:
-                current_app.logger.warning("⚠️ Requête non OK: " + r.text[:300])
+                current_app.logger.warning(f"⚠️ Requête non OK ({r.status_code}): {r.text[:300]}")
                 return "unknown"
 
-            try:
-                data = r.json()
-            except Exception:
-                current_app.logger.error("❌ JSON non décodable : " + r.text[:200])
+            data = r.json()
+            events = data.get("events") or data.get("messages") or []
+            if not events:
+                current_app.logger.info("ℹ️ Aucun évènement trouvé pour ce message_id.")
                 return "unknown"
 
-            current_app.logger.info("🧩 Clés disponibles : " + ", ".join(list(data.keys())))
-            # Astuce: si tu veux voir tout l’objet:
-            try:
-                current_app.logger.info("📦 JSON tronqué : " + json.dumps(data, indent=2)[:1000])
-            except Exception:
-                pass
-
-            if "status" in data:
-                return data["status"]
-            if "event" in data:
-                return data["event"]
-            if "messages" in data and isinstance(data["messages"], list) and data["messages"]:
-                msg = data["messages"][0]
-                current_app.logger.info("📨 Détails message : " + json.dumps(msg)[:500])
-                return msg.get("status") or msg.get("event") or "unknown"
-
-            return "unknown"
+            # 🧩 On prend le dernier évènement (souvent 'delivered', 'failed', 'queued'…)
+            last = events[-1]
+            evt = last.get("event") or last.get("status") or "unknown"
+            current_app.logger.info(f"📩 Statut SMS {message_id}: {evt}")
+            return evt
 
         except Exception as e:
             current_app.logger.exception(f"❌ Exception last_event(): {e}")
@@ -422,6 +399,7 @@ def check_sms_status_all():
 
 
 
+
 @bp_parcoursup.route("/parcoursup/logs/<cid>")
 def get_logs(cid):
     conn = db()
@@ -438,6 +416,7 @@ def get_logs(cid):
     except Exception:
         logs = []
     return jsonify(logs)
+
 
 
 
