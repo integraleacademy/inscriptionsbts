@@ -100,48 +100,70 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!verifierNumSecu()) valid = false;
     }
 
-// 🔹 Étape 2 : BTS + mode obligatoires
+// 🔹 Étape 2 : validation conditionnelle selon le BTS
 if (stepIndex === 1) {
   const bts = document.querySelector('select[name="bts"]');
+  const btsVal = bts?.value || "";
   const mode = document.querySelector('input[name="mode"]:checked');
 
-  if (!bts?.value) {
+  if (!btsVal) {
     alert("⚠️ Merci de choisir une formation BTS avant de continuer.");
     valid = false;
   }
+
   if (!mode) {
     alert("⚠️ Merci de choisir un mode de formation (présentiel ou distanciel).");
     valid = false;
   }
 
-  // ✅ Une case “niveau de bac” doit être cochée
-  const bacStatusChecked = document.querySelector('input[name="bac_status"]:checked');
-  if (!bacStatusChecked) {
-    alert("⚠️ Merci d’indiquer votre situation (Bac Pro MS, en cours, carte CNAPS ou autre).");
-    valid = false;
-  }
-
-  // ✅ Si APS = "oui", une session doit être choisie
-  const apsOui = document.querySelector('input[name="aps_souhaitee"][value="oui"]:checked');
-  if (apsOui) {
-    const apsSelected = document.querySelector('input[name="aps_session"]:checked');
-    if (!apsSelected) {
-      alert("⚠️ Merci de sélectionner une session APS avant de continuer.");
+  // ✅ Les conditions suivantes ne concernent que le BTS MOS
+  if (btsVal === "MOS") {
+    const bacStatusChecked = document.querySelector('input[name="bac_status"]:checked');
+    if (!bacStatusChecked) {
+      alert("⚠️ Merci d’indiquer votre situation (Bac Pro MS, en cours, carte CNAPS ou autre).");
       valid = false;
     }
-  }
 
-  // ✅ Si APS = "non", la raison devient obligatoire
-  const apsNon = document.querySelector('input[name="aps_souhaitee"][value="non"]:checked');
-  if (apsNon) {
-    const raison = document.querySelector('textarea[name="raison_aps"]');
-    if (!raison || !raison.value.trim()) {
-      alert("⚠️ Merci de préciser la raison pour laquelle vous ne souhaitez pas suivre la formation APS.");
-      raison.focus();
-      valid = false;
+    const statut = bacStatusChecked?.value;
+
+    // 🎯 Si carte CNAPS => pas de validation APS requise
+    if (statut === "carte_cnaps") {
+      const apsSessionBloc = document.getElementById('bloc-aps-session');
+      if (apsSessionBloc) apsSessionBloc.style.display = "none";
+      document.querySelectorAll('input[name="aps_session"]').forEach(r => {
+        r.required = false;
+        r.checked = false;
+      });
+      const raisonBloc = document.getElementById('raison-non-aps');
+      const raisonInput = document.querySelector('textarea[name="raison_aps"]');
+      if (raisonBloc) raisonBloc.style.display = "none";
+      if (raisonInput) { raisonInput.required = false; raisonInput.value = ""; }
+
+    } else {
+      // 🟢 Sinon : vérif APS normale
+      const apsOui = document.querySelector('input[name="aps_souhaitee"][value="oui"]:checked');
+      const apsNon = document.querySelector('input[name="aps_souhaitee"][value="non"]:checked');
+
+      if (apsOui) {
+        const apsSelected = document.querySelector('input[name="aps_session"]:checked');
+        if (!apsSelected) {
+          alert("⚠️ Merci de sélectionner une session APS avant de continuer.");
+          valid = false;
+        }
+      }
+
+      if (apsNon) {
+        const raison = document.querySelector('textarea[name="raison_aps"]');
+        if (!raison || !raison.value.trim()) {
+          alert("⚠️ Merci de préciser la raison pour laquelle vous ne souhaitez pas suivre la formation APS.");
+          raison.focus();
+          valid = false;
+        }
+      }
     }
   }
 }
+
  
 
 // 🔹 Étape 3 : bac + permis
@@ -567,6 +589,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
