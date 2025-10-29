@@ -272,23 +272,37 @@
       Le chèque sera à envoyer par courrier lorsque nous aurons confirmé votre inscription.
     </p>
 
-    <p><strong>Souhaitez-vous suivre la formation APS ?</strong></p>
-    <label>
-      <input type="checkbox" name="aps_souhaitee" value="1">
-      Oui, je souhaite suivre la formation agent de sécurité privée (APS)
-    </label>
+<p><strong>Souhaitez-vous suivre la formation APS ?</strong></p>
 
-    <div id="bloc-aps-session" style="display:none; margin-top:10px;">
-      <p><strong>Choisissez votre session :</strong></p>
-      <label>
-        <input type="radio" name="aps_session" value="puget">
-        8 juillet → 12 août 2026 — Intégrale Academy (Puget-sur-Argens)
-      </label><br>
-      <label>
-        <input type="radio" name="aps_session" value="autre">
-        7 septembre → 9 octobre 2026 — Intégrale Academy (Puget-sur-Argens)
-      </label>
-    </div>
+<label>
+  <input type="radio" name="aps_souhaitee" value="oui">
+  Oui, je souhaite suivre la formation agent de sécurité privée (APS)
+</label><br>
+
+<label>
+  <input type="radio" name="aps_souhaitee" value="non">
+  Non, je ne souhaite pas suivre cette formation
+</label>
+
+<!-- Bloc session APS -->
+<div id="bloc-aps-session" style="display:none; margin-top:10px;">
+  <p><strong>Choisissez votre session :</strong></p>
+  <label>
+    <input type="radio" name="aps_session" value="puget">
+    8 juillet → 12 août 2026 — Intégrale Academy (Puget-sur-Argens)
+  </label><br>
+  <label>
+    <input type="radio" name="aps_session" value="autre">
+    7 septembre → 9 octobre 2026 — Intégrale Academy (Puget-sur-Argens)
+  </label>
+</div>
+
+<!-- Bloc raison NON APS -->
+<div id="raison-non-aps" style="display:none; margin-top:10px;">
+  <label for="raison_aps"><strong>Pour quelle raison ?</strong></label>
+  <textarea name="raison_aps" rows="2" placeholder="Merci de préciser votre raison ici..."></textarea>
+</div>
+
   </div>
 </div>
 
