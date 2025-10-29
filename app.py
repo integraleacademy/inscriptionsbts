@@ -2,7 +2,7 @@ import os, sqlite3, json, uuid
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
 from werkzeug.utils import secure_filename
-from utils import send_mail, dossier_number, new_token, sign_token, make_signed_link
+from utils import send_mail, send_sms_brevo, dossier_number, new_token, sign_token, make_signed_link
 from dotenv import load_dotenv
 from parcoursup import bp_parcoursup
 
@@ -535,6 +535,14 @@ def submit():
     )
     send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription", html)
 
+    # 📱 SMS accusé de réception
+    tel = (form.get("tel", "") or "").replace(" ", "")
+    if tel.startswith("0"):
+        tel = "+33" + tel[1:]
+    msg = f"Bonjour {form.get('prenom','')}, votre pré-inscription a bien été reçue ✅.\nSuivez votre dossier ici : {lien_espace}"
+    send_sms_brevo(tel, msg)
+    log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
+
     # 🧾 Log après envoi du mail
     log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
@@ -649,12 +657,32 @@ def admin_update_status():
                   html)
         log_event(row, "MAIL_ENVOYE", {"type": "validation_inscription"})
 
+        # 📱 SMS candidature validée
+        tel = (row.get("tel", "") or "").replace(" ", "")
+        if tel.startswith("0"):
+            tel = "+33" + tel[1:]
+        msg = f"Bonjour {row.get('prenom','')}, votre candidature est validée ✅.\nMerci de confirmer votre inscription via le mail reçu."
+        send_sms_brevo(tel, msg)
+        log_event(row, "SMS_ENVOYE", {"type": "candidature_validee", "tel": tel})
+
+
+
     elif value == "confirmee":
         # 📨 Mail d’inscription confirmée + bienvenue
         html = render_template("mail_confirmee.html",
                                prenom=row.get("prenom", ""),
                                aps=bool(row.get("label_aps", 0)))
         send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
+
+        # 📱 SMS inscription confirmée
+        tel = (row.get("tel", "") or "").replace(" ", "")
+        if tel.startswith("0"):
+            tel = "+33" + tel[1:]
+        msg = f"Bonjour {row.get('prenom','')}, votre inscription à Intégrale Academy est confirmée 🎓. Bienvenue !"
+        send_sms_brevo(tel, msg)
+        log_event(row, "SMS_ENVOYE", {"type": "inscription_confirmee", "tel": tel})
+
+
 
         merci_html = render_template("mail_bienvenue.html",
                                      prenom=row.get("prenom", ""),
@@ -696,6 +724,15 @@ def admin_reconfirm(cid):
     link = make_signed_link("/reconfirm", token)
     html = render_template("mail_reconfirm.html", prenom=row.get("prenom",""), link=link)
     send_mail(row.get("email",""), "Confirmez votre inscription – Rentrée septembre", html)
+    # 📱 SMS reconfirmation demandée
+    tel = (row.get("tel", "") or "").replace(" ", "")
+    if tel.startswith("0"):
+        tel = "+33" + tel[1:]
+    msg = f"Bonjour {row.get('prenom','')}, merci de reconfirmer votre inscription pour la rentrée 📅.\nConsultez le mail que vous venez de recevoir."
+    send_sms_brevo(tel, msg)
+    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_demandee", "tel": tel})
+
+
     log_event(row, "MAIL_ENVOYE", {"type":"reconfirmation"})
     log_event(row, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
     return jsonify({"ok":True})
@@ -1373,6 +1410,15 @@ def admin_files_notify():
     )
 
     send_mail(row.get("email", ""), "Documents non conformes – Intégrale Academy", html)
+    # 📱 SMS documents non conformes
+    tel = (row.get("tel", "") or "").replace(" ", "")
+    if tel.startswith("0"):
+        tel = "+33" + tel[1:]
+    msg = f"Bonjour {row.get('prenom','')}, certains documents doivent être renvoyés ⚠️.\nConsultez le mail envoyé pour les détails."
+    send_sms_brevo(tel, msg)
+    log_event(row, "SMS_ENVOYE", {"type": "docs_non_conformes", "tel": tel})
+
+
     log_event(row, "MAIL_ENVOYE", {"type": "docs_non_conformes", "pieces": non_conformes})
 
     return jsonify({"ok": True})
@@ -1577,6 +1623,7 @@ def confirm_inscription():
     send_mail(row.get("email",""), "Inscription confirmée – Intégrale Academy", html)
     merci_html = render_template("mail_bienvenue.html", prenom=row.get("prenom",""), bts=row.get("bts",""))
     send_mail(row.get("email",""), "Bienvenue à Intégrale Academy 🎓", merci_html)
+
     log_event(row, "MAIL_ENVOYE", {"type":"bienvenue"})
     log_event(row, "MAIL_ENVOYE", {"type":"inscription_confirmee"})
     log_event(row, "STATUT_CHANGE", {"statut": "confirmee"})
@@ -1593,6 +1640,16 @@ def reconfirm():
     row = dict(row)
     cur.execute("UPDATE candidats SET statut=?, updated_at=? WHERE id=?", ("reconfirmee", datetime.now().isoformat(), row["id"]))
     conn.commit()
+
+    # 📱 SMS reconfirmation validée
+    tel = (row.get("tel", "") or "").replace(" ", "")
+    if tel.startswith("0"):
+        tel = "+33" + tel[1:]
+    msg = f"Bonjour {row.get('prenom','')}, votre reconfirmation d’inscription est validée ✅.\nÀ très bientôt pour la rentrée !"
+    send_sms_brevo(tel, msg)
+    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_validee", "tel": tel})
+
+
     log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
     return render_template("reconfirm_ok.html", title="Merci ❤️")
 
