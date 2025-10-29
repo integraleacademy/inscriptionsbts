@@ -70,6 +70,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentStep = index;
     updateProgressBar(index);
     refreshLocks();
+    injectSupportInto(tabs[index]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -102,6 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
 if (stepIndex === 1) {
   const bts = document.querySelector('select[name="bts"]');
   const mode = document.querySelector('input[name="mode"]:checked');
+
   if (!bts?.value) {
     alert("⚠️ Merci de choisir une formation BTS avant de continuer.");
     valid = false;
@@ -111,11 +113,21 @@ if (stepIndex === 1) {
     valid = false;
   }
 
-  // ✅ Étape 2 : une case “niveau de bac” doit être cochée
+  // ✅ Une case “niveau de bac” doit être cochée
   const bacStatusChecked = document.querySelector('input[name="bac_status"]:checked');
   if (!bacStatusChecked) {
-    alert("⚠️ Merci d’indiquer si vous êtes titulaire ou en préparation d’un Bac Pro ou autre diplôme.");
+    alert("⚠️ Merci d’indiquer votre situation (Bac Pro MS, en cours, carte CNAPS ou autre).");
     valid = false;
+  }
+
+  // ✅ Si APS cochée → session obligatoire
+  const apsCheckbox = document.querySelector('input[name="aps_souhaitee"]');
+  if (apsCheckbox && apsCheckbox.checked) {
+    const apsSelected = document.querySelector('input[name="aps_session"]:checked');
+    if (!apsSelected) {
+      alert("⚠️ Merci de sélectionner une session APS avant de continuer.");
+      valid = false;
+    }
   }
 }
  
@@ -375,9 +387,44 @@ if (stepIndex === 2) {
   window.showStep = showStep;
   window.getCurrentStep = () => currentStep;
 
+  // === Assistance globale (affichée en bas de chaque étape) ===
+  function injectSupportInto(tab) {
+    if (!tab.querySelector('.support-box')) {
+      const box = document.createElement('div');
+      box.className = 'support-box';
+      box.innerHTML = `
+        <p>
+          🛟 <strong>Besoin d’aide ?</strong><br>
+          👉 <a href="https://assistance-alw9.onrender.com/" target="_blank" rel="noopener">Centre d’assistance</a><br>
+          📞 <a href="tel:+33422470768">04&nbsp;22&nbsp;47&nbsp;07&nbsp;68</a>
+        </p>
+      `;
+      tab.appendChild(box);
+    }
+  }
+
+  // === Étape 3 : afficher / rendre obligatoire le champ "Autre bac" ===
+  const bacTypeSelectEl = document.querySelector('select[name="bac_type"]');
+  const blocBacAutreEl  = document.getElementById('bloc-bac-autre');
+  const bacAutreInput   = document.querySelector('input[name="bac_autre"]');
+
+  function toggleBacAutre() {
+    if (!bacTypeSelectEl || !blocBacAutreEl || !bacAutreInput) return;
+    const isAutre = bacTypeSelectEl.value === "Autre";
+    blocBacAutreEl.style.display = isAutre ? "block" : "none";
+    bacAutreInput.required = isAutre;
+    if (!isAutre) bacAutreInput.value = "";
+  }
+  if (bacTypeSelectEl) {
+    bacTypeSelectEl.addEventListener('change', toggleBacAutre);
+    toggleBacAutre();
+  }
+
   refreshLocks();
   showStep(0);
 });
+
+
 
 // =====================================================
 // 🎓 LOGIQUE SPÉCIFIQUE BTS MOS (CNAPS / APS)
@@ -464,5 +511,6 @@ if (apsCheckbox && apsBloc) {
     apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
   });
 }
+
 
 
