@@ -568,6 +568,31 @@ bacRadios.forEach(r => {
   });
 });
 
+// === Affichage conditionnel du bloc APS selon le choix "Aucun de ces cas" ===
+bacRadios.forEach(r => {
+  r.addEventListener('change', () => {
+    const apsRadiosBloc = document.getElementById('bloc-aps-radios'); // le bloc "Souhaitez-vous suivre la formation APS ?"
+    const apsSessionBloc = document.getElementById('bloc-aps-session');
+    const raisonBloc = document.getElementById('raison-non-aps');
+    const raisonInput = document.querySelector('textarea[name="raison_aps"]');
+    const apsSouhaitee = document.querySelectorAll('input[name="aps_souhaitee"]');
+
+    if (r.value === "autre") {
+      // ✅ Cas "Aucun de ces cas" → on affiche le bloc APS
+      if (apsRadiosBloc) apsRadiosBloc.style.display = "block";
+    } else {
+      // ❌ Tous les autres cas → on masque le bloc APS et on vide les choix
+      if (apsRadiosBloc) apsRadiosBloc.style.display = "none";
+      if (apsSessionBloc) apsSessionBloc.style.display = "none";
+      if (raisonBloc) raisonBloc.style.display = "none";
+      if (raisonInput) { raisonInput.value = ""; raisonInput.required = false; }
+      apsSouhaitee.forEach(radio => { radio.checked = false; radio.required = false; });
+      document.querySelectorAll('input[name="aps_session"]').forEach(r => { r.checked = false; r.required = false; });
+    }
+  });
+});
+
+
 // === Bloc APS : apparition selon le choix Oui / Non ===
 const apsRadios = document.querySelectorAll('input[name="aps_souhaitee"]');
 const apsSessionBloc = document.getElementById('bloc-aps-session');
@@ -589,6 +614,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
