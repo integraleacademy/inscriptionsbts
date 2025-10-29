@@ -1145,6 +1145,31 @@ main.container.candidat {
   margin-top: 2px;
 }
 
+/* === Bloc Assistance (en bas de chaque étape) === */
+.support-box {
+  margin-top: 24px;
+  padding: 14px 18px;
+  border-radius: 10px;
+  background: #e9f9f0; /* vert clair */
+  border: 1px solid #b8e6c3;
+  font-size: 15px;
+  color: #1a472a;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.support-box:hover {
+  transform: scale(1.01);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.support-box a {
+  color: #0d8050;
+  font-weight: 600;
+  text-decoration: none;
+}
+.support-box a:hover {
+  text-decoration: underline;
+}
+
 
 
 
