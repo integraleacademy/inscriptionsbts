@@ -96,10 +96,13 @@ def send_sms_brevo(phone_number, message):
     api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
     sender = "INTACAD"  # 11 caractères max, pas d’espace
 
+    # ✅ Ajout du paramètre unicode_enabled=True
     sms = sib_api_v3_sdk.SendTransacSms(
         sender=sender,
         recipient=phone_number,
-        content=message
+        content=message,
+        type="transactional",
+        unicode_enabled=True
     )
 
     try:
@@ -117,6 +120,7 @@ def send_sms_brevo(phone_number, message):
     except Exception as e:
         print(f"❌ Erreur inattendue SMS : {e}")
         return False
+
 
 # =====================================================
 # 🔢 Numérotation de dossier
