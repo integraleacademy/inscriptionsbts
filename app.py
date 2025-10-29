@@ -662,66 +662,77 @@ def admin_update_status():
     # ✉️ Envois automatiques selon le statut choisi
     # =====================================================
     if value == "validee":
-        # 📨 Mail de validation avec lien de confirmation
-        token = row.get("token_confirm") or ""
-        link = make_signed_link("/confirm-inscription", token)
-       html = mail_html(
-    "candidature_validee",
-    prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
-    lien_espace=link
-)
-send_mail(row.get("email", ""), "Votre candidature est validée – Confirmez votre inscription", html)
+        # 🔐 Assurer la présence d'un token de confirmation
+        token = row.get("token_confirm")
+        if not token:
+            token = new_token()
+            exp = (datetime.now() + timedelta(days=30)).isoformat()
+            cur.execute("UPDATE candidats SET token_confirm=?, token_confirm_exp=?, updated_at=? WHERE id=?",
+                        (token, exp, datetime.now().isoformat(), cid))
+            conn.commit()
+            # recharger la row pour refléter les changements
+            cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+            row = dict(cur.fetchone())
 
+        # 🔗 Lien signé vers la confirmation
+        link = make_signed_link("/confirm-inscription", token)
+
+        # ✉️ Mail "candidature validée"
+        html = mail_html(
+            "candidature_validee",
+            prenom=row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+            lien_espace=link
+        )
+        send_mail(row.get("email", ""), "Votre candidature est validée – Confirmez votre inscription", html)
         log_event(row, "MAIL_ENVOYE", {"type": "validation_inscription"})
 
-        # 📱 SMS candidature validée
+        # 📱 SMS "candidature validée"
         tel = (row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
         msg = sms_text(
-    "candidature_validee",
-    prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-)
-
+            "candidature_validee",
+            prenom=row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+        )
         send_sms_brevo(tel, msg)
         log_event(row, "SMS_ENVOYE", {"type": "candidature_validee", "tel": tel})
 
 
 
+
+
     elif value == "confirmee":
-        # 📨 Mail d’inscription confirmée + bienvenue
-       html = mail_html(
-    "inscription_confirmee",
-    prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-)
-send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
+        # ✉️ Mail "inscription confirmée"
+        html = mail_html(
+            "inscription_confirmee",
+            prenom=row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+        )
+        send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
+        log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
 
-
-        # 📱 SMS inscription confirmée
+        # 📱 SMS "inscription confirmée"
         tel = (row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
         msg = sms_text(
-    "inscription_confirmee",
-    prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-)
-
+            "inscription_confirmee",
+            prenom=row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+        )
         send_sms_brevo(tel, msg)
         log_event(row, "SMS_ENVOYE", {"type": "inscription_confirmee", "tel": tel})
 
-
-
+        # 👋 Mail de bienvenue
         merci_html = render_template("mail_bienvenue.html",
                                      prenom=row.get("prenom", ""),
                                      bts=row.get("bts", ""))
         send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
-
-        log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
         log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
+ok
+
 
     elif value == "reconfirmee":
         # 📨 Validation manuelle d’une reconfirmation
@@ -753,30 +764,30 @@ def admin_reconfirm(cid):
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
     row = dict(cur.fetchone())
     link = make_signed_link("/reconfirm", token)
-   html = mail_html(
-    "reconfirmation_demandee",
-    prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
-    lien_espace=link
-)
-send_mail(row.get("email", ""), "Confirmez votre inscription – Rentrée septembre", html)
+    html = mail_html(
+        "reconfirmation_demandee",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+        lien_espace=link
+    )
+    send_mail(row.get("email", ""), "Confirmez votre inscription – Rentrée septembre", html)
 
     # 📱 SMS reconfirmation demandée
     tel = (row.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
     msg = sms_text(
-    "reconfirmation_demandee",
-    prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-)
+        "reconfirmation_demandee",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+    )
     send_sms_brevo(tel, msg)
     log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_demandee", "tel": tel})
 
-
-    log_event(row, "MAIL_ENVOYE", {"type":"reconfirmation"})
+    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation"})
     log_event(row, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
-    return jsonify({"ok":True})
+    return jsonify({"ok": True})
+
 
 @app.route("/admin/print/<cid>")
 def admin_print(cid):
@@ -1018,30 +1029,27 @@ def admin_send_certificat(id):
         return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
 
     prenom, nom, email, bts = row
-    full_name = f"{prenom.title()} {nom.upper()}"
-
-    # 🧩 Nom complet du BTS (comme dans le certificat)
     bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
 
-    # ✉️ Préparation du mail
-    subject = f"Votre certificat de scolarité – {bts_nom_complet} 2026-2028"
+    # ✉️ Mail HTML
     html = mail_html(
-    "certificat",
-    prenom=prenom.title(),
-    bts_label=bts_nom_complet
-)
-
-
+        "certificat",
+        prenom=prenom.title(),
+        bts_label=bts_nom_complet
+    )
+    subject = f"Votre certificat de scolarité – {bts_nom_complet} 2026-2028"
 
     try:
         send_mail(email, subject, html, attachments=[cert_path])
-        print(f"✅ Certificat envoyé à {full_name} ({email})")
+        log_event({"id": id}, "MAIL_ENVOYE", {"type": "certificat"})
+        print(f"✅ Certificat envoyé à {prenom} {nom} ({email})")
         return jsonify({"ok": True})
     except Exception as e:
-        print(f"❌ Erreur envoi certificat à {full_name} :", e)
+        print(f"❌ Erreur envoi certificat à {prenom} {nom} :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
-        # =====================================================
+
+# =====================================================
 # ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ PRÉSENTIEL PAR MAIL
 # =====================================================
 @app.route("/admin/send_certificat_presentiel/<id>")
@@ -1050,15 +1058,12 @@ def admin_send_certificat_presentiel(id):
     from utils import send_mail
     import os
 
-    # 📂 Chemins des certificats
     cert_dir = os.path.join(DATA_DIR, "certificats")
     cert_path = os.path.join(cert_dir, f"certificat_presentiel_{id}.docx")
 
-    # 🔍 Vérifier que le fichier existe
     if not os.path.exists(cert_path):
         return jsonify({"ok": False, "error": "Le certificat présentiel n’a pas encore été généré."}), 404
 
-    # 🧾 Récupérer les infos du candidat
     conn = db()
     cur = conn.cursor()
     cur.execute("SELECT prenom, nom, email, bts FROM candidats WHERE id = ?", (id,))
@@ -1069,28 +1074,22 @@ def admin_send_certificat_presentiel(id):
         return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
 
     prenom, nom, email, bts = row
-    full_name = f"{prenom.title()} {nom.upper()}"
-
-    # 🧩 Nom complet du BTS (comme dans le certificat)
     bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
 
-    # ✉️ Préparation du mail
-    subject = f"Votre certificat de scolarité – Présentiel ({bts_nom_complet} 2026-2028)"
     html = mail_html(
-    "certificat_presentiel",
-    prenom=prenom.title(),
-    bts_label=bts_nom_complet
-)
-
-
+        "certificat_presentiel",
+        prenom=prenom.title(),
+        bts_label=bts_nom_complet
+    )
+    subject = f"Votre certificat de scolarité – Présentiel ({bts_nom_complet} 2026-2028)"
 
     try:
         send_mail(email, subject, html, attachments=[cert_path])
         log_event({"id": id}, "MAIL_ENVOYE", {"type": "certificat_presentiel"})
-        print(f"✅ Certificat présentiel envoyé à {full_name} ({email})")
+        print(f"✅ Certificat présentiel envoyé à {prenom} {nom} ({email})")
         return jsonify({"ok": True})
     except Exception as e:
-        print(f"❌ Erreur envoi certificat présentiel à {full_name} :", e)
+        print(f"❌ Erreur envoi certificat présentiel à {prenom} {nom} :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
@@ -1444,26 +1443,25 @@ def admin_files_notify():
 
     # ✉️ Envoi du mail au candidat
     link = make_signed_link("/replace-files", token)
-html = mail_html(
-    "docs_non_conformes",
-    prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
-    lien_espace=link
-)
-send_mail(row.get("email", ""), "Documents non conformes – Intégrale Academy", html)
+    html = mail_html(
+        "docs_non_conformes",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+        lien_espace=link
+    )
+    send_mail(row.get("email", ""), "Documents non conformes – Intégrale Academy", html)
 
     # 📱 SMS documents non conformes
     tel = (row.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
     msg = sms_text(
-    "docs_non_conformes",
-    prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-)
+        "docs_non_conformes",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+    )
     send_sms_brevo(tel, msg)
     log_event(row, "SMS_ENVOYE", {"type": "docs_non_conformes", "tel": tel})
-
 
     log_event(row, "MAIL_ENVOYE", {"type": "docs_non_conformes", "pieces": non_conformes})
 
