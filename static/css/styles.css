@@ -1170,6 +1170,22 @@ main.container.candidat {
   text-decoration: underline;
 }
 
+/* === Signature bas de page === */
+.footer-signature {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 14px;
+  color: #444;
+  opacity: 0.9;
+}
+.footer-signature strong {
+  color: #d60000; /* rouge profond pour bien contraster avec le cœur */
+}
+.footer-signature p {
+  margin: 0;
+}
+
+
 
 
 
