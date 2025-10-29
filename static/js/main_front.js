@@ -98,35 +98,52 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!verifierNumSecu()) valid = false;
     }
 
-    // 🔹 Étape 2 : BTS + mode obligatoires
-    if (stepIndex === 1) {
-      const bts = document.querySelector('select[name="bts"]');
-      const mode = document.querySelector('input[name="mode"]:checked');
-      if (!bts?.value) {
-        alert("⚠️ Merci de choisir une formation BTS avant de continuer.");
-        valid = false;
-      }
-      if (!mode) {
-        alert("⚠️ Merci de choisir un mode de formation (présentiel ou distanciel).");
-        valid = false;
-      }
-    }
+// 🔹 Étape 2 : BTS + mode obligatoires
+if (stepIndex === 1) {
+  const bts = document.querySelector('select[name="bts"]');
+  const mode = document.querySelector('input[name="mode"]:checked');
+  if (!bts?.value) {
+    alert("⚠️ Merci de choisir une formation BTS avant de continuer.");
+    valid = false;
+  }
+  if (!mode) {
+    alert("⚠️ Merci de choisir un mode de formation (présentiel ou distanciel).");
+    valid = false;
+  }
 
-    // 🔹 Étape 3 : bac + permis
-    if (stepIndex === 2) {
-      const bacType = document.querySelector('select[name="bac_type"]');
-      const bacAutre = document.querySelector('input[name="bac_autre"]');
-      if (bacType && bacType.value === "Autre" && !bacAutre.value.trim()) {
-        alert("⚠️ Merci de préciser votre type de bac.");
-        bacAutre.focus();
-        valid = false;
-      }
-      const permis = document.querySelector('select[name="permis_b"]');
-      if (!permis?.value) {
-        alert("⚠️ Merci d’indiquer si vous possédez le permis B.");
-        valid = false;
-      }
-    }
+  // ✅ Étape 2 : une case “niveau de bac” doit être cochée
+  const bacStatusChecked = document.querySelector('input[name="bac_status"]:checked');
+  if (!bacStatusChecked) {
+    alert("⚠️ Merci d’indiquer si vous êtes titulaire ou en préparation d’un Bac Pro ou autre diplôme.");
+    valid = false;
+  }
+}
+ 
+
+// 🔹 Étape 3 : bac + permis
+if (stepIndex === 2) {
+  const bacType = document.querySelector('select[name="bac_type"]');
+  const bacAutre = document.querySelector('input[name="bac_autre"]');
+  if (bacType && bacType.value === "Autre" && !bacAutre.value.trim()) {
+    alert("⚠️ Merci de préciser votre type de bac.");
+    bacAutre.focus();
+    valid = false;
+  }
+  const permis = document.querySelector('select[name="permis_b"]');
+  if (!permis?.value) {
+    alert("⚠️ Merci d’indiquer si vous possédez le permis B.");
+    valid = false;
+  }
+
+  // ✅ Étape 3 : type de bac obligatoire
+  const bacTypeSelect = document.querySelector('select[name="bac_type"]');
+  if (!bacTypeSelect?.value) {
+    alert("⚠️ Merci de sélectionner le type de Bac obtenu.");
+    valid = false;
+  }
+}
+
+
 
     // 🔹 Étape 4 : projet motivé complet
     if (stepIndex === 3) {
@@ -447,4 +464,5 @@ if (apsCheckbox && apsBloc) {
     apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
   });
 }
+
 
