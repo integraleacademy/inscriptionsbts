@@ -71,6 +71,7 @@ document.addEventListener("DOMContentLoaded", () => {
     updateProgressBar(index);
     refreshLocks();
     injectSupportInto(tabs[index]);
+    injectFooter(tabs[index]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -403,6 +404,18 @@ if (stepIndex === 2) {
     }
   }
 
+    // === Mention bas de page ===
+  function injectFooter(tab) {
+    if (!tab.querySelector('.footer-signature')) {
+      const footer = document.createElement('div');
+      footer.className = 'footer-signature';
+      footer.innerHTML = `
+        <p>❤️ Site internet créé et développé par <strong>Intégrale&nbsp;Group</strong></p>
+      `;
+      tab.appendChild(footer);
+    }
+  }
+
   // === Étape 3 : afficher / rendre obligatoire le champ "Autre bac" ===
   const bacTypeSelectEl = document.querySelector('select[name="bac_type"]');
   const blocBacAutreEl  = document.getElementById('bloc-bac-autre');
@@ -511,6 +524,7 @@ if (apsCheckbox && apsBloc) {
     apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
   });
 }
+
 
 
 
