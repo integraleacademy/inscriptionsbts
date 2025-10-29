@@ -6,6 +6,8 @@ from utils import send_mail, send_sms_brevo, dossier_number, new_token, sign_tok
 from dotenv import load_dotenv
 from parcoursup import bp_parcoursup
 from sms_templates import sms_text
+from mail_templates import mail_html
+
 
 
 load_dotenv()
@@ -351,68 +353,68 @@ def save_files(field_key: str, cand_id: str):
 # =====================================================
 @app.route("/save_draft", methods=["POST"])
 def save_draft():
-    import json, uuid, os
-    from datetime import datetime
-    from utils import send_mail
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"success": False, "error": "Aucune donnée reçue"}), 400
 
-    DATA_DIR = os.getenv("DATA_DIR", "/data")
-    DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
-    os.makedirs(DATA_DIR, exist_ok=True)
+        # 🔹 Récupération des infos principales
+        email = data.get("email", "").strip()
+        prenom = data.get("prenom", "").strip()
+        bts_label = data.get("bts", "BTS")
+        mode = data.get("mode", "")
+        numero = dossier_number()
+        token = new_token()
 
-    # Charger les brouillons existants (et créer le fichier s’il n’existe pas)
-    if not os.path.exists(DRAFT_PATH):
-        with open(DRAFT_PATH, "w", encoding="utf-8") as f:
-            json.dump([], f)
+        # 🔹 Génération du lien de reprise
+        resume_link = f"{request.url_root.rstrip('/')}/reprendre/{token}"
 
-    with open(DRAFT_PATH, "r", encoding="utf-8") as f:
-        try:
-            drafts = json.load(f)
-        except:
-            drafts = []
+        # 🔹 Enregistrement du brouillon local (fichier ou base JSON)
+        draft_data = {
+            "id": token,
+            "email": email,
+            "prenom": prenom,
+            "bts": bts_label,
+            "mode": mode,
+            "numero_dossier": numero,
+            "timestamp": datetime.now().isoformat()
+        }
 
-    email = request.form.get("email")
-    if not email:
-        return jsonify({"ok": False, "error": "email manquant"})
+        DATA_FILE = os.path.join(DATA_DIR, "drafts.json")
+        all_drafts = []
+        if os.path.exists(DATA_FILE):
+            try:
+                with open(DATA_FILE, "r", encoding="utf-8") as f:
+                    all_drafts = json.load(f)
+            except Exception:
+                all_drafts = []
+        all_drafts.append(draft_data)
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(all_drafts, f, indent=2, ensure_ascii=False)
 
-    token = str(uuid.uuid4())
-    data = dict(request.form)
-    data.pop("csrf_token", None)
+        # 💌 Envoi du mail de reprise
+        html = mail_html(
+            "reprendre_plus_tard",
+            prenom=prenom,
+            bts_label=bts_label,
+            lien_espace=resume_link
+        )
+        send_mail(email, "Reprenez votre pré-inscription – Intégrale Academy", html)
 
-    new_draft = {
-        "token": token,
-        "email": email,
-        "data": data,
-        "step": request.form.get("current_step", 0),
-        "created_at": datetime.now().isoformat()
-    }
+        print(f"🟢 Brouillon enregistré pour {prenom} ({email}) — lien : {resume_link}")
+        return jsonify({"success": True, "link": resume_link})
 
-    # Remplacer l’ancien brouillon s’il existe pour cet e-mail
-    drafts = [d for d in drafts if d["email"] != email]
-    drafts.append(new_draft)
-
-    with open(DRAFT_PATH, "w", encoding="utf-8") as f:
-        json.dump(drafts, f, indent=2, ensure_ascii=False)
-
-    # ✉️ Envoi du mail avec le lien de reprise
-    resume_link = f"{request.url_root}reprendre/{token}"
-    html = render_template(
-        "mail_reprendre.html",
-        prenom=request.form.get("prenom", ""),
-        resume_link=resume_link
-    )
-    send_mail(email, "Reprendre votre pré-inscription", html)
-
-    return jsonify({"ok": True})
+    except Exception as e:
+        print(f"❌ Erreur /save_draft : {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
-    # =====================================================
+
+# =====================================================
 # 🔁 ROUTE DE REPRISE DU FORMULAIRE
 # =====================================================
 @app.route("/reprendre/<token>")
 def reprendre_formulaire(token):
-    import json, os
-    from flask import abort
-
     DATA_DIR = os.getenv("DATA_DIR", "/data")
     DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
 
@@ -425,15 +427,23 @@ def reprendre_formulaire(token):
         except:
             drafts = []
 
-    draft = next((d for d in drafts if d["token"] == token), None)
+    # 🔍 On cherche le bon brouillon par son ID
+    draft = next((d for d in drafts if d["id"] == token), None)
     if not draft:
         abort(404)
 
-    data = draft["data"]
-    step = int(draft["step"])
+    # ✅ On utilise les données du brouillon existant
+    data = draft
+    step = 1  # tu peux changer si tu veux reprendre à une étape spécifique
 
-    # 🧩 On renvoie le formulaire principal avec les données sauvegardées
-    return render_template("index.html", saved_data=data, step=step, title="Reprendre votre demande")
+    # 🧩 On affiche le formulaire principal avec les données sauvegardées
+    return render_template(
+        "index.html",
+        saved_data=data,
+        step=step,
+        title="Reprendre votre pré-inscription"
+    )
+
 
 
 
@@ -655,14 +665,14 @@ def admin_update_status():
         # 📨 Mail de validation avec lien de confirmation
         token = row.get("token_confirm") or ""
         link = make_signed_link("/confirm-inscription", token)
-        html = render_template("mail_validation.html",
-                               prenom=row.get("prenom", ""),
-                               bts=row.get("bts", ""),
-                               link=link,
-                               numero=row.get("numero_dossier", ""))
-        send_mail(row.get("email", ""),
-                  "Votre candidature est validée – Confirmez votre inscription",
-                  html)
+       html = mail_html(
+    "candidature_validee",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+    lien_espace=link
+)
+send_mail(row.get("email", ""), "Votre candidature est validée – Confirmez votre inscription", html)
+
         log_event(row, "MAIL_ENVOYE", {"type": "validation_inscription"})
 
         # 📱 SMS candidature validée
@@ -682,10 +692,13 @@ def admin_update_status():
 
     elif value == "confirmee":
         # 📨 Mail d’inscription confirmée + bienvenue
-        html = render_template("mail_confirmee.html",
-                               prenom=row.get("prenom", ""),
-                               aps=bool(row.get("label_aps", 0)))
-        send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
+       html = mail_html(
+    "inscription_confirmee",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+)
+send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
+
 
         # 📱 SMS inscription confirmée
         tel = (row.get("tel", "") or "").replace(" ", "")
@@ -740,8 +753,14 @@ def admin_reconfirm(cid):
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
     row = dict(cur.fetchone())
     link = make_signed_link("/reconfirm", token)
-    html = render_template("mail_reconfirm.html", prenom=row.get("prenom",""), link=link)
-    send_mail(row.get("email",""), "Confirmez votre inscription – Rentrée septembre", html)
+   html = mail_html(
+    "reconfirmation_demandee",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+    lien_espace=link
+)
+send_mail(row.get("email", ""), "Confirmez votre inscription – Rentrée septembre", html)
+
     # 📱 SMS reconfirmation demandée
     tel = (row.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
@@ -1006,11 +1025,12 @@ def admin_send_certificat(id):
 
     # ✉️ Préparation du mail
     subject = f"Votre certificat de scolarité – {bts_nom_complet} 2026-2028"
-    html = render_template(
-    "mail_certificat.html",
+    html = mail_html(
+    "certificat",
     prenom=prenom.title(),
-    bts_nom_complet=bts_nom_complet
+    bts_label=bts_nom_complet
 )
+
 
 
     try:
@@ -1056,11 +1076,12 @@ def admin_send_certificat_presentiel(id):
 
     # ✉️ Préparation du mail
     subject = f"Votre certificat de scolarité – Présentiel ({bts_nom_complet} 2026-2028)"
-    html = render_template(
-    "mail_certificat_presentiel.html",
+    html = mail_html(
+    "certificat_presentiel",
     prenom=prenom.title(),
-    bts_nom_complet=bts_nom_complet
+    bts_label=bts_nom_complet
 )
+
 
 
     try:
@@ -1423,15 +1444,14 @@ def admin_files_notify():
 
     # ✉️ Envoi du mail au candidat
     link = make_signed_link("/replace-files", token)
-    html = render_template(
-        "mail_docs_non_conformes.html",
-        prenom=row.get("prenom", ""),
-        pieces=non_conformes,
-        commentaire=commentaire,
-        link=link
-    )
+html = mail_html(
+    "docs_non_conformes",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+    lien_espace=link
+)
+send_mail(row.get("email", ""), "Documents non conformes – Intégrale Academy", html)
 
-    send_mail(row.get("email", ""), "Documents non conformes – Intégrale Academy", html)
     # 📱 SMS documents non conformes
     tel = (row.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
@@ -1645,7 +1665,12 @@ def confirm_inscription():
     cur.execute("UPDATE candidats SET statut=?, updated_at=? WHERE id=?", ("confirmee", datetime.now().isoformat(), row["id"]))
     conn.commit()
 
-    html = render_template("mail_confirmee.html", prenom=row.get("prenom",""), aps=bool(row.get("label_aps",0)))
+    html = mail_html(
+    "inscription_confirmee",
+    prenom=row.get("prenom",""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+)
+
     send_mail(row.get("email",""), "Inscription confirmée – Intégrale Academy", html)
     merci_html = render_template("mail_bienvenue.html", prenom=row.get("prenom",""), bts=row.get("bts",""))
     send_mail(row.get("email",""), "Bienvenue à Intégrale Academy 🎓", merci_html)
