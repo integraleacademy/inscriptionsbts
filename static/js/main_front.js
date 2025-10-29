@@ -73,12 +73,13 @@ document.addEventListener("DOMContentLoaded", () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // === Validation des champs ===
+  // === Validation des champs (renforcée) ===
   function validateStep(stepIndex) {
     const currentTab = tabs[stepIndex];
     const inputs = currentTab.querySelectorAll('input, select, textarea');
     let valid = true;
 
+    // Vérifie tous les champs visibles
     for (let input of inputs) {
       const style = window.getComputedStyle(input);
       const visible = style.display !== 'none' && style.visibility !== 'hidden';
@@ -92,10 +93,53 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 🔎 Vérifie aussi le NIR sur la 1ʳᵉ étape
+    // 🔹 Étape 1 : vérif NIR
     if (stepIndex === 0 && typeof verifierNumSecu === "function") {
-      const nirOK = verifierNumSecu();
-      if (!nirOK) valid = false;
+      if (!verifierNumSecu()) valid = false;
+    }
+
+    // 🔹 Étape 2 : BTS + mode obligatoires
+    if (stepIndex === 1) {
+      const bts = document.querySelector('select[name="bts"]');
+      const mode = document.querySelector('input[name="mode"]:checked');
+      if (!bts?.value) {
+        alert("⚠️ Merci de choisir une formation BTS avant de continuer.");
+        valid = false;
+      }
+      if (!mode) {
+        alert("⚠️ Merci de choisir un mode de formation (présentiel ou distanciel).");
+        valid = false;
+      }
+    }
+
+    // 🔹 Étape 3 : bac + permis
+    if (stepIndex === 2) {
+      const bacType = document.querySelector('select[name="bac_type"]');
+      const bacAutre = document.querySelector('input[name="bac_autre"]');
+      if (bacType && bacType.value === "Autre" && !bacAutre.value.trim()) {
+        alert("⚠️ Merci de préciser votre type de bac.");
+        bacAutre.focus();
+        valid = false;
+      }
+      const permis = document.querySelector('select[name="permis_b"]');
+      if (!permis?.value) {
+        alert("⚠️ Merci d’indiquer si vous possédez le permis B.");
+        valid = false;
+      }
+    }
+
+    // 🔹 Étape 4 : projet motivé complet
+    if (stepIndex === 3) {
+      const champs = ['projet_pourquoi', 'projet_objectif', 'projet_passions'];
+      for (let nom of champs) {
+        const field = document.querySelector(`textarea[name="${nom}"]`);
+        if (!field?.value.trim()) {
+          alert("⚠️ Merci de compléter toutes les réponses du projet motivé.");
+          field.focus();
+          valid = false;
+          break;
+        }
+      }
     }
 
     return valid;
@@ -403,3 +447,4 @@ if (apsCheckbox && apsBloc) {
     apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
   });
 }
+
