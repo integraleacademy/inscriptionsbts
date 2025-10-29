@@ -388,21 +388,23 @@ if (stepIndex === 2) {
   window.showStep = showStep;
   window.getCurrentStep = () => currentStep;
 
-  // === Assistance globale (affichée en bas de chaque étape) ===
+  // === Assistance globale (améliorée et centrée) ===
   function injectSupportInto(tab) {
     if (!tab.querySelector('.support-box')) {
       const box = document.createElement('div');
       box.className = 'support-box';
       box.innerHTML = `
-        <p>
-          🛟 <strong>Besoin d’aide ?</strong><br>
-          👉 <a href="https://assistance-alw9.onrender.com/" target="_blank" rel="noopener">Centre d’assistance</a><br>
-          📞 <a href="tel:+33422470768">04&nbsp;22&nbsp;47&nbsp;07&nbsp;68</a>
-        </p>
+        <div class="support-content">
+          <h4>🧩 Besoin d’aide ?</h4>
+          <p>Notre équipe est disponible pour vous accompagner :</p>
+          <a href="https://assistance-alw9.onrender.com/" target="_blank" rel="noopener" class="support-btn">Cliquez ici</a>
+          <p class="support-phone">📞 04&nbsp;22&nbsp;47&nbsp;07&nbsp;68</p>
+        </div>
       `;
       tab.appendChild(box);
     }
   }
+
 
     // === Mention bas de page ===
   function injectFooter(tab) {
@@ -524,6 +526,26 @@ if (apsCheckbox && apsBloc) {
     apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
   });
 }
+
+// === Gestion du choix "Non, je ne souhaite pas suivre cette formation APS" ===
+const apsRadios = document.querySelectorAll('input[name="aps_souhaitee"]');
+const raisonBloc = document.getElementById('raison-non-aps');
+const raisonInput = document.querySelector('textarea[name="raison_aps"]');
+
+apsRadios.forEach(r => {
+  r.addEventListener('change', () => {
+    if (r.value === "non") {
+      raisonBloc.style.display = "block";
+      raisonInput.required = true;
+    } else {
+      raisonBloc.style.display = "none";
+      raisonInput.required = false;
+      raisonInput.value = "";
+    }
+  });
+});
+
+
 
 
 
