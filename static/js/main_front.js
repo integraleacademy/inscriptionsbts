@@ -146,13 +146,19 @@ if (stepIndex === 1) {
 
 // 🔹 Étape 3 : bac + permis
 if (stepIndex === 2) {
-  const bacType = document.querySelector('select[name="bac_type"]');
-  const bacAutre = document.querySelector('input[name="bac_autre"]');
-  if (bacType && bacType.value === "Autre" && !bacAutre.value.trim()) {
+const bacType = document.querySelector('select[name="bac_type"]');
+const bacAutre = document.querySelector('input[name="bac_autre"]');
+
+if (bacType && bacType.value === "Autre") {
+  const visible = bacAutre && window.getComputedStyle(bacAutre).display !== "none";
+  if (visible && (!bacAutre.value || !bacAutre.value.trim())) {
     alert("⚠️ Merci de préciser votre type de bac.");
+    bacAutre.scrollIntoView({ behavior: "smooth", block: "center" });
     bacAutre.focus();
     valid = false;
   }
+}
+
   const permis = document.querySelector('select[name="permis_b"]');
   if (!permis?.value) {
     alert("⚠️ Merci d’indiquer si vous possédez le permis B.");
@@ -445,6 +451,15 @@ if (stepIndex === 2) {
     bacTypeSelectEl.addEventListener('change', toggleBacAutre);
     toggleBacAutre();
   }
+  // Efface automatiquement le champ "Autre" quand on change de type de bac
+if (bacTypeSelectEl) {
+  bacTypeSelectEl.addEventListener('change', () => {
+    if (bacTypeSelectEl.value !== "Autre") {
+      bacAutreInput.value = "";
+    }
+  });
+}
+
 
   refreshLocks();
   showStep(0);
@@ -552,6 +567,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
