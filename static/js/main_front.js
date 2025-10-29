@@ -121,12 +121,23 @@ if (stepIndex === 1) {
     valid = false;
   }
 
-  // ✅ Si APS cochée → session obligatoire
-  const apsCheckbox = document.querySelector('input[name="aps_souhaitee"]');
-  if (apsCheckbox && apsCheckbox.checked) {
+  // ✅ Si APS = "oui", une session doit être choisie
+  const apsOui = document.querySelector('input[name="aps_souhaitee"][value="oui"]:checked');
+  if (apsOui) {
     const apsSelected = document.querySelector('input[name="aps_session"]:checked');
     if (!apsSelected) {
       alert("⚠️ Merci de sélectionner une session APS avant de continuer.");
+      valid = false;
+    }
+  }
+
+  // ✅ Si APS = "non", la raison devient obligatoire
+  const apsNon = document.querySelector('input[name="aps_souhaitee"][value="non"]:checked');
+  if (apsNon) {
+    const raison = document.querySelector('textarea[name="raison_aps"]');
+    if (!raison || !raison.value.trim()) {
+      alert("⚠️ Merci de préciser la raison pour laquelle vous ne souhaitez pas suivre la formation APS.");
+      raison.focus();
       valid = false;
     }
   }
@@ -520,31 +531,27 @@ bacRadios.forEach(r => {
   });
 });
 
-// --- Bloc APS : apparition si case cochée ---
-if (apsCheckbox && apsBloc) {
-  apsCheckbox.addEventListener('change', () => {
-    apsBloc.style.display = apsCheckbox.checked ? 'block' : 'none';
-  });
-}
-
-// === Gestion du choix "Non, je ne souhaite pas suivre cette formation APS" ===
+// === Bloc APS : apparition selon le choix Oui / Non ===
 const apsRadios = document.querySelectorAll('input[name="aps_souhaitee"]');
+const apsSessionBloc = document.getElementById('bloc-aps-session');
 const raisonBloc = document.getElementById('raison-non-aps');
 const raisonInput = document.querySelector('textarea[name="raison_aps"]');
 
-apsRadios.forEach(r => {
-  r.addEventListener('change', () => {
-    if (r.value === "non") {
-      raisonBloc.style.display = "block";
-      raisonInput.required = true;
-    } else {
+apsRadios.forEach(radio => {
+  radio.addEventListener('change', () => {
+    if (radio.value === "oui") {
+      apsSessionBloc.style.display = "block";
       raisonBloc.style.display = "none";
       raisonInput.required = false;
-      raisonInput.value = "";
+      apsSessionBloc.querySelectorAll('input[name="aps_session"]').forEach(r => r.required = true);
+    } else if (radio.value === "non") {
+      apsSessionBloc.style.display = "none";
+      apsSessionBloc.querySelectorAll('input[name="aps_session"]').forEach(r => r.checked = false);
+      raisonBloc.style.display = "block";
+      raisonInput.required = true;
     }
   });
 });
-
 
 
 
