@@ -5,6 +5,7 @@ from werkzeug.utils import secure_filename
 from utils import send_mail, send_sms_brevo, dossier_number, new_token, sign_token, make_signed_link
 from dotenv import load_dotenv
 from parcoursup import bp_parcoursup
+from sms_templates import sms_text
 
 
 load_dotenv()
@@ -539,7 +540,14 @@ def submit():
     tel = (form.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
-    msg = f"Bonjour {form.get('prenom','')}, votre pré-inscription a bien été reçue ✅.\nSuivez votre dossier ici : {lien_espace}"
+    bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
+    msg = sms_text(
+    "accuse_reception",
+    prenom=form.get("prenom", ""),
+    bts_label=bts_label,
+    lien_espace=lien_espace
+)
+
     send_sms_brevo(tel, msg)
     log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
 
@@ -661,7 +669,12 @@ def admin_update_status():
         tel = (row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
-        msg = f"Bonjour {row.get('prenom','')}, votre candidature est validée ✅.\nMerci de confirmer votre inscription via le mail reçu."
+        msg = sms_text(
+    "candidature_validee",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+)
+
         send_sms_brevo(tel, msg)
         log_event(row, "SMS_ENVOYE", {"type": "candidature_validee", "tel": tel})
 
@@ -678,7 +691,12 @@ def admin_update_status():
         tel = (row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
-        msg = f"Bonjour {row.get('prenom','')}, votre inscription à Intégrale Academy est confirmée 🎓. Bienvenue !"
+        msg = sms_text(
+    "inscription_confirmee",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+)
+
         send_sms_brevo(tel, msg)
         log_event(row, "SMS_ENVOYE", {"type": "inscription_confirmee", "tel": tel})
 
@@ -728,7 +746,11 @@ def admin_reconfirm(cid):
     tel = (row.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
-    msg = f"Bonjour {row.get('prenom','')}, merci de reconfirmer votre inscription pour la rentrée 📅.\nConsultez le mail que vous venez de recevoir."
+    msg = sms_text(
+    "reconfirmation_demandee",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+)
     send_sms_brevo(tel, msg)
     log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_demandee", "tel": tel})
 
@@ -1414,7 +1436,11 @@ def admin_files_notify():
     tel = (row.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
-    msg = f"Bonjour {row.get('prenom','')}, certains documents doivent être renvoyés ⚠️.\nConsultez le mail envoyé pour les détails."
+    msg = sms_text(
+    "docs_non_conformes",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+)
     send_sms_brevo(tel, msg)
     log_event(row, "SMS_ENVOYE", {"type": "docs_non_conformes", "tel": tel})
 
@@ -1645,7 +1671,12 @@ def reconfirm():
     tel = (row.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
-    msg = f"Bonjour {row.get('prenom','')}, votre reconfirmation d’inscription est validée ✅.\nÀ très bientôt pour la rentrée !"
+    msg = sms_text(
+    "reconfirmation_validee",
+    prenom=row.get("prenom", ""),
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+)
+
     send_sms_brevo(tel, msg)
     log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_validee", "tel": tel})
 
