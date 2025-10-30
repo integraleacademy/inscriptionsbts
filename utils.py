@@ -6,6 +6,7 @@ from email.mime.application import MIMEApplication
 from email.utils import formataddr
 import requests
 import sib_api_v3_sdk
+import base64
 from sib_api_v3_sdk.rest import ApiException
 
 # =====================================================
@@ -45,13 +46,13 @@ def send_mail(to, subject, html, attachments=None):
         "tags": ["parcoursup"],
     }
 
-    # 📎 Gestion des pièces jointes
+    # 📎 Gestion des pièces jointes (version Python 3 corrigée)
     if attachments:
         files = []
         for path in attachments:
             try:
                 with open(path, "rb") as f:
-                    b64 = f.read().encode("base64")
+                    b64 = base64.b64encode(f.read()).decode()
                     files.append({
                         "content": b64,
                         "name": os.path.basename(path)
@@ -60,6 +61,7 @@ def send_mail(to, subject, html, attachments=None):
                 print(f"⚠️ Erreur ajout pièce jointe {path}: {e}")
         if files:
             data["attachment"] = files
+
 
     try:
         r = requests.post(url, headers=headers, json=data, timeout=15)
