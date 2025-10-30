@@ -8,6 +8,146 @@ from parcoursup import bp_parcoursup
 from sms_templates import sms_text
 from mail_templates import mail_html
 
+# ============================
+# 🔒 STARTUP INTEGRITY CHECK – STRICT (Parcoursup inclus)
+# ============================
+import os, re, sys, json, glob
+
+def _read(p):
+    try:
+        with open(p, encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return None
+
+def run_startup_integrity_checks():
+    print("\n================= 🔎 INTÉGRITÉ PROJET – DÉMARRAGE STRICT =================")
+    if os.getenv("INTEGRITY_CHECK", "1") == "0":
+        print("⚠️  INTEGRITY_CHECK=0 → contrôle désactivé (non recommandé en prod).")
+        return
+
+    # --- 1) FICHIERS CRITIQUES À PRÉSENCE OBLIGATOIRE ---
+    DATA_DIR = os.getenv("DATA_DIR", "/data")
+    required_files = [
+        # Python
+        "app.py",
+        "parcoursup.py",
+        "mail_templates.py",
+        "sms_templates.py",
+        # Templates & statiques
+        "templates/index.html",
+        "templates/admin.html",
+        "templates/parcoursup.html",
+        "templates/email_base.html",
+        "static/js/main_front.js",
+        "static/js/main_admin.js",
+        "static/css/styles.css",
+        "static/logo-integrale.png",
+    ]
+    missing = [p for p in required_files if not os.path.exists(p)]
+    if not os.path.exists(DATA_DIR):
+        missing.append(DATA_DIR + "/ (répertoire)")
+    if missing:
+        print("❌ Fichiers/répertoires manquants :")
+        for m in missing: print("   •", m)
+        sys.exit(1)
+    print("✅ Fichiers critiques présents.")
+
+    # --- 2) ENV REQUISES ---
+    env_required = {
+        "BREVO_API_KEY": os.getenv("BREVO_API_KEY"),
+        "SENDER_EMAIL": os.getenv("SENDER_EMAIL", "ecole@integraleacademy.com"),
+        "BASE_URL": os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com"),
+    }
+    if not env_required["BREVO_API_KEY"]:
+        print("❌ BREVO_API_KEY manquant (requis pour mails/SMS).")
+        sys.exit(1)
+    print(f"✅ Env OK (SENDER_EMAIL={env_required['SENDER_EMAIL']}, BASE_URL={env_required['BASE_URL']})")
+
+    # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
+    py_sources = {}
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py"]:
+        py_sources[p] = _read(p)
+
+    route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.route\(\s*['"]([^'"]+)['"]""")
+    defined_routes = set()
+    for name, src in py_sources.items():
+        if not src: continue
+        for r in route_regex.findall(src):
+            # Normalise: on retire la partie paramétrée (ex: /admin/delete/<id> -> /admin/delete/)
+            r_norm = re.sub(r"<[^>]+>", "", r)
+            if not r_norm.endswith("/") and "/" in r and "<" in r:
+                r_norm += "/"  # facilite les comparaisons par préfixe
+            defined_routes.add(r_norm)
+
+    # --- 4) ROUTES PARCOURSUP INDISPENSABLES ---
+    required_parcoursup = [
+        "/parcoursup",
+        "/parcoursup/import",
+        "/parcoursup/check",
+        "/parcoursup/delete/",      # avec <cid>
+        "/parcoursup/check-sms",
+        "/parcoursup/logs/",        # avec <cid>
+        "/brevo-sms-webhook",
+        "/brevo-mail-webhook",
+    ]
+    missing_routes = []
+    for need in required_parcoursup:
+        ok = any(
+            need == r or need.startswith(r) or r.startswith(need)
+            for r in defined_routes
+        )
+        if not ok: missing_routes.append(need)
+    if missing_routes:
+        print("❌ Routes Parcoursup manquantes côté Flask :")
+        for r in missing_routes: print("   •", r)
+        sys.exit(1)
+    print("✅ Routes Parcoursup détectées.")
+
+    # --- 5) FETCH() DANS JS DOIVENT EXISTER EN ROUTES PYTHON ---
+    js_fetch_targets = set()
+    fetch_regex = re.compile(r"""fetch\(\s*['"](/[^'"]+)['"]""")
+    for js_path in ["static/js/main_front.js", "static/js/main_admin.js"]:
+        js = _read(js_path) or ""
+        for u in fetch_regex.findall(js):
+            # on ignore les querystrings et paramètres dynamiques
+            u_clean = u.split("?")[0]
+            js_fetch_targets.add(u_clean)
+
+    # Construire une version "prefix-friendly" des routes
+    def _matches_defined(u):
+        # exemple: /admin/delete/123 doit matcher /admin/delete/
+        for r in defined_routes:
+            if u == r:
+                return True
+            # si la route définie est paramétrée, on a ajouté un trailing "/" plus haut
+            if r.endswith("/") and u.startswith(r):
+                return True
+        return False
+
+    bad = [u for u in js_fetch_targets if not _matches_defined(u)]
+    if bad:
+        print("❌ Des endpoints sont appelés en JS mais non définis en Python :")
+        for b in sorted(bad): print("   •", b)
+        sys.exit(1)
+    print(f"✅ {len(js_fetch_targets)} endpoints JS → tous présents côté Flask.")
+
+    # --- 6) TEMPLATE MAIL DE BASE DOIT AVOIR LES PLACEHOLDERS ---
+    base_mail = _read("templates/email_base.html") or ""
+    if ("{{ email_title }}" not in base_mail) or ("{{ email_content }}" not in base_mail):
+        print("❌ templates/email_base.html doit contenir {{ email_title }} et {{ email_content }}.")
+        sys.exit(1)
+    if "logo_url" not in base_mail:
+        print("⚠️  (recommandé) Utiliser {{ logo_url }} dans email_base.html pour l’image.")
+    print("✅ email_base.html OK.")
+
+    print("🎉 INTÉGRITÉ OK – Démarrage de l’application.\n")
+
+# 👉 Appelle le contrôle immédiatement au démarrage :
+run_startup_integrity_checks()
+# ============================ FIN AUTO-CHECK ============================
+
+
 
 
 load_dotenv()
@@ -1962,101 +2102,6 @@ def admin_reconfirm(cid):
     log_event(row, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
 
     return jsonify({"ok": True})
-
-# =====================================================
-# 🔎 AUTO-CHECK INTÉGRITÉ – Intégrale Academy (version complète)
-# =====================================================
-import re, importlib.util, os, sys, json
-
-def run_integrity_check():
-    print("\n" + "="*70)
-    print("🔍 VÉRIFICATION INTÉGRITÉ DU PROJET INTÉGRALE ACADEMY")
-    print("="*70)
-
-    # === 1️⃣ Lecture du code principal (app.py) ===
-    try:
-        with open("app.py", encoding="utf-8") as f:
-            app_code = f.read()
-    except Exception as e:
-        print(f"❌ Erreur lecture app.py : {e}")
-        sys.exit(1)
-
-    # === 2️⃣ Détection des routes Flask ===
-    routes = sorted(set(re.findall(r'@app\.route\(["\']([^"\']+)["\']', app_code)))
-    print(f"\n📜 Routes Flask détectées ({len(routes)}):")
-    for r in routes:
-        print(f"   • {r}")
-
-    # === 3️⃣ Détection des modèles mail_html() et sms_text() appelés ===
-    mail_calls = sorted(set(re.findall(r'mail_html\(["\']([^"\']+)["\']', app_code)))
-    sms_calls = sorted(set(re.findall(r'sms_text\(["\']([^"\']+)["\']', app_code)))
-
-    print(f"\n✉️  Modèles e-mail utilisés ({len(mail_calls)}): {mail_calls}")
-    print(f"📱  Modèles SMS utilisés ({len(sms_calls)}): {sms_calls}")
-
-    # === 4️⃣ Lecture des templates définis dans mail_templates.py ===
-    try:
-        with open("mail_templates.py", encoding="utf-8") as f:
-            mail_code = f.read()
-        mail_defined = sorted(set(re.findall(r'["\']([a-zA-Z0-9_]+)["\']\s*:', mail_code)))
-    except Exception as e:
-        print(f"❌ Erreur lecture mail_templates.py : {e}")
-        sys.exit(1)
-
-    # === 5️⃣ Lecture des templates définis dans sms_templates.py ===
-    try:
-        with open("sms_templates.py", encoding="utf-8") as f:
-            sms_code = f.read()
-        sms_defined = sorted(set(re.findall(r'["\']([a-zA-Z0-9_]+)["\']\s*:', sms_code)))
-    except Exception as e:
-        print(f"❌ Erreur lecture sms_templates.py : {e}")
-        sys.exit(1)
-
-    print(f"\n📂 Modèles e-mail disponibles ({len(mail_defined)}): {mail_defined}")
-    print(f"📂 Modèles SMS disponibles ({len(sms_defined)}): {sms_defined}")
-
-    # === 6️⃣ Lecture des routes appelées dans les fichiers JS ===
-    js_routes = set()
-    for js_file in ["static/js/main_admin.js", "static/js/main_front.js"]:
-        if os.path.exists(js_file):
-            try:
-                code = open(js_file, encoding="utf-8").read()
-                found = re.findall(r'fetch\(["\'](/[^"\']+)["\']', code)
-                js_routes.update(found)
-            except Exception as e:
-                print(f"⚠️ Erreur lecture {js_file}: {e}")
-
-    print(f"\n🧩 Routes JS appelées ({len(js_routes)}):")
-    for r in sorted(js_routes):
-        print(f"   • {r}")
-
-    # === 7️⃣ Vérification des incohérences ===
-    missing_mail = [tpl for tpl in mail_calls if tpl not in mail_defined]
-    missing_sms = [tpl for tpl in sms_calls if tpl not in sms_defined]
-    missing_routes = [r for r in js_routes if not any(r.startswith(rt.split("<")[0]) for rt in routes)]
-
-    print("\n" + "-"*70)
-    if not missing_mail and not missing_sms and not missing_routes:
-        print("✅ Aucune incohérence détectée — le projet est complet et fonctionnel.")
-        print("-"*70)
-    else:
-        print("🚨 PROBLÈMES DÉTECTÉS :")
-        if missing_mail:
-            print(f"   ❌ Modèles e-mail manquants : {missing_mail}")
-        if missing_sms:
-            print(f"   ❌ Modèles SMS manquants : {missing_sms}")
-        if missing_routes:
-            print(f"   ❌ Routes JS sans équivalent Flask : {missing_routes}")
-        print("-"*70)
-        print("💣 Lancement bloqué en mode strict — corrigez avant redéploiement.")
-        sys.exit(1)
-
-    print("="*70 + "\n")
-
-# Lancer la vérification au démarrage
-run_integrity_check()
-
-
 
 
 
