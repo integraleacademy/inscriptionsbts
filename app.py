@@ -549,14 +549,18 @@ def submit():
         cur.execute("UPDATE candidats SET slug_public=? WHERE id=?", (slug, cand_id))
         conn.commit()
 
-    lien_espace = url_for("espace_candidat", slug=slug, _external=True)
-    html = render_template(
-        "mail_accuse.html",
-        prenom=form.get("prenom", ""),
-        numero=numero,
-        lien_espace=lien_espace
-    )
-    send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription", html)
+lien_espace = url_for("espace_candidat", slug=slug, _external=True)
+
+# ✉️ Mail d’accusé de réception (design doré avec logo)
+html = mail_html(
+    "accuse_reception",
+    prenom=form.get("prenom", ""),
+    bts_label=BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts")),
+    lien_espace=lien_espace
+)
+send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
+
+
 
     # 📱 SMS accusé de réception
     tel = (form.get("tel", "") or "").replace(" ", "")
