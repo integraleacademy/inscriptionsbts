@@ -6,7 +6,8 @@
     body {
       background: #f6f6f6;
       font-family: "Segoe UI", Arial, sans-serif;
-      margin: 0; padding: 40px 0;
+      margin: 0;
+      padding: 40px 0;
       color: #222;
     }
     .email-container {
@@ -20,7 +21,7 @@
     }
     .header {
       text-align: center;
-      padding: 25px;
+      padding: 25px 25px 15px 25px;
     }
     .header img {
       max-height: 70px;
@@ -30,6 +31,7 @@
       padding: 25px 35px;
       line-height: 1.6;
       font-size: 15px;
+      color: #333;
     }
     .btn {
       display: inline-block;
@@ -53,7 +55,8 @@
 <body>
   <div class="email-container">
     <div class="header">
-      <img src="https://integraleacademy.com/static/logo-integrale.png" alt="Intégrale Academy">
+      <!-- ✅ Logo intégré en base64 -->
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..." alt="Intégrale Academy">
       <h2>{{ email_title }}</h2>
     </div>
     <div class="content">
