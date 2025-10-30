@@ -665,7 +665,17 @@ def admin_update_status():
 
     conn = db()
     cur = conn.cursor()
-    cur.execute("UPDATE candidats SET statut=?, updated_at=? WHERE id=?", (value, datetime.now().isoformat(), cid))
+
+    # 🕓 Enregistre la date correspondante selon le statut
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    if value == "validee":
+        cur.execute("UPDATE candidats SET statut=?, date_validee=?, updated_at=? WHERE id=?", (value, now_str, datetime.now().isoformat(), cid))
+    elif value == "confirmee":
+        cur.execute("UPDATE candidats SET statut=?, date_confirmee=?, updated_at=? WHERE id=?", (value, now_str, datetime.now().isoformat(), cid))
+    elif value == "reconfirmee":
+        cur.execute("UPDATE candidats SET statut=?, date_reconfirmee=?, updated_at=? WHERE id=?", (value, now_str, datetime.now().isoformat(), cid))
+    else:
+        cur.execute("UPDATE candidats SET statut=?, updated_at=? WHERE id=?", (value, datetime.now().isoformat(), cid))
     conn.commit()
 
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
@@ -683,7 +693,6 @@ def admin_update_status():
             cur.execute("UPDATE candidats SET token_confirm=?, token_confirm_exp=?, updated_at=? WHERE id=?",
                         (token, exp, datetime.now().isoformat(), cid))
             conn.commit()
-            # recharger la row pour refléter les changements
             cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
             row = dict(cur.fetchone())
 
@@ -712,12 +721,7 @@ def admin_update_status():
         send_sms_brevo(tel, msg)
         log_event(row, "SMS_ENVOYE", {"type": "candidature_validee", "tel": tel})
 
-
-
-
-
     elif value == "confirmee":
-        # ✉️ Mail "inscription confirmée"
         html = mail_html(
             "inscription_confirmee",
             prenom=row.get("prenom", ""),
@@ -726,7 +730,6 @@ def admin_update_status():
         send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
         log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
 
-        # 📱 SMS "inscription confirmée"
         tel = (row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
@@ -738,16 +741,13 @@ def admin_update_status():
         send_sms_brevo(tel, msg)
         log_event(row, "SMS_ENVOYE", {"type": "inscription_confirmee", "tel": tel})
 
-        # 👋 Mail de bienvenue
         merci_html = render_template("mail_bienvenue.html",
                                      prenom=row.get("prenom", ""),
                                      bts=row.get("bts", ""))
         send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
         log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
 
-
     elif value == "reconfirmee":
-        # 📨 Validation manuelle d’une reconfirmation
         merci_html = render_template("mail_bienvenue.html",
                                      prenom=row.get("prenom", ""),
                                      bts=row.get("bts", ""))
@@ -755,50 +755,12 @@ def admin_update_status():
         log_event(row, "MAIL_ENVOYE", {"type": "bienvenue_manuel"})
         log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
 
-    # =====================================================
     # 🪶 Log général du changement de statut
-    # =====================================================
     log_event(row, "STATUT_CHANGE", {"statut": value})
     conn.close()
 
     return jsonify({"ok": True})
 
-
-@app.route("/admin/reconfirm/<cid>", methods=["POST"])
-def admin_reconfirm(cid):
-    if not require_admin(): abort(403)
-    conn = db(); cur = conn.cursor()
-    token = new_token()
-    exp = (datetime.now() + timedelta(days=30)).isoformat()
-    cur.execute("UPDATE candidats SET token_reconfirm=?, token_reconfirm_exp=?, statut=?, updated_at=? WHERE id=?",
-                (token, exp, "reconf_en_cours", datetime.now().isoformat(), cid))
-    conn.commit()
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    row = dict(cur.fetchone())
-    link = make_signed_link("/reconfirm", token)
-    html = mail_html(
-        "reconfirmation_demandee",
-        prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
-        lien_espace=link
-    )
-    send_mail(row.get("email", ""), "Confirmez votre inscription – Rentrée septembre", html)
-
-    # 📱 SMS reconfirmation demandée
-    tel = (row.get("tel", "") or "").replace(" ", "")
-    if tel.startswith("0"):
-        tel = "+33" + tel[1:]
-    msg = sms_text(
-        "reconfirmation_demandee",
-        prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-    )
-    send_sms_brevo(tel, msg)
-    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_demandee", "tel": tel})
-
-    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation"})
-    log_event(row, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
-    return jsonify({"ok": True})
 
 
 @app.route("/admin/print/<cid>")
