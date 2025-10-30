@@ -25,29 +25,50 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    // 🔄 Changement de statut + mise à jour couleur
-    table.querySelectorAll('.status-select').forEach(sel => {
-      sel.addEventListener('change', async () => {
-        const tr = sel.closest('tr');
-        const id = tr.dataset.id;
-        const value = sel.value;
+// 🔄 Changement de statut + mise à jour couleur + enregistrement date
+table.querySelectorAll('.status-select').forEach(sel => {
+  sel.addEventListener('change', async () => {
+    const tr = sel.closest('tr');
+    const id = tr.dataset.id;
+    const value = sel.value;
 
-        // 🟢 Met à jour la couleur immédiatement
-        updateStatusColor(sel);
+    // 🟢 Couleur immédiate
+    updateStatusColor(sel);
 
-        // 💾 Sauvegarde côté serveur
-        await fetch('/admin/update-status', {
+    // 💾 Envoi du nouveau statut
+    const res = await fetch('/admin/update-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, value })
+    });
+
+    // ✅ Si changement validé, enregistre aussi la date correspondante
+    if (res.ok) {
+      let field = null;
+      if (value === "validee") field = "date_validee";
+      else if (value === "confirmee") field = "date_confirmee";
+      else if (value === "reconfirmee") field = "date_reconfirmee";
+
+      if (field) {
+        await fetch('/admin/update-field', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, value })
+          body: JSON.stringify({
+            id,
+            field,
+            value: new Date().toISOString()
+          })
         });
+        console.log(`🕓 Date enregistrée pour ${field}`);
+      }
+    }
 
-        // ✅ Message + effet visuel
-        showToast("📊 Statut mis à jour", "#007bff");
-        tr.classList.add("status-updated");
-        setTimeout(() => tr.classList.remove("status-updated"), 1500);
-      });
-    });
+    showToast("📊 Statut mis à jour", "#007bff");
+    tr.classList.add("status-updated");
+    setTimeout(() => tr.classList.remove("status-updated"), 1500);
+  });
+});
+
 
     // ✅ Cases à cocher (étiquettes)
     table.querySelectorAll('input.chk').forEach(chk => {
@@ -838,6 +859,7 @@ document.addEventListener("click", async (e) => {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
