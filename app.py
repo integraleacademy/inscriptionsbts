@@ -1963,6 +1963,98 @@ def admin_reconfirm(cid):
 
     return jsonify({"ok": True})
 
+# =====================================================
+# 🔎 AUTO-CHECK INTÉGRITÉ – Intégrale Academy (version complète)
+# =====================================================
+import re, importlib.util, os, sys, json
+
+def run_integrity_check():
+    print("\n" + "="*70)
+    print("🔍 VÉRIFICATION INTÉGRITÉ DU PROJET INTÉGRALE ACADEMY")
+    print("="*70)
+
+    # === 1️⃣ Lecture du code principal (app.py) ===
+    try:
+        with open("app.py", encoding="utf-8") as f:
+            app_code = f.read()
+    except Exception as e:
+        print(f"❌ Erreur lecture app.py : {e}")
+        sys.exit(1)
+
+    # === 2️⃣ Détection des routes Flask ===
+    routes = sorted(set(re.findall(r'@app\.route\(["\']([^"\']+)["\']', app_code)))
+    print(f"\n📜 Routes Flask détectées ({len(routes)}):")
+    for r in routes:
+        print(f"   • {r}")
+
+    # === 3️⃣ Détection des modèles mail_html() et sms_text() appelés ===
+    mail_calls = sorted(set(re.findall(r'mail_html\(["\']([^"\']+)["\']', app_code)))
+    sms_calls = sorted(set(re.findall(r'sms_text\(["\']([^"\']+)["\']', app_code)))
+
+    print(f"\n✉️  Modèles e-mail utilisés ({len(mail_calls)}): {mail_calls}")
+    print(f"📱  Modèles SMS utilisés ({len(sms_calls)}): {sms_calls}")
+
+    # === 4️⃣ Lecture des templates définis dans mail_templates.py ===
+    try:
+        with open("mail_templates.py", encoding="utf-8") as f:
+            mail_code = f.read()
+        mail_defined = sorted(set(re.findall(r'["\']([a-zA-Z0-9_]+)["\']\s*:', mail_code)))
+    except Exception as e:
+        print(f"❌ Erreur lecture mail_templates.py : {e}")
+        sys.exit(1)
+
+    # === 5️⃣ Lecture des templates définis dans sms_templates.py ===
+    try:
+        with open("sms_templates.py", encoding="utf-8") as f:
+            sms_code = f.read()
+        sms_defined = sorted(set(re.findall(r'["\']([a-zA-Z0-9_]+)["\']\s*:', sms_code)))
+    except Exception as e:
+        print(f"❌ Erreur lecture sms_templates.py : {e}")
+        sys.exit(1)
+
+    print(f"\n📂 Modèles e-mail disponibles ({len(mail_defined)}): {mail_defined}")
+    print(f"📂 Modèles SMS disponibles ({len(sms_defined)}): {sms_defined}")
+
+    # === 6️⃣ Lecture des routes appelées dans les fichiers JS ===
+    js_routes = set()
+    for js_file in ["static/js/main_admin.js", "static/js/main_front.js"]:
+        if os.path.exists(js_file):
+            try:
+                code = open(js_file, encoding="utf-8").read()
+                found = re.findall(r'fetch\(["\'](/[^"\']+)["\']', code)
+                js_routes.update(found)
+            except Exception as e:
+                print(f"⚠️ Erreur lecture {js_file}: {e}")
+
+    print(f"\n🧩 Routes JS appelées ({len(js_routes)}):")
+    for r in sorted(js_routes):
+        print(f"   • {r}")
+
+    # === 7️⃣ Vérification des incohérences ===
+    missing_mail = [tpl for tpl in mail_calls if tpl not in mail_defined]
+    missing_sms = [tpl for tpl in sms_calls if tpl not in sms_defined]
+    missing_routes = [r for r in js_routes if not any(r.startswith(rt.split("<")[0]) for rt in routes)]
+
+    print("\n" + "-"*70)
+    if not missing_mail and not missing_sms and not missing_routes:
+        print("✅ Aucune incohérence détectée — le projet est complet et fonctionnel.")
+        print("-"*70)
+    else:
+        print("🚨 PROBLÈMES DÉTECTÉS :")
+        if missing_mail:
+            print(f"   ❌ Modèles e-mail manquants : {missing_mail}")
+        if missing_sms:
+            print(f"   ❌ Modèles SMS manquants : {missing_sms}")
+        if missing_routes:
+            print(f"   ❌ Routes JS sans équivalent Flask : {missing_routes}")
+        print("-"*70)
+        print("💣 Lancement bloqué en mode strict — corrigez avant redéploiement.")
+        sys.exit(1)
+
+    print("="*70 + "\n")
+
+# Lancer la vérification au démarrage
+run_integrity_check()
 
 
 
