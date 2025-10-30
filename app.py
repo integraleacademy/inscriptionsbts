@@ -1899,6 +1899,71 @@ def admin_espace_candidat(cid):
     slug = row["slug_public"]
     return redirect(url_for("espace_candidat", slug=slug))
 
+# =====================================================
+# 🔁 RECONFIRMATION MANUELLE D'INSCRIPTION (depuis admin)
+# =====================================================
+@app.route("/admin/reconfirm/<cid>", methods=["POST"])
+def admin_reconfirm(cid):
+    if not require_admin():
+        abort(403)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
+
+    row = dict(row)
+
+    # 🔹 Génération du token de reconfirmation
+    token = new_token()
+    exp = (datetime.now() + timedelta(days=15)).isoformat()
+    cur.execute(
+        "UPDATE candidats SET token_reconfirm=?, token_reconfirm_exp=?, statut=?, updated_at=? WHERE id=?",
+        (token, exp, "reconf_en_cours", datetime.now().isoformat(), cid)
+    )
+    conn.commit()
+    conn.close()
+
+    # 🔗 Lien de reconfirmation (signé)
+    link = make_signed_link("/reconfirm", token)
+
+    # ✉️ Mail HTML (utilise ton template)
+    html = mail_html(
+        "reconfirmation",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+        lien_espace=link
+    )
+
+    # 🔹 Envoi du mail
+    send_mail(
+        row.get("email", ""),
+        "Reconfirmation de votre inscription – Intégrale Academy",
+        html
+    )
+
+    # 📱 SMS de notification (optionnel)
+    tel = (row.get("tel", "") or "").replace(" ", "")
+    if tel.startswith("0"):
+        tel = "+33" + tel[1:]
+    msg = sms_text(
+        "reconfirmation",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+    )
+    send_sms_brevo(tel, msg)
+
+    # 🧾 Log
+    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation"})
+    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation", "tel": tel})
+    log_event(row, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
+
+    return jsonify({"ok": True})
+
+
 
 
 
