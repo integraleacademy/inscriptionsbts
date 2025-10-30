@@ -57,23 +57,33 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // === Affichage d’une étape ===
-  function showStep(index) {
-    tabs.forEach((tab, i) => {
-      tab.style.display = (i === index) ? 'block' : 'none';
-      tab.classList.toggle('active', i === index);
-    });
-    tabButtons.forEach((btn, i) => {
-      btn.classList.toggle('active', i === index);
-      if (i < index) btn.classList.add('completed');
-      else btn.classList.remove('completed');
-    });
-    currentStep = index;
-    updateProgressBar(index);
-    refreshLocks();
-    injectSupportInto(tabs[index]);
-    injectFooter(tabs[index]);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+function showStep(index) {
+  if (!tabs.length) return; // ✅ empêche toute exécution si tabs n’existe pas
+
+  tabs.forEach((tab, i) => {
+    tab.style.display = (i === index) ? 'block' : 'none';
+    tab.classList.toggle('active', i === index);
+  });
+
+  tabButtons.forEach((btn, i) => {
+    btn.classList.toggle('active', i === index);
+    if (i < index) btn.classList.add('completed');
+    else btn.classList.remove('completed');
+  });
+
+  currentStep = index;
+  updateProgressBar(index);
+  refreshLocks();
+
+  // ✅ Sécurise les appels (aucune erreur si tab inexistant)
+  if (tabs[index]) {
+    if (typeof injectSupportInto === "function") injectSupportInto(tabs[index]);
+    if (typeof injectFooter === "function") injectFooter(tabs[index]);
   }
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 
   // === Validation des champs (renforcée) ===
   function validateStep(stepIndex) {
@@ -614,6 +624,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
