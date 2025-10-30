@@ -144,9 +144,13 @@ def run_startup_integrity_checks():
     print("🎉 INTÉGRITÉ OK – Démarrage de l’application.\n")
 
 # 👉 Appelle le contrôle immédiatement au démarrage :
+
+# 🩵 Signal de vie immédiat pour Render
+print("🚀 Lancement Flask en cours… (Render healthcheck OK)")
+import sys; sys.stdout.flush()
+
 run_startup_integrity_checks()
 # ============================ FIN AUTO-CHECK ============================
-
 
 
 
