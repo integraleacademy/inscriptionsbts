@@ -560,23 +560,20 @@ def submit():
     )
     send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
 
-
-
-
     # 📱 SMS accusé de réception
     tel = (form.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
     bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
     msg = sms_text(
-    "accuse_reception",
-    prenom=form.get("prenom", ""),
-    bts_label=bts_label,
-    lien_espace=lien_espace
-)
-
+        "accuse_reception",
+        prenom=form.get("prenom", ""),
+        bts_label=bts_label,
+        lien_espace=lien_espace
+    )
     send_sms_brevo(tel, msg)
     log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
+
 
     # 🧾 Log après envoi du mail
     log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
