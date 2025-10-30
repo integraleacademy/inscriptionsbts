@@ -47,6 +47,15 @@ def mail_html(template_name, **kwargs):
                 <p>Bienvenue à Intégrale Academy 🎓 !</p>
             """
         },
+        # ✅ Nouveau modèle ajouté pour la reconfirmation
+        "reconfirmation": {
+            "title": "Reconfirmation d’inscription",
+            "content": f"""
+                <p>Bonjour {prenom},</p>
+                <p>Merci de confirmer à nouveau votre inscription pour le <strong>{bts_label}</strong>.</p>
+                <p><a href="{lien_espace}" class="btn">Reconfirmer mon inscription</a></p>
+            """
+        },
         "reconfirmation_demandee": {
             "title": "Reconfirmation demandée",
             "content": f"""
