@@ -9,31 +9,71 @@ body {
   color: #222;
 }
 
-/* --- Barre du haut --- */
-.topbar {
-  background: #111;
-  color: white;
+/* =======================================================
+   ✨ NOUVELLE BARRE SUPÉRIEURE ÉPURÉE
+   ======================================================= */
+
+.new-topbar {
+  background: #ffffff;
+  color: #222;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 25px;
+  padding: 14px 40px;
+  border-bottom: 2px solid #f4c45a;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
-.topbar .brand {
+.new-topbar .brand {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
 }
 
-.topbar .brand img.logo {
-  height: 55px;
-  border-radius: 8px;
+.new-topbar .logo-large {
+  height: 70px;
+  border-radius: 10px;
 }
 
-.topbar h1 {
-  color: #f4c45a;
+.new-topbar h1 {
+  font-size: 1.8em;
+  color: #111;
+  margin: 0;
+  font-weight: 700;
+}
+
+.new-topbar .datetime {
+  font-weight: 600;
+  color: #555;
+  font-size: 0.95em;
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* =======================================================
+   ❤️ Pied de page – Signature Intégrale Group
+   ======================================================= */
+.footer-signature {
+  background: #f9f9f9;
+  border-top: 2px solid #f4c45a;
+  text-align: center;
+  padding: 15px 10px;
+  font-size: 15px;
+  color: #444;
+  margin-top: 40px;
+}
+
+.footer-signature strong {
+  color: #d60000;
+}
+
+.footer-signature p {
   margin: 0;
 }
+
 
 nav a {
   color: white;
