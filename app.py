@@ -1950,7 +1950,7 @@ def admin_reconfirm(cid):
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
     msg = sms_text(
-        "reconfirmation",
+        "reconfirmation_demandee",
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
