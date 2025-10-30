@@ -243,8 +243,20 @@ def ensure_schema():
         if col not in existing:
             cur.execute(f"ALTER TABLE candidats ADD COLUMN {col} {definition}")
 
+    # 🕓 Ajout automatique des colonnes de dates d'étape
+    date_cols = {
+        "date_validee": "TEXT DEFAULT ''",
+        "date_confirmee": "TEXT DEFAULT ''",
+        "date_reconfirmee": "TEXT DEFAULT ''"
+    }
+    for col, definition in date_cols.items():
+        if col not in existing:
+            cur.execute(f"ALTER TABLE candidats ADD COLUMN {col} {definition}")
+
     conn.commit()
     conn.close()
+
+
 
 
 # ✅ Appel après définition
@@ -630,7 +642,8 @@ def admin_update_field():
     "nom","prenom","bts","mode","tel","email",
     "label_aps","label_aut_ok","label_cheque_ok",
     "label_ypareo","label_carte_etudiante",
-    "commentaires","nouveau_doc"
+    "commentaires","nouveau_doc",
+    "date_validee","date_confirmee","date_reconfirmee"
 }
     if field not in allowed: return jsonify({"ok":False,"error":"field not allowed"}), 400
     conn = db(); cur = conn.cursor()
