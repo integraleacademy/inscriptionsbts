@@ -261,53 +261,73 @@ body.espace-candidat {
     <p class="statut-explication">{{ explication_statut }}</p>
   </div>
 
-  <!-- === Frise === -->
-  <div class="timeline">
+<!-- === Frise === -->
+<div class="timeline">
 
-    <!-- Étape 1 -->
-    <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🕓</div>
-      <div class="label">Pré-inscription reçue</div>
-      <div class="date">
-        {% if row.created_at %}{{ row.created_at[:10].split('-')[2] }}/{{ row.created_at[:10].split('-')[1] }}/{{ row.created_at[:10].split('-')[0] }}{% endif %}
-      </div>
+  <!-- Étape 1 -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕓</div>
+    <div class="label">Pré-inscription reçue</div>
+    <div class="date">
+      {% if row.created_at %}
+        {{ row.created_at[:10].split('-')[2] }}/{{ row.created_at[:10].split('-')[1] }}/{{ row.created_at[:10].split('-')[0] }}
+      {% endif %}
     </div>
-
-    <!-- Étape 2 (activée dès préinscription) -->
-    <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">📨</div>
-      <div class="label">Candidature en cours d'analyse</div>
-    </div>
-
-    <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">✅</div>
-      <div class="label">Candidature validée</div>
-      <div class="date">
-        {% if row.updated_at %}{{ row.updated_at[:10].split('-')[2] }}/{{ row.updated_at[:10].split('-')[1] }}/{{ row.updated_at[:10].split('-')[0] }}{% endif %}
-      </div>
-    </div>
-
-    <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🎓</div>
-      <div class="label">Inscription confirmée</div>
-    </div>
-
-    <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🕒</div>
-      <div class="label">Reconfirmation d'inscription en attente (août 2026)</div>
-    </div>
-
-    <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
-      <div class="icon">💚</div>
-      <div class="label">Reconfirmation d'inscription validée</div>
-    </div>
-
-    <div class="step {{ 'active' if statut == 'rentree' else '' }}">
-      <div class="icon">🎉</div>
-      <div class="label">Rentrée septembre 2026</div>
-    </div>
-
   </div>
+
+  <!-- Étape 2 -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">📨</div>
+    <div class="label">Candidature en cours d'analyse</div>
+  </div>
+
+  <!-- Étape 3 -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">✅</div>
+    <div class="label">Candidature validée</div>
+    <div class="date">
+      {% if row.date_validee %}
+        {{ row.date_validee[:10].split('-')[2] }}/{{ row.date_validee[:10].split('-')[1] }}/{{ row.date_validee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 4 -->
+  <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🎓</div>
+    <div class="label">Inscription confirmée</div>
+    <div class="date">
+      {% if row.date_confirmee %}
+        {{ row.date_confirmee[:10].split('-')[2] }}/{{ row.date_confirmee[:10].split('-')[1] }}/{{ row.date_confirmee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 5 -->
+  <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕒</div>
+    <div class="label">Reconfirmation d'inscription en attente (août 2026)</div>
+  </div>
+
+  <!-- Étape 6 -->
+  <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
+    <div class="icon">💚</div>
+    <div class="label">Reconfirmation d'inscription validée</div>
+    <div class="date">
+      {% if row.date_reconfirmee %}
+        {{ row.date_reconfirmee[:10].split('-')[2] }}/{{ row.date_reconfirmee[:10].split('-')[1] }}/{{ row.date_reconfirmee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 7 -->
+  <div class="step {{ 'active' if statut == 'rentree' else '' }}">
+    <div class="icon">🎉</div>
+    <div class="label">Rentrée septembre 2026</div>
+  </div>
+
+</div>
+
 
   {% if commentaire %}
   <div class="commentaire-block">
@@ -326,5 +346,6 @@ body.espace-candidat {
 </div>
 
 {% endblock %}
+
 
 
