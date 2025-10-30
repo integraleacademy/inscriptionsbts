@@ -54,10 +54,10 @@
   <div class="email-container">
     <div class="header">
       <img src="https://integraleacademy.com/static/logo-integrale.png" alt="Intégrale Academy">
-      <h2>{% block email_title %}{% endblock %}</h2>
+      <h2>{{ email_title }}</h2>
     </div>
     <div class="content">
-      {% block email_content %}{% endblock %}
+      {{ email_content | safe }}
     </div>
     <div class="footer">
       © Intégrale Academy — Merci de votre confiance 💛<br>
