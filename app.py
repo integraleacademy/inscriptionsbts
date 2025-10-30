@@ -731,7 +731,6 @@ def admin_update_status():
                                      bts=row.get("bts", ""))
         send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
         log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
-ok
 
 
     elif value == "reconfirmee":
