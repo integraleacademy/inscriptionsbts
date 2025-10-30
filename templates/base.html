@@ -4,18 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ title or "Intégrale Academy" }}</title>
-
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
+
 <body class="{% block body_class %}{% endblock %}">
-  <header class="topbar">
+  
+  <!-- 🧭 Barre supérieure modernisée -->
+  <header class="topbar new-topbar">
     <div class="brand">
-      <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Intégrale Academy" class="logo">
+      <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Logo Intégrale Academy" class="logo-large">
       <h1>Intégrale Academy</h1>
     </div>
+    <div class="datetime" id="datetime"></div>
   </header>
 
-  <!-- ✅ Main avec condition spéciale pour l'espace candidat -->
+  <!-- ✅ Contenu principal -->
   <main class="{% if 'admin' in request.path or 'parcoursup' in request.path %}admin-full{% elif 'espace' in request.path %}container candidat{% else %}container{% endif %}">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
@@ -29,14 +32,32 @@
     {% block content %}{% endblock %}
   </main>
 
-  {# === Chargement conditionnel des scripts === #}
-  {% if 'admin' in request.path or 'parcoursup' in request.path %}
-  <script src="{{ url_for('static', filename='js/main_admin.js') }}" defer></script>
-{% elif request.path.startswith('/replace-files') %}
-  {# Pas de JS front sur la page de remplacement des pièces #}
-{% else %}
-  <script src="{{ url_for('static', filename='js/main_front.js') }}" defer></script>
-{% endif %}
+  <!-- ❤️ Pied de page -->
+  <footer class="footer-signature">
+    <p>❤️ Site internet créé et développé par <strong>Intégrale Group</strong></p>
+  </footer>
 
+  <!-- JS dynamiques -->
+  <script>
+    // 🕒 Mise à jour de la date/heure en français
+    function updateDateTime() {
+      const now = new Date();
+      const options = {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      };
+      document.getElementById('datetime').textContent = now.toLocaleString('fr-FR', options);
+    }
+    setInterval(updateDateTime, 1000);
+    updateDateTime();
+  </script>
+
+  {% if 'admin' in request.path or 'parcoursup' in request.path %}
+    <script src="{{ url_for('static', filename='js/main_admin.js') }}" defer></script>
+  {% elif request.path.startswith('/replace-files') %}
+    {# Pas de JS front sur cette page #}
+  {% else %}
+    <script src="{{ url_for('static', filename='js/main_front.js') }}" defer></script>
+  {% endif %}
 </body>
 </html>
