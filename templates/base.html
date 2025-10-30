@@ -9,13 +9,13 @@
 
 <body class="{% block body_class %}{% endblock %}">
   
-  <!-- 🧭 Barre supérieure modernisée -->
-  <header class="topbar new-topbar">
-    <div class="brand">
-      <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Logo Intégrale Academy" class="logo-large">
+  <!-- 🧭 Nouvelle barre supérieure centrée -->
+  <header class="topbar new-topbar centered-topbar">
+    <div class="datetime" id="datetime"></div>
+    <div class="brand-centered">
+      <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Logo Intégrale Academy" class="logo-centered">
       <h1>Intégrale Academy</h1>
     </div>
-    <div class="datetime" id="datetime"></div>
   </header>
 
   <!-- ✅ Contenu principal -->
@@ -39,14 +39,17 @@
 
   <!-- JS dynamiques -->
   <script>
-    // 🕒 Mise à jour de la date/heure en français
+    // 🕒 Date et heure en français (première lettre majuscule)
     function updateDateTime() {
       const now = new Date();
       const options = {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       };
-      document.getElementById('datetime').textContent = now.toLocaleString('fr-FR', options);
+      let text = now.toLocaleString('fr-FR', options);
+      // Met majuscule à la première lettre du jour
+      text = text.charAt(0).toUpperCase() + text.slice(1);
+      document.getElementById('datetime').textContent = text;
     }
     setInterval(updateDateTime, 1000);
     updateDateTime();
