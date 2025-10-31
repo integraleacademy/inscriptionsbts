@@ -419,6 +419,20 @@ def ensure_schema():
     cur.execute("PRAGMA table_info(candidats)")
     existing = {r[1] for r in cur.fetchall()}
 
+    # 🧩 Vérifie et ajoute les champs du projet motivé (si manquants)
+    project_cols = [
+        ("projet_qualites", "TEXT", ""),
+        ("projet_motivation", "TEXT", ""),
+        ("projet_recherche", "TEXT", ""),
+        ("projet_travail", "TEXT", "")
+    ]
+    for col, typ, default in project_cols:
+        if col not in existing:
+            print(f"🧱 Ajout automatique de la colonne {col} dans 'candidats'")
+            cur.execute(f"ALTER TABLE candidats ADD COLUMN {col} {typ} DEFAULT {json.dumps(default)}")
+
+
+
     to_add = []
     if "verif_docs" not in existing:
         to_add.append(("verif_docs", "TEXT", ""))
