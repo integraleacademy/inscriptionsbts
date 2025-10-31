@@ -92,4 +92,25 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
         ),
     }
 
+            # =====================================================
+        # 🟢 SMS PARCOURSUP – Import + Relance
+        # =====================================================
+        "parcoursup_import": (
+            f"🎓 Intégrale Academy – BTS {bts_label}\n"
+            f"Bonjour {prenom},\n"
+            "Nous avons bien reçu votre candidature Parcoursup.\n"
+            f"Merci de compléter votre pré-inscription ici 👉 {lien_espace}\n"
+            "— Intégrale Academy · Service Parcoursup"
+        ),
+
+        "parcoursup_relance": (
+            f"📩 Intégrale Academy – BTS {bts_label}\n"
+            f"Bonjour {prenom},\n"
+            "Nous n’avons pas encore reçu votre confirmation Parcoursup.\n"
+            f"Finalisez dès que possible ici 👉 {lien_espace}\n"
+            "— Intégrale Academy · Service Parcoursup"
+        ),
+
+
     return templates.get(template, "")
+
