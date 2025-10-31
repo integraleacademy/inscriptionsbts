@@ -89,6 +89,7 @@
         <h2>{{ email_title }}</h2>
       </div>
       <div class="content">
+        <!-- render-check: {{ email_title }} {{ email_content }} -->
         {{ email_content | safe }}
       </div>
       <div class="footer">
@@ -99,3 +100,4 @@
   </div>
 </body>
 </html>
+
