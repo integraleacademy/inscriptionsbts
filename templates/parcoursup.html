@@ -269,7 +269,109 @@
   </div>
 </div>
 
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("logsModal");
+  const list = document.getElementById("logsList");
+
+  // === Ouvrir la modale et charger les logs ===
+  document.querySelectorAll(".btn-logs").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const cid = btn.dataset.id;
+      list.innerHTML = "<li>Chargement...</li>";
+      modal.classList.remove("hidden");
+
+      try {
+        const resp = await fetch(`/parcoursup/logs/${cid}`);
+        const logs = await resp.json();
+        list.innerHTML = "";
+
+        if (logs.length === 0) {
+          list.innerHTML = "<li>Aucun log pour ce candidat.</li>";
+          return;
+        }
+
+        logs.reverse().forEach(l => {
+          const li = document.createElement("li");
+          li.style.padding = "6px 8px";
+          li.style.borderBottom = "1px solid #eee";
+          li.style.display = "flex";
+          li.style.alignItems = "center";
+          li.style.gap = "8px";
+
+          // === Gestion des icônes et couleurs ===
+          let icon = "📄";
+          let color = "#333";
+          let text = "";
+
+          switch (l.type) {
+            case "mail":
+              icon = "📤";
+              color = "#007bff";
+              text = `Mail envoyé à ${l.dest || ""}`;
+              break;
+            case "mail_status":
+              if (l.event === "opened" || l.event === "unique_opened") {
+                icon = "👁️"; color = "#3498db"; text = "Mail ouvert";
+              } else if (l.event === "click") {
+                icon = "🔗"; color = "#8e44ad"; text = "Lien cliqué";
+              } else if (l.event === "delivered") {
+                icon = "✅"; color = "#2ecc71"; text = "Mail délivré";
+              } else {
+                text = `Mail statut : ${l.event}`;
+              }
+              break;
+            case "sms":
+              icon = "📱";
+              color = "#27ae60";
+              text = `SMS envoyé à ${l.dest || ""}`;
+              break;
+            case "sms_status":
+              if (l.event === "delivered") {
+                icon = "📩"; color = "#2ecc71"; text = "SMS livré";
+              } else if (l.event === "failed") {
+                icon = "❌"; color = "#e74c3c"; text = "SMS échoué";
+              } else {
+                text = `SMS statut : ${l.event}`;
+              }
+              break;
+            case "relance_auto":
+              icon = "🔁";
+              color = "#f39c12";
+              text = "Relance automatique (48h)";
+              break;
+            case "relance_manuelle":
+              icon = "🧑‍💻";
+              color = "#f4c45a";
+              text = "Relance manuelle (admin)";
+              break;
+            default:
+              text = l.type;
+          }
+
+          const date = l.date ? new Date(l.date).toLocaleString("fr-FR") : "";
+          li.innerHTML = `<span style="font-size:18px;">${icon}</span>
+                          <span style="color:${color};font-weight:600;">${text}</span>
+                          <span style="margin-left:auto;color:#888;font-size:12px;">${date}</span>`;
+          list.appendChild(li);
+        });
+
+      } catch (err) {
+        list.innerHTML = `<li>Erreur de chargement des logs.</li>`;
+      }
+    });
+  });
+});
+
+// === Fermer la modale ===
+function closeLogsModal() {
+  document.getElementById("logsModal").classList.add("hidden");
+}
+</script>
+
+
 {% endblock %}
+
 
 
 
