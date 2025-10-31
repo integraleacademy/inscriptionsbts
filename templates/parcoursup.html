@@ -234,15 +234,21 @@
           {{ style.label if style else r.statut }}
         </td>
 
-        <td style="text-align:center;">
-          <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
-            <button type="submit" class="btn small danger" onclick="return confirm('Supprimer cette candidature ?')">🗑️</button>
-          </form>
-          <button class="btn small btn-logs" data-id="{{ r.id }}" style="background:#555;color:white;">
-  🕓 Logs
-</button>
+<td style="text-align:center;">
+  <form action="{{ url_for('parcoursup.relancer_individuel', cid=r.id) }}" method="post" style="display:inline;">
+    <button type="submit" class="btn small" style="background:#f4c45a;color:black;" title="Renvoyer mail + SMS">
+      🔁
+    </button>
+  </form>
 
-        </td>
+  <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
+    <button type="submit" class="btn small danger" onclick="return confirm('Supprimer cette candidature ?')">🗑️</button>
+  </form>
+
+  <button class="btn small btn-logs" data-id="{{ r.id }}" style="background:#555;color:white;">
+    🕓 Logs
+  </button>
+</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -264,6 +270,7 @@
 </div>
 
 {% endblock %}
+
 
 
 
