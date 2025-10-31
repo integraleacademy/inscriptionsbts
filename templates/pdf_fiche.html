@@ -65,7 +65,7 @@
     font-size: 13px;
     font-weight: bold;
     text-align: center;
-    margin: 15px 0;
+    margin: 20px 0;
     border-radius: 8px;
   }
 
@@ -132,9 +132,10 @@
 <div class="box">
   <span class="label">Baccalauréat :</span>
   {% if row.baccalaureat %}
-    {% if 'oui' in row.baccalaureat.lower() %}✅ Oui
-    {% elif 'non' in row.baccalaureat.lower() %}❌ Non
-    {% elif '2026' in row.baccalaureat or 'prévu' in row.baccalaureat.lower() %}📅 Prévu en 2026
+    {% set b = row.baccalaureat.lower() %}
+    {% if 'oui' in b %}✅ Oui
+    {% elif 'non' in b %}❌ Non
+    {% elif '2026' in b or 'prévu' in b %}📅 Prévu en 2026
     {% else %}{{ row.baccalaureat }}
     {% endif %}
   {% else %}—
@@ -166,10 +167,10 @@
 <div class="box"><span class="label">Pourquoi souhaitez-vous intégrer ce BTS ?</span><br>🎯 {{ row.projet_pourquoi or "—" }}</div>
 <div class="box"><span class="label">Quel est votre projet professionnel ?</span><br>🚀 {{ row.projet_objectif or "—" }}</div>
 <div class="box"><span class="label">Vos passions / centres d’intérêt :</span><br>❤️ {{ row.projet_passions or "—" }}</div>
-<div class="box"><span class="label">Vos principales qualités :</span><br>🌟 {{ row.projet_qualites or "—" }}</div>
-<div class="box"><span class="label">Ce qui vous motive le plus :</span><br>🔥 {{ row.projet_motivation or "—" }}</div>
-<div class="box"><span class="label">Ce que vous recherchez dans votre futur métier :</span><br>💼 {{ row.projet_recherche or "—" }}</div>
-<div class="box"><span class="label">Votre manière de travailler :</span><br>🧠 {{ row.projet_travail or "—" }}</div>
+<div class="box"><span class="label">Vos principales qualités :</span><br>🌟 {{ (row.projet_qualites or '').replace(',', ', ') or "—" }}</div>
+<div class="box"><span class="label">Ce qui vous motive le plus :</span><br>🔥 {{ (row.projet_motivation or '').replace(',', ', ') or "—" }}</div>
+<div class="box"><span class="label">Ce que vous recherchez dans votre futur métier :</span><br>💼 {{ (row.projet_recherche or '').replace(',', ', ') or "—" }}</div>
+<div class="box"><span class="label">Votre manière de travailler :</span><br>🧠 {{ (row.projet_travail or '').replace(',', ', ') or "—" }}</div>
 
 <footer>
   Fiche générée le {{ now.strftime('%d/%m/%Y %H:%M') }} — Intégrale Academy
