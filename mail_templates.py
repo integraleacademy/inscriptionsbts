@@ -115,6 +115,38 @@ def mail_html(template_name, **kwargs):
             """
         }
     }
+        # =====================================================
+        # 🟢 MAILS PARCOURSUP – Import + Relance automatique
+        # =====================================================
+        "parcoursup_import": {
+            "title": "Votre candidature Parcoursup – Intégrale Academy",
+            "content": f"""
+                <p>Bonjour {prenom},</p>
+                <p>Nous avons bien reçu votre candidature Parcoursup pour le BTS <strong>{bts_label}</strong>.</p>
+                <p>Merci de compléter votre pré-inscription dès maintenant via le lien ci-dessous :</p>
+                <p style="text-align:center;margin:25px 0;">
+                  <a href="{lien_espace}" style="background:#f4c45a;color:black;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">
+                    👉 Compléter ma pré-inscription
+                  </a>
+                </p>
+                <p>À bientôt,<br><b>L’équipe Intégrale Academy</b></p>
+            """
+        },
+
+        "parcoursup_relance": {
+            "title": "Relance – Votre dossier Parcoursup",
+            "content": f"""
+                <p>Bonjour {prenom},</p>
+                <p>Nous n’avons pas encore reçu votre confirmation Parcoursup pour le BTS <strong>{bts_label}</strong>.</p>
+                <p>Merci de finaliser votre pré-inscription dès que possible :</p>
+                <p style="text-align:center;margin:25px 0;">
+                  <a href="{lien_espace}" style="background:#f4c45a;color:black;padding:10px 16px;border-radius:6px;text-decoration:none;font-weight:bold;">
+                    👉 Finaliser ma pré-inscription
+                  </a>
+                </p>
+                <p>Bien cordialement,<br><b>L’équipe Intégrale Academy</b></p>
+            """
+        },
 
     # === Sécurité : vérifie que le modèle existe ===
     tpl = templates.get(template_name)
@@ -135,3 +167,4 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
