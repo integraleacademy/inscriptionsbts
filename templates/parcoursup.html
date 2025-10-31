@@ -7,9 +7,16 @@
     <h2>🎓 Gestion Parcoursup</h2>
     <p>Importez les candidatures Parcoursup et gérez leur suivi ici.</p>
 
-  <form action="{{ url_for('parcoursup.relancer_non_ouverts') }}" method="post" style="margin-bottom:10px;">
-  <button type="submit" class="btn danger">📩 Relancer les non ouverts</button>
+<form action="{{ url_for('parcoursup.relancer_non_ouverts') }}" method="post" style="margin-bottom:10px;">
+  <button
+    type="submit"
+    class="btn danger"
+    onclick="this.disabled=true;this.innerText='⏳ Relance en cours...';this.form.submit();"
+  >
+    📩 Relancer les non ouverts
+  </button>
 </form>
+
   
 
   </header>
@@ -166,9 +173,24 @@
     </thead>
     <tbody>
       {% for r in rows %}
-      <tr {% if r.alerte %}style="background:#ffe6e6;" title="Aucun clic / ouverture après 48h"{% endif %}>
+      <tr
+  {% if r.alerte %}
+    style="background:#ffe6e6;" title="Aucun clic / ouverture après 48h"
+  {% elif r.relancee %}
+    style="background:#fff7e0;" title="📩 Relancé"
+  {% endif %}
+>
 
-        <td>{{ r.nom }}</td>
+
+        <td>
+  {% if r.relancee %}
+    <span style="background:#f4c45a;color:#000;font-weight:600;border-radius:6px;padding:2px 6px;margin-right:6px;display:inline-block;">
+      📩 Relancé
+    </span>
+  {% endif %}
+  {{ r.nom }}
+</td>
+
         <td>{{ r.prenom }}</td>
         <td>{{ r.telephone }}</td>
         <td>{{ r.email }}</td>
@@ -231,21 +253,56 @@
           {{ style.label if style else r.statut }}
         </td>
 
+
+
 <td style="text-align:center;">
-  <form action="{{ url_for('parcoursup.relancer_individuel', cid=r.id) }}" method="post" style="display:inline;">
-    <button type="submit" class="btn small" style="background:#f4c45a;color:black;" title="Renvoyer mail + SMS">
+  {% if r.relancee %}
+    <span
+      title="Candidat déjà relancé"
+      style="color:#f39c12;font-size:18px;display:inline-block;margin-right:6px;"
+    >🔁</span>
+  {% endif %}
+
+  <!-- 🔁 Bouton de relance manuelle -->
+  <form
+    action="{{ url_for('parcoursup.relancer_individuel', cid=r.id) }}"
+    method="post"
+    style="display:inline;"
+  >
+    <button
+      type="submit"
+      class="btn small"
+      style="background:#f4c45a;color:black;"
+      title="Renvoyer mail + SMS"
+      onclick="return confirm('Confirmer la relance manuelle de ce candidat ?')"
+    >
       🔁
     </button>
   </form>
 
-  <form action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}" method="post" style="display:inline;">
-    <button type="submit" class="btn small danger" onclick="return confirm('Supprimer cette candidature ?')">🗑️</button>
+  <!-- 🗑️ Supprimer le candidat -->
+  <form
+    action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}"
+    method="post"
+    style="display:inline;"
+  >
+    <button
+      type="submit"
+      class="btn small danger"
+      onclick="return confirm('Supprimer cette candidature ?')"
+    >🗑️</button>
   </form>
 
-  <button class="btn small btn-logs" data-id="{{ r.id }}" style="background:#555;color:white;">
+  <!-- 🕓 Voir les logs -->
+  <button
+    class="btn small btn-logs"
+    data-id="{{ r.id }}"
+    style="background:#555;color:white;"
+  >
     🕓 Logs
   </button>
 </td>
+
       </tr>
       {% endfor %}
     </tbody>
@@ -368,6 +425,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
