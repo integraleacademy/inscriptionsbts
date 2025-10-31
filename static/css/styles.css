@@ -1310,6 +1310,38 @@ main.container.candidat {
   resize: vertical;
 }
 
+/* =======================================================
+   💬 STYLE – Projet motivé (spécifique au formulaire public)
+   ======================================================= */
+.tab#tab4 .etiquettes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+  white-space: normal !important;
+}
+
+.tab#tab4 .etiquettes label {
+  background: #fffaf0;
+  border: 1px solid #f4c45a;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.tab#tab4 .etiquettes input {
+  transform: scale(1.2);
+  margin-right: 6px;
+  accent-color: #f4c45a;
+}
+
+.tab#tab4 .etiquettes label:hover {
+  background: #fff3cd;
+}
+
+
 
 
 
