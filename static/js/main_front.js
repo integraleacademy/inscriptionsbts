@@ -408,7 +408,7 @@ if (bacType && bacType.value === "Autre") {
   }
 
 // =====================================================
-// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (corrigé + log)
+// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (version finale)
 // =====================================================
 document.querySelectorAll('.btn.save').forEach(btn => {
   btn.addEventListener('click', async () => {
@@ -417,24 +417,28 @@ document.querySelectorAll('.btn.save').forEach(btn => {
     formData.append('current_step', currentStep);
 
     try {
-      const response = await fetch('/save_draft', {
+      const res = await fetch('/save-progress', {
         method: 'POST',
         body: formData
       });
 
-      const text = await response.text();
-      if (response.ok && text.includes("success")) {
-        showFlash("✅ Votre demande a été enregistrée. Vous recevrez un lien de reprise par e-mail.", "success");
+      if (!res.ok) throw new Error('Serveur injoignable');
+
+      const data = await res.json();
+
+      if (data && data.success) {
+        showFlash("✅ Données enregistrées, vous pourrez reprendre plus tard !", "success");
       } else {
-        console.error("Erreur sauvegarde :", text);
-        showFlash("❌ Erreur lors de l'enregistrement. Veuillez réessayer.", "error");
+        showFlash("❌ Erreur lors de l’enregistrement. Vérifiez votre connexion.", "error");
       }
+
     } catch (err) {
-      console.error("Erreur réseau :", err);
-      showFlash("❌ Une erreur est survenue. Vérifiez votre connexion.", "error");
+      console.error("Erreur JS SaveProgress:", err);
+      showFlash("⚠️ Une erreur est survenue pendant la sauvegarde.", "error");
     }
   });
 });
+
 
 
   function showFlash(message, type = "success") {
@@ -647,6 +651,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
