@@ -359,25 +359,56 @@
 
     </div>
 
-    <!-- 💬 Étape 4 -->
-    <div id="tab4" class="tab">
-      <label>Pourquoi souhaitez-vous intégrer ce BTS ?
-        <textarea name="projet_pourquoi" rows="4" required></textarea>
-      </label>
-      <label>Quel est votre projet professionnel ?
-        <textarea name="projet_objectif" rows="4" required></textarea>
-      </label>
-      <label>Quelles sont vos passions ?
-        <textarea name="projet_passions" rows="4" required></textarea>
-      </label>
+<!-- 💬 Étape 4 -->
+<div id="tab4" class="tab">
+  <h3>🎯 Projet motivé – Parlez-nous de vous</h3>
+  <p class="notice">
+    Prenez quelques instants pour nous aider à mieux vous connaître. Ces réponses nous permettent d’évaluer votre motivation, votre projet professionnel et votre adéquation avec la formation choisie.
+  </p>
 
-   <div class="actions nav-global">
-  <button type="button" class="btn prev">⬅️ Étape précédente</button>
-  <button type="button" class="btn primary next">➡️ Étape suivante</button>
-  <button type="button" class="btn save">💾 Enregistrer et reprendre plus tard</button>
+  <div class="grid">
+    <label>
+      Pourquoi avez-vous choisi cette formation&nbsp;?
+      <textarea name="projet_pourquoi" placeholder="Expliquez ce qui vous motive à rejoindre cette formation..." required></textarea>
+    </label>
+
+    <label>
+      Quels sont vos objectifs professionnels à moyen ou long terme&nbsp;?
+      <textarea name="projet_objectif" placeholder="Parlez du métier ou du poste que vous visez après ce BTS..." required></textarea>
+    </label>
+  </div>
+
+  <div class="grid">
+    <label>
+      Quelles sont vos principales qualités&nbsp;? (plusieurs choix possibles)
+      <div class="etiquettes">
+        <label><input type="checkbox" name="qualites" value="rigoureux"> Rigoureux(se)</label>
+        <label><input type="checkbox" name="qualites" value="ponctuel"> Ponctuel(le)</label>
+        <label><input type="checkbox" name="qualites" value="autonome"> Autonome</label>
+        <label><input type="checkbox" name="qualites" value="sociable"> Sociable</label>
+        <label><input type="checkbox" name="qualites" value="leadership"> Leadership</label>
+        <label><input type="checkbox" name="qualites" value="calme"> Calme et réfléchi(e)</label>
+      </div>
+    </label>
+
+    <label>
+      Qu’est-ce qui vous passionne ou vous motive dans la vie&nbsp;?
+      <textarea name="projet_passions" placeholder="Sport, voyages, sécurité, commerce, technologie..." required></textarea>
+    </label>
+  </div>
+
+  <label>
+    Comment vous décririez-vous en quelques mots&nbsp;?
+    <textarea name="projet_personnalite" placeholder="Exemple : dynamique, curieux, attentif, persévérant..." required></textarea>
+  </label>
+
+  <div class="actions nav-global">
+    <button type="button" class="btn prev">⬅️ Étape précédente</button>
+    <button type="button" class="btn primary next">➡️ Étape suivante</button>
+    <button type="button" class="btn save">💾 Enregistrer et reprendre plus tard</button>
+  </div>
 </div>
 
-    </div>
 
 <!-- 📎 Étape 5 -->
 <div id="tab5" class="tab">
