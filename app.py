@@ -208,6 +208,50 @@ app.secret_key = os.getenv("SECRET_KEY", "change-me")
 app.register_blueprint(bp_parcoursup)
 
 # =====================================================
+# 🔤 Filtres Jinja pour affichage PDF
+# =====================================================
+
+@app.template_filter('modeemo')
+def modeemo(value):
+    if not value:
+        return ""
+    return "🏫 Présentiel" if value.lower() == "presentiel" else "💻 Distanciel"
+
+@app.template_filter('btsfull')
+def btsfull(value):
+    if value == "MOS": return "BTS Management Opérationnel de la Sécurité (MOS)"
+    if value == "MCO": return "BTS Management Commercial Opérationnel (MCO)"
+    if value == "PI": return "BTS Professions Immobilières (PI)"
+    if value == "CI": return "BTS Commerce International (CI)"
+    if value == "NDRC": return "BTS Négociation et Digitalisation de la Relation Client (NDRC)"
+    if value == "CG": return "BTS Comptabilité et Gestion (CG)"
+    return value or ""
+
+@app.template_filter('bacdisp')
+def bacdisp(value):
+    if not value: return ""
+    if "prévu" in value.lower(): return "Prévu en 2026"
+    if "oui" in value.lower(): return "Oui"
+    if "non" in value.lower(): return "Non"
+    return value
+
+@app.template_filter('nirsp')
+def nirsp(value):
+    if not value: return ""
+    value = value.replace(" ", "")
+    return " ".join([value[i:i+2] for i in range(0, len(value), 2)]).strip()
+
+@app.template_filter('dmy')
+def dmy(value):
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(value).strftime("%d/%m/%Y")
+    except Exception:
+        return value
+
+
+
+# =====================================================
 # 🎨 Filtres d'affichage Jinja unifiés
 # =====================================================
 import unicodedata
