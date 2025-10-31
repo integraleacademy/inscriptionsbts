@@ -2264,21 +2264,47 @@ def set_portal_status(status, message):
     with open(PORTAL_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
 
+# =====================================================
+# 🔐 GESTION PORTAIL (Ouvrir / Fermer les inscriptions)
+# =====================================================
+
+PORTAL_FILE = os.path.join(DATA_DIR, "portal.json")
+
+def load_portal_status():
+    """Charge l'état actuel du portail (ou valeurs par défaut)."""
+    if os.path.exists(PORTAL_FILE):
+        with open(PORTAL_FILE, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                pass
+    return {"status": "open", "message": "", "comment": ""}
+
+
 @app.route("/get_portal_status")
-def route_get_portal_status():
-    if not require_admin():
-        abort(403)
-    return jsonify(get_portal_status())
+def get_portal_status():
+    data = load_portal_status()
+    return jsonify(data)
+
 
 @app.route("/set_portal_status", methods=["POST"])
-def route_set_portal_status():
-    if not require_admin():
-        abort(403)
-    data = request.get_json() or {}
+def set_portal_status():
+    data = request.get_json()
     status = data.get("status", "open")
     message = data.get("message", "")
-    set_portal_status(status, message)
-    return jsonify({"ok": True})
+    comment = data.get("comment", "")  # 🆕 récupère le commentaire
+
+    # Enregistre tout dans portal.json
+    with open(PORTAL_FILE, "w", encoding="utf-8") as f:
+        json.dump(
+            {"status": status, "message": message, "comment": comment},
+            f,
+            ensure_ascii=False,
+            indent=2
+        )
+
+    return jsonify({"ok": True, "status": status})
+
 
 
 
