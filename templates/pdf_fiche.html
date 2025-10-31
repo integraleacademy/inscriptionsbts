@@ -4,17 +4,12 @@
 <meta charset="UTF-8">
 <style>
   body {
-    font-family: 'Noto Color Emoji', 'Segoe UI Emoji', 'Twemoji Mozilla', 'Apple Color Emoji', Arial, sans-serif;
+    font-family: 'Segoe UI', 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif;
     font-size: 11.5px;
     color: #222;
     margin: 40px;
     background: #fff;
   }
-
-  @font-face {
-  font-family: 'Noto Color Emoji';
-  src: local('Noto Color Emoji');
-}
 
   header {
     display: flex;
@@ -81,21 +76,60 @@
     color: #555;
     margin-top: 25px;
   }
-
-  .answer {
-    color: #333;
-    margin-left: 6px;
-  }
 </style>
 </head>
 <body>
+
+{% set QUALITES = {
+  'rigoureux': 'Rigueur',
+  'organise': 'Organisation',
+  'autonome': 'Autonomie',
+  'communication': 'Communication',
+  'esprit_equipe': 'Esprit d’équipe',
+  'curieux': 'Curiosité',
+  'leadership': 'Leadership',
+  'creatif': 'Créativité',
+  'empathique': 'Empathie',
+  'serieux': 'Sérieux'
+} %}
+{% set MOTIVATIONS = {
+  'reussite': 'La réussite personnelle et professionnelle',
+  'stabilite': 'La stabilité et la sécurité de l’emploi',
+  'utilite': 'Être utile et aider les autres',
+  'defis': 'Les défis et les responsabilités',
+  'contact': 'Le contact humain et le travail d’équipe',
+  'innovation': 'L’innovation et les nouvelles technologies',
+  'evolution': 'Les perspectives d’évolution',
+  'apprentissage': 'L’envie d’apprendre et de me perfectionner'
+} %}
+{% set VALEURS = {
+  'salaire': 'Un bon salaire et des avantages',
+  'sens': 'Un métier qui a du sens',
+  'contact': 'Être en contact avec le public',
+  'mobilite': 'Pouvoir bouger et voyager',
+  'stabilite': 'La stabilité et la sécurité de l’emploi',
+  'responsabilite': 'Des responsabilités importantes',
+  'autonomie': 'Travailler de manière autonome',
+  'equipe': 'Un bon esprit d’équipe'
+} %}
+{% set TRAVAIL = {
+  'methodique': 'Je suis méthodique et j’aime planifier',
+  'pratique': 'J’apprends mieux en pratiquant',
+  'collaboratif': 'J’aime travailler en groupe',
+  'independant': 'Je préfère travailler seul(e)',
+  'creatif': 'J’aime proposer des idées nouvelles',
+  'objectif': 'Je me fixe des objectifs précis'
+} %}
 
 <header>
   <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Logo Intégrale Academy">
   <div>
     <h1>{{ row.nom|upper }} {{ row.prenom|title }}</h1>
     <div class="sub-info">
-      {{ row.bts|btsfull }} — {% if row.mode == "presentiel" %}🧑‍🏫 Présentiel{% elif row.mode == "distanciel" %}💻 Distanciel{% else %}{{ row.mode }}{% endif %}<br>
+      {{ row.bts|btsfull }} —
+      {% if row.mode == "presentiel" %}🧑‍🏫 Présentiel
+      {% elif row.mode == "distanciel" %}💻 Distanciel
+      {% else %}{{ row.mode }}{% endif %}<br>
       <strong>Dossier n° {{ row.numero_dossier }}</strong>
     </div>
   </div>
@@ -136,14 +170,13 @@
 <h2>2. ANTÉRIORITÉ SCOLAIRE</h2>
 <div class="box">
   <span class="label">Baccalauréat :</span>
-  {% set b = (row.baccalaureat or row.bac_status or '').lower() %}
-  {% if 'oui' in b %}✅ Oui
-  {% elif 'non' in b %}❌ Non
-  {% elif '2026' in b or 'prévu' in b %}📅 Prévu en 2026
-  {% else %}{{ row.baccalaureat or row.bac_status or "—" }}
+  {% set bac = row.baccalaureat or row.bac_status or "" %}
+  {% if 'oui' in bac.lower() %}✅ Oui
+  {% elif 'non' in bac.lower() %}❌ Non
+  {% elif '2026' in bac or 'prévu' in bac.lower() %}📅 Prévu en 2026
+  {% else %}—
   {% endif %}
 </div>
-
 <div class="box"><span class="label">Type de bac :</span> {{ row.bac_type or "—" }}</div>
 <div class="box"><span class="label">Autre formation / précisions :</span> {{ row.bac_autre or "—" }}</div>
 
@@ -158,36 +191,31 @@
 <div class="box">
   <span class="label">Formation APS souhaitée :</span>
   {% if row.aps_souhaitee|int == 1 %}
-    ✅ Oui<br>
-    <span class="label">Session APS :</span> {{ row.aps_session or "—" }}
+    ✅ Oui<br><span class="label">Session APS :</span> {{ row.aps_session or "—" }}
   {% else %}
     ❌ Non
   {% endif %}
 </div>
 
 <h2>4. 💬 PROJET MOTIVÉ</h2>
-
 <div class="box"><span class="label">Pourquoi souhaitez-vous intégrer ce BTS ?</span><br>🎯 {{ row.projet_pourquoi or "—" }}</div>
 <div class="box"><span class="label">Quel est votre projet professionnel ?</span><br>🚀 {{ row.projet_objectif or "—" }}</div>
 <div class="box"><span class="label">Vos passions / centres d’intérêt :</span><br>❤️ {{ row.projet_passions or "—" }}</div>
-<div class="box">
-  <span class="label">Vos principales qualités :</span><br>
-  🌟 {{ (row.projet_qualites or '').replace(',', ', ') or "—" }}
+
+<div class="box"><span class="label">Vos principales qualités :</span><br>🌟
+  {{ row.projet_qualites.split(',') | map('trim') | map('lower') | map(lambda q: QUALITES.get(q, q)) | join(', ') or "—" }}
 </div>
 
-<div class="box">
-  <span class="label">Ce qui vous motive le plus :</span><br>
-  🔥 {{ (row.projet_motivation or '').replace(',', ', ') or "—" }}
+<div class="box"><span class="label">Ce qui vous motive le plus :</span><br>🔥
+  {{ row.projet_motivation.split(',') | map('trim') | map('lower') | map(lambda m: MOTIVATIONS.get(m, m)) | join(', ') or "—" }}
 </div>
 
-<div class="box">
-  <span class="label">Ce que vous recherchez dans votre futur métier :</span><br>
-  💼 {{ (row.projet_recherche or '').replace(',', ', ') or "—" }}
+<div class="box"><span class="label">Ce que vous recherchez dans votre futur métier :</span><br>💼
+  {{ row.projet_recherche.split(',') | map('trim') | map('lower') | map(lambda v: VALEURS.get(v, v)) | join(', ') or "—" }}
 </div>
 
-<div class="box">
-  <span class="label">Votre manière de travailler :</span><br>
-  🧠 {{ (row.projet_travail or '').replace(',', ', ') or "—" }}
+<div class="box"><span class="label">Votre manière de travailler :</span><br>🧠
+  {{ row.projet_travail.split(',') | map('trim') | map('lower') | map(lambda t: TRAVAIL.get(t, t)) | join(', ') or "—" }}
 </div>
 
 <footer>
