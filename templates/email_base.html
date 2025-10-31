@@ -1,26 +1,101 @@
-<table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f6f6f6" style="font-family:Segoe UI,Arial,sans-serif;padding:40px 0;">
-  <tr>
-    <td align="center">
-      <table width="680" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="border-radius:12px;overflow:hidden;box-shadow:0 3px 10px rgba(0,0,0,0.1);border-top:6px solid #f4c45a;">
-        <tr>
-          <td align="center" style="padding:25px 25px 15px 25px;">
-            <img src="{{ logo_url }}" alt="Intégrale Academy" style="max-height:90px;margin-bottom:10px;">
-            <h2 style="margin:10px 0 0 0;font-size:20px;color:#111;">{{ email_title }}</h2>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:25px 35px;line-height:1.6;font-size:15px;color:#333;">
-            {{ email_content | safe }}
-          </td>
-        </tr>
-        <tr>
-          <td align="center" style="padding:20px;border-top:1px solid #eee;font-size:13px;color:#888;">
-            © Intégrale Academy — Merci de votre confiance 💛<br>
-            <a href="https://integraleacademy.com" style="color:#f4c45a;text-decoration:none;">integraleacademy.com</a>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body {
+    font-family: Segoe UI, Arial, sans-serif;
+    background: #f6f6f6;
+    margin: 0;
+    padding: 0;
+  }
+  .wrapper {
+    width: 100%;
+    padding: 20px 0;
+  }
+  .container {
+    max-width: 680px;
+    width: 94%;
+    margin: auto;
+    background: #ffffff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    border-top: 6px solid #f4c45a;
+  }
+  .header {
+    text-align: center;
+    padding: 25px 20px 10px 20px;
+  }
+  .header img {
+    max-height: 90px;
+    margin-bottom: 8px;
+  }
+  .header h2 {
+    font-size: 20px;
+    margin: 10px 0 0 0;
+    color: #111;
+  }
+  .content {
+    padding: 25px 20px;
+    line-height: 1.6;
+    font-size: 15px;
+    color: #333;
+  }
+  .footer {
+    text-align: center;
+    padding: 20px;
+    border-top: 1px solid #eee;
+    font-size: 13px;
+    color: #888;
+  }
+  .footer a {
+    color: #f4c45a;
+    text-decoration: none;
+  }
 
+  /* === Responsive mobile === */
+  @media only screen and (max-width: 480px) {
+    .container {
+      width: 95% !important;
+      border-radius: 10px !important;
+    }
+    .content {
+      font-size: 16px !important;
+      padding: 20px 16px !important;
+    }
+    .header img {
+      max-height: 70px !important;
+    }
+    .header h2 {
+      font-size: 18px !important;
+    }
+    a.btn {
+      display: block !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      text-align: center !important;
+      margin: 20px 0 !important;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      <div class="header">
+        <img src="{{ logo_url }}" alt="Intégrale Academy">
+        <h2>{{ email_title }}</h2>
+      </div>
+      <div class="content">
+        {{ email_content | safe }}
+      </div>
+      <div class="footer">
+        © Intégrale Academy — Merci de votre confiance 💛<br>
+        <a href="https://integraleacademy.com">integraleacademy.com</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
