@@ -203,19 +203,43 @@
 <div class="box"><span class="label">Vos passions / centres d’intérêt :</span><br>❤️ {{ row.projet_passions or "—" }}</div>
 
 <div class="box"><span class="label">Vos principales qualités :</span><br>🌟
-  {{ row.projet_qualites.split(',') | map('trim') | map('lower') | map(lambda q: QUALITES.get(q, q)) | join(', ') or "—" }}
+  {% set items = (row.projet_qualites or '').split(',') %}
+  {% if items %}
+    {% for q in items %}
+      {{ QUALITES[q.strip().lower()] or q.strip() }}{% if not loop.last %}, {% endif %}
+    {% endfor %}
+  {% else %}—
+  {% endif %}
 </div>
 
 <div class="box"><span class="label">Ce qui vous motive le plus :</span><br>🔥
-  {{ row.projet_motivation.split(',') | map('trim') | map('lower') | map(lambda m: MOTIVATIONS.get(m, m)) | join(', ') or "—" }}
+  {% set items = (row.projet_motivation or '').split(',') %}
+  {% if items %}
+    {% for m in items %}
+      {{ MOTIVATIONS[m.strip().lower()] or m.strip() }}{% if not loop.last %}, {% endif %}
+    {% endfor %}
+  {% else %}—
+  {% endif %}
 </div>
 
 <div class="box"><span class="label">Ce que vous recherchez dans votre futur métier :</span><br>💼
-  {{ row.projet_recherche.split(',') | map('trim') | map('lower') | map(lambda v: VALEURS.get(v, v)) | join(', ') or "—" }}
+  {% set items = (row.projet_recherche or '').split(',') %}
+  {% if items %}
+    {% for v in items %}
+      {{ VALEURS[v.strip().lower()] or v.strip() }}{% if not loop.last %}, {% endif %}
+    {% endfor %}
+  {% else %}—
+  {% endif %}
 </div>
 
 <div class="box"><span class="label">Votre manière de travailler :</span><br>🧠
-  {{ row.projet_travail.split(',') | map('trim') | map('lower') | map(lambda t: TRAVAIL.get(t, t)) | join(', ') or "—" }}
+  {% set items = (row.projet_travail or '').split(',') %}
+  {% if items %}
+    {% for t in items %}
+      {{ TRAVAIL[t.strip().lower()] or t.strip() }}{% if not loop.last %}, {% endif %}
+    {% endfor %}
+  {% else %}—
+  {% endif %}
 </div>
 
 <footer>
