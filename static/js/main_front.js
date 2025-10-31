@@ -455,17 +455,10 @@ if (bacType && bacType.value === "Autre") {
   }
 
 
-    // === Mention bas de page ===
-  function injectFooter(tab) {
-    if (!tab.querySelector('.footer-signature')) {
-      const footer = document.createElement('div');
-      footer.className = 'footer-signature';
-      footer.innerHTML = `
-        <p>❤️ Site internet créé et développé par <strong>Intégrale&nbsp;Group</strong></p>
-      `;
-      tab.appendChild(footer);
-    }
-  }
+// function injectFooter(tab) {
+//   // ❌ Supprimé pour éviter doublon avec le footer global
+// }
+
 
   // === Étape 3 : afficher / rendre obligatoire le champ "Autre bac" ===
   const bacTypeSelectEl = document.querySelector('select[name="bac_type"]');
@@ -624,6 +617,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
