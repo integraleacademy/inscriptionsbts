@@ -2201,6 +2201,56 @@ def admin_reconfirm(cid):
     return jsonify({"ok": True})
 
 
+# =====================================================
+# 🧩 Filtres personnalisés pour le rendu PDF
+# =====================================================
+
+@app.template_filter('btsfull')
+def btsfull_filter(value):
+    """Affiche le nom complet du BTS."""
+    mapping = {
+        "MOS": "BTS Management Opérationnel de la Sécurité (MOS)",
+        "MCO": "BTS Management Commercial Opérationnel (MCO)",
+        "PI": "BTS Professions Immobilières (PI)",
+        "CI": "BTS Commerce International (CI)",
+        "NDRC": "BTS Négociation et Digitalisation de la Relation Client (NDRC)",
+        "CG": "BTS Comptabilité et Gestion (CG)",
+    }
+    return mapping.get(value, value or "")
+
+@app.template_filter('modeemo')
+def modeemo_filter(value):
+    """Ajoute un emoji selon le mode de formation."""
+    if not value:
+        return ""
+    if value.lower() == "presentiel":
+        return "🧑‍🏫 Présentiel"
+    elif value.lower() == "distanciel":
+        return "💻 Distanciel"
+    return value
+
+@app.template_filter('nirsp')
+def nirsp_filter(value):
+    """Formate le numéro de sécu avec des espaces."""
+    if not value:
+        return ""
+    v = value.replace(" ", "")
+    return " ".join(v[i:i+2] for i in range(0, len(v), 2))
+
+@app.template_filter('dmy')
+def dmy_filter(value):
+    """Affiche la date au format JJ/MM/AAAA"""
+    from datetime import datetime
+    try:
+        if isinstance(value, str):
+            dt = datetime.fromisoformat(value)
+        else:
+            dt = value
+        return dt.strftime("%d/%m/%Y")
+    except Exception:
+        return value or ""
+
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
