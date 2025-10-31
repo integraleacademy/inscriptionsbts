@@ -457,6 +457,15 @@ def init_db():
 
 # Initialisation de la base de données au démarrage de l'application
 def ensure_schema():
+        # === 🧨 RÉINITIALISATION FORCÉE DE LA TABLE CANDIDATS (DEBUG CLÉMENT) ===
+    import sqlite3, os
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("DROP TABLE IF EXISTS candidats;")
+    conn.commit()
+    conn.close()
+    print("💣 Table 'candidats' supprimée (réinitialisation forcée) – sera recréée proprement.")
+
     """Ajoute les colonnes manquantes si besoin (migration douce)."""
     conn = db()
     cur = conn.cursor()
