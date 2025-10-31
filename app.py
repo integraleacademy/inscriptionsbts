@@ -735,20 +735,21 @@ def submit():
     numero = dossier_number(counter=counter)
 
     # === Normalisation du BAC ===
-baccalaureat = (form.get("bac_status") or "").strip()
+    baccalaureat = (form.get("bac_status") or "").strip()
 
-# === APS ===
-aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
-aps_session = (form.get("aps_session") or "").strip()
-aps_session_other = (form.get("aps_session_other") or "").strip()
-if aps_session.lower() == "autre" and aps_session_other:
-    aps_session = aps_session_other
+    # === APS ===
+    aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
+    aps_session = (form.get("aps_session") or "").strip()
+    aps_session_other = (form.get("aps_session_other") or "").strip()
+    if aps_session.lower() == "autre" and aps_session_other:
+        aps_session = aps_session_other
 
-# === Projet motivé : nouveaux champs ===
-projet_qualites    = form.get("projet_qualites", "")
-projet_motivation  = form.get("projet_motivation", "")
-projet_recherche   = form.get("projet_recherche", "")
-projet_travail     = form.get("projet_travail", "")
+    # === Projet motivé : nouveaux champs ===
+    projet_qualites    = form.get("projet_qualites", "")
+    projet_motivation  = form.get("projet_motivation", "")
+    projet_recherche   = form.get("projet_recherche", "")
+    projet_travail     = form.get("projet_travail", "")
+
 
 
     # ✅ Vérification du numéro de sécurité sociale (NIR)
