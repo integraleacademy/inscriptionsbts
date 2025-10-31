@@ -455,50 +455,29 @@ def init_db():
     conn.commit()
     conn.close()
 
-# Initialisation de la base de données au démarrage de l'application
 def ensure_schema():
-    # === 🧨 RÉINITIALISATION FORCÉE DE LA TABLE CANDIDATS (DEBUG CLÉMENT) ===
-    import sqlite3, os
+    import sqlite3
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
-    cur.execute("DROP TABLE IF EXISTS candidats;")
-    conn.commit()
 
-    # 🧱 Recréation propre de la table après suppression
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS candidats (
-        id TEXT PRIMARY KEY,
-        numero_dossier TEXT,
-        created_at TEXT,
-        updated_at TEXT,
-        nom TEXT, prenom TEXT, sexe TEXT,
-        date_naissance TEXT, ville_naissance TEXT, cp_naissance TEXT, pays_naissance TEXT,
-        num_secu TEXT, email TEXT, tel TEXT,
-        adresse TEXT, cp TEXT, ville TEXT,
-        bts TEXT, mode TEXT,
-        bac_status TEXT, bac_type TEXT, bac_autre TEXT,
-        permis_b INTEGER,
-        est_mineur INTEGER,
-        resp_nom TEXT, resp_prenom TEXT, resp_email TEXT, resp_tel TEXT,
-        mos_parcours TEXT,
-        aps_souhaitee INTEGER, aps_session TEXT,
-        projet_pourquoi TEXT, projet_objectif TEXT, projet_passions TEXT,
-        projet_qualites TEXT, projet_motivation TEXT, projet_recherche TEXT, projet_travail TEXT,
-        fichiers_ci TEXT, fichiers_photo TEXT, fichiers_carte_vitale TEXT, fichiers_cv TEXT, fichiers_lm TEXT,
-        statut TEXT,
-        label_aps INTEGER, label_aut_ok INTEGER, label_cheque_ok INTEGER,
-        token_confirm TEXT, token_confirm_exp TEXT,
-        token_reconfirm TEXT, token_reconfirm_exp TEXT,
-        commentaires TEXT,
-        verif_docs TEXT, nouveau_doc INTEGER, replace_token TEXT, replace_token_exp TEXT, replace_meta TEXT,
-        label_ypareo INTEGER, label_carte_etudiante INTEGER,
-        date_validee TEXT, date_confirmee TEXT, date_reconfirmee TEXT,
-        slug_public TEXT
-    );
-    """)
+    # Vérifie les colonnes existantes
+    cur.execute("PRAGMA table_info(candidats)")
+    cols = [r[1] for r in cur.fetchall()]
+
+    expected_cols = [
+        "projet_qualites", "projet_motivation", "projet_recherche", "projet_travail",
+        "verif_docs", "nouveau_doc", "replace_token", "replace_token_exp", "replace_meta",
+        "label_ypareo", "label_carte_etudiante",
+        "date_validee", "date_confirmee", "date_reconfirmee", "slug_public"
+    ]
+
+    for col in expected_cols:
+        if col not in cols:
+            print(f"🧱 Ajout automatique de la colonne {col} dans 'candidats'")
+            cur.execute(f"ALTER TABLE candidats ADD COLUMN {col} TEXT DEFAULT ''")
+
     conn.commit()
     conn.close()
-    print("💣 Table 'candidats' supprimée et recréée proprement (52 colonnes).")
 
 # ✅ Appel après définition
 with app.app_context():
