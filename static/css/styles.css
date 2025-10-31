@@ -1341,6 +1341,40 @@ main.container.candidat {
   background: #fff3cd;
 }
 
+.flash-popup {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn .3s ease;
+}
+.flash-popup-content {
+  background: #fff;
+  padding: 25px 35px;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+  max-width: 420px;
+  text-align: center;
+  animation: popIn .3s ease;
+}
+.flash-popup.success .flash-popup-content h3 {
+  color: #28a745;
+}
+.flash-popup button {
+  margin-top: 15px;
+  background: #f4c45a;
+  color: #111;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  cursor: pointer;
+}
+.flash-popup.hide { opacity: 0; transition: opacity 0.3s; }
+@keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 
 
