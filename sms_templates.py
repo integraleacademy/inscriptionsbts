@@ -90,9 +90,8 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
             "À très bientôt sur le campus Intégrale Academy !\n"
             "— Intégrale Academy · Service inscriptions BTS"
         ),
-    }
 
-            # =====================================================
+        # =====================================================
         # 🟢 SMS PARCOURSUP – Import + Relance
         # =====================================================
         "parcoursup_import": (
@@ -110,7 +109,8 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
             f"Finalisez dès que possible ici 👉 {lien_espace}\n"
             "— Intégrale Academy · Service Parcoursup"
         ),
-
+    }
 
     return templates.get(template, "")
+
 
