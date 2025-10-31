@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <style>
   body {
-    font-family: 'Segoe UI', Arial, sans-serif;
+    font-family: 'Segoe UI', 'Segoe UI Emoji', 'Apple Color Emoji', 'Noto Color Emoji', Arial, sans-serif;
     font-size: 11.5px;
     color: #222;
     margin: 40px;
@@ -129,7 +129,7 @@
 </div>
 
 <h2>2. ANTÉRIORITÉ SCOLAIRE</h2>
-<div class="box"><span class="label">Baccalauréat :</span> {{ row.bac_status|bacdisp }}</div>
+<div class="box"><span class="label">Baccalauréat :</span> {{ row.baccalaureat }}</div>
 <div class="box"><span class="label">Type de bac :</span> {{ row.bac_type }}</div>
 <div class="box"><span class="label">Autre formation / précisions :</span> {{ row.bac_autre }}</div>
 
@@ -142,8 +142,11 @@
   <div class="box">
     <span class="label">Formation APS souhaitée :</span>
     {% if row.aps_souhaitee %}✅ Oui{% else %}❌ Non{% endif %}
-    {% if row.aps_souhaitee and row.aps_session %}
-      <br><span class="label">Session :</span> {{ row.aps_session }}
+    {% if row.aps_souhaitee %}
+      {% set aps = (row.aps_session or '').strip() %}
+      {% if aps %}
+        <br><span class="label">Session APS :</span> {{ aps }}
+      {% endif %}
     {% endif %}
   </div>
 {% endif %}
