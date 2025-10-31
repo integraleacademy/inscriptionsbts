@@ -640,6 +640,57 @@ def get_logs(cid):
     return jsonify(logs)
 
 # =====================================================
+# 🔁 RELANCER MANUELLEMENT UN CANDIDAT (MAIL + SMS)
+# =====================================================
+@bp_parcoursup.route("/parcoursup/relancer/<cid>", methods=["POST"])
+def relancer_individuel(cid):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT prenom, email, telephone, formation FROM parcoursup_candidats WHERE id=?", (cid,))
+    r = cur.fetchone()
+
+    if not r:
+        flash("Candidat introuvable.", "error")
+        conn.close()
+        return redirect(url_for("parcoursup.dashboard"))
+
+    prenom = r["prenom"] or ""
+    formation = r["formation"] or ""
+    email = (r["email"] or "").strip()
+    tel = (r["telephone"] or "").strip()
+    now = datetime.now().isoformat()
+
+    try:
+        # --- MAIL ---
+        html = f"""
+        <p>Bonjour {prenom},</p>
+        <p>Nous vous relançons concernant votre candidature Parcoursup pour le BTS <b>{formation}</b>.</p>
+        <p>Merci de compléter votre pré-inscription ici :</p>
+        <p><a href='https://inscriptionsbts.onrender.com/'><b>👉 Formulaire de pré-inscription</b></a></p>
+        <p>À bientôt,<br><b>L’équipe Intégrale Academy</b></p>
+        """
+        send_mail(email, "Relance manuelle – Intégrale Academy", html)
+
+        # --- SMS ---
+        msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription BTS {formation} ici 👉 inscriptionsbts.onrender.com"
+        send_sms_brevo(tel, msg)
+
+        # --- Log en BDD ---
+        cur.execute(
+            "UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type','relance_manuelle','date',?)) WHERE id=?",
+            (now, cid)
+        )
+        conn.commit()
+        flash(f"Relance envoyée à {prenom}.", "success")
+
+    except Exception as e:
+        flash(f"Erreur lors de la relance : {e}", "error")
+
+    conn.close()
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+# =====================================================
 # 📬 WEBHOOK SMS BREVO — MISE À JOUR STATUTS SMS
 # =====================================================
 @bp_parcoursup.route("/brevo-sms-webhook", methods=["POST"])
@@ -756,6 +807,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
