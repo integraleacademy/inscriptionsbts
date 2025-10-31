@@ -690,6 +690,23 @@ def submit():
     counter = get_counter_for_today(conn)
     numero = dossier_number(counter=counter)
 
+    # === Normalisation du BAC ===
+baccalaureat = (form.get("bac_status") or "").strip()
+
+# === APS ===
+aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
+aps_session = (form.get("aps_session") or "").strip()
+aps_session_other = (form.get("aps_session_other") or "").strip()
+if aps_session.lower() == "autre" and aps_session_other:
+    aps_session = aps_session_other
+
+# === Projet motivé : nouveaux champs ===
+projet_qualites    = form.get("projet_qualites", "")
+projet_motivation  = form.get("projet_motivation", "")
+projet_recherche   = form.get("projet_recherche", "")
+projet_travail     = form.get("projet_travail", "")
+
+
     # ✅ Vérification du numéro de sécurité sociale (NIR)
     nir = form.get("num_secu", "")
     date_naiss = form.get("date_naissance", "")
@@ -729,6 +746,7 @@ def submit():
         permis_b, est_mineur, resp_nom, resp_prenom, resp_email, resp_tel,
         mos_parcours, aps_souhaitee, aps_session,
         projet_pourquoi, projet_objectif, projet_passions,
+        projet_qualites, projet_motivation, projet_recherche, projet_travail,
         fichiers_ci, fichiers_photo, fichiers_carte_vitale, fichiers_cv, fichiers_lm,
         statut, label_aps, label_aut_ok, label_cheque_ok,
         token_confirm, token_confirm_exp,
@@ -747,6 +765,7 @@ def submit():
         form.get("resp_nom", ""), form.get("resp_prenom", ""), form.get("resp_email", ""), form.get("resp_tel", ""),
         form.get("mos_parcours", ""), b(form.get("aps_souhaitee")), form.get("aps_session", ""),
         form.get("projet_pourquoi", ""), form.get("projet_objectif", ""), form.get("projet_passions", ""),
+        projet_qualites, projet_motivation, projet_recherche, projet_travail,
         json.dumps(fichiers_ci), json.dumps(fichiers_photo),
         json.dumps(fichiers_carte_vitale), json.dumps(fichiers_cv), json.dumps(fichiers_lm),
         "preinscription", 1 if form.get("aps_souhaitee") else 0, 0, 0,
