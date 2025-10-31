@@ -193,13 +193,13 @@ const bacType = document.querySelector('select[name="bac_type"]');
 const bacAutre = document.querySelector('input[name="bac_autre"]');
 
 if (bacType && bacType.value === "Autre") {
-  // ✅ On vérifie que le champ texte associé est bien rempli
-  if (!bacAutre || !bacAutre.value.trim()) {
-    alert("⚠️ Merci de préciser votre type de bac dans le champ prévu à cet effet.");
+  if (!bacAutre || !bacAutre.value || bacAutre.value.trim().length < 2) {
+    alert("⚠️ Merci de préciser votre type de bac.");
     bacAutre.focus();
     valid = false;
   }
 }
+
 
 
   const permis = document.querySelector('select[name="permis_b"]');
@@ -337,13 +337,7 @@ if (bacType && bacType.value === "Autre") {
       // ✅ Vérif Bac “Autre” précisé
       const bacType = document.querySelector('select[name="bac_type"]');
       const bacAutre = document.querySelector('input[name="bac_autre"]');
-      if (bacType && bacAutre && bacType.value === "Autre" && !bacAutre.value.trim()) {
-        e.preventDefault();
-        alert("⚠️ Merci de préciser votre type de bac.");
-        bacAutre.focus();
-        return;
-      }
-
+ 
       // Vérifie NIR
       if (typeof verifierNumSecu === "function" && !verifierNumSecu()) {
         e.preventDefault();
@@ -440,16 +434,27 @@ document.querySelectorAll('.btn.save').forEach(btn => {
 
 
 
-  function showFlash(message, type = "success") {
-    const flash = document.getElementById("flashMessage");
-    if (!flash) return;
-    flash.textContent = message;
-    flash.className = `flash-message ${type} visible`;
-    setTimeout(() => {
-      flash.classList.remove("visible");
-      flash.classList.add("hidden");
-    }, 6000);
-  }
+function showFlash(message, type = "success") {
+  // Supprime toute popup existante
+  document.querySelectorAll(".flash-popup").forEach(el => el.remove());
+
+  const popup = document.createElement("div");
+  popup.className = `flash-popup ${type}`;
+  popup.innerHTML = `
+    <div class="flash-popup-content">
+      <h3>${type === "success" ? "✅ Enregistré avec succès" : "⚠️ Information"}</h3>
+      <p>${message}</p>
+      <p style="font-size:13px; color:#555;">📩 Un lien de reprise a été envoyé à votre adresse e-mail.</p>
+      <button class="btn primary" id="closeFlash">OK</button>
+    </div>
+  `;
+  document.body.appendChild(popup);
+
+  document.getElementById("closeFlash").addEventListener("click", () => {
+    popup.classList.add("hide");
+    setTimeout(() => popup.remove(), 300);
+  });
+}
 
   // ✅ Rendez les fonctions accessibles globalement
   window.showStep = showStep;
@@ -650,6 +655,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
