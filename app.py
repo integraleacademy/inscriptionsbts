@@ -556,23 +556,41 @@ def health():
 
 @app.route("/")
 def index():
+    # =====================================================
+    # 🧑‍💻 BYPASS ADMIN – permet d’accéder même si le portail est fermé
+    # =====================================================
+    if request.args.get("admin_bypass") == "1":
+        print("🔓 Bypass admin activé – accès forcé au formulaire")
+        return render_template(
+            "index.html",
+            title="Mode test (admin bypass)",
+            portal_closed=False,
+            portal_message="🧑‍💻 Formulaire visible uniquement pour test."
+        )
+
+    # =====================================================
+    # 🔐 Vérifie l’état du portail
+    # =====================================================
     portal = get_portal_status()
     if portal["status"] == "closed":
-        # 🔒 Si le portail est fermé, on affiche une page d'avertissement
         return render_template(
             "index.html",
             title="Inscriptions momentanément fermées",
             portal_closed=True,
-            portal_message=portal["message"]
+            portal_message=portal.get("message", ""),
+            portal_comment=portal.get("comment", "")
         )
-    else:
-        # ✅ Sinon, formulaire normal
-        return render_template(
-            "index.html",
-            title="Pré-inscriptions BTS 2026",
-            portal_closed=False,
-            portal_message=""
-        )
+
+    # =====================================================
+    # 🚀 Portail ouvert → accès normal
+    # =====================================================
+    return render_template(
+        "index.html",
+        title="Pré-inscriptions BTS 2026",
+        portal_closed=False,
+        portal_message=""
+    )
+
 
 
 def save_files(field_key: str, cand_id: str):
@@ -2281,20 +2299,32 @@ def load_portal_status():
     return {"status": "open", "message": "", "comment": ""}
 
 
+# =====================================================
+# 🌐 API – GESTION DU PORTAIL (État ouvert/fermé)
+# =====================================================
+
 @app.route("/get_portal_status")
-def get_portal_status():
+def api_get_portal_status():
+    """
+    🔎 Route API pour récupérer l’état actuel du portail
+    (utilisé par l’admin.js pour afficher le statut et le message).
+    """
     data = load_portal_status()
     return jsonify(data)
 
 
 @app.route("/set_portal_status", methods=["POST"])
-def set_portal_status():
-    data = request.get_json()
+def api_set_portal_status():
+    """
+    💾 Route API pour modifier le statut du portail
+    (open / closed) + message + commentaire.
+    """
+    data = request.get_json() or {}
     status = data.get("status", "open")
     message = data.get("message", "")
-    comment = data.get("comment", "")  # 🆕 récupère le commentaire
+    comment = data.get("comment", "")  # 🗒️ Nouveau champ commentaire
 
-    # Enregistre tout dans portal.json
+    # Enregistre le tout dans /data/portal.json
     with open(PORTAL_FILE, "w", encoding="utf-8") as f:
         json.dump(
             {"status": status, "message": message, "comment": comment},
@@ -2303,7 +2333,12 @@ def set_portal_status():
             indent=2
         )
 
-    return jsonify({"ok": True, "status": status})
+    print(f"✅ Portail mis à jour → {status.upper()} ({message})")
+    if comment:
+        print(f"🗒️ Commentaire : {comment}")
+
+    return jsonify({"ok": True, "status": status, "message": message, "comment": comment})
+
 
 
 
