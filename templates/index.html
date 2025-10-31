@@ -359,47 +359,85 @@
 
     </div>
 
-<!-- 💬 Étape 4 -->
-<div id="tab4" class="tab">
-  <h3>🎯 Projet motivé – Parlez-nous de vous</h3>
-  <p class="notice">
-    Prenez quelques instants pour nous aider à mieux vous connaître. Ces réponses nous permettent d’évaluer votre motivation, votre projet professionnel et votre adéquation avec la formation choisie.
-  </p>
-
-  <div class="grid">
-    <label>
-      Pourquoi avez-vous choisi cette formation&nbsp;?
-      <textarea name="projet_pourquoi" placeholder="Expliquez ce qui vous motive à rejoindre cette formation..." required></textarea>
-    </label>
-
-    <label>
-      Quels sont vos objectifs professionnels à moyen ou long terme&nbsp;?
-      <textarea name="projet_objectif" placeholder="Parlez du métier ou du poste que vous visez après ce BTS..." required></textarea>
-    </label>
-  </div>
-
-  <div class="grid">
-    <label>
-      Quelles sont vos principales qualités&nbsp;? (plusieurs choix possibles)
-      <div class="etiquettes">
-        <label><input type="checkbox" name="qualites" value="rigoureux"> Rigoureux(se)</label>
-        <label><input type="checkbox" name="qualites" value="ponctuel"> Ponctuel(le)</label>
-        <label><input type="checkbox" name="qualites" value="autonome"> Autonome</label>
-        <label><input type="checkbox" name="qualites" value="sociable"> Sociable</label>
-        <label><input type="checkbox" name="qualites" value="leadership"> Leadership</label>
-        <label><input type="checkbox" name="qualites" value="calme"> Calme et réfléchi(e)</label>
-      </div>
-    </label>
-
-    <label>
-      Qu’est-ce qui vous passionne ou vous motive dans la vie&nbsp;?
-      <textarea name="projet_passions" placeholder="Sport, voyages, sécurité, commerce, technologie..." required></textarea>
-    </label>
-  </div>
+<!-- ===================================================== -->
+<!-- 🎯 ÉTAPE 4 : PROJET MOTIVÉ (version finale complète) -->
+<!-- ===================================================== -->
+<div class="tab" id="tab4">
+  <h3>🎯 Projet motivé</h3>
+  <p>Cette étape nous permet de mieux connaître vos motivations et votre profil. Répondez simplement et sincèrement.</p>
 
   <label>
-    Comment vous décririez-vous en quelques mots&nbsp;?
-    <textarea name="projet_personnalite" placeholder="Exemple : dynamique, curieux, attentif, persévérant..." required></textarea>
+    Qu’est-ce qui vous motive à suivre cette formation ?
+    <textarea name="projet_pourquoi" placeholder="Expliquez en quelques lignes ce qui vous attire dans cette formation (ex : débouchés, projet professionnel, reconversion...)" required></textarea>
+  </label>
+
+  <label>
+    Quels sont vos projets ou objectifs après l’obtention de votre diplôme ?
+    <textarea name="projet_objectif" placeholder="Exemple : poursuivre mes études, trouver un emploi rapidement, créer mon entreprise..." required></textarea>
+  </label>
+
+  <hr>
+
+  <h4>💡 Vos principales qualités</h4>
+  <p>Sélectionnez celles qui vous représentent le mieux :</p>
+  <div class="etiquettes">
+    <label><input type="checkbox" name="qualites[]" value="rigoureux"> Rigueur</label>
+    <label><input type="checkbox" name="qualites[]" value="organise"> Organisation</label>
+    <label><input type="checkbox" name="qualites[]" value="autonome"> Autonomie</label>
+    <label><input type="checkbox" name="qualites[]" value="communication"> Communication</label>
+    <label><input type="checkbox" name="qualites[]" value="esprit_equipe"> Esprit d’équipe</label>
+    <label><input type="checkbox" name="qualites[]" value="curieux"> Curiosité</label>
+    <label><input type="checkbox" name="qualites[]" value="leadership"> Leadership</label>
+    <label><input type="checkbox" name="qualites[]" value="creatif"> Créativité</label>
+    <label><input type="checkbox" name="qualites[]" value="empathique"> Empathie</label>
+    <label><input type="checkbox" name="qualites[]" value="serieux"> Sérieux</label>
+  </div>
+
+  <hr>
+
+  <h4>🚀 Ce qui vous motive le plus dans vos études ou votre futur métier</h4>
+  <div class="etiquettes">
+    <label><input type="checkbox" name="motivation[]" value="reussite"> La réussite personnelle et professionnelle</label>
+    <label><input type="checkbox" name="motivation[]" value="stabilite"> La stabilité et la sécurité de l’emploi</label>
+    <label><input type="checkbox" name="motivation[]" value="utilite"> Être utile et aider les autres</label>
+    <label><input type="checkbox" name="motivation[]" value="defis"> Les défis et les responsabilités</label>
+    <label><input type="checkbox" name="motivation[]" value="contact"> Le contact humain et le travail d’équipe</label>
+    <label><input type="checkbox" name="motivation[]" value="innovation"> L’innovation et les nouvelles technologies</label>
+    <label><input type="checkbox" name="motivation[]" value="evolution"> Les perspectives d’évolution</label>
+    <label><input type="checkbox" name="motivation[]" value="apprentissage"> L’envie d’apprendre et de me perfectionner</label>
+  </div>
+
+  <hr>
+
+  <h4>💼 Ce que vous recherchez avant tout dans votre futur métier</h4>
+  <div class="etiquettes">
+    <label><input type="checkbox" name="valeurs[]" value="salaire"> Un bon salaire et des avantages</label>
+    <label><input type="checkbox" name="valeurs[]" value="sens"> Un métier qui a du sens</label>
+    <label><input type="checkbox" name="valeurs[]" value="contact"> Être en contact avec le public</label>
+    <label><input type="checkbox" name="valeurs[]" value="mobilite"> Pouvoir bouger et voyager</label>
+    <label><input type="checkbox" name="valeurs[]" value="stabilite"> La stabilité et la sécurité de l’emploi</label>
+    <label><input type="checkbox" name="valeurs[]" value="responsabilite"> Des responsabilités importantes</label>
+    <label><input type="checkbox" name="valeurs[]" value="autonomie"> Travailler de manière autonome</label>
+    <label><input type="checkbox" name="valeurs[]" value="equipe"> Un bon esprit d’équipe</label>
+  </div>
+
+  <hr>
+
+  <h4>🧭 Votre manière de travailler</h4>
+  <div class="etiquettes">
+    <label><input type="checkbox" name="travail[]" value="methodique"> Je suis méthodique et j’aime planifier</label>
+    <label><input type="checkbox" name="travail[]" value="pratique"> J’apprends mieux en pratiquant</label>
+    <label><input type="checkbox" name="travail[]" value="collaboratif"> J’aime travailler en groupe</label>
+    <label><input type="checkbox" name="travail[]" value="independant"> Je préfère travailler seul(e)</label>
+    <label><input type="checkbox" name="travail[]" value="creatif"> J’aime proposer des idées nouvelles</label>
+    <label><input type="checkbox" name="travail[]" value="objectif"> Je me fixe des objectifs précis</label>
+  </div>
+
+  <hr>
+
+  <label>
+    Comment vous décririez-vous en quelques mots ?
+    <textarea name="projet_passions" placeholder="Parlez un peu de vous : vos passions, votre personnalité, vos valeurs, votre manière de travailler..." required></textarea>
   </label>
 
   <div class="actions nav-global">
