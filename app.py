@@ -744,8 +744,9 @@ def submit():
     token_confirm = new_token()
     token_confirm_exp = (datetime.now() + timedelta(days=30)).isoformat()
 
-       # 💾 Insertion en base
+        # 💾 Insertion en base
     cur.execute("""
+
 INSERT INTO candidats (
     id, numero_dossier, created_at, updated_at,
     nom, prenom, sexe,
@@ -766,7 +767,7 @@ INSERT INTO candidats (
     commentaires,
     verif_docs, nouveau_doc, replace_token, replace_token_exp, replace_meta,
     label_ypareo, label_carte_etudiante, date_validee, date_confirmee, date_reconfirmee, slug_public
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 """, (
     cand_id, numero, now, now,
     form.get("nom", "").strip(), form.get("prenom", "").strip(), form.get("sexe", ""),
@@ -784,10 +785,12 @@ INSERT INTO candidats (
     json.dumps(fichiers_carte_vitale), json.dumps(fichiers_cv), json.dumps(fichiers_lm),
     "preinscription", 1 if form.get("aps_souhaitee") else 0, 0, 0,
     token_confirm, token_confirm_exp,
-    "", "", "",                   # token_reconfirm, token_reconfirm_exp, commentaires
-    "{}", 0, "", "", "{}",        # verif_docs, nouveau_doc, replace_token, replace_token_exp, replace_meta
-    0, 0, "", "", "", ""          # label_ypareo, label_carte_etudiante, date_validee, date_confirmee, date_reconfirmee, slug_public
+    "", "", "",  # token_reconfirm, token_reconfirm_exp, commentaires
+    "{}", 0, "", "", "{}",  # verif_docs, nouveau_doc, replace_token, replace_token_exp, replace_meta
+    0, 0, "", "", "", ""    # label_ypareo, label_carte_etudiante, date_validee, date_confirmee, date_reconfirmee, slug_public
 ))
+
+
 
     conn.commit()
 
