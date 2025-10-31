@@ -738,18 +738,52 @@ def submit():
     # === Normalisation du BAC ===
     baccalaureat = (form.get("bac_status") or "").strip()
 
-    # === APS ===
-    aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
-    aps_session = (form.get("aps_session") or "").strip()
-    aps_session_other = (form.get("aps_session_other") or "").strip()
-    if aps_session.lower() == "autre" and aps_session_other:
-        aps_session = aps_session_other
-
     # === Projet motivé : nouveaux champs ===
-    projet_qualites    = form.get("projet_qualites", "")
-    projet_motivation  = form.get("projet_motivation", "")
-    projet_recherche   = form.get("projet_recherche", "")
-    projet_travail     = form.get("projet_travail", "")
+    # Texte libre
+    projet_pourquoi   = (form.get("projet_pourquoi") or "").strip()
+    projet_objectif   = (form.get("projet_objectif") or "").strip()
+    projet_passions   = (form.get("projet_passions") or "").strip()
+
+    # Cases à cocher
+    qualites_list   = request.form.getlist("qualites[]")
+    motivation_list = request.form.getlist("motivation[]")
+    valeurs_list    = request.form.getlist("valeurs[]")
+    travail_list    = request.form.getlist("travail[]")
+
+    projet_qualites   = ", ".join(qualites_list)
+    projet_motivation = ", ".join(motivation_list)
+    projet_recherche  = ", ".join(valeurs_list)
+    projet_travail    = ", ".join(travail_list)
+
+    # === APS (sessions datées) ===
+    aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
+    aps_session_value = (form.get("aps_session") or "").strip()
+    aps_session_other = (form.get("aps_session_other") or "").strip()
+
+    APS_SESSIONS = {
+        "puget": "8 juillet → 12 août 2026 — Intégrale Academy (Puget-sur-Argens)",
+        "autre": "7 septembre → 9 octobre 2026 — Intégrale Academy (Puget-sur-Argens)",
+    }
+
+    if aps_session_value in APS_SESSIONS:
+        aps_session = APS_SESSIONS[aps_session_value]
+    elif aps_session_value.lower() == "autre" and aps_session_other:
+        aps_session = aps_session_other
+    else:
+        aps_session = aps_session_value
+
+    # Dictionnaire d’overrides (pour forcer les bonnes valeurs dans la base)
+    form_overrides = {
+        "projet_pourquoi":   projet_pourquoi,
+        "projet_objectif":   projet_objectif,
+        "projet_passions":   projet_passions,
+        "projet_qualites":   projet_qualites,
+        "projet_motivation": projet_motivation,
+        "projet_recherche":  projet_recherche,
+        "projet_travail":    projet_travail,
+        "aps_souhaitee":     aps_souhaitee,
+        "aps_session":       aps_session,
+    }
 
 
 
@@ -818,7 +852,7 @@ def submit():
         elif c == "slug_public":
             values.append("")
         else:
-            values.append(form.get(c, ""))
+            values.append(form_overrides.get(c, form.get(c, "")))
 
     cur.execute(sql, tuple(values))
     conn.commit()
