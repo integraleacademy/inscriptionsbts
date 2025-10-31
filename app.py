@@ -588,7 +588,13 @@ def save_files(field_key: str, cand_id: str):
 
     return saved
 
-
+# --- Convertit une valeur Oui/Non en booléen (1 ou 0) ---
+def b(v):
+    """Convertit les réponses 'Oui', 'True', '1', etc. en 1, sinon 0."""
+    if v is None:
+        return 0
+    s = str(v).strip().lower()
+    return 1 if s in ("on", "true", "1", "yes", "oui") else 0
 
 # =====================================================
 # 💾 SAUVEGARDE DU BROUILLON ("Reprendre plus tard")
@@ -710,11 +716,7 @@ def submit():
     cand_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
 
-    def b(v):
-    if v is None:
-        return 0
-    s = str(v).strip().lower()
-    return 1 if s in ("on", "true", "1", "yes", "oui") else 0
+
 
 
     # 📎 Sauvegarde des fichiers
