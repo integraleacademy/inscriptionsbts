@@ -113,8 +113,8 @@ def mail_html(template_name, **kwargs):
                 <p>Votre inscription au <strong>{bts_label}</strong> est désormais finalisée.</p>
                 <p><a href="{lien_espace}" class="btn">Accéder à mon espace</a></p>
             """
-        }
-    }
+        },
+
         # =====================================================
         # 🟢 MAILS PARCOURSUP – Import + Relance automatique
         # =====================================================
@@ -146,7 +146,8 @@ def mail_html(template_name, **kwargs):
                 </p>
                 <p>Bien cordialement,<br><b>L’équipe Intégrale Academy</b></p>
             """
-        },
+        }
+    }  # ← cette accolade ferme le dictionnaire templates
 
     # === Sécurité : vérifie que le modèle existe ===
     tpl = templates.get(template_name)
@@ -167,4 +168,5 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
