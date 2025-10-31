@@ -851,6 +851,69 @@ document.addEventListener("click", async (e) => {
   }
 });
 
+// =====================================================
+// 🔐 GESTION PORTAIL (Ouvrir / Fermer les inscriptions)
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const btnPortal = document.getElementById("btnPortal");
+  const portalModal = document.getElementById("portalModal");
+  const savePortalBtn = document.getElementById("savePortalBtn");
+  const msgBlock = document.getElementById("portalMessageBlock");
+  const radios = document.querySelectorAll('input[name="portalStatus"]');
+  const msgSelect = document.getElementById("portalMessage");
+
+  if (!btnPortal) return;
+
+  // 🔄 Ouvre la modale
+  btnPortal.addEventListener("click", async () => {
+    portalModal.classList.remove("hidden");
+
+    // Récupère le statut actuel
+    const res = await fetch("/get_portal_status");
+    const data = await res.json();
+    if (data.status === "closed") {
+      radios.forEach(r => (r.value === "closed" ? (r.checked = true) : null));
+      msgBlock.style.display = "block";
+    } else {
+      radios.forEach(r => (r.value === "open" ? (r.checked = true) : null));
+      msgBlock.style.display = "none";
+    }
+  });
+
+  // 🎛️ Affiche le champ message seulement si "fermé"
+  radios.forEach(radio => {
+    radio.addEventListener("change", () => {
+      msgBlock.style.display = radio.value === "closed" ? "block" : "none";
+    });
+  });
+
+  // 💾 Enregistrement du statut
+  savePortalBtn.addEventListener("click", async () => {
+    const selected = document.querySelector('input[name="portalStatus"]:checked');
+    if (!selected) return alert("Veuillez choisir un état du portail.");
+    const status = selected.value;
+    const message = msgSelect.value;
+
+    const res = await fetch("/set_portal_status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status, message })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      alert("✅ Portail mis à jour : " + (status === "open" ? "OUVERT" : "FERMÉ"));
+      portalModal.classList.add("hidden");
+      location.reload();
+    } else {
+      alert("Erreur lors de la mise à jour du portail.");
+    }
+  });
+});
+
+// 🔙 Fermeture manuelle de la modale
+function closePortalModal() {
+  document.getElementById("portalModal").classList.add("hidden");
+}
 
 
 
@@ -859,6 +922,7 @@ document.addEventListener("click", async (e) => {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
