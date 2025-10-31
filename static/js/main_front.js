@@ -136,6 +136,17 @@ if (stepIndex === 1) {
 
     const statut = bacStatusChecked?.value;
 
+    // 🟡 Si le candidat a coché "autre", il doit choisir Oui ou Non APS
+if (statut === "autre") {
+  const apsOui = document.querySelector('input[name="aps_souhaitee"][value="oui"]:checked');
+  const apsNon = document.querySelector('input[name="aps_souhaitee"][value="non"]:checked');
+  if (!apsOui && !apsNon) {
+    alert("⚠️ Merci d’indiquer si vous souhaitez suivre la formation APS.");
+    valid = false;
+  }
+}
+
+
     // 🎯 Si carte CNAPS => pas de validation APS requise
     if (statut === "carte_cnaps") {
       const apsSessionBloc = document.getElementById('bloc-aps-session');
@@ -567,11 +578,17 @@ bacRadios.forEach(r => {
     } else {
       blocBacAutre.style.display = 'none';
     }
-    if (r.value === 'carte_cnaps' || r.value === 'autre') {
-      mosExplication.style.display = 'block';
-    } else {
-      mosExplication.style.display = 'none';
-    }
+    if (r.value === 'carte_cnaps') {
+  // ✅ Déjà titulaire d'une carte CNAPS → on ne montre PAS le texte explicatif
+  mosExplication.style.display = 'none';
+} else if (r.value === 'autre') {
+  // 🟡 Cas "autre" → on montre le texte et le bloc APS
+  mosExplication.style.display = 'block';
+} else {
+  // ❌ Tous les autres cas → on masque aussi le texte
+  mosExplication.style.display = 'none';
+}
+
   });
 });
 
@@ -608,19 +625,30 @@ const raisonInput = document.querySelector('textarea[name="raison_aps"]');
 
 apsRadios.forEach(radio => {
   radio.addEventListener('change', () => {
-    if (radio.value === "oui") {
+    const apsOui = radio.value === "oui";
+    const apsNon = radio.value === "non";
+
+    // ✅ Si "Oui" → on affiche les sessions et cache le champ raison
+    if (apsOui) {
       apsSessionBloc.style.display = "block";
+      apsSessionBloc.querySelectorAll('input[name="aps_session"]').forEach(r => r.required = true);
       raisonBloc.style.display = "none";
       raisonInput.required = false;
-      apsSessionBloc.querySelectorAll('input[name="aps_session"]').forEach(r => r.required = true);
-    } else if (radio.value === "non") {
+      raisonInput.value = "";
+    }
+
+    // ❌ Si "Non" → on cache les sessions et on rend la raison obligatoire
+    if (apsNon) {
       apsSessionBloc.style.display = "none";
       apsSessionBloc.querySelectorAll('input[name="aps_session"]').forEach(r => r.checked = false);
       raisonBloc.style.display = "block";
       raisonInput.required = true;
+      raisonInput.focus();
     }
   });
 });
+
+
 
 
 
