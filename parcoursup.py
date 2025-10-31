@@ -446,6 +446,69 @@ def check_file():
     return redirect(url_for("parcoursup.dashboard"))
 
 # =====================================================
+# 📩 RELANCER AUTOMATIQUEMENT LES NON OUVERTS APRÈS 48H
+# =====================================================
+@bp_parcoursup.route("/parcoursup/relancer-non-ouverts", methods=["POST"])
+def relancer_non_ouverts():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT id, prenom, email, telephone, formation, logs FROM parcoursup_candidats")
+    rows = cur.fetchall()
+    relances = 0
+    now = datetime.now().isoformat()
+
+    for r in rows:
+        try:
+            logs = json.loads(r["logs"] or "[]")
+            mail_log = next((l for l in logs if l.get("type") == "mail"), None)
+            opened_or_clicked = any(
+                l.get("event") in ["opened", "click", "unique_opened"]
+                for l in logs if l.get("type") == "mail_status"
+            )
+
+            if mail_log and not opened_or_clicked:
+                mail_date = datetime.fromisoformat(mail_log["date"])
+                diff_hours = (datetime.now() - mail_date).total_seconds() / 3600
+
+                if diff_hours > 48:
+                    prenom = r["prenom"] or ""
+                    formation = r["formation"] or ""
+                    email = r["email"] or ""
+                    tel = r["telephone"] or ""
+
+                    # --- MAIL ---
+                    html = f"""
+                    <p>Bonjour {prenom},</p>
+                    <p>Nous n’avons pas encore reçu votre confirmation Parcoursup pour le BTS <b>{formation}</b>.</p>
+                    <p>Merci de compléter votre pré-inscription ici :</p>
+                    <p><a href='https://inscriptionsbts.onrender.com/'><b>👉 Formulaire de pré-inscription</b></a></p>
+                    <p>À bientôt,<br><b>L’équipe Intégrale Academy</b></p>
+                    """
+                    send_mail(email, "Relance – Intégrale Academy", html)
+
+                    # --- SMS ---
+                    msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription BTS {formation} ici 👉 inscriptionsbts.onrender.com"
+                    send_sms_brevo(tel, msg)
+
+                    # --- Log ---
+                    cur.execute(
+                        "UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type','relance_auto','date',?)) WHERE id=?",
+                        (now, r["id"])
+                    )
+                    relances += 1
+
+        except Exception as e:
+            print(f"⚠️ Erreur relance auto: {e}")
+            continue
+
+    conn.commit()
+    conn.close()
+
+    flash(f"{relances} relances automatiques envoyées.", "success")
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+# =====================================================
 # 🗑️ SUPPRIMER UN CANDIDAT
 # =====================================================
 @bp_parcoursup.route("/parcoursup/delete/<cid>", methods=["POST"])
@@ -693,6 +756,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
