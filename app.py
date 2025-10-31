@@ -558,8 +558,6 @@ def health():
 
 @app.route("/")
 def index():
-    @app.route("/")
-def index():
     portal = get_portal_status()
     if portal["status"] == "closed":
         # 🔒 Si le portail est fermé, on affiche une page d'avertissement
