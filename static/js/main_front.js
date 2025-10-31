@@ -193,14 +193,14 @@ const bacType = document.querySelector('select[name="bac_type"]');
 const bacAutre = document.querySelector('input[name="bac_autre"]');
 
 if (bacType && bacType.value === "Autre") {
-  const visible = bacAutre && window.getComputedStyle(bacAutre).display !== "none";
-  if (visible && (!bacAutre.value || !bacAutre.value.trim())) {
-    alert("⚠️ Merci de préciser votre type de bac.");
-    bacAutre.scrollIntoView({ behavior: "smooth", block: "center" });
+  // ✅ On vérifie que le champ texte associé est bien rempli
+  if (!bacAutre || !bacAutre.value.trim()) {
+    alert("⚠️ Merci de préciser votre type de bac dans le champ prévu à cet effet.");
     bacAutre.focus();
     valid = false;
   }
 }
+
 
   const permis = document.querySelector('select[name="permis_b"]');
   if (!permis?.value) {
@@ -647,6 +647,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
