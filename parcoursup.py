@@ -367,26 +367,32 @@ def import_file():
                     """, (cid, nom, prenom, telephone, email, formation, mode, now))
                     imported += 1
 
-                    # === Envoi du mail ===
-                    html = f"""
-                    <p>Bonjour {prenom},</p>
-                    <p>Nous avons bien reçu votre candidature Parcoursup pour le BTS <b>{formation}</b>.</p>
-                    <p>Merci de compléter votre pré-inscription ici :</p>
-                    <p><a href='https://inscriptionsbts.onrender.com/'><b>👉 Formulaire de pré-inscription</b></a></p>
-                    <p>À bientôt,<br><b>L’équipe Intégrale Academy</b></p>
-                    """
-                    if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", html):
+                                     # === Envoi du mail ===
+                    mail_body = mail_html(
+                        "parcoursup_import",
+                        prenom=prenom,
+                        bts_label=formation,
+                        lien_espace="https://inscriptionsbts.onrender.com/"
+                    )
+                    if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", mail_body):
                         mails_sent += 1
                         cur.execute("UPDATE parcoursup_candidats SET mail_ok=1 WHERE id=?", (cid,))
                         cur.execute("UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type', 'mail', 'dest', ?, 'date', ?)) WHERE id=?", (email, now, cid))
 
                     # === Envoi du SMS ===
-                    sms_msg = f"Bonjour {prenom}, nous avons bien reçu votre candidature Parcoursup pour le BTS {formation}. Pour finaliser : inscriptionsbts.onrender.com"
-                    sms_id = send_sms_brevo(telephone, sms_msg)
+                    sms_body = sms_text(
+                        "parcoursup_import",
+                        prenom=prenom,
+                        bts_label=formation,
+                        lien_espace="https://inscriptionsbts.onrender.com/"
+                    )
+                    sms_id = send_sms_brevo(telephone, sms_body)
                     if sms_id:
                         sms_sent += 1
                         cur.execute("UPDATE parcoursup_candidats SET sms_ok=1 WHERE id=?", (cid,))
                         cur.execute("UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type', 'sms', 'dest', ?, 'id', ?, 'date', ?)) WHERE id=?", (telephone, str(sms_id), now, cid))
+
+
 
                     row_index += 1
 
@@ -680,8 +686,9 @@ def relancer_individuel(cid):
         lien_espace = f"{base_url}/espace/{cid}"
 
         # 📬 Génération des contenus depuis les templates
-        mail_body = mail_html("candidature_validee", prenom=prenom, bts_label=formation, lien_espace=lien_espace)
-        sms_body = sms_text("candidature_validee", prenom=prenom, bts_label=formation, lien_espace=lien_espace)
+        mail_body = mail_html("parcoursup_relance", prenom=prenom, bts_label=formation, lien_espace=lien_espace)
+        sms_body = sms_text("parcoursup_relance", prenom=prenom, bts_label=formation, lien_espace=lien_espace)
+
 
         # 📧 Envoi du mail
         mail_ok = False
@@ -876,6 +883,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
