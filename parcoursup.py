@@ -8,6 +8,8 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from werkzeug.utils import secure_filename
 from utils import send_mail, send_sms_brevo
+from mail_templates import mail_html
+from sms_templates import sms_text
 from openpyxl import load_workbook
 import unicodedata
 
@@ -270,6 +272,18 @@ def dashboard():
         except Exception:
             r["alerte"] = False
 
+    # 🟡 Marquage visuel des candidats relancés
+    for r in rows:
+        try:
+            logs = r.get("logs", [])
+            relance = next(
+                (l for l in reversed(logs) if l.get("type") in ["relance_manuelle", "relance_auto"]),
+                None
+            )
+            r["relancee"] = bool(relance)
+        except Exception:
+            r["relancee"] = False
+  
 
     conn.close()
 
@@ -661,6 +675,61 @@ def relancer_individuel(cid):
     now = datetime.now().isoformat()
 
     try:
+        # 🔗 Lien espace candidat (affiché dans le mail et SMS)
+        base_url = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+        lien_espace = f"{base_url}/espace/{cid}"
+
+        # 📬 Génération des contenus depuis les templates
+        mail_body = mail_html("candidature_validee", prenom=prenom, bts_label=formation, lien_espace=lien_espace)
+        sms_body = sms_text("candidature_validee", prenom=prenom, bts_label=formation, lien_espace=lien_espace)
+
+        # 📧 Envoi du mail
+        mail_ok = False
+        try:
+            send_mail(email, "📩 Relance — Votre candidature Intégrale Academy", mail_body)
+            mail_ok = True
+        except Exception as e:
+            print(f"⚠️ Erreur mail: {e}")
+
+        # 📱 Envoi du SMS
+        sms_ok = False
+        try:
+            send_sms_brevo(tel, sms_body)
+            sms_ok = True
+        except Exception as e:
+            print(f"⚠️ Erreur SMS: {e}")
+
+        # 🕓 Ajout dans les logs
+        cur.execute("""
+            UPDATE parcoursup_candidats
+            SET logs = json_insert(
+                logs, '$[#]',
+                json_object(
+                    'type', 'relance_manuelle',
+                    'modele', 'candidature_validee',
+                    'date', ?
+                )
+            )
+            WHERE id = ?
+        """, (now, cid))
+        conn.commit()
+
+        flash(f"Relance envoyée à {prenom} ✅ (mail:{'OK' if mail_ok else '❌'}, sms:{'OK' if sms_ok else '❌'})", "success")
+
+    except Exception as e:
+        flash(f"Erreur lors de la relance : {e}", "error")
+
+    conn.close()
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+    prenom = r["prenom"] or ""
+    formation = r["formation"] or ""
+    email = (r["email"] or "").strip()
+    tel = (r["telephone"] or "").strip()
+    now = datetime.now().isoformat()
+
+    try:
         # --- MAIL ---
         html = f"""
         <p>Bonjour {prenom},</p>
@@ -807,6 +876,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
