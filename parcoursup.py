@@ -86,6 +86,7 @@ STATUTS_STYLE = {
     "reconfirmee": {"label": "Inscription re-confirmée", "color": "#2ecc71"},
     "annulee": {"label": "Inscription annulée", "color": "#e74c3c"},
     "docs_non_conformes": {"label": "Documents non conformes", "color": "#000000"},
+    "En attente de candidature": {"label": "En attente de candidature", "color": "#e74c3c"},
 }
 
 # =====================================================
@@ -246,6 +247,29 @@ def dashboard():
                 r["sms_status"] = sms_status or "unknown"
         except Exception:
             r["sms_status"] = "unknown"
+
+        # 🔎 Marquage des candidats sans ouverture/clic après 48h
+    now = datetime.now()
+    for r in rows:
+        try:
+            logs = r.get("logs", [])
+            mail_log = next((l for l in logs if l.get("type") == "mail"), None)
+            opened_or_clicked = any(
+                l.get("event") in ["opened", "click", "unique_opened"]
+                for l in logs if l.get("type") == "mail_status"
+            )
+            if mail_log and not opened_or_clicked:
+                mail_date = datetime.fromisoformat(mail_log["date"])
+                diff_hours = (now - mail_date).total_seconds() / 3600
+                if diff_hours > 48:
+                    r["alerte"] = True
+                else:
+                    r["alerte"] = False
+            else:
+                r["alerte"] = False
+        except Exception:
+            r["alerte"] = False
+
 
     conn.close()
 
@@ -669,6 +693,7 @@ def brevo_mail_webhook():
     except Exception as e:
         print(f"❌ Erreur traitement webhook MAIL : {e}")
         return jsonify({"status": "error", "error": str(e)}), 500
+
 
 
 
