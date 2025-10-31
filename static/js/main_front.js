@@ -396,31 +396,35 @@ if (bacType && bacType.value === "Autre") {
     });
   }
 
-  // =====================================================
-  // 💾 ENREGISTRER ET REPRENDRE PLUS TARD
-  // =====================================================
-  document.querySelectorAll('.btn.save').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const form = document.querySelector('#inscriptionForm');
-      const formData = new FormData(form);
-      formData.append('current_step', currentStep);
+// =====================================================
+// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (corrigé + log)
+// =====================================================
+document.querySelectorAll('.btn.save').forEach(btn => {
+  btn.addEventListener('click', async () => {
+    const form = document.querySelector('#inscriptionForm');
+    const formData = new FormData(form);
+    formData.append('current_step', currentStep);
 
-      try {
-        const response = await fetch('/save_draft', {
-          method: 'POST',
-          body: formData
-        });
+    try {
+      const response = await fetch('/save_draft', {
+        method: 'POST',
+        body: formData
+      });
 
-        if (response.ok) {
-          showFlash("✅ Votre demande a été enregistrée. Un e-mail vous a été envoyé pour la reprendre plus tard.", "success");
-        } else {
-          showFlash("❌ Erreur lors de l'enregistrement. Veuillez réessayer.", "error");
-        }
-      } catch {
-        showFlash("❌ Une erreur est survenue. Vérifiez votre connexion.", "error");
+      const text = await response.text();
+      if (response.ok && text.includes("success")) {
+        showFlash("✅ Votre demande a été enregistrée. Vous recevrez un lien de reprise par e-mail.", "success");
+      } else {
+        console.error("Erreur sauvegarde :", text);
+        showFlash("❌ Erreur lors de l'enregistrement. Veuillez réessayer.", "error");
       }
-    });
+    } catch (err) {
+      console.error("Erreur réseau :", err);
+      showFlash("❌ Une erreur est survenue. Vérifiez votre connexion.", "error");
+    }
   });
+});
+
 
   function showFlash(message, type = "success") {
     const flash = document.getElementById("flashMessage");
@@ -617,6 +621,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
