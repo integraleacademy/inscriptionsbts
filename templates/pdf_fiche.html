@@ -129,63 +129,71 @@
 </div>
 
 <h2>2. ANTÉRIORITÉ SCOLAIRE</h2>
-<div class="box"><span class="label">Baccalauréat :</span> {{ row.baccalaureat }}</div>
-<div class="box"><span class="label">Type de bac :</span> {{ row.bac_type }}</div>
-<div class="box"><span class="label">Autre formation / précisions :</span> {{ row.bac_autre }}</div>
+<div class="box">
+  <span class="label">Baccalauréat :</span>
+  {% if row.bac_status %}
+    {% if row.bac_status == 'oui' %}✅ Oui
+    {% elif row.bac_status == 'non' %}❌ Non
+    {% elif row.bac_status == '2026' or 'prévu' in row.bac_status.lower() %}📅 Prévu en 2026
+    {% else %}{{ row.bac_status }}
+    {% endif %}
+  {% else %}—
+  {% endif %}
+</div>
+<div class="box"><span class="label">Type de bac :</span> {{ row.bac_type or "—" }}</div>
+<div class="box"><span class="label">Autre formation / précisions :</span> {{ row.bac_autre or "—" }}</div>
 
 <h2>3. FORMATION CHOISIE</h2>
 <div class="box"><span class="label">Formation :</span> {{ row.bts|btsfull }}</div>
 <div class="box"><span class="label">Mode de formation :</span> {{ row.mode|modeemo }}</div>
 
-{% if row.bts == "MOS" %}
+{% if row.mos_parcours %}
   <div class="box"><span class="label">Parcours sécurité :</span> {{ row.mos_parcours }}</div>
-  <div class="box">
-    <span class="label">Formation APS souhaitée :</span>
-    {% if row.aps_souhaitee %}✅ Oui{% else %}❌ Non{% endif %}
-    {% if row.aps_souhaitee %}
-      {% set aps = (row.aps_session or '').strip() %}
-      {% if aps %}
-        <br><span class="label">Session APS :</span> {{ aps }}
-      {% endif %}
-    {% endif %}
-  </div>
 {% endif %}
+
+<div class="box">
+  <span class="label">Formation APS souhaitée :</span>
+  {% if row.aps_souhaitee %}✅ Oui{% else %}❌ Non{% endif %}
+  {% if row.aps_session %}
+    <br><span class="label">Session APS :</span> {{ row.aps_session }}
+  {% endif %}
+</div>
 
 <h2>4. PROJET MOTIVÉ</h2>
 
 <div class="box">
   <span class="label">Pourquoi souhaitez-vous intégrer ce BTS ?</span><br>
-  <div class="answer">{{ row.projet_pourquoi }}</div>
+  <div class="answer">{{ row.projet_pourquoi or "—" }}</div>
 </div>
 
 <div class="box">
   <span class="label">Quel est votre projet professionnel ?</span><br>
-  <div class="answer">{{ row.projet_objectif }}</div>
+  <div class="answer">{{ row.projet_objectif or "—" }}</div>
 </div>
 
 <div class="box">
   <span class="label">Quelles sont vos passions / centres d’intérêt ?</span><br>
-  <div class="answer">{{ row.projet_passions }}</div>
+  <div class="answer">{{ row.projet_passions or "—" }}</div>
 </div>
 
 <div class="box">
   <span class="label">Vos principales qualités :</span><br>
-  <div class="answer">{{ row.projet_qualites }}</div>
+  <div class="answer">{{ row.projet_qualites or "—" }}</div>
 </div>
 
 <div class="box">
   <span class="label">Ce qui vous motive le plus dans vos études ou votre futur métier :</span><br>
-  <div class="answer">{{ row.projet_motivation }}</div>
+  <div class="answer">{{ row.projet_motivation or "—" }}</div>
 </div>
 
 <div class="box">
   <span class="label">Ce que vous recherchez avant tout dans votre futur métier :</span><br>
-  <div class="answer">{{ row.projet_recherche }}</div>
+  <div class="answer">{{ row.projet_recherche or "—" }}</div>
 </div>
 
 <div class="box">
   <span class="label">Votre manière de travailler :</span><br>
-  <div class="answer">{{ row.projet_travail }}</div>
+  <div class="answer">{{ row.projet_travail or "—" }}</div>
 </div>
 
 <footer>
