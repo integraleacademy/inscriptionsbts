@@ -90,7 +90,7 @@
   <div>
     <h1>{{ row.nom|upper }} {{ row.prenom|title }}</h1>
     <div class="sub-info">
-      {{ row.bts|btsfull }} — {{ row.mode|modeemo }}<br>
+      {{ row.bts|btsfull }} — {% if row.mode == "presentiel" %}🧑‍🏫 Présentiel{% elif row.mode == "distanciel" %}💻 Distanciel{% else %}{{ row.mode }}{% endif %}<br>
       <strong>Dossier n° {{ row.numero_dossier }}</strong>
     </div>
   </div>
@@ -122,7 +122,7 @@
 <div class="box"><span class="label">Ville :</span> {{ row.ville }}</div>
 <div class="box"><span class="label">E-mail :</span> {{ row.email }}</div>
 <div class="box"><span class="label">Téléphone :</span> {{ row.tel }}</div>
-<div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}Oui{% else %}Non{% endif %}</div>
+<div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}✅ Oui{% else %}❌ Non{% endif %}</div>
 
 <div class="nir-box">
   N° de Sécurité sociale : {{ row.num_secu|nirsp }}
@@ -131,11 +131,11 @@
 <h2>2. ANTÉRIORITÉ SCOLAIRE</h2>
 <div class="box">
   <span class="label">Baccalauréat :</span>
-  {% if row.bac_status %}
-    {% if row.bac_status == 'oui' %}✅ Oui
-    {% elif row.bac_status == 'non' %}❌ Non
-    {% elif row.bac_status == '2026' or 'prévu' in row.bac_status.lower() %}📅 Prévu en 2026
-    {% else %}{{ row.bac_status }}
+  {% if row.baccalaureat %}
+    {% if 'oui' in row.baccalaureat.lower() %}✅ Oui
+    {% elif 'non' in row.baccalaureat.lower() %}❌ Non
+    {% elif '2026' in row.baccalaureat or 'prévu' in row.baccalaureat.lower() %}📅 Prévu en 2026
+    {% else %}{{ row.baccalaureat }}
     {% endif %}
   {% else %}—
   {% endif %}
@@ -145,7 +145,7 @@
 
 <h2>3. FORMATION CHOISIE</h2>
 <div class="box"><span class="label">Formation :</span> {{ row.bts|btsfull }}</div>
-<div class="box"><span class="label">Mode de formation :</span> {{ row.mode|modeemo }}</div>
+<div class="box"><span class="label">Mode de formation :</span> {% if row.mode == "presentiel" %}🧑‍🏫 Présentiel{% elif row.mode == "distanciel" %}💻 Distanciel{% else %}{{ row.mode }}{% endif %}</div>
 
 {% if row.mos_parcours %}
   <div class="box"><span class="label">Parcours sécurité :</span> {{ row.mos_parcours }}</div>
@@ -153,48 +153,23 @@
 
 <div class="box">
   <span class="label">Formation APS souhaitée :</span>
-  {% if row.aps_souhaitee %}✅ Oui{% else %}❌ Non{% endif %}
-  {% if row.aps_session %}
-    <br><span class="label">Session APS :</span> {{ row.aps_session }}
+  {% if row.aps_souhaitee|int == 1 %}
+    ✅ Oui<br>
+    <span class="label">Session APS :</span> {{ row.aps_session or "—" }}
+  {% else %}
+    ❌ Non
   {% endif %}
 </div>
 
-<h2>4. PROJET MOTIVÉ</h2>
+<h2>4. 💬 PROJET MOTIVÉ</h2>
 
-<div class="box">
-  <span class="label">Pourquoi souhaitez-vous intégrer ce BTS ?</span><br>
-  <div class="answer">{{ row.projet_pourquoi or "—" }}</div>
-</div>
-
-<div class="box">
-  <span class="label">Quel est votre projet professionnel ?</span><br>
-  <div class="answer">{{ row.projet_objectif or "—" }}</div>
-</div>
-
-<div class="box">
-  <span class="label">Quelles sont vos passions / centres d’intérêt ?</span><br>
-  <div class="answer">{{ row.projet_passions or "—" }}</div>
-</div>
-
-<div class="box">
-  <span class="label">Vos principales qualités :</span><br>
-  <div class="answer">{{ row.projet_qualites or "—" }}</div>
-</div>
-
-<div class="box">
-  <span class="label">Ce qui vous motive le plus dans vos études ou votre futur métier :</span><br>
-  <div class="answer">{{ row.projet_motivation or "—" }}</div>
-</div>
-
-<div class="box">
-  <span class="label">Ce que vous recherchez avant tout dans votre futur métier :</span><br>
-  <div class="answer">{{ row.projet_recherche or "—" }}</div>
-</div>
-
-<div class="box">
-  <span class="label">Votre manière de travailler :</span><br>
-  <div class="answer">{{ row.projet_travail or "—" }}</div>
-</div>
+<div class="box"><span class="label">Pourquoi souhaitez-vous intégrer ce BTS ?</span><br>🎯 {{ row.projet_pourquoi or "—" }}</div>
+<div class="box"><span class="label">Quel est votre projet professionnel ?</span><br>🚀 {{ row.projet_objectif or "—" }}</div>
+<div class="box"><span class="label">Vos passions / centres d’intérêt :</span><br>❤️ {{ row.projet_passions or "—" }}</div>
+<div class="box"><span class="label">Vos principales qualités :</span><br>🌟 {{ row.projet_qualites or "—" }}</div>
+<div class="box"><span class="label">Ce qui vous motive le plus :</span><br>🔥 {{ row.projet_motivation or "—" }}</div>
+<div class="box"><span class="label">Ce que vous recherchez dans votre futur métier :</span><br>💼 {{ row.projet_recherche or "—" }}</div>
+<div class="box"><span class="label">Votre manière de travailler :</span><br>🧠 {{ row.projet_travail or "—" }}</div>
 
 <footer>
   Fiche générée le {{ now.strftime('%d/%m/%Y %H:%M') }} — Intégrale Academy
