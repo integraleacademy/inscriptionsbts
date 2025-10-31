@@ -6,9 +6,6 @@
   <header class="admin-header">
     <h2>🎓 Gestion Parcoursup</h2>
     <p>Importez les candidatures Parcoursup et gérez leur suivi ici.</p>
-    <form action="{{ url_for('parcoursup.check_sms_status_all') }}" method="post" style="margin-top:10px;margin-bottom:10px;">
-  <button type="submit" class="btn primary">🔁 Vérifier les statuts SMS</button>
-</form>
 
   <form action="{{ url_for('parcoursup.relancer_non_ouverts') }}" method="post" style="margin-bottom:10px;">
   <button type="submit" class="btn danger">📩 Relancer les non ouverts</button>
@@ -371,6 +368,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
