@@ -1,5 +1,3 @@
-voici mon app actuel : 
-
 import os, sqlite3, json, uuid
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
