@@ -215,7 +215,12 @@ app.register_blueprint(bp_parcoursup)
 def modeemo(value):
     if not value:
         return ""
-    return "🏫 Présentiel" if value.lower() == "presentiel" else "💻 Distanciel"
+    val = value.lower()
+    if "dist" in val:
+        return "💻 Distanciel (en ligne)"
+    if "pres" in val:
+        return "🏫 Présentiel (à Puget-sur-Argens)"
+    return value.capitalize()
 
 @app.template_filter('btsfull')
 def btsfull(value):
