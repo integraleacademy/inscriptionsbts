@@ -16,7 +16,7 @@
     align-items: center;
     border-bottom: 3px solid #f4c45a;
     padding-bottom: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
   }
 
   header img {
@@ -33,6 +33,7 @@
   .sub-info {
     font-size: 13px;
     color: #555;
+    margin-top: 3px;
   }
 
   h2 {
@@ -68,28 +69,17 @@
     border-radius: 8px;
   }
 
-  .question {
-    font-weight: 600;
-    margin-top: 10px;
-  }
-
-  .answer {
-    margin-left: 8px;
-    color: #333;
-  }
-
-  .checkbox {
-    display: inline-block;
-    margin-right: 6px;
-    font-weight: 600;
-  }
-
   footer {
     text-align: right;
     font-style: italic;
     font-size: 10px;
     color: #555;
     margin-top: 25px;
+  }
+
+  .answer {
+    color: #333;
+    margin-left: 6px;
   }
 </style>
 </head>
@@ -101,16 +91,16 @@
     <h1>{{ row.nom|upper }} {{ row.prenom|title }}</h1>
     <div class="sub-info">
       {{ row.bts|btsfull }} — {{ row.mode|modeemo }}<br>
-      Dossier n° {{ row.numero_dossier }}
+      <strong>Dossier n° {{ row.numero_dossier }}</strong>
     </div>
   </div>
 </header>
 
 <div class="box">
-  <strong>Formulaire envoyé le :</strong> {{ row.created_at|dmy }}
+  <span class="label">Formulaire envoyé le :</span> {{ row.created_at|dmy }}
 </div>
 
-<h2>1. PARTIE ADMINISTRATIVE</h2>
+<h2>1. INFORMATIONS PERSONNELLES</h2>
 
 <div class="box"><span class="label">Nom :</span> {{ row.nom }}</div>
 <div class="box"><span class="label">Prénom :</span> {{ row.prenom }}</div>
@@ -132,68 +122,71 @@
 <div class="box"><span class="label">Ville :</span> {{ row.ville }}</div>
 <div class="box"><span class="label">E-mail :</span> {{ row.email }}</div>
 <div class="box"><span class="label">Téléphone :</span> {{ row.tel }}</div>
-<div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}✅ Oui{% else %}❌ Non{% endif %}</div>
+<div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}Oui{% else %}Non{% endif %}</div>
 
 <div class="nir-box">
-  N° Sécurité sociale : {{ row.num_secu|nirsp }}
+  N° de Sécurité sociale : {{ row.num_secu|nirsp }}
 </div>
 
 <h2>2. ANTÉRIORITÉ SCOLAIRE</h2>
-
-<div class="box"><span class="label">Baccalauréat :</span> {{ row.bac_status }}</div>
+<div class="box"><span class="label">Baccalauréat :</span> {{ row.bac_status|bacdisp }}</div>
 <div class="box"><span class="label">Type de bac :</span> {{ row.bac_type }}</div>
-<div class="box"><span class="label">Autre formation / Précisions :</span> {{ row.bac_autre }}</div>
+<div class="box"><span class="label">Autre formation / précisions :</span> {{ row.bac_autre }}</div>
 
 <h2>3. FORMATION CHOISIE</h2>
-
-<div class="box"><span class="label">Formation choisie :</span> {{ row.bts|btsfull }}</div>
+<div class="box"><span class="label">Formation :</span> {{ row.bts|btsfull }}</div>
 <div class="box"><span class="label">Mode de formation :</span> {{ row.mode|modeemo }}</div>
 
 {% if row.bts == "MOS" %}
-<div class="box"><span class="label">Parcours sécurité :</span> {{ row.mos_parcours }}</div>
-<div class="box"><span class="label">Formation APS souhaitée :</span>
-  {% if row.aps_souhaitee %}✅ Oui{% else %}❌ Non{% endif %}
-  {% if row.aps_session %}<br><span class="label">Session :</span> {{ row.aps_session }}{% endif %}
-</div>
+  <div class="box"><span class="label">Parcours sécurité :</span> {{ row.mos_parcours }}</div>
+  <div class="box">
+    <span class="label">Formation APS souhaitée :</span>
+    {% if row.aps_souhaitee %}✅ Oui{% else %}❌ Non{% endif %}
+    {% if row.aps_souhaitee and row.aps_session %}
+      <br><span class="label">Session :</span> {{ row.aps_session }}
+    {% endif %}
+  </div>
 {% endif %}
 
 <h2>4. PROJET MOTIVÉ</h2>
 
 <div class="box">
-  <div class="question">Pourquoi souhaitez-vous intégrer ce BTS ?</div>
-  <div class="answer">{{ row.projet_pourquoi or "—" }}</div>
+  <span class="label">Pourquoi souhaitez-vous intégrer ce BTS ?</span><br>
+  <div class="answer">{{ row.projet_pourquoi }}</div>
 </div>
 
 <div class="box">
-  <div class="question">Quel est votre projet professionnel ?</div>
-  <div class="answer">{{ row.projet_objectif or "—" }}</div>
+  <span class="label">Quel est votre projet professionnel ?</span><br>
+  <div class="answer">{{ row.projet_objectif }}</div>
 </div>
 
 <div class="box">
-  <div class="question">Quelles sont vos passions / centres d’intérêt ?</div>
-  <div class="answer">{{ row.projet_passions or "—" }}</div>
+  <span class="label">Quelles sont vos passions / centres d’intérêt ?</span><br>
+  <div class="answer">{{ row.projet_passions }}</div>
 </div>
 
 <div class="box">
-  <div class="question">Souhaitez-vous intégrer la formation en alternance ?</div>
-  {% if row.mode and "dist" in row.mode|lower %}
-    ✅ Oui (formation à distance)
-  {% else %}
-    ⬜ Non
-  {% endif %}
+  <span class="label">Vos principales qualités :</span><br>
+  <div class="answer">{{ row.projet_qualites }}</div>
 </div>
 
 <div class="box">
-  <div class="question">Souhaitez-vous participer à des événements professionnels ?</div>
-  {% if row.projet_passions and "sécurité" in row.projet_passions|lower %}
-    ✅ Oui
-  {% else %}
-    ⬜ Non
-  {% endif %}
+  <span class="label">Ce qui vous motive le plus dans vos études ou votre futur métier :</span><br>
+  <div class="answer">{{ row.projet_motivation }}</div>
+</div>
+
+<div class="box">
+  <span class="label">Ce que vous recherchez avant tout dans votre futur métier :</span><br>
+  <div class="answer">{{ row.projet_recherche }}</div>
+</div>
+
+<div class="box">
+  <span class="label">Votre manière de travailler :</span><br>
+  <div class="answer">{{ row.projet_travail }}</div>
 </div>
 
 <footer>
-  Imprimé le {{ now.strftime('%d/%m/%Y %H:%M') }}
+  Fiche générée le {{ now.strftime('%d/%m/%Y %H:%M') }} — Intégrale Academy
 </footer>
 
 </body>
