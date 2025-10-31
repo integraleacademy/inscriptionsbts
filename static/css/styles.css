@@ -1248,6 +1248,69 @@ main.container.candidat {
   margin: 0;
 }
 
+/* =======================================================
+   🎓 Amélioration visuelle du bloc BTS MOS / APS
+   ======================================================= */
+
+#mos-section {
+  background: #fffaf0;
+  border: 2px solid #f4c45a;
+  border-radius: 12px;
+  padding: 25px 30px;
+  margin-top: 25px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+}
+
+#mos-section h3 {
+  margin-top: 0;
+  color: #222;
+  text-align: center;
+  font-size: 1.3em;
+  font-weight: 700;
+  margin-bottom: 18px;
+}
+
+#mos-section .mos label {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+#mos-section .mos label:hover {
+  background: #fff8e1;
+  border-color: #f4c45a;
+}
+
+#mos-explication {
+  margin-top: 18px;
+  background: #fef8e7;
+  border-left: 4px solid #f4c45a;
+  padding: 15px 20px;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+
+#bloc-aps-radios, #bloc-aps-session, #raison-non-aps {
+  margin-top: 15px;
+  background: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 15px 20px;
+}
+
+#raison-non-aps textarea {
+  width: 100%;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  font-family: inherit;
+  resize: vertical;
+}
+
+
 
 
 
