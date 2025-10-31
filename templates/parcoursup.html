@@ -10,6 +10,11 @@
   <button type="submit" class="btn primary">🔁 Vérifier les statuts SMS</button>
 </form>
 
+  <form action="{{ url_for('parcoursup.relancer_non_ouverts') }}" method="post" style="margin-bottom:10px;">
+  <button type="submit" class="btn danger">📩 Relancer les non ouverts</button>
+</form>
+  
+
   </header>
 
   <hr>
@@ -164,7 +169,8 @@
     </thead>
     <tbody>
       {% for r in rows %}
-      <tr>
+      <tr {% if r.alerte %}style="background:#ffe6e6;" title="Aucun clic / ouverture après 48h"{% endif %}>
+
         <td>{{ r.nom }}</td>
         <td>{{ r.prenom }}</td>
         <td>{{ r.telephone }}</td>
@@ -258,6 +264,7 @@
 </div>
 
 {% endblock %}
+
 
 
 
