@@ -8,6 +8,10 @@
 <header class="admin-header">
   <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
 
+  <button class="btn primary" id="btnPortal">
+  🔒 Gestion Portail
+</button>
+
   <div class="admin-actions">
     <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;">
       📋 Gestion Parcoursup
@@ -241,6 +245,33 @@
     </div>
   </div>
 </div>
+
+<!-- 🔐 MODALE — GESTION PORTAIL -->
+<div id="portalModal" class="modal hidden">
+  <div class="modal-content" style="width:480px;">
+    <h3>🔐 Gestion du portail d’inscriptions</h3>
+    <p>Choisissez l’état actuel du portail :</p>
+
+    <div style="margin:15px 0;">
+      <label><input type="radio" name="portalStatus" value="open"> 🟢 Ouvrir les inscriptions</label><br>
+      <label><input type="radio" name="portalStatus" value="closed"> 🔴 Fermer les inscriptions</label>
+    </div>
+
+    <div id="portalMessageBlock" style="display:none;margin-top:10px;">
+      <label for="portalMessage"><strong>Message affiché sur la page d’accueil :</strong></label><br>
+      <select id="portalMessage" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;">
+        <option value="Les pré-inscriptions sont actuellement fermées. Ouverture prochainement.">🕒 Pré-inscriptions actuellement fermées</option>
+        <option value="Notre site internet est actuellement en maintenance technique. Merci de revenir plus tard.">🛠️ Maintenance technique en cours</option>
+      </select>
+    </div>
+
+    <div class="modal-actions" style="margin-top:20px;">
+      <button id="savePortalBtn" class="btn primary">💾 Enregistrer</button>
+      <button class="btn" onclick="closePortalModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
 
 
 
