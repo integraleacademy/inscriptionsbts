@@ -457,82 +457,53 @@ def init_db():
 
 # Initialisation de la base de données au démarrage de l'application
 def ensure_schema():
-        # === 🧨 RÉINITIALISATION FORCÉE DE LA TABLE CANDIDATS (DEBUG CLÉMENT) ===
+    # === 🧨 RÉINITIALISATION FORCÉE DE LA TABLE CANDIDATS (DEBUG CLÉMENT) ===
     import sqlite3, os
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("DROP TABLE IF EXISTS candidats;")
     conn.commit()
-    conn.close()
-    print("💣 Table 'candidats' supprimée (réinitialisation forcée) – sera recréée proprement.")
 
-    """Ajoute les colonnes manquantes si besoin (migration douce)."""
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("PRAGMA table_info(candidats)")
-    existing = {r[1] for r in cur.fetchall()}
-
-    # 🧩 Vérifie et ajoute les champs du projet motivé (si manquants)
-    project_cols = [
-        ("projet_qualites", "TEXT", ""),
-        ("projet_motivation", "TEXT", ""),
-        ("projet_recherche", "TEXT", ""),
-        ("projet_travail", "TEXT", "")
-    ]
-    for col, typ, default in project_cols:
-        if col not in existing:
-            print(f"🧱 Ajout automatique de la colonne {col} dans 'candidats'")
-            cur.execute(f"ALTER TABLE candidats ADD COLUMN {col} {typ} DEFAULT {json.dumps(default)}")
-
-
-
-    to_add = []
-    if "verif_docs" not in existing:
-        to_add.append(("verif_docs", "TEXT", ""))
-    if "nouveau_doc" not in existing:
-        to_add.append(("nouveau_doc", "INTEGER", "0"))
-    if "replace_token" not in existing:
-        to_add.append(("replace_token", "TEXT", ""))
-    if "replace_token_exp" not in existing:
-        to_add.append(("replace_token_exp", "TEXT", ""))
-    if "replace_meta" not in existing:
-        to_add.append(("replace_meta", "TEXT", ""))
-
-    for col, typ, default in to_add:
-        cur.execute(
-            f"ALTER TABLE candidats ADD COLUMN {col} {typ} DEFAULT {json.dumps(default) if typ=='TEXT' else default}"
-        )
-
-    # 🧩 Ajout automatique des nouvelles étiquettes
-    new_columns = {
-        "label_ypareo": "INTEGER DEFAULT 0",
-        "label_carte_etudiante": "INTEGER DEFAULT 0"
-    }
-
-    for col, definition in new_columns.items():
-        if col not in existing:
-            cur.execute(f"ALTER TABLE candidats ADD COLUMN {col} {definition}")
-
-    # 🕓 Ajout automatique des colonnes de dates d'étape
-    date_cols = {
-        "date_validee": "TEXT DEFAULT ''",
-        "date_confirmee": "TEXT DEFAULT ''",
-        "date_reconfirmee": "TEXT DEFAULT ''"
-    }
-    for col, definition in date_cols.items():
-        if col not in existing:
-            cur.execute(f"ALTER TABLE candidats ADD COLUMN {col} {definition}")
-
+    # 🧱 Recréation propre de la table après suppression
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS candidats (
+        id TEXT PRIMARY KEY,
+        numero_dossier TEXT,
+        created_at TEXT,
+        updated_at TEXT,
+        nom TEXT, prenom TEXT, sexe TEXT,
+        date_naissance TEXT, ville_naissance TEXT, cp_naissance TEXT, pays_naissance TEXT,
+        num_secu TEXT, email TEXT, tel TEXT,
+        adresse TEXT, cp TEXT, ville TEXT,
+        bts TEXT, mode TEXT,
+        bac_status TEXT, bac_type TEXT, bac_autre TEXT,
+        permis_b INTEGER,
+        est_mineur INTEGER,
+        resp_nom TEXT, resp_prenom TEXT, resp_email TEXT, resp_tel TEXT,
+        mos_parcours TEXT,
+        aps_souhaitee INTEGER, aps_session TEXT,
+        projet_pourquoi TEXT, projet_objectif TEXT, projet_passions TEXT,
+        projet_qualites TEXT, projet_motivation TEXT, projet_recherche TEXT, projet_travail TEXT,
+        fichiers_ci TEXT, fichiers_photo TEXT, fichiers_carte_vitale TEXT, fichiers_cv TEXT, fichiers_lm TEXT,
+        statut TEXT,
+        label_aps INTEGER, label_aut_ok INTEGER, label_cheque_ok INTEGER,
+        token_confirm TEXT, token_confirm_exp TEXT,
+        token_reconfirm TEXT, token_reconfirm_exp TEXT,
+        commentaires TEXT,
+        verif_docs TEXT, nouveau_doc INTEGER, replace_token TEXT, replace_token_exp TEXT, replace_meta TEXT,
+        label_ypareo INTEGER, label_carte_etudiante INTEGER,
+        date_validee TEXT, date_confirmee TEXT, date_reconfirmee TEXT,
+        slug_public TEXT
+    );
+    """)
     conn.commit()
     conn.close()
-
-
-
+    print("💣 Table 'candidats' supprimée et recréée proprement (52 colonnes).")
 
 # ✅ Appel après définition
 with app.app_context():
-    init_db()
     ensure_schema()
+    init_db()
 
 
 
