@@ -7,7 +7,14 @@
     <p style="font-size:1.1em;color:#444;line-height:1.6;">
       {{ portal_message or "Les pré-inscriptions sont actuellement fermées. Veuillez réessayer plus tard." }}
     </p>
+
+    {% if portal_comment %}
+      <p style="margin-top:15px;font-size:0.95em;color:#555;background:#fff8e1;border-left:4px solid #f4c45a;padding:10px 15px;border-radius:8px;display:inline-block;text-align:left;">
+        🗒️ <em>{{ portal_comment }}</em>
+      </p>
+    {% endif %}
   </div>
+
   <script>
     document.addEventListener("DOMContentLoaded", () => {
       const form = document.querySelector(".form-container");
