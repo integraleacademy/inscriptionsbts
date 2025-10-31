@@ -265,14 +265,25 @@
       </select>
     </div>
 
+    <div id="portalMessageBlock" style="display:none;margin-top:10px;">
+  <label for="portalMessage"><strong>Message affiché sur la page d’accueil :</strong></label><br>
+  <select id="portalMessage" style="width:100%;padding:8px;border-radius:6px;border:1px solid #ccc;">
+    <option value="Les pré-inscriptions sont actuellement fermées. Ouverture prochainement.">🕒 Pré-inscriptions actuellement fermées</option>
+    <option value="Notre site internet est actuellement en maintenance technique. Merci de revenir plus tard.">🛠️ Maintenance technique en cours</option>
+  </select>
+
+  <!-- 🗒️ Nouveau champ commentaire -->
+  <div style="margin-top:10px;">
+    <label for="portalComment"><strong>🗒️ Commentaire (optionnel) :</strong></label><br>
+    <textarea id="portalComment" rows="2" style="width:100%;border-radius:6px;padding:8px;border:1px solid #ccc;" placeholder="Exemple : maintenance du 31/10 au 02/11, mise à jour des formulaires..."></textarea>
+  </div>
+</div>
+
     <div class="modal-actions" style="margin-top:20px;">
       <button id="savePortalBtn" class="btn primary">💾 Enregistrer</button>
       <button class="btn" onclick="closePortalModal()">Fermer</button>
     </div>
   </div>
 </div>
-
-
-
 
 {% endblock %}
