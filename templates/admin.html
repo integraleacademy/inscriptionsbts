@@ -5,19 +5,24 @@
 <div class="admin-wrapper">
 
   <!-- 🔝 En-tête -->
-  <header class="admin-header">
-    <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
-    <div class="admin-actionfs">
-  <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
-  <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
+<header class="admin-header">
+  <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
 
-  <form action="{{ url_for('admin_clear_db') }}" method="post" style="display:inline"
-        onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir tout effacer ? Cette action est irréversible.')">
-    <button class="btn danger">🗑️ Vider la base</button>
-  </form>
-</div>
+  <div class="admin-actions">
+    <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;">
+      📋 Gestion Parcoursup
+    </a>
 
-  </header>
+    <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
+    <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
+
+    <form action="{{ url_for('admin_clear_db') }}" method="post" style="display:inline"
+          onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir tout effacer ? Cette action est irréversible.')">
+      <button class="btn danger">🗑️ Vider la base</button>
+    </form>
+  </div>
+</header>
+
 
   <!-- 🔎 Barre de filtres -->
   <form method="get" action="{{ url_for('admin') }}" class="filter-bar">
