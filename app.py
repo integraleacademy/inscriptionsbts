@@ -783,6 +783,7 @@ def submit():
         "projet_travail":    projet_travail,
         "aps_souhaitee":     aps_souhaitee,
         "aps_session":       aps_session,
+        "bac_status": baccalaureat,
     }
 
 
