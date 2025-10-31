@@ -408,32 +408,31 @@ if (bacType && bacType.value === "Autre") {
   }
 
 // =====================================================
-// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (version finale)
+// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (corrigé JSON)
 // =====================================================
 document.querySelectorAll('.btn.save').forEach(btn => {
   btn.addEventListener('click', async () => {
     const form = document.querySelector('#inscriptionForm');
     const formData = new FormData(form);
-    formData.append('current_step', currentStep);
+    const data = Object.fromEntries(formData.entries());
+    data.current_step = currentStep;
 
     try {
-      const res = await fetch('/save-progress', {
+      const res = await fetch('/save_draft', {
         method: 'POST',
-        body: formData
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       });
 
-      if (!res.ok) throw new Error('Serveur injoignable');
+      const responseData = await res.json();
 
-      const data = await res.json();
-
-      if (data && data.success) {
+      if (responseData && responseData.success) {
         showFlash("✅ Données enregistrées, vous pourrez reprendre plus tard !", "success");
       } else {
         showFlash("❌ Erreur lors de l’enregistrement. Vérifiez votre connexion.", "error");
       }
-
     } catch (err) {
-      console.error("Erreur JS SaveProgress:", err);
+      console.error("Erreur JS SaveDraft:", err);
       showFlash("⚠️ Une erreur est survenue pendant la sauvegarde.", "error");
     }
   });
@@ -651,6 +650,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
