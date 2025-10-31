@@ -92,18 +92,23 @@ function showStep(index) {
     let valid = true;
 
     // Vérifie tous les champs visibles
-    for (let input of inputs) {
-      const style = window.getComputedStyle(input);
-      const visible = style.display !== 'none' && style.visibility !== 'hidden';
-      if (!visible) continue;
-      if (!input.checkValidity()) {
-        input.classList.add('invalid');
-        input.reportValidity();
-        valid = false;
-      } else {
-        input.classList.remove('invalid');
-      }
-    }
+for (let input of inputs) {
+  const style = window.getComputedStyle(input);
+  const visible = style.display !== 'none' && style.visibility !== 'hidden';
+  if (!visible) continue;
+
+  // ⚠️ Ignore les radios non obligatoires
+  if (input.type === "radio" && !input.required) continue;
+
+  if (!input.checkValidity()) {
+    input.classList.add('invalid');
+    input.reportValidity();
+    valid = false;
+  } else {
+    input.classList.remove('invalid');
+  }
+}
+
 
     // 🔹 Étape 1 : vérif NIR
     if (stepIndex === 0 && typeof verifierNumSecu === "function") {
@@ -209,7 +214,11 @@ if (stepIndex === 2) {
     alert("⚠️ Merci d’indiquer si vous possédez le permis B.");
     valid = false;
   }
+
+  // ✅ Rajoute cette ligne pour bien retourner la validation
+  return valid;
 }
+
 
 
 
@@ -669,6 +678,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
