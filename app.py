@@ -744,50 +744,49 @@ def submit():
     token_confirm = new_token()
     token_confirm_exp = (datetime.now() + timedelta(days=30)).isoformat()
 
-           # 💾 Insertion en base
-    cur.execute("""
-INSERT INTO candidats (
-    id, numero_dossier, created_at, updated_at,
-    nom, prenom, sexe,
-    date_naissance, ville_naissance, cp_naissance, pays_naissance,
-    num_secu, email, tel,
-    adresse, cp, ville,
-    bts, mode,
-    bac_status, bac_type, bac_autre,
-    permis_b, est_mineur,
-    resp_nom, resp_prenom, resp_email, resp_tel,
-    mos_parcours, aps_souhaitee, aps_session,
-    projet_pourquoi, projet_objectif, projet_passions,
-    projet_qualites, projet_motivation, projet_recherche, projet_travail,
-    fichiers_ci, fichiers_photo, fichiers_carte_vitale, fichiers_cv, fichiers_lm,
-    statut, label_aps, label_aut_ok, label_cheque_ok,
-    token_confirm, token_confirm_exp,
-    token_reconfirm, token_reconfirm_exp,
-    commentaires,
-    verif_docs, nouveau_doc, replace_token, replace_token_exp, replace_meta,
-    label_ypareo, label_carte_etudiante, date_validee, date_confirmee, date_reconfirmee, slug_public
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-""", (
-    cand_id, numero, now, now,
-    form.get("nom", "").strip(), form.get("prenom", "").strip(), form.get("sexe", ""),
-    form.get("date_naissance", ""), form.get("ville_naissance", ""), form.get("cp_naissance", ""), form.get("pays_naissance", ""),
-    form.get("num_secu", ""), form.get("email", ""), form.get("tel", ""),
-    form.get("adresse", ""), form.get("cp", ""), form.get("ville", ""),
-    form.get("bts", ""), form.get("mode", ""),
-    form.get("bac_status", ""), form.get("bac_type", ""), form.get("bac_autre", ""),
-    b(form.get("permis_b")), b(form.get("est_mineur")),
-    form.get("resp_nom", ""), form.get("resp_prenom", ""), form.get("resp_email", ""), form.get("resp_tel", ""),
-    form.get("mos_parcours", ""), b(form.get("aps_souhaitee")), form.get("aps_session", ""),
-    form.get("projet_pourquoi", ""), form.get("projet_objectif", ""), form.get("projet_passions", ""),
-    projet_qualites, projet_motivation, projet_recherche, projet_travail,
-    json.dumps(fichiers_ci), json.dumps(fichiers_photo),
-    json.dumps(fichiers_carte_vitale), json.dumps(fichiers_cv), json.dumps(fichiers_lm),
-    "preinscription", 1 if form.get("aps_souhaitee") else 0, 0, 0,
-    token_confirm, token_confirm_exp,
-    "", "", "",  # token_reconfirm, token_reconfirm_exp, commentaires
-    "{}", 0, "", "", "{}",  # verif_docs, nouveau_doc, replace_token, replace_token_exp, replace_meta
-    0, 0, "", "", "", ""    # label_ypareo, label_carte_etudiante, date_validee, date_confirmee, date_reconfirmee, slug_public
-))
+    # 💾 Insertion dynamique en base (auto-alignée avec la table)
+    cur.execute("PRAGMA table_info(candidats)")
+    cols = [r[1] for r in cur.fetchall()]
+    placeholders = ",".join(["?"] * len(cols))
+    sql = f"INSERT INTO candidats ({','.join(cols)}) VALUES ({placeholders})"
+
+    values = []
+    for c in cols:
+        if c == "id":
+            values.append(cand_id)
+        elif c == "numero_dossier":
+            values.append(numero)
+        elif c in ("created_at", "updated_at"):
+            values.append(now)
+        elif "fichiers" in c:
+            # fichiers JSON (listes)
+            mapping = {
+                "fichiers_ci": fichiers_ci,
+                "fichiers_photo": fichiers_photo,
+                "fichiers_carte_vitale": fichiers_carte_vitale,
+                "fichiers_cv": fichiers_cv,
+                "fichiers_lm": fichiers_lm,
+            }
+            values.append(json.dumps(mapping.get(c, [])))
+        elif "verif_docs" in c or "replace_meta" in c:
+            values.append("{}")
+        elif "nouveau_doc" in c or "label" in c or "permis_b" in c or "est_mineur" in c:
+            values.append(0)
+        elif c == "statut":
+            values.append("preinscription")
+        elif c == "token_confirm":
+            values.append(token_confirm)
+        elif c == "token_confirm_exp":
+            values.append(token_confirm_exp)
+        elif c in ("token_reconfirm", "token_reconfirm_exp", "commentaires"):
+            values.append("")
+        elif c == "slug_public":
+            values.append("")
+        else:
+            values.append(form.get(c, ""))
+
+    cur.execute(sql, tuple(values))
+    conn.commit()
 
 
 
