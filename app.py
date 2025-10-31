@@ -207,10 +207,17 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
 app.register_blueprint(bp_parcoursup)
 
-# --- Filtres d'affichage pour le PDF / pages ---
+# =====================================================
+# 🎨 Filtres d'affichage Jinja unifiés
+# =====================================================
+import unicodedata
+
+def _normalize(s: str) -> str:
+    if not s: return ""
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
+
 def _fmt_date_dmy(s: str) -> str:
-    if not s:
-        return ""
+    if not s: return ""
     try:
         if "T" in s or ":" in s:
             dt = datetime.fromisoformat(s.replace("Z",""))
@@ -220,11 +227,11 @@ def _fmt_date_dmy(s: str) -> str:
         return s
 
 def _nir_spaced(nir: str) -> str:
-    """Affiche le NIR en groupes avec espaces sans retirer A/B (ex: 1 93 09 74 256 233 79)."""
+    """Formate le NIR en groupes exacts ex: 1 93 09 74 256 233 79"""
     if not nir:
         return ""
-    raw = nir.strip().upper().replace(" ", "")
-    groups, cuts, i = [], [1,2,2,2,3,3,2], 0  # 1|2|2|2|3|3|2 = 15
+    raw = (nir or "").strip().upper().replace(" ", "")
+    groups, cuts, i = [], [1,2,2,2,3,3,2], 0
     for c in cuts:
         groups.append(raw[i:i+c])
         i += c
@@ -234,69 +241,35 @@ def _nir_spaced(nir: str) -> str:
 
 def _bts_full(code: str) -> str:
     code = (code or "").strip().upper()
-    return BTS_LABELS.get(code, code)
+    return {
+        "MCO": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO)",
+        "MOS": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS)",
+        "PI":  "BTS PROFESSIONS IMMOBILIÈRES (PI)",
+        "NDRC":"BTS NÉGOCIATION ET DIGITALISATION DE LA RELATION CLIENT (NDRC)",
+        "CG":  "BTS COMPTABILITÉ ET GESTION (CG)",
+        "CI":  "BTS COMMERCE INTERNATIONAL (CI)",
+    }.get(code, code)
 
 def _mode_emoji(mode: str) -> str:
-    m = (mode or "").lower()
-    return ("🏫 Présentiel" if "pres" in m else "💻 Distanciel")
+    m = _normalize((mode or "").strip().lower())
+    if "pres" in m: return "🏫 Présentiel"
+    if "dist" in m: return "💻 Distanciel"
+    return mode or ""
 
-# rendre dispo dans Jinja
-app.jinja_env.filters["dmy"] = _fmt_date_dmy
-app.jinja_env.filters["nirsp"] = _nir_spaced
-app.jinja_env.filters["btsfull"] = _bts_full
-app.jinja_env.filters["modeemo"] = _mode_emoji
+def _bac_status_display(v: str) -> str:
+    s = _normalize((v or "").strip().lower())
+    if s in {"oui","yes","true","1"}: return "Oui"
+    if s in {"non","no","false","0"}: return "Non"
+    if "prev" in s and "2026" in s: return "Prévu en 2026"
+    if "prev" in s: return "Prévu"
+    return (v or "").strip() or "—"
 
-# petit helper pour décoder du JSON côté template
-import json as _json_for_filter
-app.jinja_env.filters["load_json"] = lambda s: _json_for_filter.loads(s or "[]")
-
-
-@app.template_filter('basename')
-def basename_filter(path):
-    """Retourne juste le nom du fichier sans le chemin complet"""
-    return os.path.basename(path or "")
-
-# --- Filtres d'affichage pour le PDF / pages ---
-def _fmt_date_dmy(s: str) -> str:
-    if not s:
-        return ""
-    try:
-        # accepte 'YYYY-MM-DD' ou ISO
-        if "T" in s or ":" in s:
-            dt = datetime.fromisoformat(s.replace("Z",""))
-            return dt.strftime("%d/%m/%Y")
-        # input date HTML (YYYY-MM-DD)
-        return datetime.strptime(s, "%Y-%m-%d").strftime("%d/%m/%Y")
-    except Exception:
-        return s
-
-def _nir_spaced(nir: str) -> str:
-    """Affiche le NIR en groupes avec espaces sans retirer A/B (ex: 1 93 09 74 256 233 79)."""
-    if not nir:
-        return ""
-    raw = nir.strip().upper().replace(" ", "")
-    groups = []
-    cuts = [1,2,2,2,3,3,2]  # 1 | 2 | 2 | 2 | 3 | 3 | 2
-    i = 0
-    for c in cuts:
-        groups.append(raw[i:i+c])
-        i += c
-        if i >= len(raw):
-            break
-    return " ".join([g for g in groups if g])
-
-def _bts_full(code: str) -> str:
-    code = (code or "").strip().upper()
-    return BTS_LABELS.get(code, code)
-
-def _mode_emoji(mode: str) -> str:
-    m = (mode or "").lower()
-    return ("🏫 Présentiel" if "pres" in m else "💻 Distanciel")
-
-app.jinja_env.filters["dmy"] = _fmt_date_dmy
-app.jinja_env.filters["nirsp"] = _nir_spaced
-app.jinja_env.filters["btsfull"] = _bts_full
-app.jinja_env.filters["modeemo"] = _mode_emoji
+# 🔗 Enregistrement global
+app.jinja_env.filters["dmy"]      = _fmt_date_dmy
+app.jinja_env.filters["nirsp"]    = _nir_spaced
+app.jinja_env.filters["btsfull"]  = _bts_full
+app.jinja_env.filters["modeemo"]  = _mode_emoji
+app.jinja_env.filters["bacdisp"]  = _bac_status_display
 
 
 
@@ -2201,54 +2174,7 @@ def admin_reconfirm(cid):
     return jsonify({"ok": True})
 
 
-# =====================================================
-# 🧩 Filtres personnalisés pour le rendu PDF
-# =====================================================
 
-@app.template_filter('btsfull')
-def btsfull_filter(value):
-    """Affiche le nom complet du BTS."""
-    mapping = {
-        "MOS": "BTS Management Opérationnel de la Sécurité (MOS)",
-        "MCO": "BTS Management Commercial Opérationnel (MCO)",
-        "PI": "BTS Professions Immobilières (PI)",
-        "CI": "BTS Commerce International (CI)",
-        "NDRC": "BTS Négociation et Digitalisation de la Relation Client (NDRC)",
-        "CG": "BTS Comptabilité et Gestion (CG)",
-    }
-    return mapping.get(value, value or "")
-
-@app.template_filter('modeemo')
-def modeemo_filter(value):
-    """Ajoute un emoji selon le mode de formation."""
-    if not value:
-        return ""
-    if value.lower() == "presentiel":
-        return "🧑‍🏫 Présentiel"
-    elif value.lower() == "distanciel":
-        return "💻 Distanciel"
-    return value
-
-@app.template_filter('nirsp')
-def nirsp_filter(value):
-    """Formate le numéro de sécu avec des espaces."""
-    if not value:
-        return ""
-    v = value.replace(" ", "")
-    return " ".join(v[i:i+2] for i in range(0, len(v), 2))
-
-@app.template_filter('dmy')
-def dmy_filter(value):
-    """Affiche la date au format JJ/MM/AAAA"""
-    from datetime import datetime
-    try:
-        if isinstance(value, str):
-            dt = datetime.fromisoformat(value)
-        else:
-            dt = value
-        return dt.strftime("%d/%m/%Y")
-    except Exception:
-        return value or ""
 
 
 
