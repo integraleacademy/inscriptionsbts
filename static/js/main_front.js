@@ -189,48 +189,62 @@ if (statut === "autre") {
 
 // 🔹 Étape 3 : bac + permis
 if (stepIndex === 2) {
-const bacType = document.querySelector('select[name="bac_type"]');
-const bacAutre = document.querySelector('input[name="bac_autre"]');
+  const bacType = document.querySelector('select[name="bac_type"]');
+  const bacAutre = document.querySelector('input[name="bac_autre"]');
+  const permis = document.querySelector('select[name="permis_b"]');
 
-if (bacType && bacType.value === "Autre") {
-  if (!bacAutre || !bacAutre.value || bacAutre.value.trim().length < 2) {
-    alert("⚠️ Merci de préciser votre type de bac.");
-    bacAutre.focus();
+  // === Vérif type de bac ===
+  if (!bacType || !bacType.value) {
+    alert("⚠️ Merci de sélectionner votre type de bac.");
+    bacType?.focus();
+    valid = false;
+  } else if (bacType.value === "Autre" && (!bacAutre || !bacAutre.value.trim())) {
+    alert("⚠️ Merci de préciser votre type de bac (champ 'Autre').");
+    bacAutre?.focus();
     valid = false;
   }
-}
 
-
-
-  const permis = document.querySelector('select[name="permis_b"]');
+  // === Vérif permis B ===
   if (!permis?.value) {
     alert("⚠️ Merci d’indiquer si vous possédez le permis B.");
     valid = false;
   }
-
-  // ✅ Étape 3 : type de bac obligatoire
-  const bacTypeSelect = document.querySelector('select[name="bac_type"]');
-  if (!bacTypeSelect?.value) {
-    alert("⚠️ Merci de sélectionner le type de Bac obtenu.");
-    valid = false;
-  }
 }
 
 
 
-    // 🔹 Étape 4 : projet motivé complet
-    if (stepIndex === 3) {
-      const champs = ['projet_pourquoi', 'projet_objectif', 'projet_passions'];
-      for (let nom of champs) {
-        const field = document.querySelector(`textarea[name="${nom}"]`);
-        if (!field?.value.trim()) {
-          alert("⚠️ Merci de compléter toutes les réponses du projet motivé.");
-          field.focus();
-          valid = false;
-          break;
-        }
-      }
+
+// 🔹 Étape 4 : projet motivé complet
+if (stepIndex === 3) {
+  let ok = true;
+
+  // 🟢 Vérifie les champs texte obligatoires
+  const champs = ['projet_pourquoi', 'projet_objectif', 'projet_passions'];
+  for (let nom of champs) {
+    const field = document.querySelector(`textarea[name="${nom}"]`);
+    if (!field?.value.trim()) {
+      alert("⚠️ Merci de compléter toutes les réponses du projet motivé.");
+      field.focus();
+      ok = false;
+      break;
     }
+  }
+
+  // 🟡 Vérifie qu’au moins une case est cochée dans chaque groupe
+  const groupes = ['qualites[]', 'motivation[]', 'valeurs[]', 'travail[]'];
+  for (let g of groupes) {
+    const checkboxes = document.querySelectorAll(`input[name="${g}"]`);
+    const coche = Array.from(checkboxes).some(cb => cb.checked);
+    if (!coche) {
+      alert("⚠️ Merci de cocher au moins une réponse dans chaque partie du projet motivé.");
+      ok = false;
+      break;
+    }
+  }
+
+  valid = ok;
+}
+
 
     return valid;
   }
@@ -655,6 +669,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
