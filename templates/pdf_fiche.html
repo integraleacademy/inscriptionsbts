@@ -78,6 +78,12 @@
     color: #333;
   }
 
+  .checkbox {
+    display: inline-block;
+    margin-right: 6px;
+    font-weight: 600;
+  }
+
   footer {
     text-align: right;
     font-style: italic;
@@ -126,7 +132,7 @@
 <div class="box"><span class="label">Ville :</span> {{ row.ville }}</div>
 <div class="box"><span class="label">E-mail :</span> {{ row.email }}</div>
 <div class="box"><span class="label">Téléphone :</span> {{ row.tel }}</div>
-<div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}Oui{% else %}Non{% endif %}</div>
+<div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}✅ Oui{% else %}❌ Non{% endif %}</div>
 
 <div class="nir-box">
   N° Sécurité sociale : {{ row.num_secu|nirsp }}
@@ -155,17 +161,35 @@
 
 <div class="box">
   <div class="question">Pourquoi souhaitez-vous intégrer ce BTS ?</div>
-  <div class="answer">{{ row.projet_pourquoi }}</div>
+  <div class="answer">{{ row.projet_pourquoi or "—" }}</div>
 </div>
 
 <div class="box">
   <div class="question">Quel est votre projet professionnel ?</div>
-  <div class="answer">{{ row.projet_objectif }}</div>
+  <div class="answer">{{ row.projet_objectif or "—" }}</div>
 </div>
 
 <div class="box">
   <div class="question">Quelles sont vos passions / centres d’intérêt ?</div>
-  <div class="answer">{{ row.projet_passions }}</div>
+  <div class="answer">{{ row.projet_passions or "—" }}</div>
+</div>
+
+<div class="box">
+  <div class="question">Souhaitez-vous intégrer la formation en alternance ?</div>
+  {% if row.mode and "dist" in row.mode|lower %}
+    ✅ Oui (formation à distance)
+  {% else %}
+    ⬜ Non
+  {% endif %}
+</div>
+
+<div class="box">
+  <div class="question">Souhaitez-vous participer à des événements professionnels ?</div>
+  {% if row.projet_passions and "sécurité" in row.projet_passions|lower %}
+    ✅ Oui
+  {% else %}
+    ⬜ Non
+  {% endif %}
 </div>
 
 <footer>
