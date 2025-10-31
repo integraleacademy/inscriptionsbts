@@ -861,6 +861,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const msgBlock = document.getElementById("portalMessageBlock");
   const radios = document.querySelectorAll('input[name="portalStatus"]');
   const msgSelect = document.getElementById("portalMessage");
+  const commentBox = document.getElementById("portalComment"); // 🆕
 
   if (!btnPortal) return;
 
@@ -874,32 +875,36 @@ document.addEventListener("DOMContentLoaded", () => {
     if (data.status === "closed") {
       radios.forEach(r => (r.value === "closed" ? (r.checked = true) : null));
       msgBlock.style.display = "block";
+      if (commentBox) commentBox.value = data.comment || ""; // 🆕 affiche le commentaire existant
     } else {
       radios.forEach(r => (r.value === "open" ? (r.checked = true) : null));
       msgBlock.style.display = "none";
+      if (commentBox) commentBox.value = "";
     }
   });
 
-  // 🎛️ Affiche le champ message seulement si "fermé"
+  // 🎛️ Affiche le champ message + commentaire seulement si "fermé"
   radios.forEach(radio => {
     radio.addEventListener("change", () => {
       msgBlock.style.display = radio.value === "closed" ? "block" : "none";
     });
   });
 
-  // 💾 Enregistrement du statut
+  // 💾 Enregistrement du statut + commentaire
   savePortalBtn.addEventListener("click", async () => {
     const selected = document.querySelector('input[name="portalStatus"]:checked');
     if (!selected) return alert("Veuillez choisir un état du portail.");
     const status = selected.value;
     const message = msgSelect.value;
+    const comment = commentBox ? commentBox.value.trim() : ""; // 🆕 récupère le commentaire
 
     const res = await fetch("/set_portal_status", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status, message })
+      body: JSON.stringify({ status, message, comment }) // 🆕 envoi du commentaire
     });
     const data = await res.json();
+
     if (data.ok) {
       alert("✅ Portail mis à jour : " + (status === "open" ? "OUVERT" : "FERMÉ"));
       portalModal.classList.add("hidden");
@@ -920,8 +925,10 @@ function closePortalModal() {
 
 
 
+
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
