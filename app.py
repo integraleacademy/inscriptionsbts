@@ -558,7 +558,26 @@ def health():
 
 @app.route("/")
 def index():
-    return render_template("index.html", title="Pré-inscriptions BTS 2026")
+    @app.route("/")
+def index():
+    portal = get_portal_status()
+    if portal["status"] == "closed":
+        # 🔒 Si le portail est fermé, on affiche une page d'avertissement
+        return render_template(
+            "index.html",
+            title="Inscriptions momentanément fermées",
+            portal_closed=True,
+            portal_message=portal["message"]
+        )
+    else:
+        # ✅ Sinon, formulaire normal
+        return render_template(
+            "index.html",
+            title="Pré-inscriptions BTS 2026",
+            portal_closed=False,
+            portal_message=""
+        )
+
 
 def save_files(field_key: str, cand_id: str):
     """
@@ -2227,6 +2246,43 @@ def admin_reconfirm(cid):
     return jsonify({"ok": True})
 
 
+# =====================================================
+# 🌐 GESTION DU PORTAIL – OUVERT / FERMÉ
+# =====================================================
+
+PORTAL_FILE = os.path.join(DATA_DIR, "portal.json")
+
+def get_portal_status():
+    """Lit le statut du portail (open/closed + message)"""
+    if not os.path.exists(PORTAL_FILE):
+        return {"status": "open", "message": "Ouvert aux inscriptions"}
+    try:
+        with open(PORTAL_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"status": "open", "message": "Ouvert aux inscriptions"}
+
+def set_portal_status(status, message):
+    """Met à jour le statut du portail"""
+    data = {"status": status, "message": message}
+    with open(PORTAL_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+@app.route("/get_portal_status")
+def route_get_portal_status():
+    if not require_admin():
+        abort(403)
+    return jsonify(get_portal_status())
+
+@app.route("/set_portal_status", methods=["POST"])
+def route_set_portal_status():
+    if not require_admin():
+        abort(403)
+    data = request.get_json() or {}
+    status = data.get("status", "open")
+    message = data.get("message", "")
+    set_portal_status(status, message)
+    return jsonify({"ok": True})
 
 
 
