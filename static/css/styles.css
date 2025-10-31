@@ -1376,6 +1376,91 @@ main.container.candidat {
 .flash-popup.hide { opacity: 0; transition: opacity 0.3s; }
 @keyframes popIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
+/* =======================================================
+   🌟 Amélioration visuelle – Étape 4 : Projet motivé
+   ======================================================= */
+
+/* Titres harmonisés */
+#tab4 h3 {
+  text-align: center;
+  color: #111;
+  border-bottom: 3px solid #f4c45a;
+  padding-bottom: 8px;
+  margin-bottom: 25px;
+  font-size: 1.4em;
+  font-weight: 700;
+}
+
+#tab4 h4 {
+  color: #222;
+  font-weight: 700;
+  margin-top: 28px;
+  margin-bottom: 10px;
+  border-left: 4px solid #f4c45a;
+  padding-left: 10px;
+}
+
+/* Paragraphe introductif */
+#tab4 > p {
+  font-size: 15px;
+  color: #444;
+  margin-bottom: 20px;
+}
+
+/* Textareas plus confortables */
+#tab4 textarea {
+  min-height: 80px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  padding: 8px 10px;
+  transition: border-color 0.2s;
+}
+#tab4 textarea:focus {
+  border-color: #f4c45a;
+  box-shadow: 0 0 5px rgba(244,196,90,0.4);
+  outline: none;
+}
+
+/* Blocs d’étiquettes plus aérés */
+#tab4 .etiquettes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 20px;
+}
+
+#tab4 .etiquettes label {
+  background: #fffdf4;
+  border: 1px solid #f4c45a;
+  border-radius: 10px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+}
+
+#tab4 .etiquettes input {
+  transform: scale(1.2);
+  margin-right: 8px;
+  accent-color: #f4c45a;
+}
+
+#tab4 .etiquettes label:hover {
+  background: #fff3cd;
+  box-shadow: 0 0 6px rgba(244,196,90,0.3);
+}
+
+/* Lignes séparatrices plus douces */
+#tab4 hr {
+  border: none;
+  height: 1px;
+  background: #eee;
+  margin: 25px 0;
+}
 
 
 
