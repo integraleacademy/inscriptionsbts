@@ -91,16 +91,20 @@ function showStep(index) {
     const inputs = currentTab.querySelectorAll('input, select, textarea');
     let valid = true;
 
-    // Vérifie tous les champs visibles
+// Vérifie tous les champs visibles
 for (let input of inputs) {
   const style = window.getComputedStyle(input);
   const visible = style.display !== 'none' && style.visibility !== 'hidden';
   if (!visible) continue;
 
-  // ⚠️ Ignore les radios non obligatoires
-  if (input.type === "radio" && !input.required) continue;
+  // ✅ Ignore les radios non requis OU sans attribut "name"
+  if (input.type === "radio" && (!input.required || !input.name)) continue;
+
+  // ✅ Ignore aussi les checkboxes non requis
+  if (input.type === "checkbox" && !input.required) continue;
 
   if (!input.checkValidity()) {
+    console.warn("⛔ Champ invalide détecté :", input.name || input.id);
     input.classList.add('invalid');
     input.reportValidity();
     valid = false;
@@ -108,6 +112,7 @@ for (let input of inputs) {
     input.classList.remove('invalid');
   }
 }
+
 
 
     // 🔹 Étape 1 : vérif NIR
@@ -678,6 +683,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
