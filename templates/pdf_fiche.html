@@ -3,68 +3,170 @@
 <head>
 <meta charset="UTF-8">
 <style>
-body { font-family: DejaVu Sans, Arial, sans-serif; font-size: 11px; color: #222; }
-h1 { text-align: center; color: #111; border-bottom: 2px solid #f4c45a; padding-bottom: 6px; }
-.section { margin-bottom: 10px; }
-.label { color: #111; font-weight: bold; display: inline-block; width: 200px; }
-.box { border: 1px solid #ccc; padding: 6px; margin-bottom: 8px; border-radius: 5px; }
+  body {
+    font-family: "DejaVu Sans", Arial, sans-serif;
+    font-size: 11px;
+    color: #222;
+    margin: 40px;
+    background: #fafafa;
+  }
+
+  /* ======== EN-TÊTE ======== */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 3px solid #f4c45a;
+    padding-bottom: 10px;
+    margin-bottom: 25px;
+  }
+
+  .header img {
+    height: 60px;
+  }
+
+  .header h1 {
+    flex: 1;
+    text-align: right;
+    font-size: 20px;
+    color: #111;
+    margin: 0;
+  }
+
+  .sub-info {
+    text-align: right;
+    font-size: 11px;
+    color: #555;
+    margin-top: 5px;
+  }
+
+  /* ======== SECTIONS ======== */
+  h2 {
+    color: #f4c45a;
+    border-bottom: 1px solid #f4c45a;
+    padding-bottom: 4px;
+    margin-top: 20px;
+    font-size: 14px;
+    text-transform: uppercase;
+  }
+
+  .box {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+  }
+
+  .label {
+    color: #111;
+    font-weight: bold;
+    display: inline-block;
+    width: 200px;
+  }
+
+  .nir-box {
+    border: 2px solid #f4c45a;
+    background: #fffbea;
+    padding: 10px;
+    margin: 10px 0;
+    text-align: center;
+    font-weight: bold;
+    font-size: 13px;
+  }
+
+  .projet {
+    background: #f9f9f9;
+    border-left: 4px solid #f4c45a;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+  }
+
+  footer {
+    text-align: right;
+    font-size: 10px;
+    color: #666;
+    margin-top: 25px;
+  }
 </style>
 </head>
 <body>
 
-<h1>Fiche Candidat – {{ row.numero_dossier }}</h1>
-
-<div class="section">
-  <div class="box"><span class="label">Nom :</span> {{ row.nom }}</div>
-  <div class="box"><span class="label">Prénom :</span> {{ row.prenom }}</div>
-  <div class="box"><span class="label">Sexe :</span> {{ row.sexe }}</div>
-  <div class="box"><span class="label">Date de naissance :</span> {{ row.date_naissance }}</div>
-  <div class="box"><span class="label">Ville / CP / Pays de naissance :</span> {{ row.ville_naissance }} ({{ row.cp_naissance }}) {{ row.pays_naissance }}</div>
-  <div class="box"><span class="label">N° Sécurité sociale :</span> {{ row.num_secu }}</div>
-</div>
-
-<div class="section">
-  <div class="box"><span class="label">Adresse :</span> {{ row.adresse }}, {{ row.cp }} {{ row.ville }}</div>
-  <div class="box"><span class="label">E-mail :</span> {{ row.email }}</div>
-  <div class="box"><span class="label">Téléphone :</span> {{ row.tel }}</div>
-</div>
-
-<div class="section">
-  <div class="box"><span class="label">Formation souhaitée :</span> {{ row.bts }}</div>
-  <div class="box"><span class="label">Mode :</span> {{ row.mode }}</div>
-</div>
-
-<div class="section">
-  <div class="box"><span class="label">Baccalauréat :</span> {{ row.bac_status }} ({{ row.bac_type }}) {{ row.bac_autre }}</div>
-  <div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}Oui{% else %}Non{% endif %}</div>
-  <div class="box"><span class="label">Mineur :</span> {% if row.est_mineur %}Oui{% else %}Non{% endif %}
-    {% if row.est_mineur %}
-      <br><span class="label">Responsable légal :</span> {{ row.resp_prenom }} {{ row.resp_nom }} ({{ row.resp_email }} / {{ row.resp_tel }})
-    {% endif %}
+<!-- EN-TÊTE AVEC LOGO -->
+<div class="header">
+  <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Logo Intégrale Academy">
+  <div>
+    <h1>{{ row.prenom|upper }} {{ row.nom|upper }} – {{ row.bts }} – {{ row.mode|capitalize }}</h1>
+    <div class="sub-info">
+      Formulaire envoyé le {{ row.created_at|replace("T", " ")|replace(".000", "") }} (heure française)
+    </div>
   </div>
 </div>
+
+<!-- PARTIE 1 : ADMINISTRATIF -->
+<h2>🧾 Première partie – Administratif</h2>
+
+<div class="box"><span class="label">Nom :</span> {{ row.nom }}</div>
+<div class="box"><span class="label">Prénom :</span> {{ row.prenom }}</div>
+<div class="box"><span class="label">Né le :</span> {{ row.date_naissance }}</div>
+<div class="box"><span class="label">Pays de naissance :</span> {{ row.pays_naissance }}</div>
+<div class="box"><span class="label">Code postal de naissance :</span> {{ row.cp_naissance }}</div>
+<div class="box"><span class="label">Ville de naissance :</span> {{ row.ville_naissance }}</div>
+
+{% if row.est_mineur %}
+  <div class="box"><span class="label">Responsable légal :</span> {{ row.resp_prenom }} {{ row.resp_nom }} ({{ row.resp_email }} / {{ row.resp_tel }})</div>
+{% endif %}
+
+<div class="box"><span class="label">Adresse :</span> {{ row.adresse }}, {{ row.cp }} {{ row.ville }}</div>
+<div class="box"><span class="label">E-mail :</span> {{ row.email }}</div>
+<div class="box"><span class="label">Téléphone :</span> {{ row.tel }}</div>
+<div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}Oui{% else %}Non{% endif %}</div>
+
+<div class="nir-box">
+  Numéro de Sécurité Sociale : {{ row.num_secu }}
+</div>
+
+<!-- PARTIE 2 : ANTÉRIORITÉ -->
+<h2>🎓 Deuxième partie – Antériorité scolaire</h2>
+
+<div class="box"><span class="label">Baccalauréat :</span> {{ row.bac_status }}</div>
+<div class="box"><span class="label">Type de bac :</span> {{ row.bac_type }}</div>
+{% if row.bac_autre %}
+<div class="box"><span class="label">Autre :</span> {{ row.bac_autre }}</div>
+{% endif %}
+
+<!-- PARTIE 3 : FORMATION -->
+<h2>📚 Troisième partie – Formation</h2>
+
+<div class="box"><span class="label">Formation choisie :</span> {{ row.bts }}</div>
+<div class="box"><span class="label">Mode :</span> {{ row.mode }}</div>
 
 {% if row.bts == "MOS" %}
-<div class="section">
-  <div class="box"><span class="label">Parcours sécurité :</span> {{ row.mos_parcours }}</div>
-  <div class="box"><span class="label">Formation APS souhaitée :</span> {% if row.aps_souhaitee %}Oui{% else %}Non{% endif %}
-    {% if row.aps_session %}<br><span class="label">Session :</span> {{ row.aps_session }}{% endif %}
-  </div>
+<div class="box"><span class="label">Parcours sécurité :</span> {{ row.mos_parcours }}</div>
+<div class="box"><span class="label">Formation APS souhaitée :</span> {% if row.aps_souhaitee %}Oui{% else %}Non{% endif %}
+  {% if row.aps_session %}<br><span class="label">Session :</span> {{ row.aps_session }}{% endif %}
 </div>
 {% endif %}
 
-<div class="section">
-  <div class="box"><strong>Pourquoi souhaitez-vous intégrer ce BTS ?</strong><br>{{ row.projet_pourquoi }}</div>
-  <div class="box"><strong>Quel est votre projet ?</strong><br>{{ row.projet_objectif }}</div>
-  <div class="box"><strong>Quelles sont vos passions ?</strong><br>{{ row.projet_passions }}</div>
+<!-- PARTIE 4 : PROJET MOTIVÉ -->
+<h2>💬 Quatrième partie – Projet motivé</h2>
+
+<div class="projet">
+  <strong>Pourquoi souhaitez-vous intégrer ce BTS ?</strong><br>
+  {{ row.projet_pourquoi }}
+</div>
+<div class="projet">
+  <strong>Quel est votre projet professionnel ?</strong><br>
+  {{ row.projet_objectif }}
+</div>
+<div class="projet">
+  <strong>Quelles sont vos passions, intérêts personnels ?</strong><br>
+  {{ row.projet_passions }}
 </div>
 
-<div class="section">
-  <div class="box"><span class="label">Statut :</span> {{ row.statut }}</div>
-  <div class="box"><span class="label">Étiquettes :</span> APS={{ row.label_aps }}, AUT={{ row.label_aut_ok }}, CHÈQUE={{ row.label_cheque_ok }}</div>
-  <div class="box"><span class="label">Commentaires :</span> {{ row.commentaires }}</div>
-</div>
+<footer>
+  Fiche générée le {{ now.strftime('%d/%m/%Y à %H:%M') }} – Intégrale Academy
+</footer>
 
-<p style="text-align:right"><em>Imprimé le {{ now.strftime('%d/%m/%Y %H:%M') }}</em></p>
 </body>
 </html>
