@@ -258,13 +258,13 @@
   {% endif %}
 </div>
 
-<!-- 🕓 MODALE LOGS -->
+<!-- 🕓 MODALE LOGS – Historique détaillé -->
 <div id="logsModal" class="modal hidden">
   <div class="modal-content" style="width:600px;max-height:80vh;overflow-y:auto;">
-    <h3>🕓 Historique des actions</h3>
-    <ul id="logsList" style="list-style:none;padding:0;font-size:14px;"></ul>
+    <h3>🕓 Historique des envois et relances</h3>
+    <ul id="logsList" class="timeline"></ul>
     <div style="text-align:center;margin-top:15px;">
-      <button class="btn" onclick="closeLogsModal()">Fermer</button>
+      <button class="btn primary" onclick="closeLogsModal()">Fermer</button>
     </div>
   </div>
 </div>
@@ -371,6 +371,7 @@ function closeLogsModal() {
 
 
 {% endblock %}
+
 
 
 
