@@ -2,6 +2,8 @@
 {% block body_class %}espace-candidat{% endblock %}
 {% block content %}
 
+
+
 <style>
 /* === 🎨 STYLE ESPACE CANDIDAT === */
 body.espace-candidat {
@@ -101,34 +103,31 @@ body.espace-candidat {
 
 /* === Frise chronologique === */
 .timeline {
-  position: relative;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   flex-wrap: nowrap;
   overflow-x: auto;
   margin: 60px auto 40px;
-  padding: 20px 10px;
-  width: 100%;
-  border-top: 4px solid #f4c45a;
+  padding: 10px 0;
+  gap: 25px;
 }
 
+/* Étape */
 .timeline .step {
-  position: relative;
   text-align: center;
-  flex: 1;
-  min-width: 160px;
+  flex-shrink: 0;
 }
 
 .timeline .step .icon {
-  width: 60px;
-  height: 60px;
-  line-height: 60px;
+  width: 70px;
+  height: 70px;
+  line-height: 70px;
   border-radius: 50%;
   background: #e0e0e0;
   display: inline-block;
   margin-bottom: 8px;
-  font-size: 26px;
+  font-size: 28px;
   transition: all 0.3s ease;
 }
 
@@ -143,31 +142,40 @@ body.espace-candidat {
   font-size: 15px;
   color: #333;
   font-weight: 600;
-  margin-bottom: 5px;
 }
 
-.timeline .step .date {
-  font-size: 13px;
-  color: #777;
+/* === Flèches entre les étapes === */
+.timeline .arrow {
+  flex-shrink: 0;
+  font-weight: bold;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 14px;
+  width: 80px;
+  text-align: center;
 }
 
-/* Lignes entre les étapes */
-.timeline .step::after {
-  content: "";
-  position: absolute;
-  top: 30px;
-  right: -50%;
-  width: 100%;
-  height: 4px;
-  background: #ddd;
-  z-index: -1;
+.timeline .arrow.ok {
+  color: #2ecc71;
 }
-.timeline .step.active::after {
-  background: #f4c45a;
+.timeline .arrow.ok::before {
+  content: "➤";
+  font-size: 28px;
+  color: #2ecc71;
+  margin-bottom: 4px;
 }
-.timeline .step:last-child::after {
-  display: none;
+
+.timeline .arrow.wait {
+  color: #aaa;
 }
+.timeline .arrow.wait::before {
+  content: "➤";
+  font-size: 28px;
+  color: #ccc;
+  margin-bottom: 4px;
+}
+
 
 /* === Commentaire === */
 .commentaire-block {
@@ -212,6 +220,18 @@ body.espace-candidat {
 .assistance a:hover {
   text-decoration: underline;
 }
+
+/* ✨ Animation douce pour les flèches OK */
+@keyframes glowGreen {
+  0%, 100% { text-shadow: 0 0 0px #2ecc71; transform: scale(1); }
+  50% { text-shadow: 0 0 10px #2ecc71; transform: scale(1.15); }
+}
+
+.timeline .arrow.ok::before {
+  animation: glowGreen 2s infinite ease-in-out;
+}
+
+  
 
 /* === Responsive === */
 @media (max-width:1000px){
@@ -261,72 +281,59 @@ body.espace-candidat {
     <p class="statut-explication">{{ explication_statut }}</p>
   </div>
 
-<!-- === Frise === -->
 <div class="timeline">
-
   <!-- Étape 1 -->
   <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
     <div class="icon">🕓</div>
     <div class="label">Pré-inscription reçue</div>
-    <div class="date">
-      {% if row.created_at %}
-        {{ row.created_at[:10].split('-')[2] }}/{{ row.created_at[:10].split('-')[1] }}/{{ row.created_at[:10].split('-')[0] }}
-      {% endif %}
-    </div>
   </div>
 
-  <!-- Étape 2 -->
+  <div class="arrow {{ 'ok' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else 'wait' }}">
+    {{ 'OK' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else 'À venir' }}
+  </div>
+
   <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
     <div class="icon">📨</div>
     <div class="label">Candidature en cours d'analyse</div>
   </div>
 
-  <!-- Étape 3 -->
+  <div class="arrow {{ 'ok' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else 'wait' }}">
+    {{ 'OK' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else 'À venir' }}
+  </div>
+
   <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
     <div class="icon">✅</div>
     <div class="label">Candidature validée</div>
-    <div class="date">
-      {% if row.date_validee %}
-        {{ row.date_validee[:10].split('-')[2] }}/{{ row.date_validee[:10].split('-')[1] }}/{{ row.date_validee[:10].split('-')[0] }}
-      {% endif %}
-    </div>
   </div>
 
-  <!-- Étape 4 -->
+  <div class="arrow {{ 'ok' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else 'wait' }}">
+    {{ 'OK' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else 'À venir' }}
+  </div>
+
   <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
     <div class="icon">🎓</div>
     <div class="label">Inscription confirmée</div>
-    <div class="date">
-      {% if row.date_confirmee %}
-        {{ row.date_confirmee[:10].split('-')[2] }}/{{ row.date_confirmee[:10].split('-')[1] }}/{{ row.date_confirmee[:10].split('-')[0] }}
-      {% endif %}
-    </div>
   </div>
 
-  <!-- Étape 5 -->
+  <div class="arrow {{ 'ok' if statut in ['reconf_en_cours','reconfirmee'] else 'wait' }}">
+    {{ 'OK' if statut in ['reconf_en_cours','reconfirmee'] else 'À venir' }}
+  </div>
+
   <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
     <div class="icon">🕒</div>
-    <div class="label">Reconfirmation d'inscription en attente (août 2026)</div>
+    <div class="label">Reconfirmation en attente</div>
   </div>
 
-  <!-- Étape 6 -->
+  <div class="arrow {{ 'ok' if statut == 'reconfirmee' else 'wait' }}">
+    {{ 'OK' if statut == 'reconfirmee' else 'À venir' }}
+  </div>
+
   <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
     <div class="icon">💚</div>
-    <div class="label">Reconfirmation d'inscription validée</div>
-    <div class="date">
-      {% if row.date_reconfirmee %}
-        {{ row.date_reconfirmee[:10].split('-')[2] }}/{{ row.date_reconfirmee[:10].split('-')[1] }}/{{ row.date_reconfirmee[:10].split('-')[0] }}
-      {% endif %}
-    </div>
+    <div class="label">Reconfirmation validée</div>
   </div>
-
-  <!-- Étape 7 -->
-  <div class="step {{ 'active' if statut == 'rentree' else '' }}">
-    <div class="icon">🎉</div>
-    <div class="label">Rentrée septembre 2026</div>
-  </div>
-
 </div>
+
 
 
   {% if commentaire %}
@@ -346,6 +353,7 @@ body.espace-candidat {
 </div>
 
 {% endblock %}
+
 
 
 
