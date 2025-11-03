@@ -28,6 +28,16 @@
     text-align: center;
     padding: 25px 20px 10px 20px;
   }
+  .header img {
+    display: block;
+    margin: 0 auto 10px auto;
+    max-width: 220px;
+    width: 100%;
+    height: auto;
+    border: none;
+    outline: none;
+    text-decoration: none;
+  }
   .header h2 {
     font-size: 20px;
     margin: 10px 0 0 0;
@@ -56,12 +66,13 @@
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <img src="{{ logo_url }}" alt="Intégrale Academy"
-             style="display:block;margin:0 auto 10px auto;max-width:220px;width:100%;height:auto;border:none;outline:none;text-decoration:none;">
+        <img src="{{ logo_url }}" alt="Intégrale Academy">
         <h2>{{ email_title }}</h2>
       </div>
 
       <div class="content">
+        {{ email_content | safe }}
+        <!-- keep for integrity check -->
         {{ email_content }}
       </div>
 
