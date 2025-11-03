@@ -56,14 +56,17 @@
   <div class="wrapper">
     <div class="container">
       <div class="header">
-        <!-- ✅ Styles forcés inline pour compatibilité totale -->
+        <!-- ✅ Logo inline pour compatibilité mobile -->
         <img src="{{ logo_url }}" alt="Intégrale Academy"
              style="display:block;margin:0 auto 10px auto;max-width:220px;width:100%;height:auto;border:none;outline:none;text-decoration:none;">
+        <!-- ✅ Ces deux lignes sont indispensables -->
         <h2>{{ email_title }}</h2>
       </div>
+
       <div class="content">
         {{ email_content | safe }}
       </div>
+
       <div class="footer">
         © Intégrale Academy — Merci de votre confiance 💛<br>
         <a href="https://integraleacademy.com">integraleacademy.com</a>
