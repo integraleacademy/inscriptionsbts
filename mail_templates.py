@@ -4,6 +4,7 @@
 
 import os
 from flask import render_template_string
+from email.mime.image import MIMEImage
 
 BASE_TEMPLATE_PATH = os.path.join("templates", "email_base.html")
 
@@ -165,13 +166,18 @@ def mail_html(template_name, **kwargs):
     except FileNotFoundError:
         return tpl["content"]
 
-    # === Rendu final complet ===
-    return render_template_string(
+    # === Utilisation du logo intégré (CID) ===
+    logo_cid = "logo_inline"
+
+    html_final = render_template_string(
         base_html,
         email_title=tpl["title"],
         email_content=tpl["content"],
-        logo_url=logo_url
+        logo_cid=logo_cid
     )
+
+    return html_final
+
 
 
 
