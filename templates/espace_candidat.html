@@ -421,7 +421,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const timeline = document.querySelector(".timeline");
 
   if (steps.length && activeSteps.length) {
-    const ratio = (activeSteps.length - 1) / (steps.length - 1);
     const bar = document.createElement("div");
     bar.className = "timeline-progress";
     bar.style.position = "absolute";
@@ -434,13 +433,16 @@ document.addEventListener("DOMContentLoaded", () => {
     bar.style.transition = "width 1s ease";
     timeline.appendChild(bar);
 
-    // petite animation de remplissage
+    // Calcul plus précis : la barre s'arrête au centre du dernier rond actif
+    const stepSpacing = 100 / (steps.length - 1);
+    const lastActiveIndex = activeSteps.length - 1;
     setTimeout(() => {
-      bar.style.width = `calc(${ratio * 100}% - 60px)`;
+      bar.style.width = `calc(${lastActiveIndex * stepSpacing}% + 30px)`;
     }, 100);
   }
 });
 </script>
+
 
 
 
@@ -467,6 +469,7 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
 
 {% endblock %}
+
 
 
 
