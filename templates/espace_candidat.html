@@ -282,57 +282,76 @@ body.espace-candidat {
   </div>
 
 <div class="timeline">
+
   <!-- Étape 1 -->
-  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else '' }}">
     <div class="icon">🕓</div>
     <div class="label">Pré-inscription reçue</div>
   </div>
 
-  <div class="arrow {{ 'ok' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else 'wait' }}">
-    {{ 'OK' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else 'À venir' }}
+  <div class="arrow {{ 'ok' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else 'wait' }}">
+    {{ 'OK' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else 'À venir' }}
   </div>
 
-  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+  <!-- Étape 2 -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else '' }}">
     <div class="icon">📨</div>
     <div class="label">Candidature en cours d'analyse</div>
   </div>
 
-  <div class="arrow {{ 'ok' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else 'wait' }}">
-    {{ 'OK' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else 'À venir' }}
+  <div class="arrow {{ 'ok' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else 'wait' }}">
+    {{ 'OK' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else 'À venir' }}
   </div>
 
-  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+  <!-- Étape 3 -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else '' }}">
     <div class="icon">✅</div>
     <div class="label">Candidature validée</div>
   </div>
 
-  <div class="arrow {{ 'ok' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else 'wait' }}">
-    {{ 'OK' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else 'À venir' }}
+  <div class="arrow {{ 'ok' if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] else 'wait' }}">
+    {{ 'OK' if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] else 'À venir' }}
   </div>
 
-  <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+  <!-- Étape 4 -->
+  <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] else '' }}">
     <div class="icon">🎓</div>
     <div class="label">Inscription confirmée</div>
   </div>
 
-  <div class="arrow {{ 'ok' if statut in ['reconf_en_cours','reconfirmee'] else 'wait' }}">
-    {{ 'OK' if statut in ['reconf_en_cours','reconfirmee'] else 'À venir' }}
+  <div class="arrow {{ 'ok' if statut in ['reconf_en_cours','reconfirmee','rentree'] else 'wait' }}">
+    {{ 'OK' if statut in ['reconf_en_cours','reconfirmee','rentree'] else 'À venir' }}
   </div>
 
-  <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
+  <!-- Étape 5 -->
+  <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee','rentree'] else '' }}">
     <div class="icon">🕒</div>
     <div class="label">Reconfirmation en attente</div>
   </div>
 
-  <div class="arrow {{ 'ok' if statut == 'reconfirmee' else 'wait' }}">
-    {{ 'OK' if statut == 'reconfirmee' else 'À venir' }}
+  <div class="arrow {{ 'ok' if statut in ['reconfirmee','rentree'] else 'wait' }}">
+    {{ 'OK' if statut in ['reconfirmee','rentree'] else 'À venir' }}
   </div>
 
-  <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
+  <!-- Étape 6 -->
+  <div class="step {{ 'active' if statut in ['reconfirmee','rentree'] else '' }}">
     <div class="icon">💚</div>
     <div class="label">Reconfirmation validée</div>
   </div>
+
+  <div class="arrow {{ 'ok' if statut == 'rentree' else 'wait' }}">
+    {{ 'OK' if statut == 'rentree' else 'À venir' }}
+  </div>
+
+  <!-- Étape 7 -->
+  <div class="step {{ 'active' if statut == 'rentree' else '' }}">
+    <div class="icon">🎉</div>
+    <div class="label">Rentrée septembre 2026</div>
+  </div>
+
 </div>
+
+
 
 
 
@@ -353,6 +372,7 @@ body.espace-candidat {
 </div>
 
 {% endblock %}
+
 
 
 
