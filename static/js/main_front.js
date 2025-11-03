@@ -220,6 +220,20 @@ if (stepIndex === 2) {
     valid = false;
   }
 
+    // === Vérif contrat d’apprentissage ===
+  const entrepriseTrouvee = document.querySelector('input[name="entreprise_trouvee"]:checked');
+  const recherchesCommencees = document.querySelector('input[name="recherches_commencees"]:checked');
+
+  if (!entrepriseTrouvee) {
+    alert("⚠️ Merci d’indiquer si vous avez déjà trouvé une entreprise pour votre alternance.");
+    valid = false;
+  }
+  if (!recherchesCommencees) {
+    alert("⚠️ Merci d’indiquer si vous avez déjà commencé vos recherches d’entreprise.");
+    valid = false;
+  }
+
+
   // ✅ Rajoute cette ligne pour bien retourner la validation
   return valid;
 }
@@ -683,6 +697,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
