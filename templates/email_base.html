@@ -17,59 +17,64 @@
   }
 
   .container {
-    max-width: 680px;
+    max-width: 650px;
     width: 94%;
     margin: auto;
     background: #ffffff;
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-    border-top: 6px solid #f4c45a;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.08);
   }
 
-  /* === HEADER DESIGN === */
+  /* === HEADER plus fin === */
   .header {
     text-align: center;
-    background: linear-gradient(135deg, #f4c45a 0%, #f9e6b3 100%);
-    padding: 35px 20px 25px 20px;
+    background: linear-gradient(135deg, #fef8e1 0%, #fdf3cb 100%);
+    padding: 20px 20px 15px 20px;
     border-bottom: 1px solid #eee;
   }
 
   .header img {
     display: block;
-    margin: 0 auto 10px auto;
-    max-width: 180px;
+    margin: 0 auto 8px auto;
+    max-width: 140px;
     width: 100%;
     height: auto;
   }
 
   .header h2 {
-    font-size: 22px;
-    margin: 10px 0 0 0;
+    font-size: 20px;
+    margin: 6px 0 0 0;
     color: #111;
-    letter-spacing: 0.5px;
   }
 
   .content {
-    padding: 30px 25px;
+    padding: 28px 25px 35px 25px;
     line-height: 1.7;
     font-size: 15px;
     color: #333;
   }
 
-  .content a {
-    color: #f4c45a;
+  .content a.btn {
+    display: inline-block;
+    background: #f4c45a;
+    color: #000;
     font-weight: 600;
     text-decoration: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    margin: 18px 0;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    transition: all 0.2s ease-in-out;
   }
 
-  .content a:hover {
-    text-decoration: underline;
+  .content a.btn:hover {
+    background: #ffd974;
   }
 
   .footer {
     text-align: center;
-    padding: 22px;
+    padding: 18px;
     border-top: 1px solid #eee;
     font-size: 13px;
     color: #888;
@@ -80,17 +85,23 @@
     text-decoration: none;
   }
 
-  /* === MOBILE === */
+  /* === Mobile === */
   @media only screen and (max-width: 480px) {
     .header img {
-      max-width: 150px !important;
+      max-width: 120px !important;
     }
     .header h2 {
-      font-size: 19px !important;
+      font-size: 18px !important;
     }
     .content {
       font-size: 16px !important;
       padding: 25px 18px !important;
+    }
+    .content a.btn {
+      display: block !important;
+      width: 100% !important;
+      box-sizing: border-box !important;
+      text-align: center !important;
     }
   }
 </style>
