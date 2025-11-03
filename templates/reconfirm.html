@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div style="max-width:700px;margin:60px auto;background:white;padding:50px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,0.1);text-align:center;">
+  <h2>🔁 Reconfirmation d’inscription</h2>
+  <p>Bonjour {{ prenom }},</p>
+  <p>Merci de confirmer à nouveau votre inscription pour le <strong>{{ bts_label }}</strong>.</p>
+
+  <form method="POST" action="/reconfirm-validate">
+    <input type="hidden" name="token" value="{{ token }}">
+    <input type="hidden" name="sig" value="{{ sig }}">
+    <button type="submit" style="background:#f4c45a;color:#111;padding:12px 26px;border:none;border-radius:8px;font-weight:bold;font-size:1em;cursor:pointer;margin-top:25px;">
+      ✅ Reconfirmer mon inscription
+    </button>
+  </form>
+</div>
+{% endblock %}
