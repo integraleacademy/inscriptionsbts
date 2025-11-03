@@ -48,14 +48,18 @@ def mail_html(template_name, **kwargs):
             """
         },
         # ✅ Nouveau modèle ajouté pour la reconfirmation
-        "reconfirmation": {
-            "title": "Reconfirmation d’inscription",
-            "content": f"""
-                <p>Bonjour {prenom},</p>
-                <p>Merci de confirmer à nouveau votre inscription pour le <strong>{bts_label}</strong>.</p>
-                <p><a href="{lien_espace}" class="btn">Reconfirmer mon inscription</a></p>
-            """
-        },
+   "reconfirmation": {
+    "title": "Reconfirmation d’inscription",
+    "content": f"""
+        <p>Bonjour {prenom},</p>
+        <p>Merci de confirmer à nouveau votre inscription pour le <strong>{bts_label}</strong>.</p>
+        <p style="text-align:center;margin:25px 0;">
+          <a href="{lien_espace}" class="btn">Reconfirmer mon inscription ✅</a>
+        </p>
+        <p>À très bientôt chez Intégrale Academy.</p>
+    """
+},
+
         "reconfirmation_demandee": {
             "title": "Reconfirmation demandée",
             "content": f"""
@@ -168,5 +172,6 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
