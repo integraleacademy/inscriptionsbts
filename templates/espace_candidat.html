@@ -99,182 +99,128 @@ body.espace-candidat {
   color: #333;
 }
 
-/* === Frise chronologique (version fluide) === */
+/* === Frise chronologique – version dorée élégante === */
 .timeline {
   position: relative;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 60px;
   flex-wrap: nowrap;
   overflow-x: auto;
-  margin: 60px auto 40px;
-  padding: 40px 20px;
+  padding: 40px 20px 20px;
+  margin: 40px auto 20px;
   width: 100%;
+  scroll-snap-type: x mandatory;
 }
 
-/* Barre de fond grise */
-.timeline::before {
-  content: "";
-  position: absolute;
-  top: 50px;
-  left: 60px;
-  right: 60px;
+/* Pour éviter la barre de scroll moche sur certains navigateurs */
+.timeline::-webkit-scrollbar {
   height: 6px;
-  background: #e0e0e0;
-  z-index: 0;
+}
+.timeline::-webkit-scrollbar-track {
+  background: transparent;
+}
+.timeline::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.08);
   border-radius: 3px;
 }
 
-/* Barre dorée de progression */
-.timeline::after {
-  content: "";
-  position: absolute;
-  top: 50px;
-  left: 60px;
-  height: 6px;
-  background: #f4c45a;
-  border-radius: 3px;
-  z-index: 1;
-  width: 0;
-  transition: width 0.5s ease;
-}
-
-/* Étapes */
+/* Chaque étape */
 .timeline .step {
   position: relative;
   text-align: center;
-  flex: 1;
-  min-width: 160px;
-  z-index: 2;
+  min-width: 150px;
+  flex-shrink: 0;
+  scroll-snap-align: center;
 }
 
-/* Icônes circulaires */
+/* Trait entre les étapes (part de gauche de l'étape) */
+.timeline .step::before {
+  content: "";
+  position: absolute;
+  top: 30px;              /* aligné au centre vertical du rond */
+  left: -50%;
+  width: 100%;
+  height: 3px;
+  background: #e2e2e2;    /* gris par défaut */
+  z-index: 0;
+}
+
+/* Pas de trait avant la première étape */
+.timeline .step:first-child::before {
+  display: none;
+}
+
+/* Icône / rond */
 .timeline .step .icon {
-  width: 60px;
-  height: 60px;
-  line-height: 60px;
-  border-radius: 50%;
-  background: #e0e0e0;
-  display: inline-block;
-  font-size: 26px;
-  transition: all 0.3s ease;
   position: relative;
-  z-index: 2;
+  z-index: 1;
+  width: 56px;
+  height: 56px;
+  line-height: 56px;
+  border-radius: 50%;
+  margin: 0 auto 10px;
+  font-size: 26px;
+  background: #f9f9f9;
+  border: 2px solid #e2e2e2;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+  transition: all 0.25s ease;
 }
 
-/* Étapes actives */
+/* Étapes actives (passées ou actuelle) */
 .timeline .step.active .icon {
-  background: #f4c45a;
+  background: radial-gradient(circle at 30% 0%, #ffeaa7, #f4c45a);
+  border-color: #f4c45a;
   color: #111;
-  box-shadow: 0 0 12px rgba(244,196,90,0.6);
-  transform: scale(1.1);
+  box-shadow: 0 0 0 3px rgba(244,196,90,0.35);
+  transform: translateY(-2px);
 }
 
+/* Trait doré entre deux étapes actives */
+.timeline .step.active::before {
+  background: #f4c45a;
+}
+
+/* Libellé */
 .timeline .step .label {
   font-size: 15px;
   color: #333;
   font-weight: 600;
-  margin-top: 10px;
+  margin-bottom: 4px;
 }
 
+/* Date */
 .timeline .step .date {
   font-size: 13px;
   color: #777;
 }
 
 /* === Responsive === */
-/* === 📱 VERSION MOBILE – TIMELINE VERTICALE CENTRÉE ET LISIBLE === */
-@media (max-width: 1000px) {
+@media (max-width: 900px) {
   .timeline {
-    flex-direction: column;
-    align-items: flex-start;
-    position: relative;
-    width: 100%;
-    max-width: 90%;
-    margin: 30px auto;
-    padding: 0 20px 0 45px;
-    box-sizing: border-box;
+    gap: 32px;
+    padding: 25px 10px 15px;
   }
-
-  /* Supprime la ligne horizontale desktop */
-  .timeline::before,
-  .timeline::after {
-    content: none !important;
-  }
-
-  /* Recrée une belle ligne verticale dorée */
-  .timeline::before {
-    content: "";
-    position: absolute;
-    top: 40px;
-    left: 30px;
-    bottom: 0;
-    width: 3px;
-    background: #f4c45a;
-    border-radius: 2px;
-    z-index: 0;
-  }
-
-  /* Étapes */
   .timeline .step {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    margin-bottom: 36px;
-    position: relative;
-    text-align: left;
-    width: 100%;
+    min-width: 130px;
   }
-
-  /* Icônes */
   .timeline .step .icon {
-    width: 38px;
-    height: 38px;
-    line-height: 38px;
-    text-align: center;
-    border-radius: 50%;
-    background: #e0e0e0;
-    flex-shrink: 0;
-    font-size: 20px;
-    transition: all 0.3s ease;
-    position: relative;
-    z-index: 2;
+    width: 48px;
+    height: 48px;
+    line-height: 48px;
+    font-size: 22px;
   }
-
-  /* Icône active */
-  .timeline .step.active .icon {
-    background: #f4c45a;
-    color: #111;
-    box-shadow: 0 0 6px rgba(244,196,90,0.5);
-    transform: scale(1.05);
+  .timeline .step::before {
+    top: 26px;
   }
-
-  /* Texte */
   .timeline .step .label {
-    font-size: 15px;
-    font-weight: 600;
-    color: #333;
-    margin: 2px 0;
-    line-height: 1.4;
-    max-width: calc(100% - 60px);
-    word-break: normal;
-  }
-
-  .timeline .step .date {
     font-size: 13px;
-    color: #777;
   }
-
-  /* Supprime tout trait parasite sur le premier élément */
-  .timeline .step:first-child::before,
-  .timeline .step:first-child::after {
-    display: none !important;
+  .timeline .step .date {
+    font-size: 12px;
   }
 }
-
-
-
-
 
 /* === Commentaire === */
 .commentaire-block {
@@ -481,79 +427,9 @@ body.espace-candidat {
   </div>
 </div>
 
-<!-- Script à mettre APRÈS la frise -->
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const steps = document.querySelectorAll(".timeline .step");
-  const activeSteps = document.querySelectorAll(".timeline .step.active");
-  const timeline = document.querySelector(".timeline");
 
-  if (steps.length && activeSteps.length) {
-    const bar = document.createElement("div");
-    bar.className = "timeline-progress";
-    bar.style.position = "absolute";
-    bar.style.top = "50px";
-    bar.style.left = "60px";
-    bar.style.height = "6px";
-    bar.style.background = "#f4c45a";
-    bar.style.borderRadius = "3px";
-    bar.style.width = "0";
-    bar.style.transition = "width 1s ease";
-    timeline.appendChild(bar);
 
-    // Calcul plus précis : la barre s'arrête au centre du dernier rond actif
-    const stepSpacing = 100 / (steps.length - 1);
-    const lastActiveIndex = activeSteps.length - 1;
-    setTimeout(() => {
-      bar.style.width = `calc(${lastActiveIndex * stepSpacing}% + 30px)`;
-    }, 100);
-  }
-});
-</script>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  // Pour la timeline mobile
-  if (window.innerWidth <= 1000) {
-    const steps = document.querySelectorAll(".timeline .step");
-    const activeSteps = document.querySelectorAll(".timeline .step.active");
-    const timeline = document.querySelector(".timeline");
-
-    if (steps.length && activeSteps.length) {
-      const line = document.createElement("div");
-      line.className = "timeline-mobile-progress";
-      timeline.appendChild(line);
-
-      // Calculer la hauteur dorée
-      const lastActive = activeSteps[activeSteps.length - 1];
-      const lastOffset = lastActive.offsetTop + lastActive.offsetHeight / 2 - 50;
-      const lineEl = timeline.querySelector("::after");
-      const progress = document.querySelector(".timeline::after");
-
-      const mobileBar = timeline.querySelector(".timeline::after") || timeline.querySelector(".timeline-mobile-progress");
-      const progressBar = document.querySelector(".timeline::after");
-      const goldLine = timeline.querySelector("::after");
-
-      // on crée la barre manuellement (car pseudo-élément non manipulable)
-      const bar = document.createElement("div");
-      bar.style.position = "absolute";
-      bar.style.top = "40px";
-      bar.style.left = "30px";
-      bar.style.width = "3px";
-      bar.style.background = "#f4c45a";
-      bar.style.borderRadius = "2px";
-      bar.style.height = "0";
-      bar.style.transition = "height 1s ease";
-      timeline.appendChild(bar);
-
-      // Animation de progression verticale
-      setTimeout(() => {
-        bar.style.height = `${lastOffset}px`;
-      }, 150);
-    }
-  }
-});
-</script>
 
 
 
@@ -582,6 +458,7 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
 
 {% endblock %}
+
 
 
 
