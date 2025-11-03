@@ -5,66 +5,100 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
   body {
-    font-family: Segoe UI, Arial, sans-serif;
+    font-family: 'Segoe UI', Arial, sans-serif;
     background: #f6f6f6;
     margin: 0;
     padding: 0;
   }
+
   .wrapper {
     width: 100%;
-    padding: 20px 0;
+    padding: 25px 0;
   }
+
   .container {
     max-width: 680px;
     width: 94%;
     margin: auto;
     background: #ffffff;
-    border-radius: 12px;
+    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
     border-top: 6px solid #f4c45a;
   }
+
+  /* === HEADER DESIGN === */
   .header {
     text-align: center;
-    padding: 25px 20px 10px 20px;
+    background: linear-gradient(135deg, #f4c45a 0%, #f9e6b3 100%);
+    padding: 35px 20px 25px 20px;
+    border-bottom: 1px solid #eee;
   }
+
   .header img {
     display: block;
     margin: 0 auto 10px auto;
-    max-width: 220px;
+    max-width: 180px;
     width: 100%;
     height: auto;
-    border: none;
-    outline: none;
-    text-decoration: none;
   }
+
   .header h2 {
-    font-size: 20px;
+    font-size: 22px;
     margin: 10px 0 0 0;
     color: #111;
+    letter-spacing: 0.5px;
   }
+
   .content {
-    padding: 25px 20px;
-    line-height: 1.6;
+    padding: 30px 25px;
+    line-height: 1.7;
     font-size: 15px;
     color: #333;
   }
+
+  .content a {
+    color: #f4c45a;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .content a:hover {
+    text-decoration: underline;
+  }
+
   .footer {
     text-align: center;
-    padding: 20px;
+    padding: 22px;
     border-top: 1px solid #eee;
     font-size: 13px;
     color: #888;
   }
+
   .footer a {
     color: #f4c45a;
     text-decoration: none;
+  }
+
+  /* === MOBILE === */
+  @media only screen and (max-width: 480px) {
+    .header img {
+      max-width: 150px !important;
+    }
+    .header h2 {
+      font-size: 19px !important;
+    }
+    .content {
+      font-size: 16px !important;
+      padding: 25px 18px !important;
+    }
   }
 </style>
 </head>
 <body>
   <div class="wrapper">
     <div class="container">
+
       <div class="header">
         <img src="{{ logo_url }}" alt="Intégrale Academy">
         <h2>{{ email_title }}</h2>
@@ -80,6 +114,7 @@
         © Intégrale Academy — Merci de votre confiance 💛<br>
         <a href="https://integraleacademy.com">integraleacademy.com</a>
       </div>
+
     </div>
   </div>
 </body>
