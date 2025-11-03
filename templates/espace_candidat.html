@@ -183,38 +183,44 @@ body.espace-candidat {
 }
 
 /* === Responsive === */
-/* === 📱 VERSION MOBILE – TIMELINE VERTICALE CENTRÉE === */
+/* === 📱 VERSION MOBILE – TIMELINE VERTICALE CENTRÉE ET LISIBLE === */
 @media (max-width: 1000px) {
   .timeline {
     flex-direction: column;
     align-items: flex-start;
     position: relative;
     width: 100%;
-    max-width: 650px;
+    max-width: 90%;
     margin: 30px auto;
-    padding: 0 20px 0 40px;
+    padding: 0 20px 0 45px;
     box-sizing: border-box;
   }
 
-  /* Ligne verticale grise */
+  /* Supprime la ligne horizontale desktop */
+  .timeline::before,
+  .timeline::after {
+    content: none !important;
+  }
+
+  /* Recrée une belle ligne verticale dorée */
   .timeline::before {
     content: "";
     position: absolute;
-    top: 25px;
-    left: 28px;
+    top: 40px;
+    left: 30px;
     bottom: 0;
     width: 3px;
-    background: #e0e0e0;
+    background: #f4c45a;
     border-radius: 2px;
     z-index: 0;
   }
 
-  /* Étape */
+  /* Étapes */
   .timeline .step {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 32px;
+    gap: 14px;
+    margin-bottom: 36px;
     position: relative;
     text-align: left;
     width: 100%;
@@ -222,14 +228,14 @@ body.espace-candidat {
 
   /* Icônes */
   .timeline .step .icon {
-    width: 36px;
-    height: 36px;
-    line-height: 36px;
+    width: 38px;
+    height: 38px;
+    line-height: 38px;
     text-align: center;
     border-radius: 50%;
     background: #e0e0e0;
     flex-shrink: 0;
-    font-size: 19px;
+    font-size: 20px;
     transition: all 0.3s ease;
     position: relative;
     z-index: 2;
@@ -243,40 +249,29 @@ body.espace-candidat {
     transform: scale(1.05);
   }
 
-  /* Ligne dorée */
-  .timeline::after {
-    content: "";
-    position: absolute;
-    top: 45px;
-    left: 29.5px;
-    width: 3px;
-    background: #f4c45a;
-    border-radius: 2px;
-    z-index: 1;
-    height: 0;
-    transition: height 1s ease;
-  }
-
   /* Texte */
   .timeline .step .label {
     font-size: 15px;
     font-weight: 600;
     color: #333;
     margin: 2px 0;
-    word-break: break-word;
+    line-height: 1.4;
     max-width: calc(100% - 60px);
+    word-break: normal;
   }
+
   .timeline .step .date {
     font-size: 13px;
     color: #777;
   }
 
-  /* Retirer petit trait horizontal du haut */
+  /* Supprime tout trait parasite sur le premier élément */
   .timeline .step:first-child::before,
   .timeline .step:first-child::after {
     display: none !important;
   }
 }
+
 
 
 
@@ -542,8 +537,8 @@ document.addEventListener("DOMContentLoaded", () => {
       // on crée la barre manuellement (car pseudo-élément non manipulable)
       const bar = document.createElement("div");
       bar.style.position = "absolute";
-      bar.style.top = "70px";
-      bar.style.left = "29.5px";
+      bar.style.top = "40px";
+      bar.style.left = "30px";
       bar.style.width = "3px";
       bar.style.background = "#f4c45a";
       bar.style.borderRadius = "2px";
@@ -587,6 +582,7 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
 
 {% endblock %}
+
 
 
 
