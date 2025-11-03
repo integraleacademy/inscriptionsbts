@@ -26,30 +26,30 @@
     box-shadow: 0 3px 12px rgba(0,0,0,0.08);
   }
 
-  /* === HEADER plus fin === */
+  /* === HEADER équilibré === */
   .header {
     text-align: center;
     background: linear-gradient(135deg, #fef8e1 0%, #fdf3cb 100%);
-    padding: 20px 20px 15px 20px;
+    padding: 18px 20px 12px 20px;
     border-bottom: 1px solid #eee;
   }
 
   .header img {
     display: block;
-    margin: 0 auto 8px auto;
-    max-width: 140px;
+    margin: 0 auto 6px auto;
+    max-width: 60px; /* ✅ taille réduite sur desktop */
     width: 100%;
     height: auto;
   }
 
   .header h2 {
     font-size: 20px;
-    margin: 6px 0 0 0;
+    margin: 4px 0 0 0;
     color: #111;
   }
 
   .content {
-    padding: 28px 25px 35px 25px;
+    padding: 26px 25px 34px 25px;
     line-height: 1.7;
     font-size: 15px;
     color: #333;
@@ -88,7 +88,7 @@
   /* === Mobile === */
   @media only screen and (max-width: 480px) {
     .header img {
-      max-width: 120px !important;
+      max-width: 90px !important; /* ✅ un peu plus grand sur mobile */
     }
     .header h2 {
       font-size: 18px !important;
