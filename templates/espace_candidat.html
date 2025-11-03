@@ -99,7 +99,7 @@ body.espace-candidat {
   color: #333;
 }
 
-/* === Frise chronologique === */
+/* === Frise chronologique (version fluide) === */
 .timeline {
   position: relative;
   display: flex;
@@ -108,18 +108,47 @@ body.espace-candidat {
   flex-wrap: nowrap;
   overflow-x: auto;
   margin: 60px auto 40px;
-  padding: 20px 10px;
+  padding: 40px 20px;
   width: 100%;
 }
 
+/* Barre de fond grise */
+.timeline::before {
+  content: "";
+  position: absolute;
+  top: 50px;
+  left: 60px;
+  right: 60px;
+  height: 6px;
+  background: #e0e0e0;
+  z-index: 0;
+  border-radius: 3px;
+}
+
+/* Barre dorée de progression */
+.timeline::after {
+  content: "";
+  position: absolute;
+  top: 50px;
+  left: 60px;
+  height: 6px;
+  background: #f4c45a;
+  border-radius: 3px;
+  z-index: 1;
+  width: 0;
+  transition: width 0.5s ease;
+}
+
+/* Étapes */
 .timeline .step {
   position: relative;
   text-align: center;
   flex: 1;
   min-width: 160px;
+  z-index: 2;
 }
 
-/* Cercle des icônes */
+/* Icônes circulaires */
 .timeline .step .icon {
   width: 60px;
   height: 60px;
@@ -127,25 +156,25 @@ body.espace-candidat {
   border-radius: 50%;
   background: #e0e0e0;
   display: inline-block;
-  margin-bottom: 8px;
   font-size: 26px;
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 2;
 }
 
-/* Étape active */
+/* Étapes actives */
 .timeline .step.active .icon {
   background: #f4c45a;
   color: #111;
-  box-shadow: 0 0 10px rgba(244,196,90,0.5);
+  box-shadow: 0 0 12px rgba(244,196,90,0.6);
   transform: scale(1.1);
 }
 
-/* Texte */
 .timeline .step .label {
   font-size: 15px;
   color: #333;
   font-weight: 600;
-  margin-bottom: 5px;
+  margin-top: 10px;
 }
 
 .timeline .step .date {
@@ -153,43 +182,23 @@ body.espace-candidat {
   color: #777;
 }
 
-/* === Flèches de progression === */
-.timeline .step::after {
-  content: "➤";
-  position: absolute;
-  top: 22px;
-  right: -40px;
-  font-size: 22px;
-  color: #ddd;
-  transition: color 0.3s ease;
-}
-
-.timeline .step.active::after {
-  color: #f4c45a;
-}
-
-.timeline .step:last-child::after {
-  display: none;
-}
-
 /* === Responsive === */
-@media (max-width:1000px){
+@media (max-width:1000px) {
   .timeline {
     flex-direction: column;
     align-items: center;
   }
+  .timeline::before, .timeline::after {
+    display: none;
+  }
   .timeline .step {
     margin-bottom: 30px;
   }
-  .timeline .step::after {
-    content: "⬇";
-    position: absolute;
-    top: 70px;
-    left: 50%;
-    transform: translateX(-50%);
-    right: auto;
+  .timeline .step .icon {
+    margin-bottom: 8px;
   }
 }
+
 
 
 /* === Commentaire === */
@@ -341,7 +350,6 @@ body.espace-candidat {
 
 <!-- === Frise === -->
 <div class="timeline">
-
   <!-- Étape 1 -->
   <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
     <div class="icon">🕓</div>
@@ -403,8 +411,37 @@ body.espace-candidat {
     <div class="icon">🎉</div>
     <div class="label">Rentrée septembre 2026</div>
   </div>
-
 </div>
+
+<!-- Script à mettre APRÈS la frise -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const steps = document.querySelectorAll(".timeline .step");
+  const activeSteps = document.querySelectorAll(".timeline .step.active");
+  const timeline = document.querySelector(".timeline");
+
+  if (steps.length && activeSteps.length) {
+    const ratio = (activeSteps.length - 1) / (steps.length - 1);
+    const bar = document.createElement("div");
+    bar.className = "timeline-progress";
+    bar.style.position = "absolute";
+    bar.style.top = "50px";
+    bar.style.left = "60px";
+    bar.style.height = "6px";
+    bar.style.background = "#f4c45a";
+    bar.style.borderRadius = "3px";
+    bar.style.width = "0";
+    bar.style.transition = "width 1s ease";
+    timeline.appendChild(bar);
+
+    // petite animation de remplissage
+    setTimeout(() => {
+      bar.style.width = `calc(${ratio * 100}% - 60px)`;
+    }, 100);
+  }
+});
+</script>
+
 
 
   {% if commentaire %}
@@ -430,6 +467,7 @@ body.espace-candidat {
   </div>
 
 {% endblock %}
+
 
 
 
