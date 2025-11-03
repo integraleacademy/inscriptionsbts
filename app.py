@@ -496,6 +496,46 @@ with app.app_context():
 import time
 import sqlite3
 
+# =====================================================
+# 🧾 Vérifie et ajoute les colonnes apprentissage si manquantes
+# =====================================================
+def ensure_apprentissage_fields():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(candidats)")
+    cols = [r[1] for r in cur.fetchall()]
+
+    if "entreprise_trouvee" not in cols:
+        cur.execute("ALTER TABLE candidats ADD COLUMN entreprise_trouvee TEXT DEFAULT ''")
+    if "recherches_commencees" not in cols:
+        cur.execute("ALTER TABLE candidats ADD COLUMN recherches_commencees TEXT DEFAULT ''")
+
+    conn.commit()
+    conn.close()
+
+# 🔁 Exécuter la vérification au démarrage
+with app.app_context():
+    ensure_apprentissage_fields()
+
+# =====================================================
+# 🎓 Vérifie et ajoute la colonne BACCALAURÉAT si manquante
+# =====================================================
+def ensure_baccalaureat_field():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(candidats)")
+    cols = [r[1] for r in cur.fetchall()]
+    if "baccalaureat" not in cols:
+        cur.execute("ALTER TABLE candidats ADD COLUMN baccalaureat TEXT DEFAULT ''")
+        print("🧱 Colonne 'baccalaureat' ajoutée à la table 'candidats'")
+    conn.commit()
+    conn.close()
+
+with app.app_context():
+    ensure_baccalaureat_field()
+
+
+
 def log_event(candidat, type_, payload_dict):
     cid = candidat["id"] if isinstance(candidat, dict) else candidat
     nd = candidat.get("numero_dossier","") if isinstance(candidat, dict) else ""
@@ -736,7 +776,7 @@ def submit():
     numero = dossier_number(counter=counter)
 
     # === Normalisation du BAC ===
-    baccalaureat = (form.get("bac_status") or "").strip()
+    baccalaureat = (form.get("baccalaureat") or "").strip()
 
     # === Projet motivé : nouveaux champs ===
     # Texte libre
@@ -772,6 +812,10 @@ def submit():
     else:
         aps_session = aps_session_value
 
+    entreprise_trouvee = (form.get("entreprise_trouvee") or "").strip()
+    recherches_commencees = (form.get("recherches_commencees") or "").strip()
+
+
     # Dictionnaire d’overrides (pour forcer les bonnes valeurs dans la base)
     form_overrides = {
         "projet_pourquoi":   projet_pourquoi,
@@ -784,6 +828,9 @@ def submit():
         "aps_souhaitee":     aps_souhaitee,
         "aps_session":       aps_session,
         "bac_status": baccalaureat,
+        "entreprise_trouvee": entreprise_trouvee,
+        "recherches_commencees": recherches_commencees,
+        "baccalaureat": baccalaureat,
     }
 
 
