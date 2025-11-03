@@ -167,28 +167,28 @@
 </div>
 
 <h2>2. ANTÉRIORITÉ SCOLAIRE</h2>
+
 <div class="box">
-  <span class="label">Baccalauréat :</span> {{ row.bac_status | bacdisp }}
+  <span class="label">Baccalauréat :</span>
+  {% if row.baccalaureat %}
+    {% if 'oui' in row.baccalaureat.lower() %}✅ Oui
+    {% elif 'non' in row.baccalaureat.lower() %}❌ Non
+    {% elif 'prévu' in row.baccalaureat.lower() or '2026' in row.baccalaureat %}📅 Prévu en 2026
+    {% else %}{{ row.baccalaureat }}
+    {% endif %}
+  {% else %}
+    —
+  {% endif %}
+  {% if row.bac_status %}
+    <br><span style="font-size:11px;color:#555;">
+      ⚙️ Précision MOS : {{ row.bac_status }}
+    </span>
+  {% endif %}
 </div>
+
 <div class="box"><span class="label">Type de bac :</span> {{ row.bac_type or "—" }}</div>
 <div class="box"><span class="label">Autre formation / précisions :</span> {{ row.bac_autre or "—" }}</div>
 
-<h2>3. FORMATION CHOISIE</h2>
-<div class="box"><span class="label">Formation :</span> {{ row.bts|btsfull }}</div>
-<div class="box"><span class="label">Mode de formation :</span> {% if row.mode == "presentiel" %}🧑‍🏫 Présentiel{% elif row.mode == "distanciel" %}💻 Distanciel{% else %}{{ row.mode }}{% endif %}</div>
-
-{% if row.mos_parcours %}
-  <div class="box"><span class="label">Parcours sécurité :</span> {{ row.mos_parcours }}</div>
-{% endif %}
-
-<div class="box">
-  <span class="label">Formation APS souhaitée :</span>
-  {% if row.aps_souhaitee|int == 1 %}
-    ✅ Oui<br><span class="label">Session APS :</span> {{ row.aps_session or "—" }}
-  {% else %}
-    ❌ Non
-  {% endif %}
-</div>
 
 <h2>4. 💬 PROJET MOTIVÉ</h2>
 <div class="box"><span class="label">Pourquoi souhaitez-vous intégrer ce BTS ?</span><br>🎯 {{ row.projet_pourquoi or "—" }}</div>
