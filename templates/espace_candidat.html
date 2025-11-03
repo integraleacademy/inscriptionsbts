@@ -236,6 +236,35 @@ body.espace-candidat {
   animation: glowGreen 2s infinite ease-in-out;
 }
 
+ /* === Correction d'alignement des étapes === */
+.timeline .step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 110px; /* hauteur constante pour toutes les étapes */
+}
+
+.timeline .step .icon {
+  margin-bottom: 6px;
+}
+
+.timeline .step .label {
+  min-height: 34px; /* réserve la place du texte, même si court */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.timeline .step .date {
+  font-size: 12px;
+  color: #777;
+  margin-top: 3px;
+  line-height: 1.2;
+}
+ 
+
   
 
 /* === Responsive === */
@@ -397,6 +426,7 @@ body.espace-candidat {
 </div>
 
 {% endblock %}
+
 
 
 
