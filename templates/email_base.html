@@ -26,20 +26,11 @@
     box-shadow: 0 3px 12px rgba(0,0,0,0.08);
   }
 
-  /* === HEADER équilibré === */
   .header {
     text-align: center;
     background: linear-gradient(135deg, #fef8e1 0%, #fdf3cb 100%);
     padding: 18px 20px 12px 20px;
     border-bottom: 1px solid #eee;
-  }
-
-  .header img {
-    display: block;
-    margin: 0 auto 6px auto;
-    max-width: 60px; /* ✅ taille réduite sur desktop */
-    width: 100%;
-    height: auto;
   }
 
   .header h2 {
@@ -85,11 +76,7 @@
     text-decoration: none;
   }
 
-  /* === Mobile === */
   @media only screen and (max-width: 480px) {
-    .header img {
-      max-width: 90px !important; /* ✅ un peu plus grand sur mobile */
-    }
     .header h2 {
       font-size: 18px !important;
     }
@@ -111,7 +98,9 @@
     <div class="container">
 
       <div class="header">
-        <img src="{{ logo_url }}" alt="Intégrale Academy">
+        <!-- ✅ inline style forcé pour les clients mail -->
+        <img src="{{ logo_url }}" alt="Intégrale Academy"
+             style="display:block;margin:0 auto 6px auto;width:60px;height:auto;border:none;outline:none;text-decoration:none;">
         <h2>{{ email_title }}</h2>
       </div>
 
