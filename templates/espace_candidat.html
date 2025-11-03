@@ -183,21 +183,25 @@ body.espace-candidat {
 }
 
 /* === Responsive === */
+/* === 📱 VERSION MOBILE – TIMELINE VERTICALE CENTRÉE === */
 @media (max-width: 1000px) {
   .timeline {
     flex-direction: column;
     align-items: flex-start;
     position: relative;
-    padding-left: 25px;
-    margin: 40px auto;
+    width: 100%;
+    max-width: 650px;
+    margin: 30px auto;
+    padding: 0 20px 0 40px;
+    box-sizing: border-box;
   }
 
   /* Ligne verticale grise */
   .timeline::before {
     content: "";
     position: absolute;
-    top: 30px;
-    left: 22px;
+    top: 25px;
+    left: 28px;
     bottom: 0;
     width: 3px;
     background: #e0e0e0;
@@ -210,27 +214,28 @@ body.espace-candidat {
     display: flex;
     align-items: flex-start;
     gap: 12px;
-    margin-bottom: 28px;
+    margin-bottom: 32px;
     position: relative;
     text-align: left;
+    width: 100%;
   }
 
-  /* Icônes plus petites et centrées sur la ligne */
+  /* Icônes */
   .timeline .step .icon {
-    width: 32px;
-    height: 32px;
-    line-height: 32px;
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
     text-align: center;
     border-radius: 50%;
     background: #e0e0e0;
     flex-shrink: 0;
-    font-size: 18px;
+    font-size: 19px;
     transition: all 0.3s ease;
     position: relative;
     z-index: 2;
   }
 
-  /* Rond actif */
+  /* Icône active */
   .timeline .step.active .icon {
     background: #f4c45a;
     color: #111;
@@ -238,12 +243,12 @@ body.espace-candidat {
     transform: scale(1.05);
   }
 
-  /* Ligne dorée (propre et centrée) */
+  /* Ligne dorée */
   .timeline::after {
     content: "";
     position: absolute;
-    top: 46px;
-    left: 23.5px;
+    top: 45px;
+    left: 29.5px;
     width: 3px;
     background: #f4c45a;
     border-radius: 2px;
@@ -252,16 +257,24 @@ body.espace-candidat {
     transition: height 1s ease;
   }
 
-  /* Texte à droite */
+  /* Texte */
   .timeline .step .label {
     font-size: 15px;
     font-weight: 600;
     color: #333;
     margin: 2px 0;
+    word-break: break-word;
+    max-width: calc(100% - 60px);
   }
   .timeline .step .date {
     font-size: 13px;
     color: #777;
+  }
+
+  /* Retirer petit trait horizontal du haut */
+  .timeline .step:first-child::before,
+  .timeline .step:first-child::after {
+    display: none !important;
   }
 }
 
@@ -530,7 +543,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const bar = document.createElement("div");
       bar.style.position = "absolute";
       bar.style.top = "70px";
-      bar.style.left = "23.5px";
+      bar.style.left = "29.5px";
       bar.style.width = "3px";
       bar.style.background = "#f4c45a";
       bar.style.borderRadius = "2px";
@@ -574,6 +587,7 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
 
 {% endblock %}
+
 
 
 
