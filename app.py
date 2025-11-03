@@ -2061,6 +2061,89 @@ def reconfirm():
     log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
     return render_template("reconfirm_ok.html", title="Merci ❤️")
 
+# =====================================================
+# 🔁 PAGE PUBLIQUE – Reconfirmation manuelle (avec bouton)
+# =====================================================
+
+@app.route("/reconfirm-page")
+def reconfirm_page():
+    token = request.args.get("token", "")
+    sig = request.args.get("sig", "")
+    if not verify_token(token, sig):
+        abort(403)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM candidats WHERE token_reconfirm=?", (token,))
+    row = cur.fetchone()
+    conn.close()
+    if not row:
+        abort(404)
+
+    row = dict(row)
+    prenom = row.get("prenom", "")
+    bts_label = BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+
+    return render_template(
+        "reconfirm.html",
+        prenom=prenom,
+        bts_label=bts_label,
+        token=token,
+        sig=sig,
+        title="Reconfirmer mon inscription"
+    )
+
+
+@app.route("/reconfirm-validate", methods=["POST"])
+def reconfirm_validate():
+    token = request.form.get("token", "")
+    sig = request.form.get("sig", "")
+    if not verify_token(token, sig):
+        abort(403)
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM candidats WHERE token_reconfirm=?", (token,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        abort(404)
+
+    row = dict(row)
+    cur.execute(
+        "UPDATE candidats SET statut=?, date_reconfirmee=?, updated_at=? WHERE id=?",
+        ("reconfirmee", datetime.now().isoformat(), datetime.now().isoformat(), row["id"])
+    )
+    conn.commit()
+    conn.close()
+
+    # ✉️ Mail confirmation reconfirmation
+    html = mail_html(
+        "reconfirmation_validee",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+    )
+    send_mail(row.get("email", ""), "Reconfirmation validée ✅", html)
+
+    # 📱 SMS reconfirmation validée
+    tel = (row.get("tel", "") or "").replace(" ", "")
+    if tel.startswith("0"):
+        tel = "+33" + tel[1:]
+    msg = sms_text(
+        "reconfirmation_validee",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+    )
+    send_sms_brevo(tel, msg)
+
+    log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
+    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation_validee"})
+    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_validee", "tel": tel})
+
+    return render_template("reconfirm_ok.html", prenom=row.get("prenom", ""), bts_label=row.get("bts"))
+
+
+
 @app.route("/logout")
 def logout():
     session.clear()
