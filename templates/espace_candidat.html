@@ -213,6 +213,437 @@ body.espace-candidat {
   text-decoration: underline;
 }
 
+  /* === 🟢 Bandeau d’aide commun === */
+.help-banner {
+  background: #f3fff6;
+  border: 1px solid #c8efc8;
+  border-radius: 10px;
+  padding: 25px;
+  text-align: center;
+  margin-top: 40px;
+}
+.help-banner h3 {
+  color: #0b5138;
+  margin-top: 0;
+}
+.help-banner a {
+  background: #198754;
+  color: white;
+  font-weight: 600;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 10px;
+}
+.help-banner a:hover {
+  background: #157347;
+}
+.help-banner p.phone {
+  margin-top: 15px;
+  color: #d63384;
+  font-weight: 600;
+}
+
+
+/* === Responsive === */
+@media (max-width:1000px){
+  .candidat-container { padding: 25px 20px; }
+  .timeline { flex-direction: column; align-items: center; border-top: none; }
+  .timeline .step { margin-bottom: 25px; }
+  .timeline .step::after { width: 4px; height: 40px; top: 70px; left: 50%; transform: translateX(-50%); }
+}
+  
+/* === 📱 Responsive bandeau aide === */
+@media (max-width: 600px) {
+  .help-banner {
+    padding: 20px 15px;
+  }
+  .help-banner h3 {
+    font-size: 18px;
+  }
+  .help-banner a {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 16px;
+  }
+  .help-banner p {
+    font-size: 15px;
+  }
+}
+
+  
+</style>
+
+<div class="candidat-container">
+  <div class="header">
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Intégrale Academy">
+    <h1>🎓 Espace Candidat</h1>
+    <div class="divider"></div>
+    <p>Bienvenue {{ row.prenom|upper }} {{ row.nom|upper }}</p>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card"><h3>Numéro de dossier</h3><p>{{ row.numero_dossier }}</p></div>
+    <div class="info-card"><h3>Formation</h3><p>{{ row.bts_label }}</p></div>
+    <div class="info-card"><h3>Mode</h3><p>{{ row.mode_label }}</p></div>
+    <div class="info-card"><h3>Email</h3><p>{{ row.email }}</p></div>
+  </div>
+
+  <div class="statut-section">
+    <span class="statut-badge" style="
+      background:
+      {% if statut == 'preinscription' %}#888
+      {% elif statut == 'validee' %}#007bff
+      {% elif statut == 'confirmee' %}#f4c45a
+      {% elif statut == 'reconf_en_cours' %}#555
+      {% elif statut == 'reconfirmee' %}#2ecc71
+      {% elif statut == 'docs_non_conformes' %}#e74c3c
+      {% else %}#777{% endif %};
+    ">
+      {% if statut == "preinscription" %}🕓 Candidature en cours d’analyse
+      {% elif statut == "validee" %}✅ Candidature validée
+      {% elif statut == "confirmee" %}🎓 Inscription confirmée
+      {% elif statut == "reconf_en_cours" %}🔄 Reconfirmation en cours
+      {% elif statut == "reconfirmee" %}💚 Reconfirmée
+      {% elif statut == "docs_non_conformes" %}⚠️ Documents non conformes
+      {% elif statut == "annulee" %}❌ Annulée
+      {% else %}🗂️ En cours
+      {% endif %}
+    </span>
+    <p class="statut-explication">{{ explication_statut }}</p>
+  </div>
+
+<!-- === Frise === -->
+<div class="timeline">
+
+  <!-- Étape 1 -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕓</div>
+    <div class="label">Pré-inscription reçue</div>
+    <div class="date">
+      {% if row.created_at %}
+        {{ row.created_at[:10].split('-')[2] }}/{{ row.created_at[:10].split('-')[1] }}/{{ row.created_at[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 2 -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">📨</div>
+    <div class="label">Candidature en cours d'analyse</div>
+  </div>
+
+  <!-- Étape 3 -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">✅</div>
+    <div class="label">Candidature validée</div>
+    <div class="date">
+      {% if row.date_validee %}
+        {{ row.date_validee[:10].split('-')[2] }}/{{ row.date_validee[:10].split('-')[1] }}/{{ row.date_validee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 4 -->
+  <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🎓</div>
+    <div class="label">Inscription confirmée</div>
+    <div class="date">
+      {% if row.date_confirmee %}
+        {{ row.date_confirmee[:10].split('-')[2] }}/{{ row.date_confirmee[:10].split('-')[1] }}/{{ row.date_confirmee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 5 -->
+  <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕒</div>
+    <div class="label">Reconfirmation d'inscription en attente (août 2026)</div>
+  </div>
+
+  <!-- Étape 6 -->
+  <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
+    <div class="icon">💚</div>
+    <div class="label">Reconfirmation d'inscription validée</div>
+    <div class="date">
+      {% if row.date_reconfirmee %}
+        {{ row.date_reconfirmee[:10].split('-')[2] }}/{{ row.date_reconfirmee[:10].split('-')[1] }}/{{ row.date_reconfirmee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 7 -->
+  <div class="step {{ 'active' if statut == 'rentree' else '' }}">
+    <div class="icon">🎉</div>
+    <div class="label">Rentrée septembre 2026</div>
+  </div>
+
+</div>
+
+
+  {% if commentaire %}
+  <div class="commentaire-block">
+    <h3>💬 Message de l’administration</h3>
+    <p>{{ commentaire }}</p>
+  </div>
+  {% endif %}
+
+  <div class="info-box">
+    ℹ️ Vous pouvez consulter l’avancement de votre dossier à tout moment depuis cette page.
+  </div>
+
+  {% extends "base.html" %}
+{% block body_class %}espace-candidat{% endblock %}
+{% block content %}
+
+<style>
+/* === 🎨 STYLE ESPACE CANDIDAT === */
+body.espace-candidat {
+  background: linear-gradient(180deg, #fff 0%, #fff9e6 100%);
+  font-family: "Segoe UI", system-ui, sans-serif;
+  color: #222;
+  margin: 0;
+  padding: 0;
+}
+
+.candidat-container {
+  width: 100%;
+  max-width: 1800px;
+  margin: 40px auto;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  padding: 50px 80px;
+  box-sizing: border-box;
+}
+
+/* === En-tête === */
+.header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+.header img {
+  max-height: 100px;
+  display: block;
+  margin: 0 auto 15px;
+}
+.header h1 {
+  font-size: 30px;
+  margin: 0;
+  color: #111;
+}
+.header p {
+  font-size: 16px;
+  color: #555;
+  margin-top: 5px;
+}
+.divider {
+  width: 100px;
+  height: 4px;
+  background: #f4c45a;
+  margin: 10px auto 25px;
+  border-radius: 2px;
+}
+
+/* === Infos principales === */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+  margin-top: 25px;
+}
+.info-card {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 10px;
+  padding: 15px 20px;
+}
+.info-card h3 {
+  margin: 0 0 5px 0;
+  font-size: 14px;
+  color: #777;
+  text-transform: uppercase;
+}
+.info-card p {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* === Statut principal === */
+.statut-section {
+  text-align: center;
+  margin-top: 40px;
+  margin-bottom: 25px;
+}
+.statut-badge {
+  display: inline-block;
+  padding: 12px 22px;
+  border-radius: 25px;
+  font-weight: bold;
+  font-size: 18px;
+  color: white;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+}
+.statut-explication {
+  font-size: 16px;
+  margin-top: 10px;
+  color: #333;
+}
+
+/* === Frise chronologique === */
+.timeline {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: 60px auto 40px;
+  padding: 20px 10px;
+  width: 100%;
+  border-top: 4px solid #f4c45a;
+}
+
+.timeline .step {
+  position: relative;
+  text-align: center;
+  flex: 1;
+  min-width: 160px;
+}
+
+.timeline .step .icon {
+  width: 60px;
+  height: 60px;
+  line-height: 60px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 26px;
+  transition: all 0.3s ease;
+}
+
+.timeline .step.active .icon {
+  background: #f4c45a;
+  color: #111;
+  box-shadow: 0 0 10px rgba(244,196,90,0.5);
+  transform: scale(1.1);
+}
+
+.timeline .step .label {
+  font-size: 15px;
+  color: #333;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.timeline .step .date {
+  font-size: 13px;
+  color: #777;
+}
+
+/* Lignes entre les étapes */
+.timeline .step::after {
+  content: "";
+  position: absolute;
+  top: 30px;
+  right: -50%;
+  width: 100%;
+  height: 4px;
+  background: #ddd;
+  z-index: -1;
+}
+.timeline .step.active::after {
+  background: #f4c45a;
+}
+.timeline .step:last-child::after {
+  display: none;
+}
+
+/* === Commentaire === */
+.commentaire-block {
+  background: #fdf8e7;
+  border-left: 5px solid #f4c45a;
+  padding: 15px 20px;
+  border-radius: 8px;
+  margin-top: 30px;
+}
+.commentaire-block h3 {
+  margin: 0 0 10px 0;
+  font-size: 18px;
+}
+.commentaire-block p {
+  margin: 0;
+  color: #444;
+  line-height: 1.5;
+}
+
+/* === Infos utiles === */
+.info-box {
+  background: #f8f8f8;
+  border-left: 4px solid #f4c45a;
+  padding: 12px 18px;
+  margin-top: 25px;
+  border-radius: 8px;
+  color: #333;
+  font-size: 14px;
+}
+
+/* === Assistance === */
+.assistance {
+  text-align: center;
+  margin-top: 40px;
+  font-size: 15px;
+}
+.assistance a {
+  color: #1a73e8;
+  font-weight: bold;
+  text-decoration: none;
+}
+.assistance a:hover {
+  text-decoration: underline;
+}
+
+  /* === 🟢 Bandeau d’aide commun === */
+.help-banner {
+  background: #f3fff6;
+  border: 1px solid #c8efc8;
+  border-radius: 10px;
+  padding: 25px;
+  text-align: center;
+  margin-top: 40px;
+}
+.help-banner h3 {
+  color: #0b5138;
+  margin-top: 0;
+}
+.help-banner a {
+  background: #198754;
+  color: white;
+  font-weight: 600;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+  display: inline-block;
+  margin-top: 10px;
+}
+.help-banner a:hover {
+  background: #157347;
+}
+.help-banner p.phone {
+  margin-top: 15px;
+  color: #d63384;
+  font-weight: 600;
+}
+
+
 /* === Responsive === */
 @media (max-width:1000px){
   .candidat-container { padding: 25px 20px; }
@@ -336,14 +767,19 @@ body.espace-candidat {
   </div>
   {% endif %}
 
-  <div class="info-box">
+    <div class="info-box">
     ℹ️ Vous pouvez consulter l’avancement de votre dossier à tout moment depuis cette page.
   </div>
 
-  <div class="assistance">
-    <p>❓ Une question ? <a href="https://assistance-alw9.onrender.com/" target="_blank">Contactez l’assistance</a> ou appelez le <strong>04 22 47 07 68</strong>.</p>
+  <!-- 🟢 Bandeau d’aide identique à l’index -->
+  <div class="candidat-container" style="margin-top:40px;">
+    <div class="help-banner">
+      <h3>🌿 Besoin d’aide ?</h3>
+      <p>Notre équipe est disponible pour vous accompagner :</p>
+      <a href="https://assistance-alw9.onrender.com/" target="_blank">Cliquez ici</a>
+      <p class="phone">📞 04 22 47 07 68</p>
+    </div>
   </div>
-</div>
 
 {% endblock %}
 
