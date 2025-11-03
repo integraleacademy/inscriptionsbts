@@ -126,7 +126,7 @@
   <div>
     <h1>{{ row.nom|upper }} {{ row.prenom|title }}</h1>
     <div class="sub-info">
-      {{ row.bts|btsfull }} —
+      {{ row.bts|btsfull }} — 
       {% if row.mode == "presentiel" %}🧑‍🏫 Présentiel
       {% elif row.mode == "distanciel" %}💻 Distanciel
       {% else %}{{ row.mode }}{% endif %}<br>
@@ -140,7 +140,6 @@
 </div>
 
 <h2>1. INFORMATIONS PERSONNELLES</h2>
-
 <div class="box"><span class="label">Nom :</span> {{ row.nom }}</div>
 <div class="box"><span class="label">Prénom :</span> {{ row.prenom }}</div>
 <div class="box"><span class="label">Date de naissance :</span> {{ row.date_naissance|dmy }}</div>
@@ -169,13 +168,7 @@
 
 <h2>2. ANTÉRIORITÉ SCOLAIRE</h2>
 <div class="box">
-  <span class="label">Baccalauréat :</span>
-  {% set bac = row.baccalaureat or row.bac_status or "" %}
-  {% if 'oui' in bac.lower() %}✅ Oui
-  {% elif 'non' in bac.lower() %}❌ Non
-  {% elif '2026' in bac or 'prévu' in bac.lower() %}📅 Prévu en 2026
-  {% else %}—
-  {% endif %}
+  <span class="label">Baccalauréat :</span> {{ row.bac_status | bacdisp }}
 </div>
 <div class="box"><span class="label">Type de bac :</span> {{ row.bac_type or "—" }}</div>
 <div class="box"><span class="label">Autre formation / précisions :</span> {{ row.bac_autre or "—" }}</div>
@@ -208,8 +201,7 @@
     {% for q in items %}
       {{ QUALITES[q.strip().lower()] or q.strip() }}{% if not loop.last %}, {% endif %}
     {% endfor %}
-  {% else %}—
-  {% endif %}
+  {% else %}—{% endif %}
 </div>
 
 <div class="box"><span class="label">Ce qui vous motive le plus :</span><br>🔥
@@ -218,8 +210,7 @@
     {% for m in items %}
       {{ MOTIVATIONS[m.strip().lower()] or m.strip() }}{% if not loop.last %}, {% endif %}
     {% endfor %}
-  {% else %}—
-  {% endif %}
+  {% else %}—{% endif %}
 </div>
 
 <div class="box"><span class="label">Ce que vous recherchez dans votre futur métier :</span><br>💼
@@ -228,8 +219,7 @@
     {% for v in items %}
       {{ VALEURS[v.strip().lower()] or v.strip() }}{% if not loop.last %}, {% endif %}
     {% endfor %}
-  {% else %}—
-  {% endif %}
+  {% else %}—{% endif %}
 </div>
 
 <div class="box"><span class="label">Votre manière de travailler :</span><br>🧠
@@ -238,8 +228,18 @@
     {% for t in items %}
       {{ TRAVAIL[t.strip().lower()] or t.strip() }}{% if not loop.last %}, {% endif %}
     {% endfor %}
-  {% else %}—
-  {% endif %}
+  {% else %}—{% endif %}
+</div>
+
+<!-- 🔹 Nouveau bloc : CONTRAT D'APPRENTISSAGE -->
+<h2>🎓 CONTRAT D’APPRENTISSAGE</h2>
+<div class="box">
+  <span class="label">Avez-vous déjà trouvé une entreprise pour votre alternance ?</span><br>
+  {{ row.entreprise_trouvee or "—" }}
+</div>
+<div class="box">
+  <span class="label">Avez-vous déjà commencé vos recherches ?</span><br>
+  {{ row.recherches_commencees or "—" }}
 </div>
 
 <footer>
