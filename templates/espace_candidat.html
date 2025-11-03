@@ -287,6 +287,11 @@ body.espace-candidat {
   <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else '' }}">
     <div class="icon">🕓</div>
     <div class="label">Pré-inscription reçue</div>
+    <div class="date">
+      {% if row.created_at %}
+        {{ row.created_at[:10].split('-')[2] }}/{{ row.created_at[:10].split('-')[1] }}/{{ row.created_at[:10].split('-')[0] }}
+      {% endif %}
+    </div>
   </div>
 
   <div class="arrow {{ 'ok' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else 'wait' }}">
@@ -307,6 +312,11 @@ body.espace-candidat {
   <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else '' }}">
     <div class="icon">✅</div>
     <div class="label">Candidature validée</div>
+    <div class="date">
+      {% if row.date_validee %}
+        {{ row.date_validee[:10].split('-')[2] }}/{{ row.date_validee[:10].split('-')[1] }}/{{ row.date_validee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
   </div>
 
   <div class="arrow {{ 'ok' if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] else 'wait' }}">
@@ -317,6 +327,11 @@ body.espace-candidat {
   <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] else '' }}">
     <div class="icon">🎓</div>
     <div class="label">Inscription confirmée</div>
+    <div class="date">
+      {% if row.date_confirmee %}
+        {{ row.date_confirmee[:10].split('-')[2] }}/{{ row.date_confirmee[:10].split('-')[1] }}/{{ row.date_confirmee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
   </div>
 
   <div class="arrow {{ 'ok' if statut in ['reconf_en_cours','reconfirmee','rentree'] else 'wait' }}">
@@ -337,6 +352,11 @@ body.espace-candidat {
   <div class="step {{ 'active' if statut in ['reconfirmee','rentree'] else '' }}">
     <div class="icon">💚</div>
     <div class="label">Reconfirmation validée</div>
+    <div class="date">
+      {% if row.date_reconfirmee %}
+        {{ row.date_reconfirmee[:10].split('-')[2] }}/{{ row.date_reconfirmee[:10].split('-')[1] }}/{{ row.date_reconfirmee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
   </div>
 
   <div class="arrow {{ 'ok' if statut == 'rentree' else 'wait' }}">
@@ -372,6 +392,7 @@ body.espace-candidat {
 </div>
 
 {% endblock %}
+
 
 
 
