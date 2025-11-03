@@ -94,8 +94,10 @@ function showStep(index) {
 // Vérifie tous les champs visibles
 for (let input of inputs) {
   const style = window.getComputedStyle(input);
-  const visible = style.display !== 'none' && style.visibility !== 'hidden';
-  if (!visible) continue;
+  // ✅ Ignore tous les champs qui ne sont pas dans l’onglet actif
+const isInCurrentTab = input.closest('.tab') === currentTab;
+if (!isInCurrentTab) continue;
+
 
   // ✅ Ignore les radios non requis OU sans attribut "name"
   if (input.type === "radio" && (!input.required || !input.name)) continue;
@@ -697,6 +699,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
