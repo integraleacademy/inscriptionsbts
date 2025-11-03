@@ -11,7 +11,8 @@
       <h4>📎 Fichiers reçus :</h4>
       <ul>
         {% for f in fichiers %}
-          <li>{{ f|basename }}</li>
+          {% set nom_fichier = f.rsplit('/', 1)[-1] %}
+          <li>{{ nom_fichier }}</li>
         {% endfor %}
       </ul>
     </div>
