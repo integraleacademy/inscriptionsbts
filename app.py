@@ -2389,7 +2389,7 @@ def admin_reconfirm(cid):
     conn.close()
 
     # 🔗 Lien de reconfirmation (signé)
-    link = make_signed_link("/reconfirm", token)
+    link = make_signed_link("/reconfirm-page", token)
 
     # ✉️ Mail HTML (utilise ton template)
     html = mail_html(
