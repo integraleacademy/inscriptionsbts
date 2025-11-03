@@ -921,7 +921,7 @@ function closePortalModal() {
 }
 
 // =====================================================
-// 🔍 Recherche instantanée ADMIN BTS (filtrage côté front)
+// 🔍 Recherche instantanée ADMIN BTS (filtrage sur toutes les colonnes principales)
 // =====================================================
 document.addEventListener("DOMContentLoaded", () => {
   const input = document.getElementById("searchBTS");
@@ -933,12 +933,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const q = input.value.trim().toLowerCase();
 
     tbody.querySelectorAll("tr").forEach(tr => {
-      const nom    = (tr.querySelector('td[data-field="nom"]')?.textContent || "").toLowerCase();
-      const prenom = (tr.querySelector('td[data-field="prenom"]')?.textContent || "").toLowerCase();
-      const email  = (tr.querySelector('td[data-field="email"]')?.textContent || "").toLowerCase();
+      // 🔎 on prend tout le texte de la ligne (toutes les colonnes)
+      const text = Array.from(tr.querySelectorAll("td"))
+        .map(td => td.textContent.toLowerCase())
+        .join(" ");
 
-      const haystack = `${nom} ${prenom} ${email}`;
-      tr.style.display = haystack.includes(q) ? "" : "none";
+      // ✅ si la recherche est trouvée dans la ligne → on garde visible
+      tr.style.display = text.includes(q) ? "" : "none";
     });
   });
 });
@@ -948,8 +949,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
