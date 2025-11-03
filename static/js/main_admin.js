@@ -920,6 +920,28 @@ function closePortalModal() {
   document.getElementById("portalModal").classList.add("hidden");
 }
 
+// =====================================================
+// 🔍 Recherche instantanée ADMIN BTS (filtrage côté front)
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("searchBTS");
+  const tbody = document.querySelector(".admin-table tbody");
+
+  if (!input || !tbody) return;
+
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+
+    tbody.querySelectorAll("tr").forEach(tr => {
+      const nom    = (tr.querySelector('td[data-field="nom"]')?.textContent || "").toLowerCase();
+      const prenom = (tr.querySelector('td[data-field="prenom"]')?.textContent || "").toLowerCase();
+      const email  = (tr.querySelector('td[data-field="email"]')?.textContent || "").toLowerCase();
+
+      const haystack = `${nom} ${prenom} ${email}`;
+      tr.style.display = haystack.includes(q) ? "" : "none";
+    });
+  });
+});
 
 
 
@@ -928,6 +950,7 @@ function closePortalModal() {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
