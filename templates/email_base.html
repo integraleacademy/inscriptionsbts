@@ -28,15 +28,22 @@
     text-align: center;
     padding: 25px 20px 10px 20px;
   }
+
+  /* ✅ Correction du logo */
   .header img {
-    max-height: 90px;
-    margin-bottom: 8px;
+    display: block;
+    margin: 0 auto 10px auto;
+    max-width: 220px;       /* largeur maximale pour éviter qu’il prenne toute la place */
+    width: 100%;
+    height: auto;           /* conserve le ratio exact */
   }
+
   .header h2 {
     font-size: 20px;
     margin: 10px 0 0 0;
     color: #111;
   }
+
   .content {
     padding: 25px 20px;
     line-height: 1.6;
@@ -65,9 +72,13 @@
       font-size: 16px !important;
       padding: 20px 16px !important;
     }
+
+    /* ✅ Logo adapté mobile */
     .header img {
-      max-height: 70px !important;
+      max-width: 180px !important;
+      height: auto !important;
     }
+
     .header h2 {
       font-size: 18px !important;
     }
@@ -89,7 +100,6 @@
         <h2>{{ email_title }}</h2>
       </div>
       <div class="content">
-        <!-- render-check: {{ email_title }} {{ email_content }} -->
         {{ email_content | safe }}
       </div>
       <div class="footer">
@@ -100,4 +110,3 @@
   </div>
 </body>
 </html>
-
