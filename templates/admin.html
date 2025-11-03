@@ -30,7 +30,7 @@
 
   <!-- 🔎 Barre de filtres -->
   <form method="get" action="{{ url_for('admin') }}" class="filter-bar">
-    <input type="text" name="q" placeholder="🔍 Rechercher (nom, prénom, mail...)" value="{{ request.args.get('q','') }}">
+    <input type="text" id="searchInput" name="q" placeholder="🔍 Rechercher (nom, prénom, mail...)" value="{{ request.args.get('q','') }}">
 
     <select name="bts">
       <option value="">BTS (tous)</option>
