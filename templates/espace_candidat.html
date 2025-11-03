@@ -99,76 +99,74 @@ body.espace-candidat {
   color: #333;
 }
 
-/* === Frise chronologique – version dorée élégante === */
+/* === Frise chronologique === */
 .timeline {
   position: relative;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 60px;
   flex-wrap: nowrap;
   overflow-x: auto;
-  padding: 60px 40px 30px;
-  margin: 40px auto 20px;
+  margin: 60px auto 40px;
+  padding: 20px 10px;
   width: 100%;
-  scroll-snap-type: x mandatory;
+  border-top: 4px solid #f4c45a;
 }
 
-/* Ligne de fond grise */
-.timeline::before {
-  content: "";
-  position: absolute;
-  top: 58px;
-  left: 100px;
-  right: 100px;
-  height: 4px;
-  background: #e2e2e2;
-  border-radius: 2px;
-  z-index: 0;
-}
-
-/* Étape */
 .timeline .step {
   position: relative;
   text-align: center;
-  min-width: 150px;
-  flex-shrink: 0;
-  scroll-snap-align: center;
-  z-index: 2;
+  flex: 1;
+  min-width: 160px;
 }
 
-/* Icône / rond */
 .timeline .step .icon {
-  width: 56px;
-  height: 56px;
-  line-height: 56px;
+  width: 60px;
+  height: 60px;
+  line-height: 60px;
   border-radius: 50%;
-  background: #fff;
-  border: 3px solid #e2e2e2;
-  font-size: 26px;
+  background: #e0e0e0;
   display: inline-block;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  font-size: 26px;
   transition: all 0.3s ease;
 }
 
-/* Étape active */
 .timeline .step.active .icon {
-  background: radial-gradient(circle at 30% 0%, #ffeaa7, #f4c45a);
-  border-color: #f4c45a;
+  background: #f4c45a;
   color: #111;
   box-shadow: 0 0 10px rgba(244,196,90,0.5);
   transform: scale(1.1);
 }
 
-/* Libellés */
 .timeline .step .label {
   font-size: 15px;
   color: #333;
   font-weight: 600;
+  margin-bottom: 5px;
 }
+
 .timeline .step .date {
   font-size: 13px;
   color: #777;
+}
+
+/* Lignes entre les étapes */
+.timeline .step::after {
+  content: "";
+  position: absolute;
+  top: 30px;
+  right: -50%;
+  width: 100%;
+  height: 4px;
+  background: #ddd;
+  z-index: -1;
+}
+.timeline .step.active::after {
+  background: #f4c45a;
+}
+.timeline .step:last-child::after {
+  display: none;
 }
 
 /* === Commentaire === */
@@ -200,37 +198,27 @@ body.espace-candidat {
   font-size: 14px;
 }
 
-/* === 🟢 Bandeau d’aide === */
-.help-banner {
-  background: #f3fff6;
-  border: 1px solid #c8efc8;
-  border-radius: 10px;
-  padding: 25px;
+/* === Assistance === */
+.assistance {
   text-align: center;
   margin-top: 40px;
+  font-size: 15px;
 }
-.help-banner h3 {
-  color: #0b5138;
-  margin-top: 0;
-}
-.help-banner a {
-  background: #198754;
-  color: white;
-  font-weight: 600;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
+.assistance a {
+  color: #1a73e8;
+  font-weight: bold;
   text-decoration: none;
-  display: inline-block;
-  margin-top: 10px;
 }
-.help-banner a:hover {
-  background: #157347;
+.assistance a:hover {
+  text-decoration: underline;
 }
-.help-banner p.phone {
-  margin-top: 15px;
-  color: #d63384;
-  font-weight: 600;
+
+/* === Responsive === */
+@media (max-width:1000px){
+  .candidat-container { padding: 25px 20px; }
+  .timeline { flex-direction: column; align-items: center; border-top: none; }
+  .timeline .step { margin-bottom: 25px; }
+  .timeline .step::after { width: 4px; height: 40px; top: 70px; left: 50%; transform: translateX(-50%); }
 }
 </style>
 
@@ -273,61 +261,73 @@ body.espace-candidat {
     <p class="statut-explication">{{ explication_statut }}</p>
   </div>
 
-  <!-- === Frise === -->
-  <div class="timeline">
-    <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🕓</div>
-      <div class="label">Pré-inscription reçue</div>
-    </div>
+<!-- === Frise === -->
+<div class="timeline">
 
-    <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">✅</div>
-      <div class="label">Candidature validée</div>
-    </div>
-
-    <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🎓</div>
-      <div class="label">Inscription confirmée</div>
-    </div>
-
-    <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
-      <div class="icon">🕒</div>
-      <div class="label">Reconfirmation d'inscription (août 2026)</div>
-    </div>
-
-    <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
-      <div class="icon">💚</div>
-      <div class="label">Reconfirmation validée</div>
-    </div>
-
-    <div class="step {{ 'active' if statut == 'rentree' else '' }}">
-      <div class="icon">🎉</div>
-      <div class="label">Rentrée septembre 2026</div>
+  <!-- Étape 1 -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕓</div>
+    <div class="label">Pré-inscription reçue</div>
+    <div class="date">
+      {% if row.created_at %}
+        {{ row.created_at[:10].split('-')[2] }}/{{ row.created_at[:10].split('-')[1] }}/{{ row.created_at[:10].split('-')[0] }}
+      {% endif %}
     </div>
   </div>
 
-  <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const steps = document.querySelectorAll(".timeline .step");
-    const activeSteps = document.querySelectorAll(".timeline .step.active");
-    const timeline = document.querySelector(".timeline");
-    if (steps.length && activeSteps.length) {
-      const line = document.createElement("div");
-      line.style.position = "absolute";
-      line.style.top = "58px";
-      line.style.left = "100px";
-      line.style.height = "4px";
-      line.style.background = "#f4c45a";
-      line.style.borderRadius = "2px";
-      line.style.zIndex = "1";
-      line.style.width = "0";
-      timeline.appendChild(line);
-      setTimeout(() => {
-        line.style.width = `calc(${(activeSteps.length - 1) / (steps.length - 1) * 100}% - 200px)`;
-      }, 300);
-    }
-  });
-  </script>
+  <!-- Étape 2 -->
+  <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">📨</div>
+    <div class="label">Candidature en cours d'analyse</div>
+  </div>
+
+  <!-- Étape 3 -->
+  <div class="step {{ 'active' if statut in ['validee','confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">✅</div>
+    <div class="label">Candidature validée</div>
+    <div class="date">
+      {% if row.date_validee %}
+        {{ row.date_validee[:10].split('-')[2] }}/{{ row.date_validee[:10].split('-')[1] }}/{{ row.date_validee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 4 -->
+  <div class="step {{ 'active' if statut in ['confirmee','reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🎓</div>
+    <div class="label">Inscription confirmée</div>
+    <div class="date">
+      {% if row.date_confirmee %}
+        {{ row.date_confirmee[:10].split('-')[2] }}/{{ row.date_confirmee[:10].split('-')[1] }}/{{ row.date_confirmee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 5 -->
+  <div class="step {{ 'active' if statut in ['reconf_en_cours','reconfirmee'] else '' }}">
+    <div class="icon">🕒</div>
+    <div class="label">Reconfirmation d'inscription en attente (août 2026)</div>
+  </div>
+
+  <!-- Étape 6 -->
+  <div class="step {{ 'active' if statut == 'reconfirmee' else '' }}">
+    <div class="icon">💚</div>
+    <div class="label">Reconfirmation d'inscription validée</div>
+    <div class="date">
+      {% if row.date_reconfirmee %}
+        {{ row.date_reconfirmee[:10].split('-')[2] }}/{{ row.date_reconfirmee[:10].split('-')[1] }}/{{ row.date_reconfirmee[:10].split('-')[0] }}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Étape 7 -->
+  <div class="step {{ 'active' if statut == 'rentree' else '' }}">
+    <div class="icon">🎉</div>
+    <div class="label">Rentrée septembre 2026</div>
+  </div>
+
+</div>
+
 
   {% if commentaire %}
   <div class="commentaire-block">
@@ -340,12 +340,11 @@ body.espace-candidat {
     ℹ️ Vous pouvez consulter l’avancement de votre dossier à tout moment depuis cette page.
   </div>
 
-  <div class="help-banner">
-    <h3>🌿 Besoin d’aide ?</h3>
-    <p>Notre équipe est disponible pour vous accompagner :</p>
-    <a href="https://assistance-alw9.onrender.com/" target="_blank">Cliquez ici</a>
-    <p class="phone">📞 04 22 47 07 68</p>
+  <div class="assistance">
+    <p>❓ Une question ? <a href="https://assistance-alw9.onrender.com/" target="_blank">Contactez l’assistance</a> ou appelez le <strong>04 22 47 07 68</strong>.</p>
   </div>
 </div>
 
 {% endblock %}
+
+
