@@ -344,97 +344,95 @@
 </div> <!-- fin tab2 -->
 
 
-    <!-- 🧩 Étape 3 -->
-    <div id="tab3" class="tab">
-      <div class="grid">
-        <label>Baccalauréat
-          <select name="baccalaureat" required>
-            <option value="">—</option>
-            <option>Oui</option>
-            <option>Non</option>
-            <option>Prévu en 2026</option>
-          </select>
-        </label>
-        <label>Type de bac
-          <select name="bac_type">
-            <option value="">—</option>
-            <option>Général</option>
-            <option>Technologique</option>
-            <option>Professionnel</option>
-            <option>Autre</option>
-          </select>
-        </label>
-        <label>Si “Autre”, préciser <input name="bac_autre"></label>
-        <label>Permis B
-          <select name="permis_b">
-            <option value="">—</option>
-            <option>Oui</option>
-            <option>Non</option>
-          </select>
-        </label>
+ <!-- 🧩 Étape 3 -->
+<div id="tab3" class="tab">
+  <div class="grid">
+    <label>Baccalauréat
+      <select name="baccalaureat" required>
+        <option value="">—</option>
+        <option>Oui</option>
+        <option>Non</option>
+        <option>Prévu en 2026</option>
+      </select>
+    </label>
+    <label>Type de bac
+      <select name="bac_type">
+        <option value="">—</option>
+        <option>Général</option>
+        <option>Technologique</option>
+        <option>Professionnel</option>
+        <option>Autre</option>
+      </select>
+    </label>
+    <label>Si “Autre”, préciser <input name="bac_autre"></label>
+    <label>Permis B
+      <select name="permis_b">
+        <option value="">—</option>
+        <option>Oui</option>
+        <option>Non</option>
+      </select>
+    </label>
+  </div>
+
+  <!-- 🔹 Contrat d'apprentissage - Entreprise d'accueil -->
+  <div class="apprentissage-box">
+    <h3>📑 Contrat d’apprentissage – Entreprise d’accueil</h3>
+
+    <label>J’ai déjà trouvé une entreprise pour mon alternance :</label>
+    <div class="radio-row">
+      <label><input type="radio" name="entreprise_trouvee" value="oui" required> Oui</label>
+      <label><input type="radio" name="entreprise_trouvee" value="non" required> Non</label>
+    </div>
+
+    <label>J’ai déjà commencé mes recherches :</label>
+    <div class="radio-row">
+      <label><input type="radio" name="recherches_commencees" value="oui" required> Oui</label>
+      <label><input type="radio" name="recherches_commencees" value="non" required> Non</label>
+    </div>
+
+    <!-- === 🤝 ENCADRÉ PÔLE ALTERNANCE === -->
+    <div class="pole-alternance-box" style="margin-top:25px;background:#fff8e1;border:2px solid #f4c45a;border-radius:12px;padding:25px;">
+      <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;">
+        <img src="/static/logo-integrale.png" alt="Logo Intégrale Academy" style="height:60px;border-radius:50%;background:white;padding:5px;">
+        <div style="flex:1;">
+          <h3 style="margin:0;font-size:20px;color:#222;">🤝 Pôle Alternance Île-de-France</h3>
+          <p style="margin:6px 0 0;font-size:15px;color:#444;">
+            Dès validation de votre pré-inscription, notre partenaire Pôle Alternance peut vous aider à trouver une entreprise d’accueil.
+          </p>
+        </div>
       </div>
 
-<!-- 🔹 Contrat d'apprentissage - Entreprise d'accueil -->
-<div class="apprentissage-box">
-  <h3>📑 Contrat d’apprentissage – Entreprise d’accueil</h3>
-
-<label>J’ai déjà trouvé une entreprise pour mon alternance :</label>
-<div class="radio-row">
-  <label><input type="radio" name="entreprise_trouvee" value="oui" required> Oui</label>
-  <label><input type="radio" name="entreprise_trouvee" value="non" required> Non</label>
-</div>
-
-<label>J’ai déjà commencé mes recherches :</label>
-<div class="radio-row">
-  <label><input type="radio" name="recherches_commencees" value="oui" required> Oui</label>
-  <label><input type="radio" name="recherches_commencees" value="non" required> Non</label>
-</div>
-
-<!-- === 🤝 ENCADRÉ PÔLE ALTERNANCE === -->
-<div class="pole-alternance-box" style="margin-top:25px;background:#fff8e1;border:2px solid #f4c45a;border-radius:12px;padding:25px;">
-  <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;">
-    <img src="/static/logo-integrale.png" alt="Logo Intégrale Academy" style="height:60px;border-radius:50%;background:white;padding:5px;">
-    <div style="flex:1;">
-      <h3 style="margin:0;font-size:20px;color:#222;">🤝 Pôle Alternance Île-de-France</h3>
-      <p style="margin:6px 0 0;font-size:15px;color:#444;">
-        Dès validation de votre pré-inscription, notre partenaire Pôle Alternance peut vous aider à trouver une entreprise d’accueil.
-      </p>
+      <div style="margin-top:20px;">
+        <label style="display:block;margin-bottom:8px;font-size:15px;">
+          <input type="radio" name="souhaite_accompagnement" value="oui" required>
+          Je souhaite être accompagné pour trouver une entreprise
+        </label>
+        <label style="display:block;font-size:15px;">
+          <input type="radio" name="souhaite_accompagnement" value="non">
+          Je préfère chercher une entreprise par moi-même
+        </label>
+      </div>
     </div>
-  </div>
 
-  <div style="margin-top:20px;">
-    <label style="display:block;margin-bottom:8px;font-size:15px;">
-      <input type="radio" name="souhaite_accompagnement" value="oui" required>
-      Je souhaite être accompagné pour trouver une entreprise
-    </label>
-    <label style="display:block;font-size:15px;">
-      <input type="radio" name="souhaite_accompagnement" value="non">
-      Je préfère chercher une entreprise par moi-même
-    </label>
-  </div>
-</div>
-
-<div class="apprentissage-info">
-  💡 <strong>Rassurez-vous&nbsp;!</strong> Vous aurez jusqu’au <strong>15 décembre 2026</strong> pour trouver votre entreprise d’accueil.<br>
-  Les cours commenceront en <strong>septembre</strong>, même si vous n'avez pas signé de contrat d'apprentissage.<br>
-  La plupart des étudiants trouvent leur entreprise dans les semaines qui suivent la rentrée, entre <strong>octobre et novembre</strong>.
-</div>
-
-
-
-
-
-
-      <div class="actions nav-global">
-  <button type="button" class="btn prev">⬅️ Étape précédente</button>
-  <button type="button" class="btn primary next">➡️ Étape suivante</button>
-  <button type="button" class="btn save">💾 Enregistrer et reprendre plus tard</button>
-</div>
-
+    <div class="apprentissage-info" style="margin-top:25px;">
+      💡 <strong>Rassurez-vous&nbsp;!</strong> Vous aurez jusqu’au <strong>15 décembre 2026</strong> pour trouver votre entreprise d’accueil.<br>
+      Les cours commenceront en <strong>septembre</strong>, même si vous n'avez pas signé de contrat d'apprentissage.<br>
+      La plupart des étudiants trouvent leur entreprise dans les semaines qui suivent la rentrée, entre <strong>octobre et novembre</strong>.
     </div>
-      </div> <!-- ✅ fermeture manquante du tab3 -->
+  </div> <!-- fin apprentissage-box -->
+
+  <div class="actions nav-global">
+    <button type="button" class="btn prev">⬅️ Étape précédente</button>
+    <button type="button" class="btn primary next">➡️ Étape suivante</button>
+    <button type="button" class="btn save">💾 Enregistrer et reprendre plus tard</button>
+  </div>
+</div> <!-- fin tab3 -->
 
 
+
+
+
+     
 <!-- ===================================================== -->
 <!-- 💬 ÉTAPE 4 : PROJET MOTIVÉ (version finale élégante) -->
 <!-- ===================================================== -->
