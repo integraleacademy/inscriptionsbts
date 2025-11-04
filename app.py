@@ -933,53 +933,90 @@ def submit():
 
     conn.commit()
 
-        # =====================================================
-    # 🤝 ENVOI AUTOMATIQUE – ACCOMPAGNEMENT PÔLE ALTERNANCE
-    # =====================================================
-    if souhaite_accompagnement.lower() == "oui":
+# =====================================================
+# 🤝 ENVOI AUTOMATIQUE – ACCOMPAGNEMENT PÔLE ALTERNANCE
+# =====================================================
+if souhaite_accompagnement.lower() == "oui":
+    try:
+        print("📤 Préparation du mail Pôle Alternance...")
+
+        prenom = form.get("prenom", "")
+        nom = form.get("nom", "")
+        email = form.get("email", "")
+        tel = form.get("tel", "")
+        bts = form.get("bts", "")
+        mode = form.get("mode", "")
+        ville = form.get("ville", "")
+        projet_pourquoi = form.get("projet_pourquoi", "")
+        projet_objectif = form.get("projet_objectif", "")
+        projet_passions = form.get("projet_passions", "")
+        projet_qualites = ", ".join(request.form.getlist("qualites[]"))
+        projet_motivation = ", ".join(request.form.getlist("motivation[]"))
+        projet_recherche = ", ".join(request.form.getlist("valeurs[]"))
+        projet_travail = ", ".join(request.form.getlist("travail[]"))
+
+        bts_label = BTS_LABELS.get(bts.strip().upper(), bts)
+
+        html = f"""
+<div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
+  <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner</h2>
+  <p>Bonjour,<br><br>
+  Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
+
+  <h3 style='margin-top:25px;color:#444;'>🧍 Informations personnelles</h3>
+  <ul>
+    <li><strong>Nom :</strong> {nom}</li>
+    <li><strong>Prénom :</strong> {prenom}</li>
+    <li><strong>Email :</strong> {email}</li>
+    <li><strong>Téléphone :</strong> {tel}</li>
+    <li><strong>Ville :</strong> {ville}</li>
+  </ul>
+
+  <h3 style='margin-top:25px;color:#444;'>🎓 Formation choisie</h3>
+  <ul>
+    <li><strong>BTS :</strong> {bts_label}</li>
+    <li><strong>Mode :</strong> {mode}</li>
+  </ul>
+
+  <h3 style='margin-top:25px;color:#444;'>💡 Projet et motivation</h3>
+  <p><strong>Pourquoi cette formation :</strong> {projet_pourquoi or "—"}</p>
+  <p><strong>Objectif professionnel :</strong> {projet_objectif or "—"}</p>
+  <p><strong>Passions / centres d’intérêt :</strong> {projet_passions or "—"}</p>
+  <p><strong>Qualités :</strong> {projet_qualites or "—"}</p>
+  <p><strong>Motivations :</strong> {projet_motivation or "—"}</p>
+  <p><strong>Valeurs recherchées dans l’entreprise :</strong> {projet_recherche or "—"}</p>
+  <p><strong>Préférences de travail :</strong> {projet_travail or "—"}</p>
+
+  <br>
+  <p style='font-size:14px;color:#666;'>📅 Dossier reçu le {datetime.now().strftime("%d/%m/%Y à %H:%M")}.</p>
+  <p style='font-size:14px;color:#888;'>Mail généré automatiquement depuis la plateforme d’inscription Intégrale Academy.</p>
+</div>
+"""
+
+        attachments = []
+        cand_dir = os.path.join(UPLOAD_DIR, cand_id)
         try:
-            import io
-            from generate_pdf import generate_pdf_fiche  # ou la fonction que tu utilises déjà pour le PDF
-            from utils import send_mail
-            from mail_templates import mail_html
-
-            print("📤 Préparation du mail Pôle Alternance...")
-
-            # 📎 Génération de la fiche PDF
-            try:
-                pdf_bytes = generate_pdf_fiche(cand_id)
-                pdf_file = io.BytesIO(pdf_bytes)
-                attachments = [("Fiche_Candidat.pdf", pdf_file)]
-            except Exception as e:
-                print("⚠️ Erreur génération fiche PDF :", e)
-                attachments = []
-
-            # 📎 Ajout CV + LM si dispo
-            cand_dir = os.path.join(UPLOAD_DIR, cand_id)
             cv = next((f for f in os.listdir(cand_dir) if f.lower().startswith("cv_")), None)
             lm = next((f for f in os.listdir(cand_dir) if f.lower().startswith("lettremotivation_")), None)
-
             if cv:
-                attachments.append((cv, open(os.path.join(cand_dir, cv), "rb")))
+                attachments.append(os.path.join(cand_dir, cv))
             if lm:
-                attachments.append((lm, open(os.path.join(cand_dir, lm), "rb")))
-
-            # 💌 Corps du mail
-            html = mail_html(
-                "pole_alternance",
-                prenom=form.get("prenom", "")
-            )
-
-            send_mail(
-                "clement.annecy@gmail.com",
-                f"🤝 Nouveau candidat à accompagner – {form.get('prenom', '')} {form.get('nom', '')}",
-                html,
-                attachments=attachments
-            )
-
-            print("✅ Mail Pôle Alternance envoyé avec succès.")
+                attachments.append(os.path.join(cand_dir, lm))
         except Exception as e:
-            print("❌ Erreur envoi mail Pôle Alternance :", e)
+            print("⚠️ Impossible de lister les fichiers du candidat :", e)
+
+        send_mail(
+            "clement.annecy@gmail.com",
+            f"🤝 Nouveau candidat à accompagner – {prenom} {nom}",
+            html,
+            attachments=attachments if attachments else None
+        )
+
+        print("✅ Mail Pôle Alternance envoyé avec succès (avec CV/LM si disponibles).")
+
+    except Exception as e:
+        print("❌ Erreur envoi mail Pôle Alternance :", e)
+
 
 
     # 🧾 Logs et mails
