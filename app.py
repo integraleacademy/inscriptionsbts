@@ -833,6 +833,7 @@ def submit():
 
     entreprise_trouvee = (form.get("entreprise_trouvee") or "").strip()
     recherches_commencees = (form.get("recherches_commencees") or "").strip()
+    souhaite_accompagnement = (form.get("souhaite_accompagnement") or "").strip()
 
 
     # Dictionnaire d’overrides (pour forcer les bonnes valeurs dans la base)
@@ -850,6 +851,7 @@ def submit():
         "entreprise_trouvee": entreprise_trouvee,
         "recherches_commencees": recherches_commencees,
         "baccalaureat": baccalaureat,
+        "souhaite_accompagnement": souhaite_accompagnement,
     }
 
 
