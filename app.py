@@ -133,13 +133,18 @@ def run_startup_integrity_checks():
     print(f"✅ {len(js_fetch_targets)} endpoints JS → tous présents côté Flask.")
 
     # --- 6) TEMPLATE MAIL DE BASE DOIT AVOIR LES PLACEHOLDERS ---
-    base_mail = _read("templates/email_base.html") or ""
-    if ("{{ email_title }}" not in base_mail) or ("{{ email_content }}" not in base_mail):
+    base_html_path = os.path.join(os.getcwd(), "templates", "email_base.html")
+    base_mail = _read(base_html_path) or ""
+    print(f"📂 Vérification email_base.html → {base_html_path}")
+
+    # Autorise aussi {{ email_content | safe }}
+    if ("{{ email_title" not in base_mail) or ("{{ email_content" not in base_mail):
         print("❌ templates/email_base.html doit contenir {{ email_title }} et {{ email_content }}.")
         sys.exit(1)
     if "logo_url" not in base_mail:
         print("⚠️  (recommandé) Utiliser {{ logo_url }} dans email_base.html pour l’image.")
     print("✅ email_base.html OK.")
+
 
     print("🎉 INTÉGRITÉ OK – Démarrage de l’application.\n")
 
