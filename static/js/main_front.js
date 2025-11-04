@@ -292,15 +292,25 @@ if (stepIndex === 3) {
   });
 
   // === Boutons Suivant / Précédent ===
-  document.querySelectorAll('.next').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (validateStep(currentStep)) {
-        currentStep++;
-        if (currentStep >= tabs.length) currentStep = tabs.length - 1;
-        showStep(currentStep);
+// === Boutons Suivant / Précédent ===
+document.querySelectorAll('.next').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!validateStep(currentStep)) return;
+
+    // 🧩 Étape 3 : modale Pôle Alternance
+    if (currentStep === 2) {
+      const radioOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]');
+      if (radioOui && radioOui.checked) {
+        poleModalEl.style.display = "flex";
+        return; // on bloque ici jusqu’à clic sur "OK"
       }
-    });
+    }
+
+    currentStep++;
+    if (currentStep >= tabs.length) currentStep = tabs.length - 1;
+    showStep(currentStep);
   });
+});
 
   document.querySelectorAll('.prev').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -444,6 +454,43 @@ if (stepIndex === 3) {
       document.body.appendChild(overlay);
     });
   }
+
+  // =====================================================
+// 🤝 MODALE PÔLE ALTERNANCE
+// =====================================================
+const poleModal = document.createElement("div");
+poleModal.innerHTML = `
+  <div id="poleModal" style="
+    position:fixed;top:0;left:0;right:0;bottom:0;
+    background:rgba(0,0,0,0.5);display:none;z-index:9999;
+    align-items:center;justify-content:center;">
+    <div style="
+      background:white;padding:30px;border-radius:12px;
+      max-width:500px;width:90%;text-align:center;
+      box-shadow:0 4px 20px rgba(0,0,0,0.2);animation:fadeIn .3s ease;">
+      <h3 style="margin-top:0;color:#222;">🤝 Pôle Alternance Île-de-France</h3>
+      <p style="font-size:15px;color:#444;line-height:1.5;">
+        Dès que nous aurons validé votre pré-inscription,<br>
+        nous transmettrons vos coordonnées à notre partenaire<br>
+        <strong>Pôle Alternance</strong>, qui vous contactera pour vous aider à trouver une entreprise d’accueil en Île-de-France.
+      </p>
+      <button id="poleOk" class="btn primary" style="margin-top:10px;">OK</button>
+    </div>
+  </div>
+`;
+document.body.appendChild(poleModal);
+
+const poleModalEl = document.getElementById("poleModal");
+const poleOk = document.getElementById("poleOk");
+
+if (poleOk) {
+  poleOk.addEventListener("click", () => {
+    poleModalEl.style.display = "none";
+    goToStep(currentStep + 1); // passage à l’étape suivante
+  });
+}
+
+  
 
 // =====================================================
 // 💾 ENREGISTRER ET REPRENDRE PLUS TARD (corrigé JSON)
@@ -699,6 +746,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
