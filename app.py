@@ -534,6 +534,8 @@ def ensure_baccalaureat_field():
 with app.app_context():
     ensure_baccalaureat_field()
 
+with app.app_context():
+    ensure_souhaite_accompagnement_field()
 
 
 def log_event(candidat, type_, payload_dict):
@@ -591,6 +593,23 @@ def admin_login():
 @app.route("/health")
 def health():
     return "ok"
+
+# =====================================================
+# 🎯 Vérifie et ajoute la colonne "souhaite_accompagnement" si manquante
+# =====================================================
+def ensure_souhaite_accompagnement_field():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(candidats)")
+    cols = [r[1] for r in cur.fetchall()]
+
+    if "souhaite_accompagnement" not in cols:
+        cur.execute("ALTER TABLE candidats ADD COLUMN souhaite_accompagnement TEXT DEFAULT ''")
+        print("🧱 Colonne 'souhaite_accompagnement' ajoutée à la table 'candidats'")
+
+    conn.commit()
+    conn.close()
+
 
 # ---------------- Public: Pré-inscriptions ----------------
 
