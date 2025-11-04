@@ -47,19 +47,17 @@ def mail_html(template_name, **kwargs):
                 <p>Bienvenue à Intégrale Academy 🎓 !</p>
             """
         },
-        # ✅ Nouveau modèle ajouté pour la reconfirmation
-   "reconfirmation": {
-    "title": "Reconfirmation d’inscription",
-    "content": f"""
-        <p>Bonjour {prenom},</p>
-        <p>Merci de confirmer à nouveau votre inscription pour le <strong>{bts_label}</strong>.</p>
-        <p style="text-align:center;margin:25px 0;">
-          <a href="{lien_espace}" class="btn">Reconfirmer mon inscription ✅</a>
-        </p>
-        <p>À très bientôt chez Intégrale Academy.</p>
-    """
-},
-
+        "reconfirmation": {
+            "title": "Reconfirmation d’inscription",
+            "content": f"""
+                <p>Bonjour {prenom},</p>
+                <p>Merci de confirmer à nouveau votre inscription pour le <strong>{bts_label}</strong>.</p>
+                <p style="text-align:center;margin:25px 0;">
+                  <a href="{lien_espace}" class="btn">Reconfirmer mon inscription ✅</a>
+                </p>
+                <p>À très bientôt chez Intégrale Academy.</p>
+            """
+        },
         "reconfirmation_demandee": {
             "title": "Reconfirmation demandée",
             "content": f"""
@@ -118,10 +116,6 @@ def mail_html(template_name, **kwargs):
                 <p><a href="{lien_espace}" class="btn">Accéder à mon espace</a></p>
             """
         },
-
-        # =====================================================
-        # 🟢 MAILS PARCOURSUP – Import + Relance automatique
-        # =====================================================
         "parcoursup_import": {
             "title": "Votre candidature Parcoursup – Intégrale Academy",
             "content": f"""
@@ -136,7 +130,6 @@ def mail_html(template_name, **kwargs):
                 <p>À bientôt,<br><b>L’équipe Intégrale Academy</b></p>
             """
         },
-
         "parcoursup_relance": {
             "title": "Relance – Votre dossier Parcoursup",
             "content": f"""
@@ -150,10 +143,8 @@ def mail_html(template_name, **kwargs):
                 </p>
                 <p>Bien cordialement,<br><b>L’équipe Intégrale Academy</b></p>
             """
-        }
-    }  # ← cette accolade ferme le dictionnaire templates
-
-            # =====================================================
+        },
+        # =====================================================
         # 🤝 MAIL PÔLE ALTERNANCE – Notification interne
         # =====================================================
         "pole_alternance": {
@@ -172,8 +163,8 @@ def mail_html(template_name, **kwargs):
                 </p>
                 <p>Bonne journée ☀️<br><b>L’équipe Intégrale Academy</b></p>
             """
-        },
-
+        }
+    }  # 👈 ici on ferme le dictionnaire, proprement.
 
     # === Sécurité : vérifie que le modèle existe ===
     tpl = templates.get(template_name)
@@ -194,6 +185,3 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
-
-
-
