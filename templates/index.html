@@ -373,57 +373,54 @@
     </label>
   </div>
 
-<!-- 🔹 Contrat d'apprentissage - Entreprise d'accueil -->
-<div class="apprentissage-box">
-  <h3>📑 Contrat d’apprentissage – Entreprise d’accueil</h3>
+  <!-- 🔹 Contrat d'apprentissage - Entreprise d'accueil -->
+  <div class="apprentissage-box">
+    <h3>📑 Contrat d’apprentissage – Entreprise d’accueil</h3>
 
-  <div class="apprentissage-section">
-    <div class="question-block">
-      <p>As-tu déjà trouvé une entreprise pour ton alternance&nbsp;?</p>
-      <div class="radio-row">
-        <label><input type="radio" name="entreprise_trouvee" value="oui" required> Oui</label>
-        <label><input type="radio" name="entreprise_trouvee" value="non" required> Non</label>
+    <label>J’ai déjà trouvé une entreprise pour mon alternance :</label>
+    <div class="radio-row">
+      <label><input type="radio" name="entreprise_trouvee" value="oui" required> Oui</label>
+      <label><input type="radio" name="entreprise_trouvee" value="non" required> Non</label>
+    </div>
+
+    <label>J’ai déjà commencé mes recherches :</label>
+    <div class="radio-row">
+      <label><input type="radio" name="recherches_commencees" value="oui" required> Oui</label>
+      <label><input type="radio" name="recherches_commencees" value="non" required> Non</label>
+    </div>
+
+    <!-- === 🤝 ENCADRÉ PÔLE ALTERNANCE === -->
+    <div class="pole-alternance-box" style="margin-top:25px;background:#fff8e1;border:2px solid #f4c45a;border-radius:12px;padding:25px;">
+      <div style="display:flex;align-items:center;gap:15px;flex-wrap:wrap;">
+        <img src="/static/pole.png" alt="Pôle Alternance Île-de-France" style="height:65px;border-radius:10px;background:white;padding:6px;">
+        <div style="flex:1;">
+          <h3 style="margin:0;font-size:20px;color:#222;">🤝 Pôle Alternance Île-de-France</h3>
+          <p style="margin:6px 0 0;font-size:15px;color:#444;">
+  Notre partenaire <strong>Pôle Alternance</strong> vous accompagne dans votre recherche d’entreprise sur <strong>Paris</strong> et dans toute <strong>l’Île-de-France (75, 77, 78, 91, 92, 93, 94, 95)</strong>.<br>
+  Dès validation de votre pré-inscription, ils peuvent vous aider à trouver une entreprise d’accueil.
+</p>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;">
+        <label style="display:block;margin-bottom:8px;font-size:15px;">
+          <input type="radio" name="souhaite_accompagnement" value="oui" required>
+          Je souhaite être accompagné pour trouver une entreprise
+        </label>
+        <label style="display:block;font-size:15px;">
+          <input type="radio" name="souhaite_accompagnement" value="non">
+          Je préfère chercher une entreprise par moi-même
+        </label>
       </div>
     </div>
 
-    <div class="question-block">
-      <p>As-tu déjà commencé tes recherches&nbsp;?</p>
-      <div class="radio-row">
-        <label><input type="radio" name="recherches_commencees" value="oui" required> Oui</label>
-        <label><input type="radio" name="recherches_commencees" value="non" required> Non</label>
-      </div>
+    <div class="apprentissage-info" style="margin-top:25px;">
+      💡 <strong>Rassurez-vous&nbsp;!</strong> Vous aurez jusqu’au <strong>15 décembre 2026</strong> pour trouver votre entreprise d’accueil.<br>
+      Les cours commenceront en <strong>septembre</strong>, même si vous n'avez pas signé de contrat d'apprentissage.<br>
+      La plupart des étudiants trouvent leur entreprise dans les semaines qui suivent la rentrée, entre <strong>octobre et novembre</strong>.
     </div>
-  </div>
+  </div> <!-- fin apprentissage-box -->
 
-  <!-- 🟢 Bloc Pôle Alternance -->
-  <div class="pole-alternance-box">
-    <div class="pole-header">
-      <img src="/static/pole.png" alt="Pôle Alternance Île-de-France">
-      <div>
-        <h4>🤝 Pôle Alternance Île-de-France</h4>
-        <p>
-          Notre partenaire <strong>Pôle Alternance</strong> vous accompagne dans votre recherche d’entreprise sur 
-          <strong>Paris</strong> et dans toute l’<strong>Île-de-France</strong> (75, 77, 78, 91, 92, 93, 94, 95).<br>
-          Dès validation de votre pré-inscription, ils peuvent vous aider à trouver une entreprise d’accueil.
-        </p>
-      </div>
-    </div>
-
-    <div class="pole-choice">
-      <label><input type="radio" name="souhaite_accompagnement" value="oui" required> Je souhaite être accompagné pour trouver une entreprise</label>
-      <label><input type="radio" name="souhaite_accompagnement" value="non"> Je préfère chercher une entreprise par moi-même</label>
-    </div>
-  </div>
-
-  <div class="apprentissage-info">
-    <p>💡 <strong>Rassurez-vous&nbsp;!</strong> Vous aurez jusqu’au <strong>15 décembre 2026</strong> pour trouver votre entreprise d’accueil.</p>
-    <p>Les cours commenceront en <strong>septembre</strong>, même sans contrat signé.</p>
-    <p>La plupart des étudiants trouvent leur entreprise entre <strong>octobre et novembre</strong>.</p>
-  </div>
-</div>
-
-
-  
   <div class="actions nav-global">
     <button type="button" class="btn prev">⬅️ Étape précédente</button>
     <button type="button" class="btn primary next">➡️ Étape suivante</button>
@@ -770,99 +767,8 @@ input.invalid, select.invalid, textarea.invalid {
   text-align:center;
   margin-top:0;
 }
-
-/* === 🎓 STYLE APPRENTISSAGE AMÉLIORÉ === */
-.apprentissage-box {
-  background: #fdfdfd;
-  border: 2px solid #f4c45a;
-  border-radius: 14px;
-  padding: 25px 30px;
-  margin-top: 30px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-}
-.apprentissage-box h3 {
-  color: #222;
-  margin-bottom: 20px;
-  border-bottom: 2px solid #f4c45a;
-  padding-bottom: 8px;
-}
-.apprentissage-section .question-block {
-  margin-bottom: 18px;
-}
-.apprentissage-section p {
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 6px;
-}
-.radio-row {
-  display: flex;
-  gap: 25px;
-  margin-left: 10px;
-}
-.radio-row label {
-  font-size: 15px;
-  color: #444;
-}
-.pole-alternance-box {
-  margin-top: 25px;
-  background: linear-gradient(180deg, #fffbe8 0%, #fff8d9 100%);
-  border: 2px solid #f4c45a;
-  border-radius: 12px;
-  padding: 25px;
-}
-.pole-header {
-  display: flex;
-  gap: 20px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.pole-header img {
-  height: 70px;
-  border-radius: 10px;
-  background: #fff;
-  padding: 5px;
-  border: 1px solid #eee;
-}
-.pole-header h4 {
-  margin: 0;
-  color: #111;
-  font-size: 19px;
-}
-.pole-header p {
-  margin-top: 5px;
-  font-size: 15px;
-  color: #444;
-  line-height: 1.5;
-}
-.pole-choice {
-  margin-top: 15px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.pole-choice label {
-  font-size: 15px;
-  color: #333;
-}
-.apprentissage-info {
-  margin-top: 25px;
-  background: #fff8e1;
-  border-left: 4px solid #f4c45a;
-  padding: 14px 20px;
-  border-radius: 10px;
-  font-size: 15px;
-  color: #444;
-  line-height: 1.6;
-}
-
-
-  
 </style>
 
 
 
 {% endblock %}
-
-
-
-
