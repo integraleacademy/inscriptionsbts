@@ -455,40 +455,57 @@ document.querySelectorAll('.next').forEach(btn => {
     });
   }
 
-  // =====================================================
-// 🤝 MODALE PÔLE ALTERNANCE
+
 // =====================================================
-const poleModal = document.createElement("div");
-poleModal.innerHTML = `
-  <div id="poleModal" style="
-    position:fixed;top:0;left:0;right:0;bottom:0;
-    background:rgba(0,0,0,0.5);display:none;z-index:9999;
-    align-items:center;justify-content:center;">
-    <div style="
-      background:white;padding:30px;border-radius:12px;
-      max-width:500px;width:90%;text-align:center;
-      box-shadow:0 4px 20px rgba(0,0,0,0.2);animation:fadeIn .3s ease;">
-      <h3 style="margin-top:0;color:#222;">🤝 Pôle Alternance Île-de-France</h3>
-      <p style="font-size:15px;color:#444;line-height:1.5;">
-        Dès que nous aurons validé votre pré-inscription,<br>
-        nous transmettrons vos coordonnées à notre partenaire<br>
-        <strong>Pôle Alternance</strong>, qui vous contactera pour vous aider à trouver une entreprise d’accueil en Île-de-France.
-      </p>
-      <button id="poleOk" class="btn primary" style="margin-top:10px;">OK</button>
+// 🤝 MODALE PÔLE ALTERNANCE (version finale)
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const radioOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]');
+
+  if (!radioOui) return;
+
+  // ✅ Crée la modale dynamiquement une seule fois
+  const modalHTML = `
+    <div id="modalPole" style="
+      display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+      background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+      <div style="
+        background:white;padding:30px 40px;border-radius:14px;
+        max-width:500px;width:90%;text-align:center;
+        box-shadow:0 6px 20px rgba(0,0,0,0.2);animation:fadeIn .3s ease;">
+        <h3 style="margin-top:0;">🤝 Pôle Alternance Île-de-France</h3>
+        <p style="font-size:15px;line-height:1.6;color:#333;">
+          Notre partenaire <strong>Pôle Alternance</strong> vous accompagne dans votre recherche
+          d’entreprise sur Paris et dans toute l’Île-de-France.
+        </p>
+        <button id="closePole" style="
+          margin-top:20px;background:#f4c45a;border:none;
+          padding:10px 22px;border-radius:8px;cursor:pointer;
+          font-weight:600;font-size:15px;">
+          OK merci ❤️
+        </button>
+      </div>
     </div>
-  </div>
-`;
-document.body.appendChild(poleModal);
+  `;
+  document.body.insertAdjacentHTML("beforeend", modalHTML);
 
-const poleModalEl = document.getElementById("poleModal");
-const poleOk = document.getElementById("poleOk");
+  const modal = document.getElementById("modalPole");
+  const closeBtn = document.getElementById("closePole");
 
-if (poleOk) {
-  poleOk.addEventListener("click", () => {
-    poleModalEl.style.display = "none";
-    goToStep(currentStep + 1); // passage à l’étape suivante
+  // 🟢 Ouvre la modale quand “oui” est sélectionné
+  radioOui.addEventListener("change", () => {
+    modal.style.display = "flex";
   });
-}
+
+  // 🔴 Ferme la modale et passe à l’étape suivante
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      modal.style.display = "none";
+      const nextBtn = document.querySelector("#tab3 .next");
+      if (nextBtn) nextBtn.click();
+    });
+  }
+});
 
   
 
@@ -746,6 +763,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
