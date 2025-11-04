@@ -153,6 +153,28 @@ def mail_html(template_name, **kwargs):
         }
     }  # ← cette accolade ferme le dictionnaire templates
 
+            # =====================================================
+        # 🤝 MAIL PÔLE ALTERNANCE – Notification interne
+        # =====================================================
+        "pole_alternance": {
+            "title": "Nouveau candidat – accompagnement Pôle Alternance",
+            "content": f"""
+                <p>Bonjour Clément 👋,</p>
+                <p>Un nouveau candidat a indiqué souhaiter être accompagné par le <strong>Pôle Alternance Île-de-France</strong>.</p>
+                <p>Voici les documents transmis :</p>
+                <ul>
+                  <li>📄 <strong>CV</strong> en pièce jointe</li>
+                  <li>📝 <strong>Lettre de motivation</strong> en pièce jointe</li>
+                  <li>📋 <strong>Fiche PDF du candidat</strong> également jointe</li>
+                </ul>
+                <p style="margin-top:20px;">
+                  Ce dossier est prêt à être transmis à votre contact au Pôle Alternance.
+                </p>
+                <p>Bonne journée ☀️<br><b>L’équipe Intégrale Academy</b></p>
+            """
+        },
+
+
     # === Sécurité : vérifie que le modèle existe ===
     tpl = templates.get(template_name)
     if not tpl:
@@ -172,5 +194,6 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
