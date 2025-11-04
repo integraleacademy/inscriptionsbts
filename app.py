@@ -539,9 +539,6 @@ def ensure_baccalaureat_field():
 with app.app_context():
     ensure_baccalaureat_field()
 
-with app.app_context():
-    ensure_souhaite_accompagnement_field()
-
 
 def log_event(candidat, type_, payload_dict):
     cid = candidat["id"] if isinstance(candidat, dict) else candidat
@@ -2306,6 +2303,9 @@ def cleanup_orphan_folders():
 # Lancer le nettoyage une fois au démarrage
 with app.app_context():
     cleanup_orphan_folders()
+
+with app.app_context():
+    ensure_souhaite_accompagnement_field()
 
 
 print("🚀 Application Flask démarrée – gestion CNAPS & pièces justificatives OK")
