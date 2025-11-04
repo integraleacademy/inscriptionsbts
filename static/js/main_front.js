@@ -298,13 +298,15 @@ document.querySelectorAll('.next').forEach(btn => {
     if (!validateStep(currentStep)) return;
 
     // 🧩 Étape 3 : modale Pôle Alternance
-    if (currentStep === 2) {
-      const radioOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]');
-      if (radioOui && radioOui.checked) {
-        poleModalEl.style.display = "flex";
-        return; // on bloque ici jusqu’à clic sur "OK"
-      }
-    }
+   if (currentStep === 2) {
+  const radioOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]');
+  if (radioOui && radioOui.checked) {
+    const modal = document.getElementById("modalPole"); // ✅ on récupère la modale
+    if (modal) modal.style.display = "flex"; // ✅ on l’affiche
+    return; // on bloque ici jusqu’à clic sur "OK"
+  }
+}
+
 
     currentStep++;
     if (currentStep >= tabs.length) currentStep = tabs.length - 1;
@@ -763,6 +765,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
