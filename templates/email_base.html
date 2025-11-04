@@ -37,7 +37,7 @@
   .header img {
     display: block;
     margin: 0 auto 6px auto;
-    width: 80px; /* ✅ taille fixe pour tous les clients mail */
+    width: 80px;
     max-width: 100%;
     height: auto;
     border: none;
@@ -86,10 +86,9 @@
     text-decoration: none;
   }
 
-  /* === 📱 Mobile === */
   @media only screen and (max-width: 480px) {
     .header img {
-      width: 100px !important; /* ✅ plus grand sur mobile */
+      width: 100px !important;
     }
     .header h2 {
       font-size: 18px !important;
@@ -116,6 +115,7 @@
         <h2>{{ email_title }}</h2>
       </div>
 
+      <!-- 🟡 Contenu principal du mail (dynamique) -->
       <div class="content">
         {{ email_content | safe }}
       </div>
