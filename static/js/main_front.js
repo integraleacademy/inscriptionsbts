@@ -459,7 +459,7 @@ document.querySelectorAll('.next').forEach(btn => {
 
 
 // =====================================================
-// 🤝 MODALE PÔLE ALTERNANCE (version finale)
+// 🤝 MODALE PÔLE ALTERNANCE (version finale corrigée)
 // =====================================================
   const radioOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]');
 
@@ -475,8 +475,9 @@ document.querySelectorAll('.next').forEach(btn => {
           box-shadow:0 6px 20px rgba(0,0,0,0.2);animation:fadeIn .3s ease;">
           <h3 style="margin-top:0;">🤝 Pôle Alternance Île-de-France</h3>
           <p style="font-size:15px;line-height:1.6;color:#333;">
-            Notre partenaire <strong>Pôle Alternance</strong> vous accompagne dans votre recherche
-            d’entreprise sur Paris et dans toute l’Île-de-France.
+            Dès que nous aurons validé votre pré-inscription, nous transmettrons vos coordonnées
+            à notre partenaire <strong>Pôle Alternance</strong>, qui vous contactera pour vous aider
+            à trouver une entreprise.
           </p>
           <button id="closePole" style="
             margin-top:20px;background:#f4c45a;border:none;
@@ -492,17 +493,16 @@ document.querySelectorAll('.next').forEach(btn => {
     const modal = document.getElementById("modalPole");
     const closeBtn = document.getElementById("closePole");
 
-    // 🟢 Ouvre la modale quand “oui” est sélectionné
-    radioOui.addEventListener("change", () => {
-      if (modal) modal.style.display = "flex";
-    });
+    // ❌ PLUS d'ouverture automatique au changement du radio
+    // radioOui.addEventListener("change", () => { ... });
 
     // 🔴 Ferme la modale et passe à l’étape suivante
-    if (closeBtn) {
+    if (closeBtn && modal) {
       closeBtn.addEventListener("click", () => {
-        if (modal) modal.style.display = "none";
-        const nextBtn = document.querySelector("#tab3 .next");
-        if (nextBtn) nextBtn.click();
+        modal.style.display = "none";
+        // ⏩ on avance d'une étape sans repasser par la validation
+        currentStep = Math.min(currentStep + 1, tabs.length - 1);
+        showStep(currentStep);
       });
     }
   }
@@ -763,6 +763,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
