@@ -455,57 +455,67 @@ document.querySelectorAll('.next').forEach(btn => {
     });
   }
 
-
 // =====================================================
-// 🤝 MODALE PÔLE ALTERNANCE (version finale)
+// 🤝 MODALE PÔLE ALTERNANCE (corrigée finale)
 // =====================================================
-document.addEventListener("DOMContentLoaded", () => {
-  const radioOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]');
 
-  if (!radioOui) return;
-
-  // ✅ Crée la modale dynamiquement une seule fois
-  const modalHTML = `
-    <div id="modalPole" style="
-      display:none;position:fixed;top:0;left:0;width:100%;height:100%;
-      background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-      <div style="
-        background:white;padding:30px 40px;border-radius:14px;
-        max-width:500px;width:90%;text-align:center;
-        box-shadow:0 6px 20px rgba(0,0,0,0.2);animation:fadeIn .3s ease;">
-        <h3 style="margin-top:0;">🤝 Pôle Alternance Île-de-France</h3>
-        <p style="font-size:15px;line-height:1.6;color:#333;">
-          Notre partenaire <strong>Pôle Alternance</strong> vous accompagne dans votre recherche
-          d’entreprise sur Paris et dans toute l’Île-de-France.
-        </p>
-        <button id="closePole" style="
-          margin-top:20px;background:#f4c45a;border:none;
-          padding:10px 22px;border-radius:8px;cursor:pointer;
-          font-weight:600;font-size:15px;">
-          OK merci ❤️
-        </button>
-      </div>
+// Crée la modale dynamiquement une seule fois
+const poleModalWrapper = document.createElement("div");
+poleModalWrapper.innerHTML = `
+  <div id="poleModalEl" style="
+    display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+    background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div style="
+      background:white;padding:30px 40px;border-radius:14px;
+      max-width:500px;width:90%;text-align:center;
+      box-shadow:0 6px 20px rgba(0,0,0,0.2);animation:fadeIn .3s ease;">
+      <img src="/static/pole.png" alt="Pôle Alternance" style="width:100px;margin-bottom:15px;">
+      <h3 style="margin-top:0;">🤝 Pôle Alternance Île-de-France</h3>
+      <p style="font-size:15px;line-height:1.6;color:#333;">
+        Notre partenaire <strong>Pôle Alternance</strong> vous accompagne dans votre recherche
+        d’entreprise sur Paris et dans toute l’Île-de-France (75, 77, 78, 91, 92, 93, 94, 95).
+      </p>
+      <button id="poleOkBtn" class="btn primary" style="margin-top:20px;">
+        OK merci ❤️
+      </button>
     </div>
-  `;
-  document.body.insertAdjacentHTML("beforeend", modalHTML);
+  </div>
+`;
+document.body.appendChild(poleModalWrapper);
 
-  const modal = document.getElementById("modalPole");
-  const closeBtn = document.getElementById("closePole");
+const poleModalEl = document.getElementById("poleModalEl");
+const poleOkBtn   = document.getElementById("poleOkBtn");
 
-  // 🟢 Ouvre la modale quand “oui” est sélectionné
-  radioOui.addEventListener("change", () => {
-    modal.style.display = "flex";
+// Quand on clique “suivant” à l’étape 3 → ouvre la modale
+document.querySelectorAll('.next').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!validateStep(currentStep)) return;
+
+    // Si on est à l’étape 3 et que l’utilisateur a coché “Oui”
+    if (currentStep === 2) {
+      const radioOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]');
+      if (radioOui && radioOui.checked) {
+        poleModalEl.style.display = "flex";
+        return; // bloque ici jusqu’à clic sur OK
+      }
+    }
+
+    currentStep++;
+    if (currentStep >= tabs.length) currentStep = tabs.length - 1;
+    showStep(currentStep);
   });
-
-  // 🔴 Ferme la modale et passe à l’étape suivante
-  if (closeBtn) {
-    closeBtn.addEventListener("click", () => {
-      modal.style.display = "none";
-      const nextBtn = document.querySelector("#tab3 .next");
-      if (nextBtn) nextBtn.click();
-    });
-  }
 });
+
+// Bouton OK → ferme la modale et passe à l’étape suivante
+if (poleOkBtn) {
+  poleOkBtn.addEventListener("click", () => {
+    poleModalEl.style.display = "none";
+    currentStep++;
+    if (currentStep >= tabs.length) currentStep = tabs.length - 1;
+    showStep(currentStep);
+  });
+}
+
 
   
 
@@ -763,6 +773,7 @@ apsRadios.forEach(radio => {
     }
   });
 });
+
 
 
 
