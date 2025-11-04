@@ -931,6 +931,55 @@ def submit():
 
     conn.commit()
 
+        # =====================================================
+    # 🤝 ENVOI AUTOMATIQUE – ACCOMPAGNEMENT PÔLE ALTERNANCE
+    # =====================================================
+    if souhaite_accompagnement.lower() == "oui":
+        try:
+            import io
+            from generate_pdf import generate_pdf_fiche  # ou la fonction que tu utilises déjà pour le PDF
+            from utils import send_mail
+            from mail_templates import mail_html
+
+            print("📤 Préparation du mail Pôle Alternance...")
+
+            # 📎 Génération de la fiche PDF
+            try:
+                pdf_bytes = generate_pdf_fiche(cand_id)
+                pdf_file = io.BytesIO(pdf_bytes)
+                attachments = [("Fiche_Candidat.pdf", pdf_file)]
+            except Exception as e:
+                print("⚠️ Erreur génération fiche PDF :", e)
+                attachments = []
+
+            # 📎 Ajout CV + LM si dispo
+            cand_dir = os.path.join(UPLOAD_DIR, cand_id)
+            cv = next((f for f in os.listdir(cand_dir) if f.lower().startswith("cv_")), None)
+            lm = next((f for f in os.listdir(cand_dir) if f.lower().startswith("lettremotivation_")), None)
+
+            if cv:
+                attachments.append((cv, open(os.path.join(cand_dir, cv), "rb")))
+            if lm:
+                attachments.append((lm, open(os.path.join(cand_dir, lm), "rb")))
+
+            # 💌 Corps du mail
+            html = mail_html(
+                "pole_alternance",
+                prenom=form.get("prenom", "")
+            )
+
+            send_mail(
+                "clement.annecy@gmail.com",
+                f"🤝 Nouveau candidat à accompagner – {form.get('prenom', '')} {form.get('nom', '')}",
+                html,
+                attachments=attachments
+            )
+
+            print("✅ Mail Pôle Alternance envoyé avec succès.")
+        except Exception as e:
+            print("❌ Erreur envoi mail Pôle Alternance :", e)
+
+
     # 🧾 Logs et mails
     candidat = {
         "id": cand_id,
