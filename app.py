@@ -800,7 +800,6 @@ def submit():
     baccalaureat = (form.get("baccalaureat") or "").strip()
 
     # === Projet motivé : nouveaux champs ===
-    # Texte libre
     projet_pourquoi   = (form.get("projet_pourquoi") or "").strip()
     projet_objectif   = (form.get("projet_objectif") or "").strip()
     projet_passions   = (form.get("projet_passions") or "").strip()
@@ -837,8 +836,6 @@ def submit():
     recherches_commencees = (form.get("recherches_commencees") or "").strip()
     souhaite_accompagnement = (form.get("souhaite_accompagnement") or "").strip()
 
-
-    # Dictionnaire d’overrides (pour forcer les bonnes valeurs dans la base)
     form_overrides = {
         "projet_pourquoi":   projet_pourquoi,
         "projet_objectif":   projet_objectif,
@@ -856,9 +853,7 @@ def submit():
         "souhaite_accompagnement": souhaite_accompagnement,
     }
 
-
-
-    # ✅ Vérification du numéro de sécurité sociale (NIR)
+    # ✅ Vérification du numéro de sécurité sociale
     nir = form.get("num_secu", "")
     date_naiss = form.get("date_naissance", "")
     sexe = form.get("sexe", "")
@@ -871,9 +866,6 @@ def submit():
     cand_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
 
-
-
-
     # 📎 Sauvegarde des fichiers
     fichiers_ci = save_files("ci", cand_id)
     fichiers_photo = save_files("photo", cand_id)
@@ -884,7 +876,6 @@ def submit():
     token_confirm = new_token()
     token_confirm_exp = (datetime.now() + timedelta(days=30)).isoformat()
 
-    # 💾 Insertion dynamique en base (auto-alignée avec la table)
     cur.execute("PRAGMA table_info(candidats)")
     cols = [r[1] for r in cur.fetchall()]
     placeholders = ",".join(["?"] * len(cols))
@@ -899,7 +890,6 @@ def submit():
         elif c in ("created_at", "updated_at"):
             values.append(now)
         elif "fichiers" in c:
-            # fichiers JSON (listes)
             mapping = {
                 "fichiers_ci": fichiers_ci,
                 "fichiers_photo": fichiers_photo,
@@ -928,96 +918,74 @@ def submit():
     cur.execute(sql, tuple(values))
     conn.commit()
 
-
-
-
-    conn.commit()
-
-# =====================================================
-# 🤝 ENVOI AUTOMATIQUE – ACCOMPAGNEMENT PÔLE ALTERNANCE
-# =====================================================
-if souhaite_accompagnement.lower() == "oui":
-    try:
-        print("📤 Préparation du mail Pôle Alternance...")
-
-        prenom = form.get("prenom", "")
-        nom = form.get("nom", "")
-        email = form.get("email", "")
-        tel = form.get("tel", "")
-        bts = form.get("bts", "")
-        mode = form.get("mode", "")
-        ville = form.get("ville", "")
-        projet_pourquoi = form.get("projet_pourquoi", "")
-        projet_objectif = form.get("projet_objectif", "")
-        projet_passions = form.get("projet_passions", "")
-        projet_qualites = ", ".join(request.form.getlist("qualites[]"))
-        projet_motivation = ", ".join(request.form.getlist("motivation[]"))
-        projet_recherche = ", ".join(request.form.getlist("valeurs[]"))
-        projet_travail = ", ".join(request.form.getlist("travail[]"))
-
-        bts_label = BTS_LABELS.get(bts.strip().upper(), bts)
-
-        html = f"""
-<div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
-  <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner</h2>
-  <p>Bonjour,<br><br>
-  Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
-
-  <h3 style='margin-top:25px;color:#444;'>🧍 Informations personnelles</h3>
-  <ul>
-    <li><strong>Nom :</strong> {nom}</li>
-    <li><strong>Prénom :</strong> {prenom}</li>
-    <li><strong>Email :</strong> {email}</li>
-    <li><strong>Téléphone :</strong> {tel}</li>
-    <li><strong>Ville :</strong> {ville}</li>
-  </ul>
-
-  <h3 style='margin-top:25px;color:#444;'>🎓 Formation choisie</h3>
-  <ul>
-    <li><strong>BTS :</strong> {bts_label}</li>
-    <li><strong>Mode :</strong> {mode}</li>
-  </ul>
-
-  <h3 style='margin-top:25px;color:#444;'>💡 Projet et motivation</h3>
-  <p><strong>Pourquoi cette formation :</strong> {projet_pourquoi or "—"}</p>
-  <p><strong>Objectif professionnel :</strong> {projet_objectif or "—"}</p>
-  <p><strong>Passions / centres d’intérêt :</strong> {projet_passions or "—"}</p>
-  <p><strong>Qualités :</strong> {projet_qualites or "—"}</p>
-  <p><strong>Motivations :</strong> {projet_motivation or "—"}</p>
-  <p><strong>Valeurs recherchées dans l’entreprise :</strong> {projet_recherche or "—"}</p>
-  <p><strong>Préférences de travail :</strong> {projet_travail or "—"}</p>
-
-  <br>
-  <p style='font-size:14px;color:#666;'>📅 Dossier reçu le {datetime.now().strftime("%d/%m/%Y à %H:%M")}.</p>
-  <p style='font-size:14px;color:#888;'>Mail généré automatiquement depuis la plateforme d’inscription Intégrale Academy.</p>
-</div>
-"""
-
-        attachments = []
-        cand_dir = os.path.join(UPLOAD_DIR, cand_id)
+    # =====================================================
+    # 🤝 ENVOI AUTOMATIQUE – ACCOMPAGNEMENT PÔLE ALTERNANCE
+    # =====================================================
+    if souhaite_accompagnement.lower() == "oui":
         try:
-            cv = next((f for f in os.listdir(cand_dir) if f.lower().startswith("cv_")), None)
-            lm = next((f for f in os.listdir(cand_dir) if f.lower().startswith("lettremotivation_")), None)
-            if cv:
-                attachments.append(os.path.join(cand_dir, cv))
-            if lm:
-                attachments.append(os.path.join(cand_dir, lm))
+            print("📤 Préparation du mail Pôle Alternance...")
+
+            prenom = form.get("prenom", "")
+            nom = form.get("nom", "")
+            email = form.get("email", "")
+            tel = form.get("tel", "")
+            bts = form.get("bts", "")
+            mode = form.get("mode", "")
+            ville = form.get("ville", "")
+            projet_pourquoi = form.get("projet_pourquoi", "")
+            projet_objectif = form.get("projet_objectif", "")
+            projet_passions = form.get("projet_passions", "")
+            projet_qualites = ", ".join(request.form.getlist("qualites[]"))
+            projet_motivation = ", ".join(request.form.getlist("motivation[]"))
+            projet_recherche = ", ".join(request.form.getlist("valeurs[]"))
+            projet_travail = ", ".join(request.form.getlist("travail[]"))
+
+            bts_label = BTS_LABELS.get(bts.strip().upper(), bts)
+
+            html = f"""
+            <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
+              <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner</h2>
+              <p>Bonjour,<br><br>
+              Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
+              <ul>
+                <li><strong>Nom :</strong> {nom}</li>
+                <li><strong>Prénom :</strong> {prenom}</li>
+                <li><strong>Email :</strong> {email}</li>
+                <li><strong>Téléphone :</strong> {tel}</li>
+                <li><strong>Ville :</strong> {ville}</li>
+                <li><strong>BTS :</strong> {bts_label}</li>
+                <li><strong>Mode :</strong> {mode}</li>
+              </ul>
+              <p><strong>Pourquoi :</strong> {projet_pourquoi}</p>
+              <p><strong>Objectif :</strong> {projet_objectif}</p>
+              <p><strong>Passions :</strong> {projet_passions}</p>
+              <p><strong>Qualités :</strong> {projet_qualites}</p>
+              <p><strong>Motivations :</strong> {projet_motivation}</p>
+              <p><strong>Valeurs :</strong> {projet_recherche}</p>
+              <p><strong>Travail :</strong> {projet_travail}</p>
+            </div>
+            """
+
+            attachments = []
+            cand_dir = os.path.join(UPLOAD_DIR, cand_id)
+            try:
+                cv = next((f for f in os.listdir(cand_dir) if f.lower().startswith("cv_")), None)
+                lm = next((f for f in os.listdir(cand_dir) if f.lower().startswith("lettremotivation_")), None)
+                if cv: attachments.append(os.path.join(cand_dir, cv))
+                if lm: attachments.append(os.path.join(cand_dir, lm))
+            except Exception as e:
+                print("⚠️ Impossible de lister les fichiers du candidat :", e)
+
+            send_mail(
+                "clement.annecy@gmail.com",
+                f"🤝 Nouveau candidat à accompagner – {prenom} {nom}",
+                html,
+                attachments=attachments if attachments else None
+            )
+
+            print("✅ Mail Pôle Alternance envoyé avec succès.")
         except Exception as e:
-            print("⚠️ Impossible de lister les fichiers du candidat :", e)
-
-        send_mail(
-            "clement.annecy@gmail.com",
-            f"🤝 Nouveau candidat à accompagner – {prenom} {nom}",
-            html,
-            attachments=attachments if attachments else None
-        )
-
-        print("✅ Mail Pôle Alternance envoyé avec succès (avec CV/LM si disponibles).")
-
-    except Exception as e:
-        print("❌ Erreur envoi mail Pôle Alternance :", e)
-
-
+            print("❌ Erreur envoi mail Pôle Alternance :", e)
 
     # 🧾 Logs et mails
     candidat = {
@@ -1028,7 +996,6 @@ if souhaite_accompagnement.lower() == "oui":
     }
     log_event(candidat, "PREINSCRIPTION_RECU", {"email": candidat["email"]})
 
-    # ✉️ Mail au candidat avec lien espace
     cur.execute("SELECT slug_public FROM candidats WHERE id=?", (cand_id,))
     row = cur.fetchone()
     slug = row[0] if row and row[0] else uuid.uuid4().hex[:10]
@@ -1038,7 +1005,6 @@ if souhaite_accompagnement.lower() == "oui":
 
     lien_espace = url_for("espace_candidat", slug=slug, _external=True)
 
-    # ✉️ Mail d’accusé de réception (design doré avec logo)
     html = mail_html(
         "accuse_reception",
         prenom=form.get("prenom", ""),
@@ -1047,7 +1013,6 @@ if souhaite_accompagnement.lower() == "oui":
     )
     send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
 
-    # 📱 SMS accusé de réception
     tel = (form.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
@@ -1060,12 +1025,8 @@ if souhaite_accompagnement.lower() == "oui":
     )
     send_sms_brevo(tel, msg)
     log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
-
-
-    # 🧾 Log après envoi du mail
     log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
-    # 📩 Mail interne admin
     admin_html = render_template(
         "mail_admin_notif.html",
         numero=numero,
@@ -1075,7 +1036,6 @@ if souhaite_accompagnement.lower() == "oui":
     from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
     send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
-    # 🚀 Redirection directe vers l’espace candidat
     return redirect(lien_espace)
 
 
