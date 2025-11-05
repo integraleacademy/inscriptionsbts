@@ -144,6 +144,49 @@ def mail_html(template_name, **kwargs):
                 <p>Bien cordialement,<br><b>L’équipe Intégrale Academy</b></p>
             """
         },
+
+                # =====================================================
+        # 🔔 RELANCES (mail + SMS)
+        # =====================================================
+        "relance_candidature_validee": {
+            "title": "Relance – Confirmez votre inscription au BTS",
+            "content": f"""
+                <p>Bonjour {prenom},</p>
+                <p>Votre candidature au <strong>{bts_label}</strong> a bien été validée ✅ mais nous n’avons pas encore reçu votre confirmation.</p>
+                <p>Merci de cliquer sur le lien ci-dessous pour finaliser votre inscription :</p>
+                <p style="text-align:center;margin:25px 0;">
+                    <a href="{lien_espace}" class="btn">👉 Confirmer mon inscription</a>
+                </p>
+                <p>Sans réponse de votre part, votre place pourrait être proposée à un autre candidat.</p>
+                <p>À très bientôt,<br><b>L’équipe Intégrale Academy</b></p>
+            """
+        },
+        "relance_reconfirmation": {
+            "title": "Relance – Reconfirmez votre inscription à Intégrale Academy",
+            "content": f"""
+                <p>Bonjour {prenom},</p>
+                <p>Nous n’avons pas encore reçu votre <strong>reconfirmation</strong> d’inscription pour le <strong>{bts_label}</strong>.</p>
+                <p>Merci de valider dès maintenant votre présence à la rentrée :</p>
+                <p style="text-align:center;margin:25px 0;">
+                    <a href="{lien_espace}" class="btn">🔁 Reconfirmer mon inscription</a>
+                </p>
+                <p>Sans validation rapide, votre dossier pourrait être suspendu.</p>
+                <p>À très bientôt,<br><b>L’équipe Intégrale Academy</b></p>
+            """
+        },
+        "relance_docs_non_conformes": {
+            "title": "Relance – Documents à compléter",
+            "content": f"""
+                <p>Bonjour {prenom},</p>
+                <p>Certains documents de votre dossier pour le <strong>{bts_label}</strong> sont encore manquants ou non conformes ⚠️.</p>
+                <p>Merci de les renvoyer dès que possible afin que votre dossier puisse être validé :</p>
+                <p style="text-align:center;margin:25px 0;">
+                    <a href="{lien_espace}" class="btn">📎 Envoyer mes nouvelles pièces</a>
+                </p>
+                <p>Notre équipe reste disponible si besoin d’aide.<br><b>Intégrale Academy</b></p>
+            """
+        },
+
         # =====================================================
         # 🤝 MAIL PÔLE ALTERNANCE – Notification interne
         # =====================================================
@@ -185,3 +228,4 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
