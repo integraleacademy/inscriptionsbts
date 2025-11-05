@@ -1194,6 +1194,16 @@ def admin_update_status():
         cur.execute("UPDATE candidats SET statut=?, updated_at=? WHERE id=?", (value, datetime.now().isoformat(), cid))
     conn.commit()
 
+        # 🧹 Si le candidat avait été relancé, on retire le badge automatiquement
+    if value in ["confirmee", "reconfirmee", "validee"]:
+        try:
+            cur.execute("UPDATE candidats SET last_relance=NULL WHERE id=?", (cid,))
+            conn.commit()
+            print(f"🧹 Suppression du badge relance pour {cid}")
+        except Exception as e:
+            print("⚠️ Erreur suppression badge relance :", e)
+
+
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
     row = dict(cur.fetchone())
 
@@ -2047,6 +2057,14 @@ def replace_files_submit():
         row["id"]
     ))
     conn.commit()
+        # 🧹 Suppression automatique du badge relance si le candidat a renvoyé ses documents
+    try:
+        cur.execute("UPDATE candidats SET last_relance=NULL WHERE id=?", (row["id"],))
+        conn.commit()
+        print(f"🧹 Badge relance supprimé pour {row['prenom']} {row['nom']} (nouveaux docs reçus)")
+    except Exception as e:
+        print("⚠️ Erreur suppression badge relance (replace-files):", e)
+
     conn.close()
 
     # ✉️ Mail à l’admin
