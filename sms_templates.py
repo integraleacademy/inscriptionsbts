@@ -92,6 +92,34 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
         ),
 
         # =====================================================
+        # 🔔 RELANCES – SMS dédiés
+        # =====================================================
+        "relance_candidature_validee": (
+            f"🔔 Intégrale Academy – Votre BTS {bts_label}\n"
+            f"Bonjour {prenom},\n"
+            "Votre candidature est validée ✅ mais nous n’avons pas encore reçu votre confirmation.\n"
+            f"Confirmez votre inscription ici 👉 {lien_espace}\n"
+            "— Intégrale Academy"
+        ),
+
+        "relance_reconfirmation": (
+            f"🔁 Intégrale Academy – BTS {bts_label}\n"
+            f"Bonjour {prenom},\n"
+            "Merci de reconfirmer votre inscription pour la rentrée à venir.\n"
+            f"Faites-le maintenant ici 👉 {lien_espace}\n"
+            "— Intégrale Academy"
+        ),
+
+        "relance_docs_non_conformes": (
+            f"⚠️ Intégrale Academy – BTS {bts_label}\n"
+            f"Bonjour {prenom},\n"
+            "Votre dossier est incomplet. Merci d’envoyer vos documents manquants dès que possible.\n"
+            f"📎 Déposez-les ici : {lien_espace}\n"
+            "— Intégrale Academy"
+        ),
+
+
+        # =====================================================
         # 🟢 SMS PARCOURSUP – Import + Relance
         # =====================================================
         "parcoursup_import": (
@@ -112,5 +140,6 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
     }
 
     return templates.get(template, "")
+
 
 
