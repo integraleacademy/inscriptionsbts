@@ -2664,54 +2664,91 @@ def admin_resend_mail_sms(cid):
 
 
 # =====================================================
-# 🔔📱 ADMIN – RELANCES (mail + SMS)
+# 🔔 RELANCES (mail + SMS)
 # =====================================================
 @app.route("/admin/relance/<cid>", methods=["POST"])
 def admin_relance(cid):
     try:
-        data = request.get_json(force=True)
-        action = data.get("action")
+        from mail_templates import mail_html
+        from sms_templates import sms_text
+        from utils import send_mail, send_sms_brevo
+        import json
 
-        conn = db()
-        row = conn.execute("SELECT * FROM candidats WHERE id=?", (cid,)).fetchone()
+        data = request.get_json() or {}
+        action = data.get("action", "").strip()
+
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+        row = cur.fetchone()
         if not row:
-            return jsonify(error="Candidat introuvable"), 404
+            return jsonify({"ok": False, "error": "Candidat introuvable"})
 
         prenom = row["prenom"]
+        bts_label = row["bts"]
         email = row["email"]
         tel = row["tel"]
-        bts_label = row["bts"]
-        lien_espace = make_signed_link(cid, "/espace-candidat")
+        lien_espace = f"{BASE_URL}/espace/{cid}"
 
-        # mapping relances → templates existants
+        print(f"🔔 RELANCE – Action : {action} pour {prenom} ({email})")
+
+        # Dictionnaire d'association entre action -> modèle mail/SMS
         mapping = {
-            "candidature_validee": "candidature_validee",   # relance candidature validée
-            "reconfirmation": "reconfirmation_demandee",    # relance reconfirmation
-            "docs_non_conformes": "docs_non_conformes"      # relance docs non conformes
+            "candidature_validee": ("relance_candidature_validee", "relance_candidature_validee"),
+            "reconfirmation": ("relance_reconfirmation", "relance_reconfirmation"),
+            "docs_non_conformes": ("relance_docs_non_conformes", "relance_docs_non_conformes"),
         }
 
-        tpl = mapping.get(action)
-        if not tpl:
-            return jsonify(error="Type de relance inconnu"), 400
+        mail_tpl, sms_tpl = mapping.get(action, (None, None))
+        if not mail_tpl:
+            return jsonify({"ok": False, "error": "Type de relance inconnu"})
 
-        # envoi du mail + sms
-        subject = f"Relance – Intégrale Academy ({tpl.replace('_', ' ').capitalize()})"
-        html_content = mail_html(
-            tpl,
+        # === Envoi mail ===
+        mail_html_content = mail_html(
+            mail_tpl,
             prenom=prenom,
             bts_label=bts_label,
-            lien_espace=lien_espace
+            lien_espace=lien_espace,
         )
-        send_mail(email, subject, html_content)
+        mail_subject = {
+            "candidature_validee": "Relance – Confirmez votre inscription au BTS",
+            "reconfirmation": "Relance – Reconfirmez votre inscription",
+            "docs_non_conformes": "Relance – Documents à compléter",
+        }.get(action, "Relance – Intégrale Academy")
 
-        sms_msg = sms_text(tpl, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-        send_sms_brevo(tel, sms_msg)
+        mail_id = send_mail(email, mail_subject, mail_html_content)
 
-        log_event(cid, "RELANCE_ENVOYEE", f"{tpl} → {email}")
-        return jsonify(ok=True)
+        # === Envoi SMS (avec formatage automatique du numéro) ===
+        tel_formate = str(tel).strip().replace(" ", "")
+        if tel_formate.startswith("0"):
+            tel_formate = "+33" + tel_formate[1:]
+        elif not tel_formate.startswith("+"):
+            tel_formate = "+33" + tel_formate  # fallback
+
+        sms_message = sms_text(
+            sms_tpl,
+            prenom=prenom,
+            bts_label=bts_label,
+            lien_espace=lien_espace,
+        )
+        sms_id = send_sms_brevo(tel_formate, sms_message)
+
+        # === Log de l’action ===
+        cur.execute(
+            "INSERT INTO logs (cid, type, payload, created_at) VALUES (?, ?, ?, datetime('now','localtime'))",
+            (cid, "RELANCE_ENVOYEE", f"{action} / mail_id: {mail_id} / sms_id: {sms_id}"),
+        )
+        con.commit()
+        con.close()
+
+        print(f"✅ Relance envoyée à {prenom} ({email}, {tel_formate})")
+
+        return jsonify({"ok": True})
 
     except Exception as e:
-        return jsonify(error=str(e)), 500
+        print(f"❌ Erreur dans /admin/relance : {e}")
+        return jsonify({"ok": False, "error": str(e)})
+
 
 
 
