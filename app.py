@@ -576,9 +576,33 @@ def get_counter_for_today(conn):
     return c + 1
 
 def require_admin():
-    if ADMIN_PASSWORD and not session.get("admin_ok"):
-        return False
-    return True
+    return session.get("admin_ok", False)
+
+
+# =========================
+# 🔐 PAGE DE CONNEXION SÉCURISÉE
+# =========================
+LOGIN_EMAIL = os.getenv("LOGIN_EMAIL", "clement@integraleacademy.com")
+LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "Lv15052021@")
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        if email == LOGIN_EMAIL and password == LOGIN_PASSWORD:
+            session["admin_ok"] = True
+            flash("Connexion réussie ✅", "success")
+            return redirect(url_for("admin"))
+        else:
+            return render_template("login.html", error="Identifiants incorrects.")
+
+    # si déjà connecté → admin
+    if session.get("admin_ok"):
+        return redirect(url_for("admin"))
+    return render_template("login.html")
+
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
@@ -1046,7 +1070,8 @@ def submit():
 @app.route("/admin")
 def admin():
     if not require_admin():
-        return redirect(url_for("admin_login"))
+        return redirect(url_for("login"))
+
     q = request.args.get("q","").strip().lower()
     flt_bts = request.args.get("bts","")
     flt_statut = request.args.get("statut","")
@@ -2216,7 +2241,7 @@ def reconfirm_validate():
 @app.route("/logout")
 def logout():
     session.clear()
-    return redirect(url_for("admin"))
+    return redirect(url_for("login"))
 
 # ------------------------------------------------------------
 # 📊 API publique : /data.json
