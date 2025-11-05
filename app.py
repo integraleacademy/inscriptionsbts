@@ -546,6 +546,23 @@ def ensure_baccalaureat_field():
 with app.app_context():
     ensure_baccalaureat_field()
 
+# =====================================================
+# 🧾 Vérifie et ajoute la colonne "cid" dans la table logs si manquante
+# =====================================================
+def ensure_logs_cid_column():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(logs)")
+    cols = [r[1] for r in cur.fetchall()]
+    if "cid" not in cols:
+        print("🧩 Ajout automatique de la colonne 'cid' dans logs…")
+        cur.execute("ALTER TABLE logs ADD COLUMN cid TEXT")
+        conn.commit()
+    conn.close()
+
+with app.app_context():
+    ensure_logs_cid_column()
+
 
 def log_event(candidat, type_, payload_dict):
     cid = candidat["id"] if isinstance(candidat, dict) else candidat
