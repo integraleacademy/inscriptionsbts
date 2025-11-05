@@ -2766,30 +2766,28 @@ def admin_relance(cid):
         tel = row["tel"]
         BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
 
-     # 🔗 Lien dynamique selon le type de relance
-     link = "#"
+         # 🔗 Lien correct pour mails ET SMS (identique aux originaux)
+        link = "#"
 
-     if action == "candidature_validee":
-         # lien vers confirmation d’inscription
-         token = row["token_confirm"]
-         link = f"{BASE_URL}/confirm-inscription?token={token}&sig={sign_token(token)}"
+        if action == "candidature_validee":
+            token = row["token_confirm"]
+            link = f"{BASE_URL}/confirm-inscription?token={token}&sig={sign_token(token)}"
 
-     elif action == "reconfirmation":
-         # lien vers page de reconfirmation
-         token = row["token_reconfirm"]
-         link = f"{BASE_URL}/reconfirm-page?token={token}&sig={sign_token(token)}"
+        elif action == "reconfirmation":
+            token = row["token_reconfirm"]
+            link = f"{BASE_URL}/reconfirm-page?token={token}&sig={sign_token(token)}"
 
-     elif action == "docs_non_conformes":
-         # lien vers renvoi de pièces justificatives
-         token = row["replace_token"]
-         link = f"{BASE_URL}/replace-files?token={token}&sig={sign_token(token)}"
+        elif action == "docs_non_conformes":
+            token = row["replace_token"]
+            link = f"{BASE_URL}/replace-files?token={token}&sig={sign_token(token)}"
 
-     else:
-         # fallback : espace candidat
-         slug = row["slug_public"] or ""
-         link = f"{BASE_URL}/espace/{slug}"
+        else:
+            slug = row["slug_public"] or ""
+            link = f"{BASE_URL}/espace/{slug}"
 
-     lien_espace = link
+        # 🧩 Lien final pour les modèles mail et SMS
+        lien_espace = link
+
 
 
         print(f"🔔 RELANCE – Action : {action} pour {prenom} ({email})")
