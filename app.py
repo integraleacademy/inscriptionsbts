@@ -221,6 +221,21 @@ def protect_parcoursup_routes():
 def inject_now():
     return {'now': datetime.utcnow}
 
+# 🕓 Filtre Jinja pour convertir une chaîne ISO en datetime
+from datetime import datetime
+
+@app.template_filter("to_datetime")
+def to_datetime(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except Exception:
+        try:
+            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return datetime.utcnow()
+
 app.register_blueprint(bp_parcoursup)
 
 
