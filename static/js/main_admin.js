@@ -1031,11 +1031,35 @@ document.addEventListener("click", async (e) => {
 });
 
 
+// =====================================================
+// 🟢 MODALES – RENVOI MAILS & RELANCES
+// =====================================================
+
+function openRenvoiMailsModal(id) {
+  window.currentId = id;
+  const modal = document.getElementById("renvoiMailsModal");
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeRenvoiMailsModal() {
+  document.getElementById("renvoiMailsModal")?.classList.add("hidden");
+}
+
+function openRelancesActionsModal(id) {
+  window.currentId = id;
+  const modal = document.getElementById("relancesModal");
+  if (modal) modal.classList.remove("hidden");
+}
+
+function closeRelancesActionsModal() {
+  document.getElementById("relancesModal")?.classList.add("hidden");
+}
 
 
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
