@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Accès sécurisé – Intégrale Academy</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(135deg, #fdecb2, #f5d77d);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .login-container {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+      width: 380px;
+      padding: 40px 35px;
+      text-align: center;
+    }
+    .login-container img {
+      width: 120px;
+      margin-bottom: 25px;
+    }
+    h2 {
+      font-size: 1.4em;
+      color: #222;
+      margin-bottom: 25px;
+    }
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 14px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      border-color: #f4c45a;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      background-color: #f4c45a;
+      border: none;
+      color: #111;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    button:hover {
+      background-color: #eabf54;
+    }
+    p.footer {
+      margin-top: 25px;
+      font-size: 12px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+    <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Intégrale Academy Logo">
+    <h2>Accès sécurisé</h2>
+
+    {% if error %}
+      <p style="color:#c00;margin-bottom:15px;">{{ error }}</p>
+    {% endif %}
+
+    <form method="POST">
+      <input type="email" name="email" placeholder="Adresse e-mail" required>
+      <input type="password" name="password" placeholder="Mot de passe" required>
+      <button type="submit">Se connecter</button>
+    </form>
+
+    <p class="footer">© Intégrale Academy — Accès réservé</p>
+  </div>
+
+</body>
+</html>
