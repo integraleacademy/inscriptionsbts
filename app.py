@@ -2609,6 +2609,111 @@ def api_set_portal_status():
     return jsonify({"ok": True, "status": status, "message": message, "comment": comment})
 
 
+# =====================================================
+# ✉️📱 ADMIN – RENVOI MAILS (mail + SMS)
+# =====================================================
+@app.route("/admin/resend_mail_sms/<cid>", methods=["POST"])
+def admin_resend_mail_sms(cid):
+    try:
+        data = request.get_json(force=True)
+        action = data.get("action")
+
+        conn = db()
+        row = conn.execute("SELECT * FROM candidats WHERE id=?", (cid,)).fetchone()
+        if not row:
+            return jsonify(error="Candidat introuvable"), 404
+
+        prenom = row["prenom"]
+        email = row["email"]
+        tel = row["tel"]
+        bts_label = row["bts"]
+        lien_espace = make_signed_link(cid, "/espace-candidat")
+
+        # correspondance des actions → templates
+        mapping = {
+            "candidature_validee": "candidature_validee",
+            "inscription_confirmee": "inscription_confirmee",
+            "reconfirmation": "reconfirmation_demandee",
+            "reconfirmee": "reconfirmation_validee",
+            "docs_non_conformes": "docs_non_conformes",
+        }
+
+        tpl = mapping.get(action)
+        if not tpl:
+            return jsonify(error="Action non reconnue"), 400
+
+        # envoi du mail
+        subject = f"Intégrale Academy – {tpl.replace('_', ' ').capitalize()}"
+        html_content = mail_html(
+            tpl,
+            prenom=prenom,
+            bts_label=bts_label,
+            lien_espace=lien_espace
+        )
+        send_mail(email, subject, html_content)
+
+        # envoi du SMS
+        sms_msg = sms_text(tpl, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
+        send_sms_brevo(tel, sms_msg)
+
+        log_event(cid, "RENVOI_MAIL_SMS", f"{tpl} → {email}")
+        return jsonify(ok=True)
+
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
+
+# =====================================================
+# 🔔📱 ADMIN – RELANCES (mail + SMS)
+# =====================================================
+@app.route("/admin/relance/<cid>", methods=["POST"])
+def admin_relance(cid):
+    try:
+        data = request.get_json(force=True)
+        action = data.get("action")
+
+        conn = db()
+        row = conn.execute("SELECT * FROM candidats WHERE id=?", (cid,)).fetchone()
+        if not row:
+            return jsonify(error="Candidat introuvable"), 404
+
+        prenom = row["prenom"]
+        email = row["email"]
+        tel = row["tel"]
+        bts_label = row["bts"]
+        lien_espace = make_signed_link(cid, "/espace-candidat")
+
+        # mapping relances → templates existants
+        mapping = {
+            "candidature_validee": "candidature_validee",   # relance candidature validée
+            "reconfirmation": "reconfirmation_demandee",    # relance reconfirmation
+            "docs_non_conformes": "docs_non_conformes"      # relance docs non conformes
+        }
+
+        tpl = mapping.get(action)
+        if not tpl:
+            return jsonify(error="Type de relance inconnu"), 400
+
+        # envoi du mail + sms
+        subject = f"Relance – Intégrale Academy ({tpl.replace('_', ' ').capitalize()})"
+        html_content = mail_html(
+            tpl,
+            prenom=prenom,
+            bts_label=bts_label,
+            lien_espace=lien_espace
+        )
+        send_mail(email, subject, html_content)
+
+        sms_msg = sms_text(tpl, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
+        send_sms_brevo(tel, sms_msg)
+
+        log_event(cid, "RELANCE_ENVOYEE", f"{tpl} → {email}")
+        return jsonify(ok=True)
+
+    except Exception as e:
+        return jsonify(error=str(e)), 500
+
+
 
 
 
