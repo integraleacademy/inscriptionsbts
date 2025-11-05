@@ -216,6 +216,11 @@ def protect_parcoursup_routes():
     if not session.get("admin_ok"):
         return redirect(url_for("login"))
 
+# 🔧 Rendre la fonction now() accessible dans les templates Jinja
+@app.context_processor
+def inject_now():
+    return {'now': datetime.utcnow}
+
 app.register_blueprint(bp_parcoursup)
 
 
@@ -1119,6 +1124,7 @@ def admin():
     flt_statut = request.args.get("statut","")
     flt_mode = request.args.get("mode","")
     flt_label = request.args.get("label","")
+    flt_relance = request.args.get("relances","")
 
     conn = db()
     cur = conn.cursor()
@@ -1136,6 +1142,8 @@ def admin():
             ok &= row.get("statut","") == flt_statut
         if flt_mode:
             ok &= row.get("mode","") == flt_mode
+        if flt_relance:
+            ok &= row.get("last_relance") not in (None, "", "null")
         if flt_label == "APS":
             ok &= row.get("label_aps",0) == 1
         if flt_label == "AUT":
