@@ -2194,6 +2194,16 @@ def confirm_inscription():
     cur.execute("UPDATE candidats SET statut=?, updated_at=? WHERE id=?", ("confirmee", datetime.now().isoformat(), row["id"]))
     conn.commit()
 
+    # 🧹 Suppression automatique du badge relance après confirmation
+    try:
+        cur.execute("UPDATE candidats SET last_relance=NULL WHERE id=?", (row["id"],))
+        conn.commit()
+        print(f"🧹 Badge relance supprimé pour {row['prenom']} {row['nom']} (inscription confirmée)")
+    except Exception as e:
+        print("⚠️ Erreur suppression badge relance (confirm-inscription):", e)
+
+
+
     html = mail_html(
     "inscription_confirmee",
     prenom=row.get("prenom",""),
@@ -2292,6 +2302,16 @@ def reconfirm_validate():
         ("reconfirmee", datetime.now().isoformat(), datetime.now().isoformat(), row["id"])
     )
     conn.commit()
+
+    # 🧹 Suppression automatique du badge relance après reconfirmation
+    try:
+        cur.execute("UPDATE candidats SET last_relance=NULL WHERE id=?", (row["id"],))
+        conn.commit()
+        print(f"🧹 Badge relance supprimé pour {row['prenom']} {row['nom']} (reconfirmation)")
+    except Exception as e:
+        print("⚠️ Erreur suppression badge relance (reconfirm-validate):", e)
+
+
     conn.close()
 
     # ✉️ Mail confirmation reconfirmation
