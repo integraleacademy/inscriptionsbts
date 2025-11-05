@@ -150,8 +150,9 @@
       <button id="openFilesFromActions" class="btn secondary">📎 Pièces justificatives</button>
     </div>
 
-    <div class="modal-actions" style="margin-top:10px;">
-      <button id="relancesBtn" class="btn secondary">📧 Relances / Mails</button>
+    <div class="modal-actions" style="margin-top:10px;flex-wrap:wrap;gap:8px;">
+      <button id="renvoiMailsBtn" class="btn secondary">📧 Renvoi mails</button>
+      <button id="relancesBtn" class="btn success">📲 Relances</button>
       <button id="logsBtn" class="btn secondary">🕓 Logs</button>
       <button id="generationDocsBtn" class="btn pdf">🧾 Génération documents</button>
     </div>
@@ -200,23 +201,56 @@
   </div>
 </div>
 
-<!-- 📧 MODALE — RELANCES / MAILS -->
+<!-- 📧 MODALE — RENVOI MAILS (mail + SMS) -->
 <div id="relancesModal" class="modal hidden">
-  <div class="modal-content" style="width:600px;">
-    <h3>📧 Relances / Mails</h3>
-    <p>Choisissez le mail à envoyer au candidat :</p>
-    <div class="modal-actions">
-      <button class="btn secondary" data-mail="certificat">📜 Certificat de scolarité</button>
-      <button class="btn secondary" data-mail="candidature_validee">✅ Candidature validée</button>
-      <button class="btn secondary" data-mail="inscription_confirmee">📩 Inscription confirmée</button>
-      <button class="btn secondary" data-mail="inscription_non_confirmee">⚠️ Inscription non confirmée</button>
-      <button class="btn secondary" data-mail="docs_non_conformes">🚫 Documents non conformes</button>
+  <div class="modal-content" style="width:600px;max-width:95vw;">
+    <h3>📧 Renvoi mails</h3>
+    <p>Choisissez le <strong>mail + SMS</strong> à renvoyer au candidat :</p>
+    <div class="modal-actions" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <button class="btn secondary renvoi-option" data-action="candidature_validee">
+        ✅ Renvoi mail + SMS Candidature validée
+      </button>
+      <button class="btn secondary renvoi-option" data-action="inscription_confirmee">
+        📩 Renvoi mail + SMS Inscription confirmée
+      </button>
+      <button class="btn secondary renvoi-option" data-action="reconfirmation">
+        🔁 Renvoi mail + SMS Reconfirmer inscription
+      </button>
+      <button class="btn secondary renvoi-option" data-action="reconfirmee">
+        ✅ Renvoi mail + SMS Inscription re-confirmée
+      </button>
+      <button class="btn secondary renvoi-option" data-action="docs_non_conformes">
+        🚫 Renvoi mail + SMS Docs non conformes
+      </button>
     </div>
     <div class="comment-save">
       <button class="btn" onclick="closeRelancesModal()">Fermer</button>
     </div>
   </div>
 </div>
+
+<!-- 📲 MODALE — RELANCES (mail + SMS de relance) -->
+<div id="relancesActionsModal" class="modal hidden">
+  <div class="modal-content" style="width:600px;max-width:95vw;">
+    <h3>📲 Relances</h3>
+    <p>Choisissez la <strong>relance (mail + SMS)</strong> à envoyer :</p>
+    <div class="modal-actions" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <button class="btn success relance-option" data-action="candidature_validee">
+        🔔 Relance candidature validée (le candidat n’a pas confirmé son inscription)
+      </button>
+      <button class="btn success relance-option" data-action="reconfirmation">
+        🔁 Relance reconfirmation (reconfirmation demandée mais non validée)
+      </button>
+      <button class="btn success relance-option" data-action="docs_non_conformes">
+        🚫 Relance docs non conformes (documents non renvoyés)
+      </button>
+    </div>
+    <div class="comment-save">
+      <button class="btn" onclick="closeRelancesActionsModal()">Fermer</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- 🕓 MODALE — LOGS -->
 <div id="logsModal" class="modal hidden">
