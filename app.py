@@ -2688,6 +2688,7 @@ def admin_relance(cid):
         bts_label = row["bts"]
         email = row["email"]
         tel = row["tel"]
+        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
         lien_espace = f"{BASE_URL}/espace/{cid}"
 
         print(f"🔔 RELANCE – Action : {action} pour {prenom} ({email})")
