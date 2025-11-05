@@ -211,6 +211,11 @@ def load_verif_docs(row):
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
 app.register_blueprint(bp_parcoursup)
+# 🔐 Protection du module Parcoursup (toutes les routes /parcoursup)
+@bp_parcoursup.before_request
+def protect_parcoursup_routes():
+    if not session.get("admin_ok"):
+        return redirect(url_for("login"))
 
 # =====================================================
 # 🔤 Filtres Jinja pour affichage PDF
