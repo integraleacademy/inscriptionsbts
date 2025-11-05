@@ -602,6 +602,24 @@ def get_counter_for_today(conn):
 def require_admin():
     return session.get("admin_ok", False)
 
+# =====================================================
+# 🕓 Ajout automatique de la colonne "last_relance" dans la table candidats
+# =====================================================
+def ensure_relance_field():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(candidats)")
+    cols = [r[1] for r in cur.fetchall()]
+    if "last_relance" not in cols:
+        print("🧩 Ajout automatique de la colonne 'last_relance' dans candidats…")
+        cur.execute("ALTER TABLE candidats ADD COLUMN last_relance TEXT")
+        conn.commit()
+    conn.close()
+
+with app.app_context():
+    ensure_relance_field()
+
+
 
 # =========================
 # 🔐 PAGE DE CONNEXION SÉCURISÉE
@@ -2757,7 +2775,20 @@ def admin_relance(cid):
             (cid, "RELANCE_ENVOYEE", f"{action} / mail_id: {mail_id} / sms_id: {sms_id}"),
         )
         con.commit()
+
+        # 🧩 Enregistrer la date de la dernière relance
+        try:
+            cur.execute(
+                "UPDATE candidats SET last_relance=?, updated_at=? WHERE id=?",
+                (datetime.now().isoformat(), datetime.now().isoformat(), cid)
+            )
+            con.commit()
+            print(f"🕓 Champ 'last_relance' mis à jour pour {prenom}")
+        except Exception as e:
+            print("⚠️ Erreur maj champ last_relance :", e)
+
         con.close()
+
 
         print(f"✅ Relance envoyée à {prenom} ({email}, {tel_formate})")
 
