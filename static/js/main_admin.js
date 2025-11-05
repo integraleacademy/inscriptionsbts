@@ -490,9 +490,11 @@ function openActionsModal(id, commentaire = "") {
   const reconfirmBtn = document.getElementById("reconfirmBtn");
   const deleteBtn = document.getElementById("deleteBtn");
   const openFilesBtn = document.getElementById("openFilesFromActions");
+  const renvoiMailsBtn = document.getElementById("renvoiMailsBtn");
   const relancesBtn = document.getElementById("relancesBtn");
   const logsBtn = document.getElementById("logsBtn");
   const generationDocsBtn = document.getElementById("generationDocsBtn");
+
 
   if (openFilesBtn) {
     openFilesBtn.onclick = () => {
@@ -542,26 +544,35 @@ function openActionsModal(id, commentaire = "") {
   }
 
   // === ✉️ Boutons RELANCES / LOGS / DOCUMENTS ===
-  if (relancesBtn) {
-    relancesBtn.onclick = () => {
-      closeActionsModal();
-      openRelancesModal(id);
-    };
-  }
+// === ✉️ Boutons RENVOI MAILS / RELANCES / LOGS / DOCUMENTS ===
+if (renvoiMailsBtn) {
+  renvoiMailsBtn.onclick = () => {
+    closeActionsModal();
+    openRenvoiMailsModal(id);
+  };
+}
 
-  if (logsBtn) {
-    logsBtn.onclick = () => {
-      closeActionsModal();
-      openLogsModal(id);
-    };
-  }
+if (relancesBtn) {
+  relancesBtn.onclick = () => {
+    closeActionsModal();
+    openRelancesActionsModal(id);
+  };
+}
 
-  if (generationDocsBtn) {
-    generationDocsBtn.onclick = () => {
-      closeActionsModal();
-      openGenerationDocsModal(id);
-    };
-  }
+if (logsBtn) {
+  logsBtn.onclick = () => {
+    closeActionsModal();
+    openLogsModal(id);
+  };
+}
+
+if (generationDocsBtn) {
+  generationDocsBtn.onclick = () => {
+    closeActionsModal();
+    openGenerationDocsModal(id);
+  };
+}
+  
 } // ✅ FIN openActionsModal
 
 
@@ -945,6 +956,79 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 
+// =====================================================
+// ✉️📱 RENVOI MAILS (mail + SMS) – /admin/resend_mail_sms/<cid>
+// =====================================================
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".renvoi-option");
+  if (!btn) return;
+  if (!window.currentId) {
+    alert("Aucun candidat sélectionné.");
+    return;
+  }
+
+  const action = btn.dataset.action;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Envoi en cours…";
+
+  try {
+    const res = await fetch(`/admin/resend_mail_sms/${window.currentId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.ok) {
+      showToast("✉️ Mail + SMS renvoyés", "#28a745");
+    } else {
+      alert("Erreur : " + (data.error || "Envoi impossible"));
+    }
+  } catch (err) {
+    alert("Erreur réseau : " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
+
+// =====================================================
+// 🔔📱 RELANCES (mail + SMS de relance) – /admin/relance/<cid>
+// =====================================================
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".relance-option");
+  if (!btn) return;
+  if (!window.currentId) {
+    alert("Aucun candidat sélectionné.");
+    return;
+  }
+
+  const action = btn.dataset.action;
+  const originalText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Envoi en cours…";
+
+  try {
+    const res = await fetch(`/admin/relance/${window.currentId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action })
+    });
+    const data = await res.json();
+
+    if (res.ok && data.ok) {
+      showToast("🔔 Relance envoyée", "#28a745");
+    } else {
+      alert("Erreur : " + (data.error || "Envoi relance impossible"));
+    }
+  } catch (err) {
+    alert("Erreur réseau : " + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+});
 
 
 
@@ -952,6 +1036,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
+
 
 
 
