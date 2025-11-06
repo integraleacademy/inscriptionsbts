@@ -1475,17 +1475,18 @@ setInterval(checkNewCandidats, 60000);
 
 
 // =====================================================
-// ⚡ Rafraîchissement intelligent des lignes après actions
+// ⚡ Rafraîchissement intelligent des lignes après actions – version stabilisée
 // =====================================================
 async function refreshRow(id) {
   const tr = document.querySelector(`tr[data-id='${id}']`);
   if (!tr) return;
+
   try {
     const res = await fetch(`/admin/row/${id}`);
     const data = await res.json();
     if (!data.ok || !data.row) return;
 
-    // 🔁 on reconstruit juste la ligne sans reload complet
+    // 🔁 Reconstruit uniquement les colonnes éditables et les étiquettes
     const html = `
       <td contenteditable="true" data-field="nom">${data.row.nom}</td>
       <td contenteditable="true" data-field="prenom">${data.row.prenom}</td>
@@ -1499,126 +1500,63 @@ async function refreshRow(id) {
             <option value="${s.key}" ${s.key === data.row.statut ? "selected" : ""}>${s.label}</option>
           `).join("")}
         </select>
-</td>
-<td class="etiquettes" 
-    style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:nowrap;white-space:nowrap;">
-  <label style="display:flex;align-items:center;gap:4px;">
-    <input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS
-  </label>
-  <label style="display:flex;align-items:center;gap:4px;">
-    <input type="checkbox" class="chk" data-field="label_aut_ok" ${data.row.label_aut_ok ? "checked" : ""}> AUT OK
-  </label>
-  <label style="display:flex;align-items:center;gap:4px;">
-    <input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK
-  </label>
-  <label style="display:flex;align-items:center;gap:4px;">
-    <input type="checkbox" class="chk" data-field="label_ypareo" ${data.row.label_ypareo ? "checked" : ""}> YPAREO
-  </label>
-  <label style="display:flex;align-items:center;gap:4px;">
-    <input type="checkbox" class="chk" data-field="label_carte_etudiante" ${data.row.label_carte_etudiante ? "checked" : ""}> Carte étudiante
-  </label>
-</td>
+      </td>
+      <td class="etiquettes" 
+          style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:nowrap;white-space:nowrap;">
+        <label><input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS</label>
+        <label><input type="checkbox" class="chk" data-field="label_aut_ok" ${data.row.label_aut_ok ? "checked" : ""}> AUT OK</label>
+        <label><input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK</label>
+        <label><input type="checkbox" class="chk" data-field="label_ypareo" ${data.row.label_ypareo ? "checked" : ""}> YPAREO</label>
+        <label><input type="checkbox" class="chk" data-field="label_carte_etudiante" ${data.row.label_carte_etudiante ? "checked" : ""}> Carte étudiante</label>
+      </td>
+    `;
 
+    // 🧱 Remplace uniquement les cellules sauf la colonne "Actions"
+    const temp = document.createElement("tr");
+    temp.innerHTML = html.trim();
+    const newCells = temp.querySelectorAll("td");
+    const oldCells = tr.querySelectorAll("td");
 
-`;
-
-// 🧩 Met à jour uniquement le contenu sans recréer toute la ligne (évite disparition boutons)
-const temp = document.createElement("tr");
-temp.innerHTML = html.trim();
-
-const newCells = temp.querySelectorAll("td");
-const oldCells = tr.querySelectorAll("td");
-
-// 🧱 Remplace uniquement les cellules sauf la dernière (Actions)
-newCells.forEach((newTd, i) => {
-  if (i < oldCells.length - 1) {
-    oldCells[i].innerHTML = newTd.innerHTML;
-  }
-});
-
-// 🎨 Réapplique couleur du statut
-const sel = tr.querySelector(".status-select");
-if (sel) updateStatusColor(sel);
-
-// ✅ Réattache les écouteurs sur les cases à cocher (étiquettes)
-tr.querySelectorAll("input.chk").forEach(chk => {
-  chk.addEventListener("change", async () => {
-    const field = chk.dataset.field;
-    const value = chk.checked ? 1 : 0;
-    try {
-      await fetch("/admin/update-field", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, field, value })
-      });
-      showToast("🔖 Étiquette mise à jour", "#28a745");
-    } catch (err) {
-      showToast("⚠️ Erreur lors de la mise à jour", "#dc3545");
-    }
-  });
-});
-
-// 🌈 Feedback visuel après mise à jour
-showToast("🔄 Ligne mise à jour", "#28a745");
-tr.style.transition = "background 0.5s";
-tr.style.background = "#e8ffe8";
-setTimeout(() => (tr.style.background = ""), 800);
-
-    // 🔧 Correction d’affichage (force le flex horizontal)
-const etiquettes = tr.querySelector('.etiquettes');
-if (etiquettes) {
-  etiquettes.style.display = 'flex';
-  etiquettes.style.alignItems = 'center';
-  etiquettes.style.justifyContent = 'center';
-  etiquettes.style.gap = '12px';
-  etiquettes.style.flexWrap = 'nowrap';
-  etiquettes.style.whiteSpace = 'nowrap';
-}
-
-    // 🪄 Correction du décalage vertical
-tr.style.verticalAlign = "middle";
-Array.from(tr.querySelectorAll("td")).forEach(td => {
-  td.style.verticalAlign = "middle";
-});
-
- // ✅ Réattache les écouteurs sur les cases à cocher après chaque refreshRow
-// ✅ Réattache les écouteurs sur les cases à cocher après chaque refreshRow
-setTimeout(() => {
-  const checks = document.querySelectorAll("input.chk");
-  console.log("♻️ Réactivation des cases :", checks.length);
-
-  checks.forEach(chk => {
-    // 🧹 Supprime les anciens écouteurs avant d’en remettre un
-    const newChk = chk.cloneNode(true);
-    chk.parentNode.replaceChild(newChk, chk);
-
-    newChk.addEventListener("change", async () => {
-      const tr = newChk.closest("tr");
-      const id = tr.dataset.id;
-      const field = newChk.dataset.field;
-      const value = newChk.checked;
-
-      try {
-        const res = await fetch("/admin/update-field", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id, field, value })
-        });
-        const data = await res.json();
-        if (data.ok) showToast("💾 Étiquette sauvegardée", "#28a745");
-      } catch {
-        showToast("⚠️ Erreur réseau", "#dc3545");
-      }
+    newCells.forEach((newTd, i) => {
+      if (i < oldCells.length - 1) oldCells[i].innerHTML = newTd.innerHTML;
     });
-  });
-}, 800);
 
-   
+    // 🎨 Applique la bonne couleur du statut
+    const sel = tr.querySelector(".status-select");
+    if (sel) updateStatusColor(sel);
 
+    // 🧩 Réattache les cases à cocher
+    tr.querySelectorAll("input.chk").forEach(chk => {
+      chk.addEventListener("change", async () => {
+        const field = chk.dataset.field;
+        const value = chk.checked ? 1 : 0;
+        try {
+          await fetch("/admin/update-field", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, field, value })
+          });
+          showToast("💾 Étiquette sauvegardée", "#28a745");
+        } catch {
+          showToast("⚠️ Erreur réseau", "#dc3545");
+        }
+      });
+    });
+
+    // 🌈 Feedback visuel
+    showToast("🔄 Ligne mise à jour", "#28a745");
+    tr.style.transition = "background 0.5s";
+    tr.style.background = "#e8ffe8";
+    setTimeout(() => (tr.style.background = ""), 800);
+
+    // 🪄 Aligne verticalement
+    tr.style.verticalAlign = "middle";
+    tr.querySelectorAll("td").forEach(td => (td.style.verticalAlign = "middle"));
   } catch (err) {
     console.warn("Erreur refreshRow:", err);
   }
 }
+
 
 // =====================================================
 // ⚙️ Délégation globale pour le bouton "Actions"
@@ -1666,6 +1604,7 @@ chk.addEventListener("change", async (e) => {
     });
   });
 });
+
 
 
 
