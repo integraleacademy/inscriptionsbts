@@ -1267,6 +1267,69 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 5000);
 });
 
+// =====================================================
+// ⚙️ Panneau de contrôle Live admin (pause / reprise / timer)
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const toggleBtn = document.getElementById("toggleLive");
+  const manualBtn = document.getElementById("manualRefresh");
+  const liveStatus = document.getElementById("liveStatus");
+  const countdownEl = document.getElementById("countdown");
+
+  if (!toggleBtn || !manualBtn) return;
+
+  let liveEnabled = true;
+  let countdown = 60; // secondes
+  let interval;
+
+  async function refreshAdminTableNow() {
+    const table = document.querySelector(".admin-table tbody");
+    if (!table) return;
+    try {
+      const res = await fetch(window.location.href, { cache: "no-store" });
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const newBody = doc.querySelector(".admin-table tbody");
+      if (!newBody) return;
+      table.replaceWith(newBody);
+      showToast("🔁 Tableau actualisé manuellement", "#007bff");
+      newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
+    } catch (err) {
+      console.warn("Erreur refresh manuel :", err);
+    }
+  }
+
+  function startTimer() {
+    clearInterval(interval);
+    interval = setInterval(async () => {
+      if (!liveEnabled) return;
+      countdown--;
+      countdownEl.textContent = `(${countdown}s)`;
+      if (countdown <= 0) {
+        await refreshAdminTableNow();
+        countdown = 60;
+      }
+    }, 1000);
+  }
+
+  toggleBtn.addEventListener("click", () => {
+    liveEnabled = !liveEnabled;
+    liveStatus.textContent = liveEnabled ? "🟢 Auto ON" : "🔴 Auto OFF";
+    toggleBtn.textContent = liveEnabled ? "⏸️ Pause" : "▶️ Reprendre";
+    countdownEl.style.color = liveEnabled ? "#555" : "#999";
+  });
+
+  manualBtn.addEventListener("click", async () => {
+    await refreshAdminTableNow();
+    countdown = 60;
+  });
+
+  startTimer();
+});
+
+
+
 
 
 
