@@ -1469,22 +1469,7 @@ async function refreshRow(id) {
           `).join("")}
         </select>
 </td>
-<td class="etiquettes" 
-    style="display:flex;align-items:center;justify-content:center;gap:14px;flex-wrap:nowrap;white-space:nowrap;">
-  <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
-    <input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS
-  </label>
-  <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
-    <input type="checkbox" class="chk" data-field="label_aut_ok" ${data.row.label_aut_ok ? "checked" : ""}> AUT OK
-  </label>
-  <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
-    <input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK
-  </label>
-  <label style="display:flex;align-items:center;gap:4px;white-space:nowrap;">
-    <input type="checkbox" class="chk" data-field="label_carte_etudiante" ${data.row.label_carte_etudiante ? "checked" : ""}> Carte étudiante
-  </label>
-</td>
-
+<td class="etiquettes" style="display:flex;align-items:center;gap:10px;justify-content:center;">
   <label style="display:flex;align-items:center;gap:4px;">
     <input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS
   </label>
@@ -1576,8 +1561,6 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
-
-
 
 
 
