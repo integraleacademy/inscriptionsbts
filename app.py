@@ -2724,11 +2724,11 @@ def admin_resend_mail_sms(cid):
         tel = row["tel"]
         bts_label = row["bts"]
 
-        # ✅ lien correct
+        # 🔗 lien correct vers l’espace candidat
         lien_espace = make_signed_link("/espace", row["slug_public"])
 
-        # ✅ mapping ajusté
-        mapping = {
+        # 📨 modèles mail
+        mapping_mail = {
             "candidature_validee": "candidature_validee",
             "inscription_confirmee": "inscription_confirmee",
             "reconfirmation": "reconfirmation",
@@ -2736,28 +2736,40 @@ def admin_resend_mail_sms(cid):
             "docs_non_conformes": "docs_non_conformes",
         }
 
-        tpl = mapping.get(action)
-        if not tpl:
+        # 📱 modèles SMS (le mot change pour "reconfirmation")
+        mapping_sms = {
+            "candidature_validee": "candidature_validee",
+            "inscription_confirmee": "inscription_confirmee",
+            "reconfirmation": "reconfirmation_demandee",
+            "reconfirmee": "reconfirmation_validee",
+            "docs_non_conformes": "docs_non_conformes",
+        }
+
+        tpl_mail = mapping_mail.get(action)
+        tpl_sms = mapping_sms.get(action)
+
+        if not tpl_mail or not tpl_sms:
             return jsonify(error="Action non reconnue"), 400
 
-        subject = f"Intégrale Academy – {tpl.replace('_', ' ').capitalize()}"
-        html_content = mail_html(tpl, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
+        # ✉️ Envoi du mail
+        subject = f"Intégrale Academy – {tpl_mail.replace('_', ' ').capitalize()}"
+        html_content = mail_html(tpl_mail, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
         send_mail(email, subject, html_content)
 
-        # ✅ formatage numéro
+        # 📱 Envoi du SMS (numéro formaté)
         tel = (tel or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
-
-        sms_msg = sms_text(tpl, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
+        sms_msg = sms_text(tpl_sms, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
         send_sms_brevo(tel, sms_msg)
 
-        log_event({"id": cid}, "RENVOI_MAIL_SMS", {"type": tpl, "email": email, "tel": tel})
+        log_event({"id": cid}, "RENVOI_MAIL_SMS", {"type": action, "email": email, "tel": tel})
         return jsonify(ok=True)
 
     except Exception as e:
         print("❌ Erreur resend_mail_sms :", e)
         return jsonify(error=str(e)), 500
+
 
 # =====================================================
 # 🔔 RELANCES (mail + SMS)
