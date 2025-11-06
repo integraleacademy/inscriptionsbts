@@ -417,4 +417,19 @@
   </div>
 </div>
 
+    <!-- 🧠 Panneau de contrôle auto-refresh -->
+<div id="liveControl" style="
+  position:fixed;bottom:20px;right:20px;
+  background:#fff;border:1px solid #ddd;
+  box-shadow:0 2px 8px rgba(0,0,0,.15);
+  border-radius:10px;padding:10px 14px;
+  font-size:14px;font-family:'Segoe UI',sans-serif;
+  z-index:9999;display:flex;align-items:center;gap:10px;">
+  <span id="liveStatus" style="color:#28a745;">🟢 Auto ON</span>
+  <button id="toggleLive" style="border:none;background:#f4c45a;color:#111;padding:5px 10px;border-radius:6px;cursor:pointer;">⏸️ Pause</button>
+  <button id="manualRefresh" style="border:none;background:#007bff;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;">🔁 Rafraîchir</button>
+  <span id="countdown" style="color:#555;font-weight:600;">(60s)</span>
+</div>
+
+
 {% endblock %}
