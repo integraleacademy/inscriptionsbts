@@ -1192,6 +1192,46 @@ function closeRelancesActionsModal() {
   document.getElementById("relancesModal")?.classList.add("hidden");
 }
 
+// =====================================================
+// 🟩 FIX – Réattache les écouteurs sur les cases à cocher après chargement complet
+// =====================================================
+// =====================================================
+// 🟩 FIX – Réattache les écouteurs sur les cases à cocher après chargement complet
+// =====================================================
+window.addEventListener("load", () => {
+  setTimeout(() => {
+    const checks = document.querySelectorAll("input.chk");
+    console.log("🎯 Initialisation étiquettes :", checks.length, "cases détectées");
+
+    checks.forEach(chk => {
+      chk.addEventListener("change", async () => {
+        const tr = chk.closest("tr");
+        const id = tr.dataset.id;
+        const field = chk.dataset.field;
+        const value = chk.checked;
+
+        try {
+          const res = await fetch("/admin/update-field", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, field, value })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            showToast("💾 Étiquette sauvegardée", "#28a745");
+          } else {
+            showToast("⚠️ Erreur sauvegarde", "#dc3545");
+          }
+        } catch (err) {
+          showToast("⚠️ Erreur réseau", "#dc3545");
+        }
+      });
+    });
+
+    console.log("✅ Écouteurs étiquettes actifs !");
+  }, 1200); // petit délai pour attendre le tableau
+});
+
 
 
 window.openFilesModal = openFilesModal;
@@ -1581,6 +1621,32 @@ Array.from(tr.querySelectorAll("td")).forEach(td => {
   td.style.verticalAlign = "middle";
 });
 
+ // ✅ Réattache les écouteurs sur les cases à cocher après chaque refreshRow
+setTimeout(() => {
+  const checks = document.querySelectorAll("input.chk");
+  console.log("♻️ Réactivation des cases :", checks.length);
+  checks.forEach(chk => {
+    chk.addEventListener("change", async () => {
+      const tr = chk.closest("tr");
+      const id = tr.dataset.id;
+      const field = chk.dataset.field;
+      const value = chk.checked;
+
+      try {
+        const res = await fetch("/admin/update-field", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, field, value })
+        });
+        const data = await res.json();
+        if (data.ok) showToast("💾 Étiquette sauvegardée", "#28a745");
+      } catch {
+        showToast("⚠️ Erreur réseau", "#dc3545");
+      }
+    });
+  });
+}, 800);
+   
 
   } catch (err) {
     console.warn("Erreur refreshRow:", err);
@@ -1597,6 +1663,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
