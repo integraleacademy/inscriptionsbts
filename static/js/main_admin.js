@@ -631,7 +631,6 @@ if (saveBtn) {
     } finally {
       saveBtn.disabled = false;
       saveBtn.textContent = "💾 Enregistrer";
-      closeActionsModal();
     }
   };
 }
@@ -1360,7 +1359,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const newBody = doc.querySelector(".admin-table tbody");
       if (!newBody) return;
       table.replaceWith(newBody);
-      showToast("🔁 Tableau actualisé manuellement", "#007bff");
+      showToast("🔁 Tableau actualisé automatiquement", "#007bff");
       newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
     } catch (err) {
       console.warn("Erreur refresh manuel :", err);
@@ -1488,6 +1487,17 @@ async function refreshRow(id) {
     // ✅ Réapplique la couleur du statut après reconstruction
 const sel = tr.querySelector(".status-select");
 if (sel) updateStatusColor(sel);
+    // ✅ Recharge les badges persistants (ex : Carte étudiante)
+if (data.row.has_badge_carte) {
+  const cell = tr.querySelector("td:last-child");
+  if (cell && !cell.querySelector(".badge-carte")) {
+    const badge = document.createElement("span");
+    badge.className = "badge-carte";
+    badge.textContent = "🎓 Carte étudiante";
+    badge.style.cssText = "background:#007bff;color:#fff;padding:2px 6px;border-radius:6px;font-size:12px;margin-left:6px;";
+    cell.appendChild(badge);
+  }
+}
   } catch (err) {
     console.warn("Erreur refreshRow:", err);
   }
@@ -1503,6 +1513,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
