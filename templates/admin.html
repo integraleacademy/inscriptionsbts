@@ -2,6 +2,61 @@
 {% block body_class %}admin-page{% endblock %}
 {% block content %}
 
+<style>
+/* 🎨 STYLE MODALE ACTIONS (version harmonisée) */
+.modal-section {
+  margin-bottom: 18px;
+  border-top: 1px solid #eee;
+  padding-top: 10px;
+}
+
+.modal-section h4 {
+  margin: 6px 0 10px;
+  color: #555;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.modal-section .btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+/* 🎨 Couleurs harmonisées */
+.btn.primary { background:#007bff; color:white; }
+.btn.green { background:#28a745; color:white; }
+.btn.gold { background:#f4c45a; color:#111; }
+.btn.blue { background:#17a2b8; color:white; }
+.btn.grey { background:#6c757d; color:white; }
+.btn.dark { background:#111; color:white; }
+.btn.danger { background:#dc3545; color:white; }
+.btn.black { background:#333; color:white; }
+
+/* ✏️ Zone de commentaire */
+#commentBox {
+  width:100%;
+  border:1px solid #ccc;
+  border-radius:8px;
+  padding:8px;
+  font-size:14px;
+  resize:none;
+}
+.comment-save {
+  display:flex;
+  justify-content:space-between;
+  margin-top:8px;
+}
+</style>
+
+
 <div class="admin-wrapper">
 
   <!-- 🔝 En-tête -->
@@ -168,43 +223,46 @@
   </div>
 </div>
 
-<!-- ⚙️ MODALE D’ACTIONS -->
+<!-- ⚙️ MODALE D’ACTIONS (version harmonisée) -->
 <div id="actionsModal" class="modal hidden">
   <div class="modal-content">
-    <h3>⚙️ Actions</h3>
-    <div class="modal-actions">
+    <h3 style="text-align:center;margin-bottom:10px;">⚙️ Actions</h3>
+
+    <!-- SECTION : Dossier -->
+    <div class="modal-section">
+      <h4>📄 Dossier</h4>
       <button id="printLink" class="btn pdf">🖨️ Imprimer la fiche PDF</button>
-      <button id="reconfirmBtn" class="btn reconfirm">🔁 Reconfirmation inscription</button>
-      <button id="deleteBtn" class="btn danger">🗑️ Supprimer</button>
-      <button id="openFilesFromActions" class="btn secondary">📎 Pièces justificatives</button>
+      <button id="deleteBtn" class="btn danger">🗑️ Supprimer le dossier</button>
     </div>
 
-    <div class="modal-actions" style="margin-top:10px;flex-wrap:wrap;gap:8px;">
-      <button id="renvoiMailsBtn" class="btn" style="background:#007bff;color:white;font-weight:600;">
-  📧 Renvoi mails
-</button>
-<button id="relancesBtn" class="btn" style="background:#28a745;color:white;font-weight:600;">
-  📲 Relances
-</button>
-<button id="logsBtn" class="btn" style="background:#6c757d;color:white;">
-  🕓 Logs
-</button>
-<button id="generationDocsBtn" class="btn" style="background:#f4c45a;color:black;font-weight:600;">
-  🧾 Génération documents
-</button>
-
+    <!-- SECTION : Communication -->
+    <div class="modal-section">
+      <h4>💬 Communication</h4>
+      <button id="reconfirmBtn" class="btn primary">🔁 Reconfirmation inscription</button>
+      <button id="renvoiMailsBtn" class="btn blue">📧 Renvoi mails</button>
+      <button id="relancesBtn" class="btn green">📲 Relances</button>
+      <button id="logsBtn" class="btn grey">🕓 Logs</button>
     </div>
 
+    <!-- SECTION : Documents -->
+    <div class="modal-section">
+      <h4>📎 Documents</h4>
+      <button id="openFilesFromActions" class="btn dark">📎 Pièces justificatives</button>
+      <button id="generationDocsBtn" class="btn gold">🧾 Génération documents</button>
+    </div>
 
-    <hr>
-    <h4>💬 Commentaires</h4>
-    <textarea id="commentBox" rows="4" placeholder="Ajouter ou modifier un commentaire..."></textarea>
-    <div class="comment-save">
-      <button id="saveCommentBtn" class="btn primary">💾 Enregistrer</button>
-      <button class="btn" onclick="closeActionsModal()">Fermer</button>
+    <!-- SECTION : Commentaires -->
+    <div class="modal-section">
+      <h4>🗒️ Commentaires</h4>
+      <textarea id="commentBox" rows="3" placeholder="Ajouter ou modifier un commentaire..."></textarea>
+      <div class="comment-save">
+        <button id="saveCommentBtn" class="btn gold">💾 Enregistrer</button>
+        <button class="btn black" onclick="closeActionsModal()">Fermer</button>
+      </div>
     </div>
   </div>
 </div>
+
 
 <!-- 📎 MODALE – PIÈCES JUSTIFICATIVES -->
 <div id="filesModal" class="modal hidden">
