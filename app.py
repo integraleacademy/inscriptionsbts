@@ -1216,21 +1216,38 @@ def admin_update_field():
     cid = data.get("id")
     field = data.get("field")
     value = data.get("value")
+
     allowed = {
-    "nom","prenom","bts","mode","tel","email",
-    "label_aps","label_aut_ok","label_cheque_ok",
-    "label_ypareo","label_carte_etudiante",
-    "commentaires","nouveau_doc",
-    "date_validee","date_confirmee","date_reconfirmee"
-}
-    if field not in allowed: return jsonify({"ok":False,"error":"field not allowed"}), 400
-    conn = db(); cur = conn.cursor()
-    cur.execute(f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?", (value, datetime.now().isoformat(), cid))
+        "nom","prenom","bts","mode","tel","email",
+        "label_aps","label_aut_ok","label_cheque_ok",
+        "label_ypareo","label_carte_etudiante",
+        "commentaires","nouveau_doc",
+        "date_validee","date_confirmee","date_reconfirmee"
+    }
+
+    if field not in allowed:
+        return jsonify({"ok": False, "error": "field not allowed"}), 400
+
+    # 🔧 Correction ici : convertir les booléens "true"/"false" en 1/0
+    if isinstance(value, str):
+        if value.lower() in ["true", "1", "yes", "on"]:
+            value = 1
+        elif value.lower() in ["false", "0", "no", "off", ""]:
+            value = 0
+
+    conn = db()
+    cur = conn.cursor()
+    cur.execute(
+        f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
+        (value, datetime.now().isoformat(), cid)
+    )
     conn.commit()
+
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
     row = dict(cur.fetchone())
     log_event(row, "FIELD_UPDATE", {"field": field, "value": value})
-    return jsonify({"ok":True})
+    conn.close()
+    return jsonify({"ok": True})
 
 @app.route("/admin/update-status", methods=["POST"])
 def admin_update_status():
