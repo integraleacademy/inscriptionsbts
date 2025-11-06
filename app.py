@@ -1194,11 +1194,16 @@ def admin_row(cid):
     conn.close()
     if not row:
         return jsonify(ok=False, error="Candidat introuvable"), 404
-    row = dict(row)
-    # on renvoie aussi la liste des statuts pour reconstruire le <select>
-    statuts = [{"key": s[0], "label": s[1]} for s in STATUTS]
-    return jsonify(ok=True, row=row, statuts=statuts)
 
+    row = dict(row)
+
+    # ✅ Indique au front si le candidat a la carte étudiante cochée
+    row["has_badge_carte"] = bool(row.get("label_carte_etudiante"))
+
+    # 🔹 Liste des statuts disponibles pour le <select>
+    statuts = [{"key": s[0], "label": s[1]} for s in STATUTS]
+
+    return jsonify(ok=True, row=row, statuts=statuts)
 
 @app.route("/admin/update-field", methods=["POST"])
 def admin_update_field():
