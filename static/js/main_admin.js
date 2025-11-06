@@ -1558,6 +1558,13 @@ if (etiquettes) {
   etiquettes.style.whiteSpace = 'nowrap';
 }
 
+    // 🪄 Correction du décalage vertical
+tr.style.verticalAlign = "middle";
+Array.from(tr.querySelectorAll("td")).forEach(td => {
+  td.style.verticalAlign = "middle";
+});
+
+
   } catch (err) {
     console.warn("Erreur refreshRow:", err);
   }
@@ -1573,6 +1580,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
