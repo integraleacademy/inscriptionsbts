@@ -2917,44 +2917,69 @@ def admin_count_confirmed():
 def admin_reconfirm_all():
     try:
         conn = db()
+        cur = conn.cursor()
+
         # 🔍 On sélectionne uniquement les candidats avec le statut "confirmee"
-        rows = conn.execute("""
-            SELECT id, prenom, email, tel, bts, slug_public 
+        rows = cur.execute("""
+            SELECT id, prenom, email, tel, bts, slug_public
             FROM candidats 
             WHERE statut = 'confirmee'
         """).fetchall()
-        conn.close()
 
         if not rows:
+            conn.close()
             return jsonify(ok=False, error="Aucun candidat avec le statut 'Inscription confirmée'."), 400
 
         BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
         sent_count = 0
 
         for r in rows:
-            prenom, email, tel, bts_label = r["prenom"], r["email"], r["tel"], r["bts"]
-            lien_espace = make_signed_link("/espace", r["slug_public"])
+            cid = r["id"]
+            prenom = r["prenom"]
+            email = r["email"]
+            tel = (r["tel"] or "").replace(" ", "")
+            bts_label = r["bts"]
+            slug = r["slug_public"]
 
-            # ✉️ Envoi mail
-            subject = f"Intégrale Academy – Reconfirmation d’inscription"
+            # 🔑 Génère un nouveau token de reconfirmation
+            token = new_token()
+            exp = (datetime.now() + timedelta(days=15)).isoformat()
+
+            cur.execute("""
+                UPDATE candidats
+                SET token_reconfirm=?, token_reconfirm_exp=?, statut=?, updated_at=?
+                WHERE id=?
+            """, (token, exp, "reconf_en_cours", datetime.now().isoformat(), cid))
+            conn.commit()
+
+            # 🔗 Lien de reconfirmation (signé)
+            lien_espace = make_signed_link("/reconfirm-page", token)
+
+            # ✉️ Mail de reconfirmation
+            subject = "Reconfirmation d’inscription – Intégrale Academy"
             html_content = mail_html("reconfirmation", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
             send_mail(email, subject, html_content)
 
-            # 📱 Envoi SMS
-            tel = (tel or "").replace(" ", "")
+            # 📱 SMS de reconfirmation
             if tel.startswith("0"):
                 tel = "+33" + tel[1:]
             sms_msg = sms_text("reconfirmation_demandee", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
             send_sms_brevo(tel, sms_msg)
 
+            log_event({"id": cid}, "MAIL_ENVOYE", {"type": "reconfirmation"})
+            log_event({"id": cid}, "SMS_ENVOYE", {"type": "reconfirmation", "tel": tel})
+            log_event({"id": cid}, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
+
             sent_count += 1
             print(f"📤 Reconfirmation envoyée à {prenom} ({email})")
 
+        conn.close()
         return jsonify(ok=True, sent=sent_count)
 
     except Exception as e:
         print("❌ Erreur send_reconfirmation_all:", e)
         return jsonify(error=str(e)), 500
+
 
 
 
