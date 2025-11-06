@@ -1211,26 +1211,58 @@ def admin_row(cid):
 
 @app.route("/admin/update-field", methods=["POST"])
 def admin_update_field():
-    if not require_admin(): abort(403)
+    if not require_admin():
+        abort(403)
+
     data = request.json or {}
     cid = data.get("id")
     field = data.get("field")
     value = data.get("value")
+
     allowed = {
-    "nom","prenom","bts","mode","tel","email",
-    "label_aps","label_aut_ok","label_cheque_ok",
-    "label_ypareo","label_carte_etudiante",
-    "commentaires","nouveau_doc",
-    "date_validee","date_confirmee","date_reconfirmee"
-}
-    if field not in allowed: return jsonify({"ok":False,"error":"field not allowed"}), 400
-    conn = db(); cur = conn.cursor()
-    cur.execute(f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?", (value, datetime.now().isoformat(), cid))
-    conn.commit()
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    row = dict(cur.fetchone())
-    log_event(row, "FIELD_UPDATE", {"field": field, "value": value})
-    return jsonify({"ok":True})
+        "nom", "prenom", "bts", "mode", "tel", "email",
+        "label_aps", "label_aut_ok", "label_cheque_ok",
+        "label_ypareo", "label_carte_etudiante",
+        "commentaires", "nouveau_doc",
+        "date_validee", "date_confirmee", "date_reconfirmee"
+    }
+    if field not in allowed:
+        return jsonify(ok=False, error="Champ non autorisé"), 400
+
+    # 🧩 Conversion propre des booléens
+    if isinstance(value, bool):
+        value = int(value)
+    elif str(value).lower() in ("true", "1", "on"):
+        value = 1
+    elif str(value).lower() in ("false", "0", "off", ""):
+        value = 0
+
+    conn = db()
+    cur = conn.cursor()
+
+    try:
+        # 🔄 Met à jour le champ
+        cur.execute(
+            f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
+            (value, datetime.now().isoformat(), cid)
+        )
+        conn.commit()
+
+        # ✅ Recharge les données à jour immédiatement
+        cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+        row = dict(cur.fetchone())
+
+        # 🪶 Log propre de l’action
+        log_event(row, "FIELD_UPDATE", {"field": field, "value": value})
+
+        conn.close()
+        return jsonify(ok=True, row=row)
+
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        return jsonify(ok=False, error=str(e)), 500
+
 
 @app.route("/admin/update-status", methods=["POST"])
 def admin_update_status():
