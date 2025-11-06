@@ -1085,12 +1085,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 // =====================================================
 // 📢 ENVOI DE RECONFIRMATION À TOUS LES CANDIDATS
 // =====================================================
+// === 📢 Reconfirmation à tous les candidats ===
 document.addEventListener("DOMContentLoaded", () => {
   const massBtn = document.getElementById("btnMassReconfirm");
   if (!massBtn) return;
 
   massBtn.addEventListener("click", async () => {
-    const ok = confirm("⚠️ Envoyer le mail + SMS de reconfirmation à TOUS les candidats ?");
+    const ok = confirm("⚠️ Envoyer la reconfirmation à tous les candidats 'Inscription confirmée' ?");
     if (!ok) return;
 
     massBtn.disabled = true;
@@ -1098,34 +1099,23 @@ document.addEventListener("DOMContentLoaded", () => {
     massBtn.textContent = "⏳ Envoi en cours...";
 
     try {
-      const res = await fetch("/admin/reconfirm_all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({})
-      });
-
+      const res = await fetch("/admin/reconfirm_all", { method: "POST" });
       const data = await res.json();
+
       if (data.ok) {
-        alert(`✅ ${data.sent} reconfirmations envoyées avec succès.`);
+        showToast(`✅ ${data.sent} reconfirmations envoyées et statuts mis à jour !`, "#28a745");
+        setTimeout(() => location.reload(), 1500);
       } else {
-        alert("❌ Erreur : " + (data.error || "inconnue"));
+        showToast("⚠️ " + (data.error || "Erreur lors de l’envoi"), "#dc3545");
       }
     } catch (err) {
-      console.error(err);
-      alert("❌ Échec de l’envoi collectif.");
+      showToast("❌ Erreur réseau ou serveur", "#dc3545");
     }
 
     massBtn.disabled = false;
     massBtn.textContent = oldText;
   });
 });
-
-
-
-
-
-
-
 
 
 
