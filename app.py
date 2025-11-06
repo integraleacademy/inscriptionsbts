@@ -1206,109 +1206,154 @@ def admin_update_status():
     cur = conn.cursor()
 
     # 🕓 Enregistre la date correspondante selon le statut
+    now_iso = datetime.now().isoformat()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     if value == "validee":
-        cur.execute("UPDATE candidats SET statut=?, date_validee=?, updated_at=? WHERE id=?", (value, now_str, datetime.now().isoformat(), cid))
+        cur.execute(
+            "UPDATE candidats SET statut=?, date_validee=?, updated_at=? WHERE id=?",
+            (value, now_str, now_iso, cid)
+        )
     elif value == "confirmee":
-        cur.execute("UPDATE candidats SET statut=?, date_confirmee=?, updated_at=? WHERE id=?", (value, now_str, datetime.now().isoformat(), cid))
+        cur.execute(
+            "UPDATE candidats SET statut=?, date_confirmee=?, updated_at=? WHERE id=?",
+            (value, now_str, now_iso, cid)
+        )
     elif value == "reconfirmee":
-        cur.execute("UPDATE candidats SET statut=?, date_reconfirmee=?, updated_at=? WHERE id=?", (value, now_str, datetime.now().isoformat(), cid))
+        cur.execute(
+            "UPDATE candidats SET statut=?, date_reconfirmee=?, updated_at=? WHERE id=?",
+            (value, now_str, now_iso, cid)
+        )
     else:
-        cur.execute("UPDATE candidats SET statut=?, updated_at=? WHERE id=?", (value, datetime.now().isoformat(), cid))
+        cur.execute(
+            "UPDATE candidats SET statut=?, updated_at=? WHERE id=?",
+            (value, now_iso, cid)
+        )
+
     conn.commit()
 
-        # 🧹 Si le candidat avait été relancé, on retire le badge automatiquement
+    # 🧹 Si le candidat avait été relancé, on retire le badge automatiquement
     if value in ["confirmee", "reconfirmee", "validee"]:
         try:
-            cur.execute("UPDATE candidats SET last_relance=NULL WHERE id=?", (cid,))
+            cur.execute(
+                "UPDATE candidats SET last_relance=NULL, updated_at=? WHERE id=?",
+                (datetime.now().isoformat(), cid)
+            )
             conn.commit()
             print(f"🧹 Suppression du badge relance pour {cid}")
         except Exception as e:
             print("⚠️ Erreur suppression badge relance :", e)
 
+    # 🔄 On recharge la ligne complète pour renvoyer les infos fraîches au front
+    cur.execute(
+        "SELECT statut, date_validee, date_confirmee, date_reconfirmee, last_relance FROM candidats WHERE id=?",
+        (cid,)
+    )
+    row = cur.fetchone()
+    if row:
+        row = dict(row)
+    else:
+        row = {
+            "statut": value,
+            "date_validee": None,
+            "date_confirmee": None,
+            "date_reconfirmee": None,
+            "last_relance": None,
+        }
 
+    # ✉️ / 📱 Envois automatiques selon le statut choisi (inchangé)
+    # ⚠️ On relit la ligne complète pour les mails/sms
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    row = dict(cur.fetchone())
+    full_row = dict(cur.fetchone())
 
-    # =====================================================
-    # ✉️ Envois automatiques selon le statut choisi
-    # =====================================================
     if value == "validee":
-        # 🔐 Assurer la présence d'un token de confirmation
-        token = row.get("token_confirm")
+        token = full_row.get("token_confirm")
         if not token:
             token = new_token()
             exp = (datetime.now() + timedelta(days=30)).isoformat()
-            cur.execute("UPDATE candidats SET token_confirm=?, token_confirm_exp=?, updated_at=? WHERE id=?",
-                        (token, exp, datetime.now().isoformat(), cid))
+            cur.execute(
+                "UPDATE candidats SET token_confirm=?, token_confirm_exp=?, updated_at=? WHERE id=?",
+                (token, exp, datetime.now().isoformat(), cid)
+            )
             conn.commit()
             cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-            row = dict(cur.fetchone())
+            full_row = dict(cur.fetchone())
 
-        # 🔗 Lien signé vers la confirmation
         link = make_signed_link("/confirm-inscription", token)
 
-        # ✉️ Mail "candidature validée"
         html = mail_html(
             "candidature_validee",
-            prenom=row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+            prenom=full_row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts")),
             lien_espace=link
         )
-        send_mail(row.get("email", ""), "Votre candidature est validée – Confirmez votre inscription", html)
-        log_event(row, "MAIL_ENVOYE", {"type": "validation_inscription"})
+        send_mail(full_row.get("email", ""), "Votre candidature est validée – Confirmez votre inscription", html)
+        log_event(full_row, "MAIL_ENVOYE", {"type": "validation_inscription"})
 
-        # 📱 SMS "candidature validée"
-        tel = (row.get("tel", "") or "").replace(" ", "")
+        tel = (full_row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
         msg = sms_text(
             "candidature_validee",
-            prenom=row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+            prenom=full_row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts"))
         )
         send_sms_brevo(tel, msg)
-        log_event(row, "SMS_ENVOYE", {"type": "candidature_validee", "tel": tel})
+        log_event(full_row, "SMS_ENVOYE", {"type": "candidature_validee", "tel": tel})
 
     elif value == "confirmee":
         html = mail_html(
             "inscription_confirmee",
-            prenom=row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+            prenom=full_row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts"))
         )
-        send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
-        log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
+        send_mail(full_row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
+        log_event(full_row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
 
-        tel = (row.get("tel", "") or "").replace(" ", "")
+        tel = (full_row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
         msg = sms_text(
             "inscription_confirmee",
-            prenom=row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+            prenom=full_row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts"))
         )
         send_sms_brevo(tel, msg)
-        log_event(row, "SMS_ENVOYE", {"type": "inscription_confirmee", "tel": tel})
+        log_event(full_row, "SMS_ENVOYE", {"type": "inscription_confirmee", "tel": tel})
 
-        merci_html = render_template("mail_bienvenue.html",
-                                     prenom=row.get("prenom", ""),
-                                     bts=row.get("bts", ""))
-        send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
-        log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
+        merci_html = render_template(
+            "mail_bienvenue.html",
+            prenom=full_row.get("prenom", ""),
+            bts=full_row.get("bts", "")
+        )
+        send_mail(full_row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
+        log_event(full_row, "MAIL_ENVOYE", {"type": "bienvenue"})
 
     elif value == "reconfirmee":
-        merci_html = render_template("mail_bienvenue.html",
-                                     prenom=row.get("prenom", ""),
-                                     bts=row.get("bts", ""))
-        send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
-        log_event(row, "MAIL_ENVOYE", {"type": "bienvenue_manuel"})
-        log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
+        merci_html = render_template(
+            "mail_bienvenue.html",
+            prenom=full_row.get("prenom", ""),
+            bts=full_row.get("bts", "")
+        )
+        send_mail(full_row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
+        log_event(full_row, "MAIL_ENVOYE", {"type": "bienvenue_manuel"})
+        log_event(full_row, "STATUT_CHANGE", {"statut": "reconfirmee"})
 
     # 🪶 Log général du changement de statut
-    log_event(row, "STATUT_CHANGE", {"statut": value})
+    log_event(full_row, "STATUT_CHANGE", {"statut": value})
+
     conn.close()
 
-    return jsonify({"ok": True})
+    # 🧾 Réponse enrichie pour le front
+    return jsonify({
+        "ok": True,
+        "statut": row.get("statut"),
+        "date_validee": row.get("date_validee"),
+        "date_confirmee": row.get("date_confirmee"),
+        "date_reconfirmee": row.get("date_reconfirmee"),
+        "last_relance": row.get("last_relance"),
+    })
+
 
 
 
