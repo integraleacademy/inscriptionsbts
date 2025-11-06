@@ -1597,6 +1597,41 @@ document.addEventListener("click", (e) => {
   openActionsModal(id, commentaire);
 });
 
+// =====================================================
+// 🟩 ACTIVATION INITIALE DES ÉTIQUETTES (checkboxes)
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const checkboxes = document.querySelectorAll(".chk");
+  console.log("✅ Initialisation des étiquettes :", checkboxes.length);
+
+  checkboxes.forEach(chk => {
+    chk.addEventListener("change", async (e) => {
+      const tr = e.target.closest("tr");
+      const id = tr.dataset.id;
+      const field = e.target.dataset.field;
+      const value = e.target.checked ? 1 : 0;
+
+      try {
+        const res = await fetch("/admin/update-field", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, field, value })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          console.log(`💾 ${field} mis à jour pour ${id}`);
+          showToast("💾 Étiquette sauvegardée", "#28a745");
+        } else {
+          showToast("⚠️ Erreur de sauvegarde", "#dc3545");
+        }
+      } catch (err) {
+        showToast("❌ Erreur réseau", "#dc3545");
+        console.error(err);
+      }
+    });
+  });
+});
+
 
 
 
