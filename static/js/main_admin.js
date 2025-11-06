@@ -115,22 +115,39 @@ table.querySelectorAll('.status-select').forEach(sel => {
 });
 
 
+// 🟢 Cases à cocher (étiquettes APS / AUT / Chèque / YPAREO / Carte étudiante)
+table.querySelectorAll('input.chk').forEach(chk => {
+  chk.addEventListener('change', async () => {
+    const tr = chk.closest('tr');
+    const id = tr.dataset.id;
+    const field = chk.dataset.field;
+    const value = chk.checked; // booléen pur
 
-    // ✅ Cases à cocher (étiquettes)
-    table.querySelectorAll('input.chk').forEach(chk => {
-      chk.addEventListener('change', async () => {
-        const tr = chk.closest('tr');
-        const id = tr.dataset.id;
-        const field = chk.dataset.field;
-        const value = chk.checked ? 1 : 0;
-        await fetch('/admin/update-field', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, field, value })
-        });
-        showToast("🔖 Étiquette mise à jour");
+    // 🟡 Feedback visuel temporaire
+    const label = chk.closest('label');
+    if (label) label.style.opacity = '0.5';
+
+    try {
+      const res = await fetch('/admin/update-field', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value })
       });
-    });
+      const data = await res.json();
+      if (data.ok) {
+        showToast("🔖 Étiquette mise à jour", "#28a745");
+      } else {
+        showToast("⚠️ Erreur de sauvegarde", "#dc3545");
+      }
+    } catch (err) {
+      showToast("⚠️ Erreur réseau", "#dc3545");
+    } finally {
+      if (label) label.style.opacity = '1';
+    }
+  });
+});
+
+
 
     // ⚙️ Boutons ACTIONS
     table.querySelectorAll('.action-btn').forEach(btn => {
