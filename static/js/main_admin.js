@@ -1469,7 +1469,9 @@ async function refreshRow(id) {
           `).join("")}
         </select>
 </td>
-<td class="etiquettes" style="display:flex;align-items:center;gap:10px;justify-content:center;">
+// === Bloc des étiquettes corrigé ===
+<td class="etiquettes" 
+    style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:nowrap;white-space:nowrap;">
   <label style="display:flex;align-items:center;gap:4px;">
     <input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS
   </label>
@@ -1480,9 +1482,13 @@ async function refreshRow(id) {
     <input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK
   </label>
   <label style="display:flex;align-items:center;gap:4px;">
+    <input type="checkbox" class="chk" data-field="label_ypareo" ${data.row.label_ypareo ? "checked" : ""}> YPAREO
+  </label>
+  <label style="display:flex;align-items:center;gap:4px;">
     <input type="checkbox" class="chk" data-field="label_carte_etudiante" ${data.row.label_carte_etudiante ? "checked" : ""}> Carte étudiante
   </label>
 </td>
+
 
 `;
 
@@ -1561,6 +1567,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
