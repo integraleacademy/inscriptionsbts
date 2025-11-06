@@ -1226,31 +1226,28 @@ def admin_update_field():
         "label_ypareo", "label_carte_etudiante",
         "commentaires", "nouveau_doc"
     ]
+
     if field not in allowed:
         return jsonify({"ok": False, "error": "Champ non autorisé"}), 400
 
-    # 🧩 Normalisation des booléens
-    if isinstance(value, str):
-        value = value.strip().lower()
-        if value in ("true", "1", "yes", "on"):
-            value = 1
-        else:
-            value = 0
-    elif isinstance(value, bool):
-        value = int(value)
-
     try:
+        # 🧩 On garde le type exact selon le champ
+        if field.startswith("label_"):
+            # c’est une case à cocher → booléen
+            value = 1 if str(value).lower() in ("true", "1", "on", "yes") else 0
+        else:
+            # c’est un champ texte
+            value = str(value).strip()
+
         conn = db()
         cur = conn.cursor()
-
-        # 🔒 Mise à jour du champ dans la table candidats
         cur.execute(f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
                     (value, datetime.now().isoformat(), cid))
         conn.commit()
 
         print(f"🟢 UPDATE-FIELD: id={cid}, field={field}, value={value}")
 
-        # 📜 Log interne
+        # Log interne
         cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
         row = dict(cur.fetchone())
         log_event(row, "FIELD_UPDATE", {"field": field, "value": value})
@@ -1261,6 +1258,7 @@ def admin_update_field():
     except Exception as e:
         print("❌ Erreur update-field :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
+
 
 
 
