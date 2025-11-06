@@ -1605,11 +1605,12 @@ document.addEventListener("DOMContentLoaded", () => {
   console.log("✅ Initialisation des étiquettes :", checkboxes.length);
 
   checkboxes.forEach(chk => {
-    chk.addEventListener("change", async (e) => {
-      const tr = e.target.closest("tr");
-      const id = tr.dataset.id;
-      const field = e.target.dataset.field;
-      const value = e.target.checked ? 1 : 0;
+chk.addEventListener("change", async (e) => {
+  let ligne = e.target.closest("tr");      // ✅ <-- ici : c’est bien "let ligne" et PAS "const tr"
+  const id = ligne.dataset.id;
+  const field = e.target.dataset.field;
+  const value = e.target.checked ? 1 : 0;
+
 
       try {
         const res = await fetch("/admin/update-field", {
@@ -1631,6 +1632,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
+
 
 
 
