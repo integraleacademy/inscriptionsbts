@@ -1351,6 +1351,45 @@ if (editing) {
       const newBody = doc.querySelector(".admin-table tbody");
       if (!newBody) return;
       table.replaceWith(newBody);
+      // 🧩 Réinitialise les écouteurs après un refresh manuel ou auto
+setTimeout(() => {
+  console.log("♻️ Rebinding après refresh");
+  const checks = document.querySelectorAll("input.chk");
+  const editable = document.querySelectorAll('td[contenteditable="true"]');
+
+  // ✅ Cases à cocher (étiquettes)
+  checks.forEach(chk => {
+    chk.addEventListener("change", async () => {
+      const tr = chk.closest("tr");
+      const id = tr.dataset.id;
+      const field = chk.dataset.field;
+      const value = chk.checked ? 1 : 0;
+      await fetch("/admin/update-field", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, field, value })
+      });
+      showToast("💾 Étiquette sauvegardée", "#28a745");
+    });
+  });
+
+  // ✅ Champs éditables (nom, prénom, bts, etc.)
+  editable.forEach(td => {
+    td.addEventListener("blur", async () => {
+      const tr = td.closest("tr");
+      const id = tr.dataset.id;
+      const field = td.dataset.field;
+      const value = td.textContent.trim();
+      await fetch("/admin/update-field", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, field, value })
+      });
+      showToast("💾 Sauvegardé", "#28a745");
+    });
+  });
+}, 500);
+
       showToast("🔁 Tableau actualisé automatiquement", "#007bff");
       newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
     } catch (err) {
@@ -1646,74 +1685,6 @@ chk.addEventListener("change", async (e) => {
     });
   });
 });
-
-// =====================================================
-// ♻️ RÉINITIALISATION DES ÉTIQUETTES APRÈS REFRESH
-// =====================================================
-document.addEventListener("DOMContentLoaded", () => {
-  function initEtiquettes() {
-    const checks = document.querySelectorAll('.chk');
-    if (checks.length === 0) return;
-    console.log(`♻️ Réactivation des étiquettes : ${checks.length}`);
-
-    checks.forEach(chk => {
-      chk.addEventListener('change', async () => {
-        const tr = chk.closest('tr');
-        if (!tr) return;
-        const id = tr.dataset.id;
-        const field = chk.dataset.field;
-        const value = chk.checked ? 1 : 0;
-
-        try {
-          const res = await fetch('/admin/update-field', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, field, value })
-          });
-          const data = await res.json();
-          if (data.ok) showToast("💾 Étiquette sauvegardée", "#28a745");
-        } catch (err) {
-          showToast("⚠️ Erreur réseau", "#dc3545");
-          console.error(err);
-        }
-      });
-    });
-  }
-
-  // 🟢 Initialisation immédiate au chargement
-  initEtiquettes();
-
-  // 🔁 Réinitialisation automatique après clic sur "Rafraîchir"
-  const refreshBtn = document.getElementById('manualRefresh');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', () => {
-      setTimeout(initEtiquettes, 1500); // délai pour que le tableau se recharge
-    });
-  }
-
-  // 🔁 Réinitialisation après actualisation auto (live refresh)
-  const observer = new MutationObserver(() => initEtiquettes());
-  const table = document.querySelector('.admin-table');
-  if (table) observer.observe(table, { childList: true, subtree: true });
-});
-
-// ✅ On relance les écouteurs inline après le remplacement du tableau
-document.querySelectorAll('td[contenteditable="true"]').forEach(td => {
-  td.addEventListener('blur', async () => {
-    const tr = td.closest('tr');
-    const id = tr.dataset.id;
-    const field = td.dataset.field;
-    const value = td.textContent.trim();
-    await fetch('/admin/update-field', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, field, value })
-    });
-    showToast("💾 Sauvegardé", "#28a745");
-  });
-});
-
-
 
 
 
