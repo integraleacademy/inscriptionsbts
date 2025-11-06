@@ -1328,6 +1328,56 @@ document.addEventListener("DOMContentLoaded", () => {
   startTimer();
 });
 
+// =====================================================
+// 🧭 Détection et insertion des nouveaux candidats en live
+// =====================================================
+async function checkNewCandidats() {
+  try {
+    const res = await fetch("/admin/json", { cache: "no-store" });
+    const data = await res.json();
+
+    if (!data.ok || !Array.isArray(data.rows)) return;
+
+    const tbody = document.querySelector(".admin-table tbody");
+    if (!tbody) return;
+
+    const existingIds = Array.from(tbody.querySelectorAll("tr")).map(tr => tr.dataset.id);
+    const nouveaux = data.rows.filter(r => !existingIds.includes(r.id));
+
+    if (nouveaux.length > 0) {
+      nouveaux.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.dataset.id = r.id;
+        tr.innerHTML = `
+          <td>${r.nom}</td>
+          <td>${r.prenom}</td>
+          <td>${r.bts}</td>
+          <td>${r.mode}</td>
+          <td>${r.tel}</td>
+          <td>${r.email}</td>
+          <td><select class="status-select"><option>${r.statut}</option></select></td>
+          <td>—</td>
+          <td style="text-align:center;">🆕</td>
+        `;
+        tr.style.background = "#e8ffe8";
+        tr.style.transition = "background 1s";
+        tbody.prepend(tr);
+        setTimeout(() => (tr.style.background = ""), 1500);
+      });
+
+      showToast(`🆕 ${nouveaux.length} nouveau(x) candidat(s) ajouté(s)`, "#28a745");
+      nouveaux.forEach(r => console.log("Nouveau candidat détecté:", r.nom, r.prenom));
+    }
+  } catch (err) {
+    console.warn("Erreur checkNewCandidats:", err);
+  }
+}
+
+// 🔁 vérifie toutes les 60 s (ou adapte à ton intervalle)
+setInterval(checkNewCandidats, 60000);
+
+
+
 
 
 
