@@ -1468,17 +1468,19 @@ async function refreshRow(id) {
             <option value="${s.key}" ${s.key === data.row.statut ? "selected" : ""}>${s.label}</option>
           `).join("")}
         </select>
-      </td>
-      <td class="etiquettes">
-        <label><input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS</label>
-        <label><input type="checkbox" class="chk" data-field="label_aut_ok" ${data.row.label_aut_ok ? "checked" : ""}> AUT OK</label>
-        <label><input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK</label>
-      </td>
-      <td style="text-align:center;white-space:nowrap;">
-        <a href="/admin/candidat/${data.row.id}/espace" class="btn small" target="_blank" style="background:#f4c45a;color:#111;">👁️ Espace</a>
-        <button class="btn small action-btn" data-id="${data.row.id}" data-commentaire="${data.row.commentaires || ""}">⚙️ Actions</button>
-      </td>
-    `;
+</td>
+<td class="etiquettes">
+  <label><input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS</label>
+  <label><input type="checkbox" class="chk" data-field="label_aut_ok" ${data.row.label_aut_ok ? "checked" : ""}> AUT OK</label>
+  <label><input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK</label>
+  <label><input type="checkbox" class="chk" data-field="label_carte_etudiante" ${data.row.label_carte_etudiante ? "checked" : ""}> Carte étudiante</label>
+</td>
+<td style="text-align:center;white-space:nowrap;">
+  <a href="/admin/candidat/${data.row.id}/espace" class="btn small" target="_blank" style="background:#f4c45a;color:#111;">👁️ Espace</a>
+  <button class="btn small action-btn" data-id="${data.row.id}" data-commentaire="${data.row.commentaires || ""}">⚙️ Actions</button>
+</td>
+`;
+
     tr.innerHTML = html;
     showToast("🔄 Ligne mise à jour", "#28a745");
     tr.style.transition = "background 0.5s";
@@ -1533,6 +1535,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
