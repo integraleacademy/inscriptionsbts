@@ -1377,6 +1377,54 @@ async function checkNewCandidats() {
 setInterval(checkNewCandidats, 60000);
 
 
+// =====================================================
+// ⚡ Rafraîchissement intelligent des lignes après actions
+// =====================================================
+async function refreshRow(id) {
+  const tr = document.querySelector(`tr[data-id='${id}']`);
+  if (!tr) return;
+  try {
+    const res = await fetch(`/admin/row/${id}`);
+    const data = await res.json();
+    if (!data.ok || !data.row) return;
+
+    // 🔁 on reconstruit juste la ligne sans reload complet
+    const html = `
+      <td contenteditable="true" data-field="nom">${data.row.nom}</td>
+      <td contenteditable="true" data-field="prenom">${data.row.prenom}</td>
+      <td contenteditable="true" data-field="bts">${data.row.bts}</td>
+      <td contenteditable="true" data-field="mode">${data.row.mode}</td>
+      <td contenteditable="true" data-field="tel">${data.row.tel}</td>
+      <td contenteditable="true" data-field="email">${data.row.email}</td>
+      <td>
+        <select class="status-select" data-field="statut">
+          ${data.statuts.map(s => `
+            <option value="${s.key}" ${s.key === data.row.statut ? "selected" : ""}>${s.label}</option>
+          `).join("")}
+        </select>
+      </td>
+      <td class="etiquettes">
+        <label><input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS</label>
+        <label><input type="checkbox" class="chk" data-field="label_aut_ok" ${data.row.label_aut_ok ? "checked" : ""}> AUT OK</label>
+        <label><input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK</label>
+      </td>
+      <td style="text-align:center;white-space:nowrap;">
+        <a href="/admin/candidat/${data.row.id}/espace" class="btn small" target="_blank" style="background:#f4c45a;color:#111;">👁️ Espace</a>
+        <button class="btn small action-btn" data-id="${data.row.id}" data-commentaire="${data.row.commentaires || ""}">⚙️ Actions</button>
+      </td>
+    `;
+    tr.innerHTML = html;
+    showToast("🔄 Ligne mise à jour", "#28a745");
+    tr.style.transition = "background 0.5s";
+    tr.style.background = "#e8ffe8";
+    setTimeout(() => (tr.style.background = ""), 800);
+  } catch (err) {
+    console.warn("Erreur refreshRow:", err);
+  }
+}
+
+
+
 
 
 
