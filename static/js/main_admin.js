@@ -32,6 +32,7 @@ table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
       if (data.ok) {
         td.style.background = "#d4edda"; // vert clair
         showToast("💾 Sauvegardé", "#28a745");
+        await refreshRow(id);
         setTimeout(() => td.style.background = "", 800);
       } else {
         td.style.background = "#f8d7da"; // rouge clair
@@ -103,7 +104,7 @@ table.querySelectorAll('.status-select').forEach(sel => {
       if (colStatusText) {
         colStatusText.textContent = value.replace("_", " ");
       }
-
+      await refreshRow(id);
       showToast("📊 Statut mis à jour avec succès", "#007bff");
       tr.classList.add("status-updated");
       setTimeout(() => tr.classList.remove("status-updated"), 1500);
@@ -220,7 +221,7 @@ table.querySelectorAll('.status-select').forEach(sel => {
       updateStatusColor(select);
     }
   }
-  await refreshCandidateRow(window.currentId);
+  await refreshRow(window.currentId);
   setTimeout(() => closeFilesModal(), 1000);
 } else {
   alert("Erreur : " + (data.error || "notification impossible"));
@@ -270,8 +271,10 @@ if (markDocsCheckedBtn) {
     } catch (err) {
       alert("Erreur : " + err);
     } finally {
+      await refreshRow(window.currentId);
       markDocsCheckedBtn.disabled = false;
       markDocsCheckedBtn.textContent = "✅ Nouveau document contrôlé";
+      
     }
   });
 }
@@ -367,7 +370,7 @@ filesModal.addEventListener("click", async (e) => {
     }
 
     // ✅ Met à jour le statut dans le tableau principal (persistant)
-    await refreshCandidateStatus(window.currentId);
+    await refreshRow(window.currentId);
 
   } else {
     alert("Erreur : " + (data.error || "inconnue"));
@@ -564,7 +567,7 @@ if (reconfirmBtn) {
     const res = await fetch(`/admin/reconfirm/${id}`, { method: "POST" });
     if (res.ok) {
       showToast("📧 Mail de reconfirmation envoyé", "#007bff");
-      await refreshCandidateRow(id);
+      await refreshRow(id);
     }
     closeActionsModal();
   };
@@ -574,34 +577,65 @@ if (reconfirmBtn) {
 if (deleteBtn) {
   deleteBtn.onclick = async () => {
     if (!confirm("⚠️ Supprimer définitivement cette fiche ?")) return;
-    const res = await fetch(`/admin/delete/${id}`, { method: "POST" });
-    if (res.ok) {
-      showToast("🗑️ Fiche supprimée", "#d9534f");
-      const tr = document.querySelector(`tr[data-id='${id}']`);
-      if (tr) {
-        tr.style.transition = "opacity 0.4s ease";
-        tr.style.opacity = "0";
-        setTimeout(() => tr.remove(), 400);
+
+    deleteBtn.disabled = true;
+    deleteBtn.textContent = "⏳ Suppression...";
+
+    try {
+      const res = await fetch(`/admin/delete/${id}`, { method: "POST" });
+      if (res.ok) {
+        showToast("🗑️ Fiche supprimée avec succès", "#d9534f");
+        const tr = document.querySelector(`tr[data-id='${id}']`);
+        if (tr) {
+          tr.style.transition = "opacity 0.6s ease, transform 0.4s ease";
+          tr.style.opacity = "0";
+          tr.style.transform = "translateX(-40px)";
+          setTimeout(() => tr.remove(), 600);
+        }
+      } else {
+        showToast("❌ Erreur lors de la suppression", "#dc3545");
       }
-    } else {
-      showToast("❌ Erreur lors de la suppression", "#dc3545");
+    } catch (err) {
+      showToast("⚠️ Erreur réseau : " + err.message, "#dc3545");
+    } finally {
+      deleteBtn.disabled = false;
+      deleteBtn.textContent = "🗑️ Supprimer le dossier";
+      closeActionsModal();
     }
-    closeActionsModal();
   };
 }
 
-  if (saveBtn) {
-    saveBtn.onclick = async () => {
-      const value = commentBox.value.trim();
-      await fetch("/admin/update-field", {
+
+if (saveBtn) {
+  saveBtn.onclick = async () => {
+    const value = commentBox.value.trim();
+    saveBtn.disabled = true;
+    saveBtn.textContent = "⏳ Sauvegarde...";
+
+    try {
+      const res = await fetch("/admin/update-field", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, field: "commentaires", value })
       });
-      showToast("💬 Commentaire sauvegardé", "#28a745");
+
+      const data = await res.json();
+      if (data.ok) {
+        showToast("💬 Commentaire sauvegardé", "#28a745");
+        await refreshRow(id);
+      } else {
+        showToast("⚠️ Erreur de sauvegarde", "#dc3545");
+      }
+    } catch (err) {
+      showToast("❌ Erreur réseau : " + err.message, "#dc3545");
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "💾 Enregistrer";
       closeActionsModal();
-    };
-  }
+    }
+  };
+}
+
 
   // === ✉️ Boutons RELANCES / LOGS / DOCUMENTS ===
 // === ✉️ Boutons RENVOI MAILS / RELANCES / LOGS / DOCUMENTS ===
@@ -1078,10 +1112,12 @@ document.addEventListener("click", async (e) => {
     const data = await res.json();
 
     if (res.ok && data.ok) {
-      showToast("🔔 Relance envoyée", "#28a745");
-    } else {
-      alert("Erreur : " + (data.error || "Envoi relance impossible"));
-    }
+  showToast("✉️ Mail + SMS renvoyés", "#28a745");
+  await refreshRow(window.currentId); // ✅ AJOUT
+} else {
+  alert("Erreur : " + (data.error || "Envoi impossible"));
+}
+
   } catch (err) {
     alert("Erreur réseau : " + err.message);
   } finally {
@@ -1089,6 +1125,31 @@ document.addEventListener("click", async (e) => {
     btn.textContent = originalText;
   }
 });
+
+// 🔔 Ajoute ou met à jour le badge relance dans le tableau
+const tr = document.querySelector(`tr[data-id='${window.currentId}']`);
+if (tr) {
+  let badge = tr.querySelector(".badge-relance");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "badge-relance";
+    badge.style.cssText = `
+      background:#f4c45a;
+      color:#111;
+      padding:2px 6px;
+      border-radius:6px;
+      font-size:12px;
+      margin-left:6px;
+      display:inline-block;
+      font-weight:600;
+    `;
+    badge.textContent = "🔔 Relancé";
+    const cell = tr.querySelector("td:last-child");
+    if (cell) cell.appendChild(badge);
+  }
+  badge.title = "Dernière relance : " + new Date().toLocaleString("fr-FR");
+}
+
 
 
 // =====================================================
@@ -1164,6 +1225,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       if (data.ok) {
         showToast(`✅ ${data.sent} reconfirmations envoyées et statuts mis à jour !`, "#28a745");
+        document.querySelectorAll(".status-select").forEach(sel => {
+  if (sel.value === "confirmee") {
+    sel.value = "reconf_en_cours";
+    updateStatusColor(sel);
+  }
+});
         setTimeout(() => location.reload(), 1500);
       } else {
         showToast("⚠️ " + (data.error || "Erreur lors de l’envoi"), "#dc3545");
@@ -1422,6 +1489,7 @@ async function refreshRow(id) {
     console.warn("Erreur refreshRow:", err);
   }
 }
+
 
 
 
