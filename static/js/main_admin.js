@@ -606,6 +606,9 @@ if (saveBtn) {
       const data = await res.json();
       if (data.ok) {
         showToast("💬 Commentaire sauvegardé", "#28a745");
+        // ✅ met à jour le dataset local pour éviter "0" au prochain affichage
+const btn = document.querySelector(`.action-btn[data-id='${id}']`);
+if (btn) btn.dataset.commentaire = value;
         await refreshRow(id);
       } else {
         showToast("⚠️ Erreur de sauvegarde", "#dc3545");
@@ -1452,7 +1455,6 @@ async function refreshRow(id) {
           `).join("")}
         </select>
 </td>
-// === Bloc des étiquettes corrigé ===
 <td class="etiquettes" 
     style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:nowrap;white-space:nowrap;">
   <label style="display:flex;align-items:center;gap:4px;">
@@ -1682,6 +1684,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const table = document.querySelector('.admin-table');
   if (table) observer.observe(table, { childList: true, subtree: true });
 });
+
 
 
 
