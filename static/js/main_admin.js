@@ -1061,6 +1061,28 @@ window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
 
 // =====================================================
+// 🧮 Affiche combien de candidats sont concernés par la reconfirmation
+// =====================================================
+document.addEventListener("DOMContentLoaded", async () => {
+  const massBtn = document.getElementById("btnMassReconfirm");
+  if (!massBtn) return;
+
+  try {
+    const res = await fetch("/admin/count_confirmed");
+    const data = await res.json();
+    if (data.ok) {
+      massBtn.textContent = `📢 Envoyer reconfirmation à ${data.count} candidats confirmés`;
+    } else {
+      massBtn.textContent = "📢 Envoyer reconfirmation (aucun candidat confirmé)";
+      massBtn.disabled = true;
+    }
+  } catch (err) {
+    console.warn("Impossible de récupérer le nombre de candidats confirmés :", err);
+  }
+});
+
+
+// =====================================================
 // 📢 ENVOI DE RECONFIRMATION À TOUS LES CANDIDATS
 // =====================================================
 document.addEventListener("DOMContentLoaded", () => {
@@ -1097,6 +1119,7 @@ document.addEventListener("DOMContentLoaded", () => {
     massBtn.textContent = oldText;
   });
 });
+
 
 
 
