@@ -1228,9 +1228,16 @@ def admin_update_field():
     if field not in allowed:
         return jsonify({"ok": False, "error": "Champ non autorisé"}), 400
 
+    # 🗂️ Chemin absolu vers data.json (corrige l'erreur FileNotFound)
+    DATA_FILE = os.path.join(os.path.dirname(__file__), "data.json")
+    TMP_FILE = os.path.join(os.path.dirname(__file__), "data_tmp.json")
+
     # 🔁 Chargement sûr du JSON
-    with open("data.json", "r", encoding="utf-8") as f:
-        all_data = json.load(f)
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            all_data = json.load(f)
+    except FileNotFoundError:
+        all_data = []
 
     # 🧩 Normalisation des booléens
     if isinstance(value, str):
@@ -1254,13 +1261,12 @@ def admin_update_field():
     if not updated:
         return jsonify({"ok": False, "error": "ID non trouvé"}), 404
 
-    # 💾 Écriture sûre du JSON
-    tmp_path = "data_tmp.json"
-    with open(tmp_path, "w", encoding="utf-8") as f:
+    # 💾 Sauvegarde atomique
+    with open(TMP_FILE, "w", encoding="utf-8") as f:
         json.dump(all_data, f, ensure_ascii=False, indent=2)
-    os.replace(tmp_path, "data.json")
+    os.replace(TMP_FILE, DATA_FILE)
 
-    # 🟢 Log utile pour nous
+    # 🟢 Log de débogage
     print(f"🟢 UPDATE-FIELD: id={cid}, field={field}, value={value}")
 
     log_event({"id": cid}, "FIELD_UPDATE", {"field": field, "value": value})
