@@ -1219,48 +1219,50 @@ def admin_update_field():
     field = data.get("field")
     value = data.get("value")
 
-    allowed = {
+    allowed = [
         "nom", "prenom", "bts", "mode", "tel", "email",
         "label_aps", "label_aut_ok", "label_cheque_ok",
         "label_ypareo", "label_carte_etudiante",
-        "commentaires", "nouveau_doc",
-        "date_validee", "date_confirmee", "date_reconfirmee"
-    }
-
+        "commentaires", "nouveau_doc"
+    ]
     if field not in allowed:
         return jsonify({"ok": False, "error": "Champ non autorisé"}), 400
 
-    # ✅ Conversion fiable en entier SQLite (évite le mélange True/"true"/"1"/"0")
+    # 🔁 Chargement sûr du JSON
+    with open("data.json", "r", encoding="utf-8") as f:
+        all_data = json.load(f)
+
+    # 🧩 Normalisation des booléens
     if isinstance(value, str):
         value = value.strip().lower()
         if value in ("true", "1", "yes", "on"):
             value = 1
-        elif value in ("false", "0", "no", "off", ""):
+        else:
             value = 0
-
-    if isinstance(value, bool):
+    elif isinstance(value, bool):
         value = int(value)
 
-    conn = db()
-    cur = conn.cursor()
+    # 🔒 Mise à jour atomique de la ligne correspondante
+    updated = False
+    for row in all_data:
+        if row.get("id") == cid:
+            row[field] = value
+            row["updated_at"] = datetime.now().isoformat()
+            updated = True
+            break
 
-    try:
-        cur.execute(
-            f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
-            (value, datetime.now().isoformat(), cid)
-        )
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        conn.close()
-        return jsonify({"ok": False, "error": str(e)}), 500
+    if not updated:
+        return jsonify({"ok": False, "error": "ID non trouvé"}), 404
 
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    row = dict(cur.fetchone() or {})
-    conn.close()
+    # 💾 Écriture sûre du JSON
+    tmp_path = "data_tmp.json"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(all_data, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, "data.json")
 
-    log_event(row, "FIELD_UPDATE", {"field": field, "value": value})
+    log_event({"id": cid}, "FIELD_UPDATE", {"field": field, "value": value})
     return jsonify({"ok": True, "value": value})
+
 
 
 @app.route("/admin/update-status", methods=["POST"])
