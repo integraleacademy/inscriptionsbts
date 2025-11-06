@@ -1558,24 +1558,24 @@ tr.querySelectorAll("input.chk").forEach(chk => {
   });
 });
 
-// ✅ Recharge le badge “Carte étudiante” si présent
-// ✅ n’affiche le badge que si le champ est bien coché (1)
-if (parseInt(data.row.label_carte_etudiante) === 1) {
+// ✅ Recharge le badge “Carte étudiante” uniquement si la case est cochée ET que le champ modifié est label_carte_etudiante
+if (field === "label_carte_etudiante") {
   const cell = tr.querySelector("td:last-child");
-  if (cell && !cell.querySelector(".badge-carte")) {
-    const badge = document.createElement("span");
-    badge.className = "badge-carte";
-    badge.textContent = "🎓 Carte étudiante";
-    badge.style.cssText =
-      "background:#007bff;color:#fff;padding:2px 6px;border-radius:6px;font-size:12px;margin-left:6px;";
-    cell.appendChild(badge);
-  }
-} else {
-  // 🧹 si décochée → on supprime le badge
-  const badge = tr.querySelector(".badge-carte");
-  if (badge) badge.remove();
-}
+  const badge = cell?.querySelector(".badge-carte");
 
+  if (parseInt(data.row.label_carte_etudiante) === 1) {
+    if (!badge) {
+      const newBadge = document.createElement("span");
+      newBadge.className = "badge-carte";
+      newBadge.textContent = "🎓 Carte étudiante";
+      newBadge.style.cssText =
+        "background:#007bff;color:#fff;padding:2px 6px;border-radius:6px;font-size:12px;margin-left:6px;";
+      cell?.appendChild(newBadge);
+    }
+  } else if (badge) {
+    badge.remove();
+  }
+}
 
 // 🌈 Feedback visuel après mise à jour
 showToast("🔄 Ligne mise à jour", "#28a745");
@@ -1685,6 +1685,7 @@ chk.addEventListener("change", async (e) => {
     });
   });
 });
+
 
 
 
