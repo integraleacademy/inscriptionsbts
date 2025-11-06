@@ -56,7 +56,7 @@
   </script>
 
   {% if 'admin' in request.path or 'parcoursup' in request.path %}
-    <script src="{{ url_for('static', filename='js/main_admin.js') }}" defer></script>
+    <script src="{{ url_for('static', filename='js/main_admin.js') }}"></script>
   {% elif request.path.startswith('/replace-files') %}
     {# Pas de JS front sur cette page #}
   {% else %}
