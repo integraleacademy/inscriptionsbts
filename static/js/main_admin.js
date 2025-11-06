@@ -1339,6 +1339,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (!table) return;
     try {
       const res = await fetch(window.location.href, { cache: "no-store" });
+      // 🚫 Empêche le refresh si une cellule est en édition
+const editing = document.activeElement?.isContentEditable;
+if (editing) {
+  console.log("⏸️ Refresh annulé pendant édition");
+  return;
+}
       const html = await res.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, "text/html");
@@ -1514,7 +1520,8 @@ tr.querySelectorAll("input.chk").forEach(chk => {
 });
 
 // ✅ Recharge le badge “Carte étudiante” si présent
-if (data.row.has_badge_carte || data.row.label_carte_etudiante) {
+// ✅ n’affiche le badge que si le champ est bien coché (1)
+if (parseInt(data.row.label_carte_etudiante) === 1) {
   const cell = tr.querySelector("td:last-child");
   if (cell && !cell.querySelector(".badge-carte")) {
     const badge = document.createElement("span");
@@ -1524,7 +1531,12 @@ if (data.row.has_badge_carte || data.row.label_carte_etudiante) {
       "background:#007bff;color:#fff;padding:2px 6px;border-radius:6px;font-size:12px;margin-left:6px;";
     cell.appendChild(badge);
   }
+} else {
+  // 🧹 si décochée → on supprime le badge
+  const badge = tr.querySelector(".badge-carte");
+  if (badge) badge.remove();
 }
+
 
 // 🌈 Feedback visuel après mise à jour
 showToast("🔄 Ligne mise à jour", "#28a745");
@@ -1683,6 +1695,22 @@ document.addEventListener("DOMContentLoaded", () => {
   const observer = new MutationObserver(() => initEtiquettes());
   const table = document.querySelector('.admin-table');
   if (table) observer.observe(table, { childList: true, subtree: true });
+});
+
+// ✅ On relance les écouteurs inline après le remplacement du tableau
+document.querySelectorAll('td[contenteditable="true"]').forEach(td => {
+  td.addEventListener('blur', async () => {
+    const tr = td.closest('tr');
+    const id = tr.dataset.id;
+    const field = td.dataset.field;
+    const value = td.textContent.trim();
+    await fetch('/admin/update-field', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, field, value })
+    });
+    showToast("💾 Sauvegardé", "#28a745");
+  });
 });
 
 
