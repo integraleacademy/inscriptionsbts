@@ -2895,6 +2895,43 @@ def admin_relance(cid):
         return jsonify({"ok": False, "error": str(e)})
 
 
+# =====================================================
+# 📢 ENVOI DE RECONFIRMATION À TOUS LES CANDIDATS
+# =====================================================
+@app.route("/admin/reconfirm_all", methods=["POST"])
+def admin_reconfirm_all():
+    try:
+        conn = db()
+        rows = conn.execute("SELECT id, prenom, email, tel, bts, slug_public FROM candidats").fetchall()
+        conn.close()
+
+        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+        sent_count = 0
+
+        for r in rows:
+            prenom, email, tel, bts_label = r["prenom"], r["email"], r["tel"], r["bts"]
+            lien_espace = make_signed_link("/espace", r["slug_public"])
+
+            # ✉️ Envoi mail
+            subject = f"Intégrale Academy – Reconfirmation d’inscription"
+            html_content = mail_html("reconfirmation", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
+            send_mail(email, subject, html_content)
+
+            # 📱 Envoi SMS
+            tel = (tel or "").replace(" ", "")
+            if tel.startswith("0"):
+                tel = "+33" + tel[1:]
+            sms_msg = sms_text("reconfirmation_demandee", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
+            send_sms_brevo(tel, sms_msg)
+
+            sent_count += 1
+            print(f"📤 Reconfirmation envoyée à {prenom} ({email})")
+
+        return jsonify(ok=True, sent=sent_count)
+
+    except Exception as e:
+        print("❌ Erreur send_reconfirmation_all:", e)
+        return jsonify(error=str(e)), 500
 
 
 
