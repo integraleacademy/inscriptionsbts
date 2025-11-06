@@ -2895,6 +2895,20 @@ def admin_relance(cid):
         return jsonify({"ok": False, "error": str(e)})
 
 
+# =====================================================
+# 🧮 COMPTE LES CANDIDATS "Inscription confirmée"
+# =====================================================
+@app.route("/admin/count_confirmed")
+def admin_count_confirmed():
+    try:
+        conn = db()
+        count = conn.execute("SELECT COUNT(*) FROM candidats WHERE statut = 'confirmee'").fetchone()[0]
+        conn.close()
+        return jsonify(ok=True, count=count)
+    except Exception as e:
+        print("Erreur count_confirmed:", e)
+        return jsonify(ok=False, error=str(e)), 500
+
 
 # =====================================================
 # 📢 ENVOI DE RECONFIRMATION À TOUS LES CANDIDATS "Inscription confirmée"
