@@ -1486,35 +1486,33 @@ async function refreshRow(id) {
 
 `;
 
-    tr.innerHTML = html;
-    showToast("🔄 Ligne mise à jour", "#28a745");
-    tr.style.transition = "background 0.5s";
-    tr.style.background = "#e8ffe8";
-    setTimeout(() => (tr.style.background = ""), 800);
-    // ✅ Réapplique la couleur du statut après reconstruction
+// 🧩 Met à jour uniquement le contenu sans recréer toute la ligne (évite disparition boutons)
+const temp = document.createElement("tr");
+temp.innerHTML = html.trim();
+
+const newCells = temp.querySelectorAll("td");
+const oldCells = tr.querySelectorAll("td");
+
+// 🧱 Remplace uniquement les cellules sauf la dernière (Actions)
+newCells.forEach((newTd, i) => {
+  if (i < oldCells.length - 1) {
+    oldCells[i].innerHTML = newTd.innerHTML;
+  }
+});
+
+// 🎨 Réapplique couleur du statut
 const sel = tr.querySelector(".status-select");
 if (sel) updateStatusColor(sel);
-    // ✅ Recharge les badges persistants (ex : Carte étudiante)
-if (data.row.has_badge_carte) {
-  const cell = tr.querySelector("td:last-child");
-  if (cell && !cell.querySelector(".badge-carte")) {
-    const badge = document.createElement("span");
-    badge.className = "badge-carte";
-    badge.textContent = "🎓 Carte étudiante";
-    badge.style.cssText = "background:#007bff;color:#fff;padding:2px 6px;border-radius:6px;font-size:12px;margin-left:6px;";
-    cell.appendChild(badge);
-  }
-}
 
-    // 🧩 Réattache les écouteurs sur les nouvelles cases à cocher
-tr.querySelectorAll('input.chk').forEach(chk => {
-  chk.addEventListener('change', async () => {
+// ✅ Réattache les écouteurs sur les cases à cocher (étiquettes)
+tr.querySelectorAll("input.chk").forEach(chk => {
+  chk.addEventListener("change", async () => {
     const field = chk.dataset.field;
     const value = chk.checked ? 1 : 0;
     try {
-      await fetch('/admin/update-field', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      await fetch("/admin/update-field", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, field, value })
       });
       showToast("🔖 Étiquette mise à jour", "#28a745");
@@ -1523,6 +1521,29 @@ tr.querySelectorAll('input.chk').forEach(chk => {
     }
   });
 });
+
+// ✅ Recharge le badge “Carte étudiante” si présent
+if (data.row.has_badge_carte || data.row.label_carte_etudiante) {
+  const cell = tr.querySelector("td:last-child");
+  if (cell && !cell.querySelector(".badge-carte")) {
+    const badge = document.createElement("span");
+    badge.className = "badge-carte";
+    badge.textContent = "🎓 Carte étudiante";
+    badge.style.cssText =
+      "background:#007bff;color:#fff;padding:2px 6px;border-radius:6px;font-size:12px;margin-left:6px;";
+    cell.appendChild(badge);
+  }
+}
+
+// 🌈 Feedback visuel après mise à jour
+showToast("🔄 Ligne mise à jour", "#28a745");
+tr.style.transition = "background 0.5s";
+tr.style.background = "#e8ffe8";
+setTimeout(() => (tr.style.background = ""), 800);
+
+
+
+
 
     
   } catch (err) {
@@ -1540,6 +1561,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
