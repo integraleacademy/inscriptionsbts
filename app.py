@@ -1170,6 +1170,18 @@ def admin():
     rows = [r for r in rows if match(r)]
     return render_template("admin.html", title="Administration", rows=rows, statuts=STATUTS)
 
+# =====================================================
+# 🔁 API JSON – Liste simplifiée des candidats pour refresh auto
+# =====================================================
+@app.route("/admin/json")
+def admin_json():
+    if not require_admin():
+        abort(403)
+    conn = db()
+    rows = [dict(r) for r in conn.execute("SELECT id, nom, prenom, bts, mode, tel, email, statut, created_at FROM candidats ORDER BY created_at DESC LIMIT 500")]
+    conn.close()
+    return jsonify({"ok": True, "rows": rows})
+
 @app.route("/admin/update-field", methods=["POST"])
 def admin_update_field():
     if not require_admin(): abort(403)
