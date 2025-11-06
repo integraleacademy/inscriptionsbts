@@ -1198,7 +1198,11 @@ def admin_row(cid):
     row = dict(row)
 
     # ✅ Indique au front si le candidat a la carte étudiante cochée
-    row["has_badge_carte"] = bool(row.get("label_carte_etudiante"))
+    row["has_badge_carte"] = bool(
+    row.get("label_carte_etudiante")
+    or row.get("label_carte_ok")
+    or row.get("carte_etudiante")
+)
 
     # 🔹 Liste des statuts disponibles pour le <select>
     statuts = [{"key": s[0], "label": s[1]} for s in STATUTS]
