@@ -1060,6 +1060,46 @@ function closeRelancesActionsModal() {
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
 
+// =====================================================
+// 📢 ENVOI DE RECONFIRMATION À TOUS LES CANDIDATS
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const massBtn = document.getElementById("btnMassReconfirm");
+  if (!massBtn) return;
+
+  massBtn.addEventListener("click", async () => {
+    const ok = confirm("⚠️ Envoyer le mail + SMS de reconfirmation à TOUS les candidats ?");
+    if (!ok) return;
+
+    massBtn.disabled = true;
+    const oldText = massBtn.textContent;
+    massBtn.textContent = "⏳ Envoi en cours...";
+
+    try {
+      const res = await fetch("/admin/reconfirm_all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({})
+      });
+
+      const data = await res.json();
+      if (data.ok) {
+        alert(`✅ ${data.sent} reconfirmations envoyées avec succès.`);
+      } else {
+        alert("❌ Erreur : " + (data.error || "inconnue"));
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ Échec de l’envoi collectif.");
+    }
+
+    massBtn.disabled = false;
+    massBtn.textContent = oldText;
+  });
+});
+
+
+
 
 
 
