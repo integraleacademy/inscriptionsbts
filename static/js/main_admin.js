@@ -115,39 +115,6 @@ table.querySelectorAll('.status-select').forEach(sel => {
 });
 
 
-// 🟢 Cases à cocher (étiquettes APS / AUT / Chèque / YPAREO / Carte étudiante)
-table.querySelectorAll('input.chk').forEach(chk => {
-  chk.addEventListener('change', async () => {
-    const tr = chk.closest('tr');
-    const id = tr.dataset.id;
-    const field = chk.dataset.field;
-    const value = chk.checked; // booléen pur
-
-    // 🟡 Feedback visuel temporaire
-    const label = chk.closest('label');
-    if (label) label.style.opacity = '0.5';
-
-    try {
-      const res = await fetch('/admin/update-field', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, field, value })
-      });
-      const data = await res.json();
-      if (data.ok) {
-        showToast("🔖 Étiquette mise à jour", "#28a745");
-      } else {
-        showToast("⚠️ Erreur de sauvegarde", "#dc3545");
-      }
-    } catch (err) {
-      showToast("⚠️ Erreur réseau", "#dc3545");
-    } finally {
-      if (label) label.style.opacity = '1';
-    }
-  });
-});
-
-
 
     // ⚙️ Boutons ACTIONS
     table.querySelectorAll('.action-btn').forEach(btn => {
@@ -1192,47 +1159,6 @@ function closeRelancesActionsModal() {
   document.getElementById("relancesModal")?.classList.add("hidden");
 }
 
-// =====================================================
-// 🟩 FIX – Réattache les écouteurs sur les cases à cocher après chargement complet
-// =====================================================
-// =====================================================
-// 🟩 FIX – Réattache les écouteurs sur les cases à cocher après chargement complet
-// =====================================================
-window.addEventListener("load", () => {
-  setTimeout(() => {
-    const checks = document.querySelectorAll("input.chk");
-    console.log("🎯 Initialisation étiquettes :", checks.length, "cases détectées");
-
-    checks.forEach(chk => {
-      chk.addEventListener("change", async () => {
-        const tr = chk.closest("tr");
-        const id = tr.dataset.id;
-        const field = chk.dataset.field;
-        const value = chk.checked;
-
-        try {
-          const res = await fetch("/admin/update-field", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ id, field, value })
-          });
-          const data = await res.json();
-          if (data.ok) {
-            showToast("💾 Étiquette sauvegardée", "#28a745");
-          } else {
-            showToast("⚠️ Erreur sauvegarde", "#dc3545");
-          }
-        } catch (err) {
-          showToast("⚠️ Erreur réseau", "#dc3545");
-        }
-      });
-    });
-
-    console.log("✅ Écouteurs étiquettes actifs !");
-  }, 1200); // petit délai pour attendre le tableau
-});
-
-
 
 window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
@@ -1622,15 +1548,21 @@ Array.from(tr.querySelectorAll("td")).forEach(td => {
 });
 
  // ✅ Réattache les écouteurs sur les cases à cocher après chaque refreshRow
+// ✅ Réattache les écouteurs sur les cases à cocher après chaque refreshRow
 setTimeout(() => {
   const checks = document.querySelectorAll("input.chk");
   console.log("♻️ Réactivation des cases :", checks.length);
+
   checks.forEach(chk => {
-    chk.addEventListener("change", async () => {
-      const tr = chk.closest("tr");
+    // 🧹 Supprime les anciens écouteurs avant d’en remettre un
+    const newChk = chk.cloneNode(true);
+    chk.parentNode.replaceChild(newChk, chk);
+
+    newChk.addEventListener("change", async () => {
+      const tr = newChk.closest("tr");
       const id = tr.dataset.id;
-      const field = chk.dataset.field;
-      const value = chk.checked;
+      const field = newChk.dataset.field;
+      const value = newChk.checked;
 
       try {
         const res = await fetch("/admin/update-field", {
@@ -1646,6 +1578,7 @@ setTimeout(() => {
     });
   });
 }, 800);
+
    
 
   } catch (err) {
@@ -1663,6 +1596,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
