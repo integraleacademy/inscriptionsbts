@@ -9,21 +9,45 @@ document.addEventListener("DOMContentLoaded", () => {
   const table = document.querySelector('.admin-table');
   if (table) {
 
-    // 🔤 Modification champs inline
-    table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
-      td.addEventListener('blur', async () => {
-        const tr = td.closest('tr');
-        const id = tr.dataset.id;
-        const field = td.dataset.field;
-        const value = td.textContent.trim();
-        await fetch('/admin/update-field', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id, field, value })
-        });
-        showToast("💾 Sauvegardé", "#28a745");
+// ✏️ Édition inline des champs (mise à jour dynamique et feedback visuel)
+table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
+  td.addEventListener('blur', async () => {
+    const tr = td.closest('tr');
+    const id = tr.dataset.id;
+    const field = td.dataset.field;
+    const value = td.textContent.trim();
+
+    // 🟡 Feedback visuel immédiat
+    td.style.background = "#fff3cd"; // jaune clair pendant la sauvegarde
+
+    try {
+      const res = await fetch('/admin/update-field', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value })
       });
-    });
+
+      const data = await res.json();
+
+      if (data.ok) {
+        td.style.background = "#d4edda"; // vert clair
+        showToast("💾 Sauvegardé", "#28a745");
+        setTimeout(() => td.style.background = "", 800);
+      } else {
+        td.style.background = "#f8d7da"; // rouge clair
+        showToast("❌ Erreur de sauvegarde", "#dc3545");
+      }
+    } catch (e) {
+      td.style.background = "#f8d7da";
+      showToast("⚠️ Erreur réseau", "#dc3545");
+    }
+  });
+
+  // 🔹 Surbrillance quand on édite
+  td.addEventListener('focus', () => td.classList.add('editing'));
+  td.addEventListener('blur', () => td.classList.remove('editing'));
+});
+
 
 // 🔄 Changement de statut + mise à jour couleur + enregistrement date + MAJ dynamique
 table.querySelectorAll('.status-select').forEach(sel => {
@@ -1137,6 +1161,7 @@ document.addEventListener("DOMContentLoaded", () => {
     massBtn.textContent = oldText;
   });
 });
+
 
 
 
