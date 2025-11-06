@@ -1485,10 +1485,26 @@ async function refreshRow(id) {
     tr.style.transition = "background 0.5s";
     tr.style.background = "#e8ffe8";
     setTimeout(() => (tr.style.background = ""), 800);
+    // ✅ Réapplique la couleur du statut après reconstruction
+const sel = tr.querySelector(".status-select");
+if (sel) updateStatusColor(sel);
   } catch (err) {
     console.warn("Erreur refreshRow:", err);
   }
 }
+
+// =====================================================
+// ⚙️ Délégation globale pour le bouton "Actions"
+// =====================================================
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest(".action-btn");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const commentaire = btn.dataset.commentaire || "";
+  openActionsModal(id, commentaire);
+});
+
+
 
 
 
