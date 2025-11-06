@@ -1260,6 +1260,9 @@ def admin_update_field():
         json.dump(all_data, f, ensure_ascii=False, indent=2)
     os.replace(tmp_path, "data.json")
 
+    # 🟢 Log utile pour nous
+    print(f"🟢 UPDATE-FIELD: id={cid}, field={field}, value={value}")
+
     log_event({"id": cid}, "FIELD_UPDATE", {"field": field, "value": value})
     return jsonify({"ok": True, "value": value})
 
