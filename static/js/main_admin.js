@@ -1547,11 +1547,17 @@ tr.style.transition = "background 0.5s";
 tr.style.background = "#e8ffe8";
 setTimeout(() => (tr.style.background = ""), 800);
 
+    // 🔧 Correction d’affichage (force le flex horizontal)
+const etiquettes = tr.querySelector('.etiquettes');
+if (etiquettes) {
+  etiquettes.style.display = 'flex';
+  etiquettes.style.alignItems = 'center';
+  etiquettes.style.justifyContent = 'center';
+  etiquettes.style.gap = '12px';
+  etiquettes.style.flexWrap = 'nowrap';
+  etiquettes.style.whiteSpace = 'nowrap';
+}
 
-
-
-
-    
   } catch (err) {
     console.warn("Erreur refreshRow:", err);
   }
@@ -1567,6 +1573,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
