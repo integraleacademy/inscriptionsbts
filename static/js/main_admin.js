@@ -1498,6 +1498,26 @@ if (data.row.has_badge_carte) {
     cell.appendChild(badge);
   }
 }
+
+    // 🧩 Réattache les écouteurs sur les nouvelles cases à cocher
+tr.querySelectorAll('input.chk').forEach(chk => {
+  chk.addEventListener('change', async () => {
+    const field = chk.dataset.field;
+    const value = chk.checked ? 1 : 0;
+    try {
+      await fetch('/admin/update-field', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, field, value })
+      });
+      showToast("🔖 Étiquette mise à jour", "#28a745");
+    } catch (err) {
+      showToast("⚠️ Erreur lors de la mise à jour", "#dc3545");
+    }
+  });
+});
+
+    
   } catch (err) {
     console.warn("Erreur refreshRow:", err);
   }
@@ -1513,6 +1533,7 @@ document.addEventListener("click", (e) => {
   const commentaire = btn.dataset.commentaire || "";
   openActionsModal(id, commentaire);
 });
+
 
 
 
