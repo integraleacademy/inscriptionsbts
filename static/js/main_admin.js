@@ -220,7 +220,7 @@ table.querySelectorAll('.status-select').forEach(sel => {
       updateStatusColor(select);
     }
   }
-
+  await refreshCandidateRow(window.currentId);
   setTimeout(() => closeFilesModal(), 1000);
 } else {
   alert("Erreur : " + (data.error || "notification impossible"));
@@ -290,9 +290,15 @@ if (mergeDocsBtn) {
         body: JSON.stringify({ id: window.currentId })
       });
       const data = await res.json();
+
       if (data.ok) {
         showToast("💾 Nouveaux documents enregistrés", "#28a745");
-        setTimeout(() => location.reload(), 800);
+
+        // 🔄 met à jour la ligne instantanément sans reload
+        await refreshCandidateRow(window.currentId);
+
+        // ✅ ferme la modale après un petit délai
+        setTimeout(() => closeFilesModal(), 800);
       } else {
         alert("Erreur : " + (data.error || "enregistrement impossible"));
       }
@@ -304,8 +310,6 @@ if (mergeDocsBtn) {
     }
   });
 }
-
-
 
 // ✅ / ❌ Marquer une pièce conforme ou non conforme
 filesModal.addEventListener("click", async (e) => {
@@ -554,26 +558,37 @@ function openActionsModal(id, commentaire = "") {
 
   if (printLink) printLink.onclick = () => window.open(`/admin/print/${id}`, "_blank");
 
-  if (reconfirmBtn) {
-    reconfirmBtn.onclick = async () => {
-      if (!confirm("Confirmer l’envoi du mail de reconfirmation ?")) return;
-      const res = await fetch(`/admin/reconfirm/${id}`, { method: "POST" });
-      if (res.ok) showToast("📧 Mail de reconfirmation envoyé", "#007bff");
-      closeActionsModal();
-    };
-  }
+if (reconfirmBtn) {
+  reconfirmBtn.onclick = async () => {
+    if (!confirm("Confirmer l’envoi du mail de reconfirmation ?")) return;
+    const res = await fetch(`/admin/reconfirm/${id}`, { method: "POST" });
+    if (res.ok) {
+      showToast("📧 Mail de reconfirmation envoyé", "#007bff");
+      await refreshCandidateRow(id);
+    }
+    closeActionsModal();
+  };
+}
 
-  if (deleteBtn) {
-    deleteBtn.onclick = async () => {
-      if (!confirm("⚠️ Supprimer définitivement cette fiche ?")) return;
-      const res = await fetch(`/admin/delete/${id}`, { method: "POST" });
-      if (res.ok) {
-        showToast("🗑️ Fiche supprimée", "#d9534f");
-        document.querySelector(`tr[data-id='${id}']`)?.remove();
+
+if (deleteBtn) {
+  deleteBtn.onclick = async () => {
+    if (!confirm("⚠️ Supprimer définitivement cette fiche ?")) return;
+    const res = await fetch(`/admin/delete/${id}`, { method: "POST" });
+    if (res.ok) {
+      showToast("🗑️ Fiche supprimée", "#d9534f");
+      const tr = document.querySelector(`tr[data-id='${id}']`);
+      if (tr) {
+        tr.style.transition = "opacity 0.4s ease";
+        tr.style.opacity = "0";
+        setTimeout(() => tr.remove(), 400);
       }
-      closeActionsModal();
-    };
-  }
+    } else {
+      showToast("❌ Erreur lors de la suppression", "#dc3545");
+    }
+    closeActionsModal();
+  };
+}
 
   if (saveBtn) {
     saveBtn.onclick = async () => {
@@ -1161,6 +1176,98 @@ document.addEventListener("DOMContentLoaded", () => {
     massBtn.textContent = oldText;
   });
 });
+
+// =====================================================
+// 🔄 Rafraîchit la ligne d’un candidat depuis le backend (statut, dates, badges…)
+// =====================================================
+async function refreshCandidateRow(id) {
+  try {
+    const tr = document.querySelector(`tr[data-id='${id}']`);
+    if (!tr) return;
+
+    const res = await fetch(`/admin/status/${id}`);
+    const data = await res.json();
+    if (!data.ok) return;
+
+    // 🟢 Met à jour le statut dans le select
+    const sel = tr.querySelector('.status-select');
+    if (sel) {
+      sel.value = data.statut;
+      window.updateStatusColor(sel);
+    }
+
+    // 🕓 Met à jour les dates visibles (si colonnes présentes)
+    if (data.date_validee) {
+      const c = tr.querySelector('.col-date-validee');
+      if (c) c.textContent = new Date(data.date_validee).toLocaleDateString('fr-FR');
+    }
+    if (data.date_confirmee) {
+      const c = tr.querySelector('.col-date-confirmee');
+      if (c) c.textContent = new Date(data.date_confirmee).toLocaleDateString('fr-FR');
+    }
+    if (data.date_reconfirmee) {
+      const c = tr.querySelector('.col-date-reconfirmee');
+      if (c) c.textContent = new Date(data.date_reconfirmee).toLocaleDateString('fr-FR');
+    }
+
+    // 🧩 Si le badge relance existe mais que le statut a changé → on l’enlève
+    if (['confirmee', 'reconfirmee', 'validee'].includes(data.statut)) {
+      const badge = tr.querySelector('.badge-relance');
+      if (badge) badge.remove();
+    }
+
+    showToast('🔄 Ligne mise à jour', '#007bff');
+  } catch (e) {
+    console.error('Erreur refreshCandidateRow:', e);
+  }
+}
+
+// =====================================================
+// 🕓 Actualisation automatique de tout le tableau admin
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const table = document.querySelector(".admin-table tbody");
+  if (!table) return;
+
+  let autoRefreshInterval = 60; // ⏱️ toutes les 60 secondes (modifiable)
+  let lastUpdate = Date.now();
+
+  async function refreshAdminTable() {
+    try {
+      const res = await fetch(window.location.href, { cache: "no-store" });
+      const html = await res.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, "text/html");
+      const newBody = doc.querySelector(".admin-table tbody");
+
+      if (!newBody) return;
+
+      // 🟡 Ne pas remplacer si l’utilisateur édite une cellule
+      const isEditing = document.activeElement && document.activeElement.tagName === "TD" && document.activeElement.isContentEditable;
+      if (isEditing) return;
+
+      table.replaceWith(newBody);
+      showToast("🔄 Tableau mis à jour automatiquement", "#007bff");
+
+      // 🟢 Réapplique les couleurs de statuts
+      newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
+
+    } catch (err) {
+      console.warn("Erreur d’actualisation automatique :", err);
+    }
+  }
+
+  // 🔁 Actualisation automatique
+  setInterval(() => {
+    const now = Date.now();
+    if (now - lastUpdate > autoRefreshInterval * 1000) {
+      refreshAdminTable();
+      lastUpdate = now;
+    }
+  }, 5000);
+});
+
+
 
 
 
