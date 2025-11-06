@@ -2895,15 +2895,24 @@ def admin_relance(cid):
         return jsonify({"ok": False, "error": str(e)})
 
 
+
 # =====================================================
-# 📢 ENVOI DE RECONFIRMATION À TOUS LES CANDIDATS
+# 📢 ENVOI DE RECONFIRMATION À TOUS LES CANDIDATS "Inscription confirmée"
 # =====================================================
 @app.route("/admin/reconfirm_all", methods=["POST"])
 def admin_reconfirm_all():
     try:
         conn = db()
-        rows = conn.execute("SELECT id, prenom, email, tel, bts, slug_public FROM candidats").fetchall()
+        # 🔍 On sélectionne uniquement les candidats avec le statut "confirmee"
+        rows = conn.execute("""
+            SELECT id, prenom, email, tel, bts, slug_public 
+            FROM candidats 
+            WHERE statut = 'confirmee'
+        """).fetchall()
         conn.close()
+
+        if not rows:
+            return jsonify(ok=False, error="Aucun candidat avec le statut 'Inscription confirmée'."), 400
 
         BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
         sent_count = 0
@@ -2932,6 +2941,7 @@ def admin_reconfirm_all():
     except Exception as e:
         print("❌ Erreur send_reconfirmation_all:", e)
         return jsonify(error=str(e)), 500
+
 
 
 
