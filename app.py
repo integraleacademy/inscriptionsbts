@@ -1182,6 +1182,24 @@ def admin_json():
     conn.close()
     return jsonify({"ok": True, "rows": rows})
 
+# =====================================================
+# ⚡ API JSON – Détail d'une ligne candidat (refresh dynamique)
+# =====================================================
+@app.route("/admin/row/<cid>")
+def admin_row(cid):
+    if not require_admin():
+        abort(403)
+    conn = db()
+    row = conn.execute("SELECT * FROM candidats WHERE id=?", (cid,)).fetchone()
+    conn.close()
+    if not row:
+        return jsonify(ok=False, error="Candidat introuvable"), 404
+    row = dict(row)
+    # on renvoie aussi la liste des statuts pour reconstruire le <select>
+    statuts = [{"key": s[0], "label": s[1]} for s in STATUTS]
+    return jsonify(ok=True, row=row, statuts=statuts)
+
+
 @app.route("/admin/update-field", methods=["POST"])
 def admin_update_field():
     if not require_admin(): abort(403)
