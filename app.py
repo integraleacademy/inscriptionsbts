@@ -1209,6 +1209,7 @@ def admin_row(cid):
 
     return jsonify(ok=True, row=row, statuts=statuts)
 
+
 @app.route("/admin/update-field", methods=["POST"])
 def admin_update_field():
     if not require_admin():
@@ -1228,17 +1229,6 @@ def admin_update_field():
     if field not in allowed:
         return jsonify({"ok": False, "error": "Champ non autorisé"}), 400
 
-    # 🗂️ Chemin absolu vers data.json (corrige l'erreur FileNotFound)
-    DATA_FILE = os.path.join(os.path.dirname(__file__), "data.json")
-    TMP_FILE = os.path.join(os.path.dirname(__file__), "data_tmp.json")
-
-    # 🔁 Chargement sûr du JSON
-    try:
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            all_data = json.load(f)
-    except FileNotFoundError:
-        all_data = []
-
     # 🧩 Normalisation des booléens
     if isinstance(value, str):
         value = value.strip().lower()
@@ -1249,28 +1239,29 @@ def admin_update_field():
     elif isinstance(value, bool):
         value = int(value)
 
-    # 🔒 Mise à jour atomique de la ligne correspondante
-    updated = False
-    for row in all_data:
-        if row.get("id") == cid:
-            row[field] = value
-            row["updated_at"] = datetime.now().isoformat()
-            updated = True
-            break
+    try:
+        conn = db()
+        cur = conn.cursor()
 
-    if not updated:
-        return jsonify({"ok": False, "error": "ID non trouvé"}), 404
+        # 🔒 Mise à jour du champ dans la table candidats
+        cur.execute(f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
+                    (value, datetime.now().isoformat(), cid))
+        conn.commit()
 
-    # 💾 Sauvegarde atomique
-    with open(TMP_FILE, "w", encoding="utf-8") as f:
-        json.dump(all_data, f, ensure_ascii=False, indent=2)
-    os.replace(TMP_FILE, DATA_FILE)
+        print(f"🟢 UPDATE-FIELD: id={cid}, field={field}, value={value}")
 
-    # 🟢 Log de débogage
-    print(f"🟢 UPDATE-FIELD: id={cid}, field={field}, value={value}")
+        # 📜 Log interne
+        cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+        row = dict(cur.fetchone())
+        log_event(row, "FIELD_UPDATE", {"field": field, "value": value})
 
-    log_event({"id": cid}, "FIELD_UPDATE", {"field": field, "value": value})
-    return jsonify({"ok": True, "value": value})
+        conn.close()
+        return jsonify({"ok": True, "value": value})
+
+    except Exception as e:
+        print("❌ Erreur update-field :", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
 
 
 
