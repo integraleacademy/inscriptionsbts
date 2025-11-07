@@ -361,7 +361,7 @@ function showToast(msg, color = "#333") {
   Object.assign(t.style, {
     position: "fixed",
     bottom: `${20 + offset}px`, // empilement progressif
-    left: "20px",
+    right: "20px",
     background: color,
     color: "#fff",
     padding: "10px 16px",
@@ -1658,6 +1658,7 @@ async function onStatusChange(sel) {
     showToast("⚠️ Erreur de réponse serveur", "#dc3545");
   }
 }
+
 
 
 
