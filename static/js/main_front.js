@@ -443,17 +443,6 @@ document.querySelectorAll('.next').forEach(btn => {
           return;
         }
       }
-
-      // === Affiche l’overlay de transmission ===
-      const overlay = document.createElement("div");
-      overlay.className = "sending-overlay";
-      overlay.innerHTML = `
-        <div class="sending-box">
-          <div class="loader"></div>
-          <h3>⏳ Pré-inscription en cours de transmission...</h3>
-          <p>Merci de ne pas fermer la page pendant l’envoi.</p>
-        </div>`;
-      document.body.appendChild(overlay);
     });
   }
 
@@ -992,11 +981,13 @@ btnEnvoyer.addEventListener("mouseleave", () => {
         e.preventDefault();
         const overlay = document.createElement("div");
         overlay.className = "sending-overlay";
-        overlay.innerHTML = `
-          <div class="sending-box">
-            <div class="loader"></div>
-            <p>Votre dossier est en cours d’envoi…</p>
-          </div>`;
+     overlay.innerHTML = `
+  <div class="sending-box">
+    <div class="loader"></div>
+    <h3>⏳ Votre dossier est en cours d’envoi…</h3>
+    <p>Merci de ne pas fermer cette page pendant la transmission.<br>
+    ⏱️ L’opération prend généralement moins de 10 secondes.</p>
+  </div>`;
         document.body.appendChild(overlay);
         setTimeout(() => document.getElementById("inscriptionForm").submit(), 800);
       });
@@ -1021,31 +1012,4 @@ setTimeout(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
-
-// =====================================================
-// 🚀 ENVOI FINAL DU FORMULAIRE
-// =====================================================
-const btnEnvoyer = document.getElementById("btnEnvoyer");
-if (btnEnvoyer) {
-  btnEnvoyer.addEventListener("click", (e) => {
-    e.preventDefault();
-
-    // Affiche un écran de chargement
-    const overlay = document.createElement("div");
-    overlay.className = "sending-overlay";
-    overlay.innerHTML = `
-      <div class="sending-box">
-        <div class="loader"></div>
-        <p>Votre dossier est en cours d’envoi…</p>
-      </div>`;
-    document.body.appendChild(overlay);
-
-    // Envoi après un léger délai pour l’effet visuel
-    setTimeout(() => {
-      document.getElementById("inscriptionForm").submit();
-    }, 800);
-  });
-}
-
-
 
