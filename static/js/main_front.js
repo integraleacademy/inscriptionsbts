@@ -873,9 +873,10 @@ let html = `
 `;
 
 
-    // --- Bloc APS automatique si BTS MOS + APS cochée ---
+// --- Bloc APS automatique si BTS MOS + APS cochée ---
 if (btsCode === "MOS") {
   const apsOui = document.querySelector('input[name="aps_souhaitee"][value="oui"]:checked');
+  const apsSession = document.querySelector('input[name="aps_session"]:checked');
   if (apsOui) {
     html += `
       <div style="
@@ -888,20 +889,19 @@ if (btsCode === "MOS") {
         font-size:15px;
       ">
         <h4 style="margin-top:0;">🔒 Formation complémentaire APS</h4>
-        <p>
-          Cette formation <strong>Agent de Prévention et de Sécurité (APS)</strong> est
-          <strong>incluse dans le parcours BTS MOS</strong> pour les candidats n’ayant pas encore
-          obtenu leur carte professionnelle CNAPS.
-        </p>
-        <ul style="margin:0;padding-left:20px;">
-          <li>🪪 Autorisation CNAPS obligatoire avant le début des stages</li>
-          <li>📄 Documents d’identité à jour à fournir</li>
-          <li>📆 Sessions planifiées régulièrement à Intégrale Academy</li>
-        </ul>
+        <p>Vous avez sélectionné la formation <strong>Agent de Prévention et de Sécurité (APS)</strong>.</p>
+        ${
+          apsSession
+            ? `<p><strong>Session choisie :</strong> ${apsSession.nextSibling.textContent.trim()}</p>`
+            : ""
+        }
+        <p>Un e-mail vous sera envoyé expliquant la procédure pour la <strong>demande d’autorisation préalable d’entrée en formation auprès du CNAPS</strong> (Ministère de l’Intérieur).</p>
+        <p>Vous recevrez également un <strong>mandat de prélèvement de 950 €</strong> (tarif spécial BTS au lieu de 1650 €) à compléter. Le prélèvement aura lieu <strong>le 1er jour de la formation</strong>.</p>
       </div>
     `;
   }
 }
+
 
 
 // --- Bloc explicatif Formation gratuite (design doré amélioré) ---
@@ -925,9 +925,7 @@ html += `
       <li>💰 Vous êtes rémunéré(e) selon votre âge et votre situation</li>
       <li>🎓 Diplôme d’État – Ministère de l’Éducation nationale</li>
     </ul>
-    <p style="margin-top:15px;font-style:italic;color:#444;">
-      ✨ Une opportunité unique de vous former gratuitement tout en acquérant de l’expérience professionnelle.
-    </p>
+
   </div>
 `;
 
@@ -959,7 +957,7 @@ html += `
       font-size:16px;
       box-shadow:0 4px 10px rgba(40,167,69,0.3);
       transition:transform 0.2s ease, box-shadow 0.2s ease;
-    ">📨 Envoyer ma candidature</button>
+    ">📤 Envoyer mon dossier</button>
   </div>
 `;
 
@@ -968,13 +966,28 @@ html += `
 
     // 🔙 Retour
     const btnRetour = document.getElementById("btnRetour");
-    if (btnRetour) btnRetour.addEventListener("click", () => showStep(4));
+if (btnRetour) {
+  btnRetour.addEventListener("click", (e) => {
+    e.preventDefault(); // empêche d’envoyer le formulaire
+    const overlay = document.querySelector(".sending-overlay");
+    if (overlay) overlay.remove(); // supprime l’écran "envoi en cours" s’il existe
+    showStep(4); // revient à l’étape précédente
+  });
+}
+
 
     // ✨ Hover sur bouton Envoyer
     const btnEnvoyer = document.getElementById("btnEnvoyer");
     if (btnEnvoyer) {
-      btnEnvoyer.addEventListener("mouseenter", () => btnEnvoyer.style.background = "#2ecc71");
-      btnEnvoyer.addEventListener("mouseleave", () => btnEnvoyer.style.background = "#28a745");
+      btnEnvoyer.addEventListener("mouseenter", () => {
+  btnEnvoyer.style.transform = "scale(1.05)";
+  btnEnvoyer.style.boxShadow = "0 6px 14px rgba(40,167,69,0.4)";
+});
+btnEnvoyer.addEventListener("mouseleave", () => {
+  btnEnvoyer.style.transform = "scale(1)";
+  btnEnvoyer.style.boxShadow = "0 4px 10px rgba(40,167,69,0.3)";
+});
+
       btnEnvoyer.addEventListener("click", (e) => {
         e.preventDefault();
         const overlay = document.createElement("div");
@@ -1033,5 +1046,6 @@ if (btnEnvoyer) {
     }, 800);
   });
 }
+
 
 
