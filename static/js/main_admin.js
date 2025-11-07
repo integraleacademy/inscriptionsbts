@@ -354,7 +354,7 @@ function showToast(msg, color = "#333") {
   const t = document.createElement("div");
   t.textContent = msg;
   Object.assign(t.style, {
-    position: "fixed", bottom: "20px", right: "20px", background: color,
+    position: "fixed", top: "20px", left: "20px", background: color,
     color: "#fff", padding: "10px 16px", borderRadius: "8px",
     fontWeight: "600", boxShadow: "0 3px 8px rgba(0,0,0,.3)",
     zIndex: "9999", opacity: "0", transition: "opacity .3s"
@@ -1241,7 +1241,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isEditing) return;
 
       table.replaceWith(newBody);
-      showToast("🔄 Tableau mis à jour automatiquement", "#007bff");
+      console.log("🔄 Tableau mis à jour automatiquement");
 
       // 🟢 Réapplique les couleurs de statuts
       newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
@@ -1337,7 +1337,12 @@ setTimeout(() => {
   });
 }, 500);
 
-      showToast("🔁 Tableau actualisé automatiquement", "#007bff");
+      if (manualBtn?.disabled === true) {
+  // c’était un refresh manuel
+  showToast("🔁 Tableau actualisé", "#007bff");
+} else {
+  console.log("🔁 Tableau actualisé automatiquement");
+}
       newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
       // 🧩 Rebinding après refresh
 newBody.querySelectorAll(".status-select").forEach(sel => {
@@ -1496,7 +1501,7 @@ async function refreshRow(id) {
     });
 
     // 🌈 Feedback visuel
-    showToast("🔄 Ligne mise à jour", "#28a745");
+    console.log("🔄 Ligne mise à jour");
     tr.style.transition = "background 0.5s";
     tr.style.background = "#e8ffe8";
     setTimeout(() => (tr.style.background = ""), 800);
@@ -1624,6 +1629,7 @@ async function onStatusChange(sel) {
     showToast("⚠️ Erreur de réponse serveur", "#dc3545");
   }
 }
+
 
 
 
