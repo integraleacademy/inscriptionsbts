@@ -351,18 +351,51 @@ document.addEventListener("click", async (e) => {
 // =====================================================
 
 function showToast(msg, color = "#333") {
+  const existingToasts = document.querySelectorAll(".toast-msg");
+  const offset = existingToasts.length * 60; // décalage vertical entre chaque toast
+
   const t = document.createElement("div");
+  t.className = "toast-msg";
   t.textContent = msg;
+
   Object.assign(t.style, {
-    position: "fixed", top: "20px", left: "20px", background: color,
-    color: "#fff", padding: "10px 16px", borderRadius: "8px",
-    fontWeight: "600", boxShadow: "0 3px 8px rgba(0,0,0,.3)",
-    zIndex: "9999", opacity: "0", transition: "opacity .3s"
+    position: "fixed",
+    bottom: `${20 + offset}px`, // empilement progressif
+    left: "20px",
+    background: color,
+    color: "#fff",
+    padding: "10px 16px",
+    borderRadius: "8px",
+    fontWeight: "600",
+    boxShadow: "0 3px 8px rgba(0,0,0,.3)",
+    zIndex: "9999",
+    opacity: "0",
+    transition: "opacity .3s, transform .3s",
+    transform: "translateY(10px)"
   });
+
   document.body.appendChild(t);
-  setTimeout(() => t.style.opacity = "1", 50);
-  setTimeout(() => { t.style.opacity = "0"; setTimeout(() => t.remove(), 300); }, 2500);
+
+  // Animation d’apparition
+  setTimeout(() => {
+    t.style.opacity = "1";
+    t.style.transform = "translateY(0)";
+  }, 50);
+
+  // Disparition + suppression propre
+  setTimeout(() => {
+    t.style.opacity = "0";
+    t.style.transform = "translateY(10px)";
+    setTimeout(() => {
+      t.remove();
+      // Recalcule les positions des toasts restants
+      document.querySelectorAll(".toast-msg").forEach((toast, i) => {
+        toast.style.bottom = `${20 + i * 60}px`;
+      });
+    }, 300);
+  }, 3000);
 }
+
 
 async function refreshCandidateStatus(id) {
   const row = document.querySelector(`tr[data-id='${id}']`);
@@ -1337,12 +1370,8 @@ setTimeout(() => {
   });
 }, 500);
 
-      if (manualBtn?.disabled === true) {
-  // c’était un refresh manuel
-  showToast("🔁 Tableau actualisé", "#007bff");
-} else {
-  console.log("🔁 Tableau actualisé automatiquement");
-}
+      showToast("🔁 Tableau actualisé", "#007bff");
+
       newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
       // 🧩 Rebinding après refresh
 newBody.querySelectorAll(".status-select").forEach(sel => {
@@ -1629,6 +1658,7 @@ async function onStatusChange(sel) {
     showToast("⚠️ Erreur de réponse serveur", "#dc3545");
   }
 }
+
 
 
 
