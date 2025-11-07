@@ -762,7 +762,90 @@ apsRadios.forEach(radio => {
       raisonInput.focus();
     }
   });
+
+  // =====================================================
+// ✅ ÉTAPE 6 – RÉCAPITULATIF AUTOMATIQUE
+// =====================================================
+
+// Quand on clique sur "Étape suivante" depuis l’étape 5
+const lastNext = document.querySelector('#tab5 .next');
+if (lastNext) {
+  lastNext.addEventListener('click', () => {
+    // --- Remplir la zone de récapitulatif ---
+    const recap = document.getElementById('recap-content');
+    recap.innerHTML = ''; // reset avant génération
+
+    // Liste des champs texte à inclure
+    const champsTexte = [
+      ["nom", "Nom"],
+      ["prenom", "Prénom"],
+      ["email", "E-mail"],
+      ["tel", "Téléphone"],
+      ["adresse", "Adresse postale"],
+      ["cp", "Code postal"],
+      ["ville", "Ville"],
+      ["bts", "Formation souhaitée"],
+      ["mode", "Mode de formation"],
+      ["baccalaureat", "Baccalauréat"],
+      ["souhaite_accompagnement", "Souhaite accompagnement Pôle Alternance"],
+      ["projet_pourquoi", "Motivations principales"],
+      ["projet_objectif", "Objectifs après diplôme"],
+    ];
+
+    let html = "<div class='grid' style='gap:8px 20px'>";
+    champsTexte.forEach(([name, label]) => {
+      const el = document.querySelector(`[name="${name}"]`);
+      let val = "";
+      if (el) {
+        if (el.tagName === "SELECT") val = el.options[el.selectedIndex]?.text || "";
+        else if (el.type === "radio") {
+          const checked = document.querySelector(`[name="${name}"]:checked`);
+          val = checked ? checked.value : "";
+        } else val = el.value;
+      }
+      html += `<div><strong>${label} :</strong> ${val || "<span style='color:#777'>—</span>"}</div>`;
+    });
+    html += "</div>";
+
+    recap.innerHTML = html;
+
+    // --- Aller à l’étape 6 ---
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('step6').classList.add('active');
+    document.getElementById('progressInfo').textContent = "Étape 6 sur 6";
+    document.getElementById('progressBar').style.width = "100%";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+}
+
+// =====================================================
+// 🚀 ENVOI FINAL DU FORMULAIRE
+// =====================================================
+const btnEnvoyer = document.getElementById("btnEnvoyer");
+if (btnEnvoyer) {
+  btnEnvoyer.addEventListener("click", (e) => {
+    e.preventDefault();
+
+    // Affiche un écran de chargement
+    const overlay = document.createElement("div");
+    overlay.className = "sending-overlay";
+    overlay.innerHTML = `
+      <div class="sending-box">
+        <div class="loader"></div>
+        <p>Votre dossier est en cours d’envoi…</p>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    // Envoi après un léger délai pour l’effet visuel
+    setTimeout(() => {
+      document.getElementById("inscriptionForm").submit();
+    }, 800);
+  });
+}
+
+  
 });
+
 
 
 
