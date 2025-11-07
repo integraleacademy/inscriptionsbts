@@ -762,61 +762,253 @@ apsRadios.forEach(radio => {
       raisonInput.focus();
     }
   });
+}); // ✅ Fin du bloc APS
 
-  // =====================================================
-// ✅ ÉTAPE 6 – RÉCAPITULATIF AUTOMATIQUE
+
 // =====================================================
-
-// Quand on clique sur "Étape suivante" depuis l’étape 5
+// ✅ ÉTAPE 6 – RÉCAPITULATIF AUTOMATIQUE (corrigée)
+// =====================================================
 const lastNext = document.querySelector('#tab5 .next');
 if (lastNext) {
   lastNext.addEventListener('click', () => {
-    // --- Remplir la zone de récapitulatif ---
     const recap = document.getElementById('recap-content');
-    recap.innerHTML = ''; // reset avant génération
+    if (!recap) return;
+    recap.innerHTML = ""; // reset
 
-    // Liste des champs texte à inclure
-    const champsTexte = [
-      ["nom", "Nom"],
-      ["prenom", "Prénom"],
-      ["email", "E-mail"],
-      ["tel", "Téléphone"],
-      ["adresse", "Adresse postale"],
-      ["cp", "Code postal"],
-      ["ville", "Ville"],
-      ["bts", "Formation souhaitée"],
-      ["mode", "Mode de formation"],
-      ["baccalaureat", "Baccalauréat"],
-      ["souhaite_accompagnement", "Souhaite accompagnement Pôle Alternance"],
-      ["projet_pourquoi", "Motivations principales"],
-      ["projet_objectif", "Objectifs après diplôme"],
-    ];
+    // 🧾 Noms complets des BTS
+    const BTS_LABELS = {
+      "MCO": "BTS Management Commercial Opérationnel (MCO)",
+      "MOS": "BTS Management Opérationnel de la Sécurité (MOS)",
+      "PI":  "BTS Professions Immobilières (PI)",
+      "CI":  "BTS Commerce International (CI)",
+      "NDRC":"BTS Négociation et Digitalisation de la Relation Client (NDRC)",
+      "CG":  "BTS Comptabilité et Gestion (CG)"
+    };
 
-    let html = "<div class='grid' style='gap:8px 20px'>";
-    champsTexte.forEach(([name, label]) => {
-      const el = document.querySelector(`[name="${name}"]`);
-      let val = "";
-      if (el) {
-        if (el.tagName === "SELECT") val = el.options[el.selectedIndex]?.text || "";
-        else if (el.type === "radio") {
-          const checked = document.querySelector(`[name="${name}"]:checked`);
-          val = checked ? checked.value : "";
-        } else val = el.value;
-      }
-      html += `<div><strong>${label} :</strong> ${val || "<span style='color:#777'>—</span>"}</div>`;
-    });
-    html += "</div>";
+    // 🏫 / 💻 Mode de formation lisible
+    const MODE_LABELS = {
+      "presentiel": "🏫 Formation en présentiel (Puget-sur-Argens, Var)",
+      "distanciel": "💻 Formation 100% à distance en visioconférence ZOOM"
+    };
+
+    // --- Récupération des champs principaux ---
+    const getValue = (selector) =>
+      document.querySelector(selector)?.value?.trim() || "";
+
+    const nom      = getValue('[name="nom"]');
+    const prenom   = getValue('[name="prenom"]');
+    const email    = getValue('[name="email"]');
+    const tel      = getValue('[name="tel"]');
+    const adresse  = getValue('[name="adresse"]');
+    const cp       = getValue('[name="cp"]');
+    const ville    = getValue('[name="ville"]');
+
+    // 🎓 BTS (code + nom complet)
+    const btsSelect = document.querySelector('select[name="bts"]');
+    let btsCode = "";
+    let btsLabel = "";
+    if (btsSelect) {
+      btsCode = btsSelect.value || "";
+      const codeUpper = btsCode.toUpperCase();
+      btsLabel = BTS_LABELS[codeUpper] || btsSelect.options[btsSelect.selectedIndex]?.text || "";
+    }
+
+    // 🎯 Mode de formation
+    const modeChecked = document.querySelector('input[name="mode"]:checked');
+    const modeValue   = modeChecked ? modeChecked.value : "";
+    const modeLabel   = MODE_LABELS[modeValue] || (modeValue || "—");
+
+    // 🎓 Baccalauréat
+    const bacSelect = document.querySelector('select[name="baccalaureat"]');
+    const bacText   = bacSelect
+      ? (bacSelect.options[bacSelect.selectedIndex]?.text || "")
+      : "";
+
+    // 🤝 Accompagnement Pôle Alternance
+    const accompagnement = document.querySelector('input[name="souhaite_accompagnement"]:checked');
+    let accompagnementText = "—";
+    if (accompagnement) {
+      accompagnementText = (accompagnement.value === "oui")
+        ? "Oui, je souhaite être accompagné pour trouver une entreprise"
+        : "Non, je préfère chercher une entreprise par moi-même";
+    }
+
+    // --- Construction HTML du récap ---
+    // --- Construction HTML du récap amélioré ---
+let html = `
+  <div class="recap-grid" style="display:flex;flex-wrap:wrap;gap:20px;justify-content:center;">
+    
+    <!-- 🧍‍♂️ INFOS PERSONNELLES -->
+    <div style="
+      flex:1 1 350px;
+      background:white;
+      border:1px solid #eee;
+      border-radius:14px;
+      padding:18px 22px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.05);
+    ">
+      <h4 style="margin-top:0;color:#333;">🧍‍♂️ Informations personnelles</h4>
+      <p>👤 <strong>${prenom} ${nom}</strong></p>
+      <p>📧 ${email}</p>
+      <p>📱 ${tel}</p>
+      <p>🏠 ${adresse || ""} ${cp || ""} ${ville || ""}</p>
+    </div>
+
+    <!-- 🎓 FORMATION -->
+    <div style="
+      flex:1 1 350px;
+      background:white;
+      border:1px solid #eee;
+      border-radius:14px;
+      padding:18px 22px;
+      box-shadow:0 2px 8px rgba(0,0,0,0.05);
+    ">
+      <h4 style="margin-top:0;color:#333;">🎓 Formation choisie</h4>
+      <p><strong>${btsLabel || "—"}</strong></p>
+      <p>${modeLabel || "—"}</p>
+      <p>🎓 Bac : ${bacText || "—"}</p>
+      <p>🤝 Accompagnement Pôle Alternance : ${accompagnementText}</p>
+    </div>
+  </div>
+`;
+
+
+    // --- Bloc APS automatique si BTS MOS + APS cochée ---
+if (btsCode === "MOS") {
+  const apsOui = document.querySelector('input[name="aps_souhaitee"][value="oui"]:checked');
+  if (apsOui) {
+    html += `
+      <div style="
+        margin-top:40px;
+        background:#fffbe6;
+        border:1px solid #f4c45a;
+        border-radius:10px;
+        padding:18px;
+        line-height:1.6;
+        font-size:15px;
+      ">
+        <h4 style="margin-top:0;">🔒 Formation complémentaire APS</h4>
+        <p>
+          Cette formation <strong>Agent de Prévention et de Sécurité (APS)</strong> est
+          <strong>incluse dans le parcours BTS MOS</strong> pour les candidats n’ayant pas encore
+          obtenu leur carte professionnelle CNAPS.
+        </p>
+        <ul style="margin:0;padding-left:20px;">
+          <li>🪪 Autorisation CNAPS obligatoire avant le début des stages</li>
+          <li>📄 Documents d’identité à jour à fournir</li>
+          <li>📆 Sessions planifiées régulièrement à Intégrale Academy</li>
+        </ul>
+      </div>
+    `;
+  }
+}
+
+
+// --- Bloc explicatif Formation gratuite (design doré amélioré) ---
+html += `
+  <div style="
+    margin-top:40px;
+    background:linear-gradient(135deg,#fffaf0,#fff5dc);
+    border:1px solid #f4c45a;
+    border-radius:14px;
+    padding:24px 26px;
+    box-shadow:0 3px 10px rgba(244,196,90,0.25);
+    line-height:1.7;
+    font-size:15px;
+  ">
+    <h4 style="margin-top:0;color:#333;display:flex;align-items:center;gap:10px;">
+      💚 <span>Formation gratuite (0 €)</span>
+    </h4>
+    <ul style="margin:0;padding-left:22px;">
+      <li>📘 Aucun frais d’inscription ni de scolarité</li>
+      <li>💼 Formation financée intégralement par l’État <strong>dans le cadre du contrat d’apprentissage</strong></li>
+      <li>💰 Vous êtes rémunéré(e) selon votre âge et votre situation</li>
+      <li>🎓 Diplôme d’État – Ministère de l’Éducation nationale</li>
+    </ul>
+    <p style="margin-top:15px;font-style:italic;color:#444;">
+      ✨ Une opportunité unique de vous former gratuitement tout en acquérant de l’expérience professionnelle.
+    </p>
+  </div>
+`;
+
+
+    // --- Boutons ---
+    // --- Boutons (version améliorée avec animation) ---
+html += `
+  <div style="margin-top:35px;text-align:center;display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+    <button id="btnRetour" style="
+      background:#f2f2f2;
+      border:none;
+      color:#333;
+      padding:11px 24px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:15px;
+      transition:all 0.2s ease;
+    ">⬅️ Modifier mes informations</button>
+
+    <button id="btnEnvoyer" style="
+      background:linear-gradient(135deg,#28a745,#34d058);
+      border:none;
+      color:white;
+      padding:12px 28px;
+      border-radius:10px;
+      cursor:pointer;
+      font-weight:600;
+      font-size:16px;
+      box-shadow:0 4px 10px rgba(40,167,69,0.3);
+      transition:transform 0.2s ease, box-shadow 0.2s ease;
+    ">📨 Envoyer ma candidature</button>
+  </div>
+`;
+
 
     recap.innerHTML = html;
 
-    // --- Aller à l’étape 6 ---
+    // 🔙 Retour
+    const btnRetour = document.getElementById("btnRetour");
+    if (btnRetour) btnRetour.addEventListener("click", () => showStep(4));
+
+    // ✨ Hover sur bouton Envoyer
+    const btnEnvoyer = document.getElementById("btnEnvoyer");
+    if (btnEnvoyer) {
+      btnEnvoyer.addEventListener("mouseenter", () => btnEnvoyer.style.background = "#2ecc71");
+      btnEnvoyer.addEventListener("mouseleave", () => btnEnvoyer.style.background = "#28a745");
+      btnEnvoyer.addEventListener("click", (e) => {
+        e.preventDefault();
+        const overlay = document.createElement("div");
+        overlay.className = "sending-overlay";
+        overlay.innerHTML = `
+          <div class="sending-box">
+            <div class="loader"></div>
+            <p>Votre dossier est en cours d’envoi…</p>
+          </div>`;
+        document.body.appendChild(overlay);
+        setTimeout(() => document.getElementById("inscriptionForm").submit(), 800);
+      });
+    }
+
+    // ✨ Animation d’apparition du récapitulatif
+recap.style.opacity = 0;
+recap.style.transition = "opacity 0.6s ease";
+setTimeout(() => {
+  recap.style.opacity = 1;
+}, 100);
+
+
+    // ✅ Passe à l’étape 6
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.getElementById('step6').classList.add('active');
-    document.getElementById('progressInfo').textContent = "Étape 6 sur 6";
-    document.getElementById('progressBar').style.width = "100%";
+    const recapTab = document.getElementById('step6');
+    if (recapTab) recapTab.classList.add('active');
+    const info = document.getElementById('progressInfo');
+    const bar  = document.getElementById('progressBar');
+    if (info) info.textContent = "Étape 6 sur 6 — 100 % complété";
+    if (bar)  bar.style.width = "100%";
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
+
 
 // =====================================================
 // 🚀 ENVOI FINAL DU FORMULAIRE
@@ -845,6 +1037,7 @@ if (btnEnvoyer) {
 
   
 });
+
 
 
 
