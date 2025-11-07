@@ -50,69 +50,11 @@ table.querySelectorAll('td[contenteditable="true"]').forEach(td => {
 });
 
 
-// 🔄 Changement de statut + mise à jour couleur + enregistrement date + MAJ dynamique
+// 🔄 Changement de statut (binding initial)
 table.querySelectorAll('.status-select').forEach(sel => {
-  sel.addEventListener('change', async () => {
-    const tr = sel.closest('tr');
-    const id = tr.dataset.id;
-    const value = sel.value;
-
-    // 🟢 Couleur immédiate
-    updateStatusColor(sel);
-
-    // 💾 Envoi du nouveau statut au backend
-    const res = await fetch('/admin/update-status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, value })
-    });
-
-    if (!res.ok) {
-      showToast("❌ Erreur de mise à jour du statut", "#dc3545");
-      return;
-    }
-
-    const data = await res.json();
-
-    // ✅ Met à jour visuellement les colonnes concernées sans reload
-    if (data.ok) {
-      // -- met à jour la couleur du select --
-      updateStatusColor(sel);
-
-      // -- met à jour les colonnes de date si elles existent --
-      if (data.date_validee) {
-        const cell = tr.querySelector(".col-date-validee");
-        if (cell) cell.textContent = new Date(data.date_validee).toLocaleDateString("fr-FR");
-      }
-      if (data.date_confirmee) {
-        const cell = tr.querySelector(".col-date-confirmee");
-        if (cell) cell.textContent = new Date(data.date_confirmee).toLocaleDateString("fr-FR");
-      }
-      if (data.date_reconfirmee) {
-        const cell = tr.querySelector(".col-date-reconfirmee");
-        if (cell) cell.textContent = new Date(data.date_reconfirmee).toLocaleDateString("fr-FR");
-      }
-
-      // -- si le badge "relance" existe et que le candidat est confirmé/reconfirmé, on le supprime --
-      if (["confirmee", "reconfirmee", "validee"].includes(data.statut)) {
-        const badge = tr.querySelector(".badge-relance");
-        if (badge) badge.remove();
-      }
-
-      // -- met à jour le texte de statut s’il y a une colonne dédiée --
-      const colStatusText = tr.querySelector(".col-statut-text");
-      if (colStatusText) {
-        colStatusText.textContent = value.replace("_", " ");
-      }
-      await refreshRow(id);
-      showToast("📊 Statut mis à jour avec succès", "#007bff");
-      tr.classList.add("status-updated");
-      setTimeout(() => tr.classList.remove("status-updated"), 1500);
-    } else {
-      showToast("⚠️ Erreur de réponse serveur", "#dc3545");
-    }
-  });
+  sel.addEventListener('change', () => onStatusChange(sel));
 });
+
 
 
 
@@ -1303,6 +1245,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // 🟢 Réapplique les couleurs de statuts
       newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
+      // 🧩 Rebinding après refresh automatique
+newBody.querySelectorAll(".status-select").forEach(sel => {
+  sel.addEventListener("change", () => onStatusChange(sel));
+});
+
 
     } catch (err) {
       console.warn("Erreur d’actualisation automatique :", err);
@@ -1392,6 +1339,11 @@ setTimeout(() => {
 
       showToast("🔁 Tableau actualisé automatiquement", "#007bff");
       newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
+      // 🧩 Rebinding après refresh
+newBody.querySelectorAll(".status-select").forEach(sel => {
+  sel.addEventListener("change", () => onStatusChange(sel));
+});
+
     } catch (err) {
       console.warn("Erreur refresh manuel :", err);
     }
@@ -1604,6 +1556,75 @@ chk.addEventListener("change", async (e) => {
     });
   });
 });
+
+async function onStatusChange(sel) {
+  const tr = sel.closest('tr');
+  if (!tr) return;
+
+  const id = tr.dataset.id;
+  const value = sel.value;
+
+  // 🟢 Couleur immédiate
+  if (window.updateStatusColor) {
+    window.updateStatusColor(sel);
+  }
+
+  // 💾 Envoi du nouveau statut au backend
+  const res = await fetch('/admin/update-status', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id, value })
+  });
+
+  if (!res.ok) {
+    showToast("❌ Erreur de mise à jour du statut", "#dc3545");
+    return;
+  }
+
+  const data = await res.json();
+
+  // ✅ Met à jour visuellement les colonnes concernées sans reload
+  if (data.ok) {
+    // -- met à jour la couleur du select --
+    if (window.updateStatusColor) {
+      window.updateStatusColor(sel);
+    }
+
+    // -- met à jour les colonnes de date si elles existent --
+    if (data.date_validee) {
+      const cell = tr.querySelector(".col-date-validee");
+      if (cell) cell.textContent = new Date(data.date_validee).toLocaleDateString("fr-FR");
+    }
+    if (data.date_confirmee) {
+      const cell = tr.querySelector(".col-date-confirmee");
+      if (cell) cell.textContent = new Date(data.date_confirmee).toLocaleDateString("fr-FR");
+    }
+    if (data.date_reconfirmee) {
+      const cell = tr.querySelector(".col-date-reconfirmee");
+      if (cell) cell.textContent = new Date(data.date_reconfirmee).toLocaleDateString("fr-FR");
+    }
+
+    // -- si le badge "relance" existe et que le candidat est confirmé/reconfirmé, on le supprime --
+    if (["confirmee", "reconfirmee", "validee"].includes(data.statut)) {
+      const badge = tr.querySelector(".badge-relance");
+      if (badge) badge.remove();
+    }
+
+    // -- met à jour le texte de statut s’il y a une colonne dédiée --
+    const colStatusText = tr.querySelector(".col-statut-text");
+    if (colStatusText) {
+      colStatusText.textContent = value.replace("_", " ");
+    }
+
+    await refreshRow(id);
+    showToast("📊 Statut mis à jour avec succès", "#007bff");
+    tr.classList.add("status-updated");
+    setTimeout(() => tr.classList.remove("status-updated"), 1500);
+  } else {
+    showToast("⚠️ Erreur de réponse serveur", "#dc3545");
+  }
+}
+
 
 
 
