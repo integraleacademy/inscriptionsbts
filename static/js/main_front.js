@@ -1009,7 +1009,6 @@ setTimeout(() => {
   });
 }
 
-
 // =====================================================
 // 🚀 ENVOI FINAL DU FORMULAIRE
 // =====================================================
@@ -1033,4 +1032,6 @@ if (btnEnvoyer) {
       document.getElementById("inscriptionForm").submit();
     }, 800);
   });
-});
+}
+
+
