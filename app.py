@@ -3176,6 +3176,25 @@ def check_brevo_health():
 monitor_thread = threading.Thread(target=check_brevo_health, daemon=True)
 monitor_thread.start()
 
+@app.route("/brevo/status")
+def brevo_status():
+    """Retourne l'état actuel de Brevo"""
+    import requests
+    api_key = os.getenv("BREVO_API_KEY", "")
+
+    try:
+        r = requests.get(
+            "https://api.brevo.com/v3/account",
+            headers={"api-key": api_key, "Content-Type": "application/json"},
+            timeout=5
+        )
+        if r.status_code == 200:
+            return {"status": "ok"}
+        else:
+            return {"status": "error", "code": r.status_code}
+    except:
+        return {"status": "error", "code": "exception"}
+
 
 
 
