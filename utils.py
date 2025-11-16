@@ -145,3 +145,32 @@ def make_signed_link(path: str, token: str) -> str:
     sig = sign_token(token)
     base = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
     return f"{base}{path}?token={token}&sig={sig}"
+
+# =====================================================
+# ✉️ Envoi d’e-mail via Gmail SMTP (indépendant de Brevo)
+# =====================================================
+def send_mail_gmail(to, subject, html):
+    try:
+        mail_from = os.getenv("MAIL_FROM")
+        mail_pass = os.getenv("MAIL_PASS")
+
+        msg = MIMEMultipart()
+        msg["From"] = mail_from
+        msg["To"] = to
+        msg["Subject"] = subject
+
+        msg.attach(MIMEText(html, "html"))
+
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(mail_from, mail_pass)
+        server.send_message(msg)
+        server.quit()
+
+        print(f"📨 Mail envoyé via Gmail à {to}")
+        return True
+
+    except Exception as e:
+        print("❌ Erreur Gmail SMTP:", e)
+        return False
+
