@@ -61,6 +61,12 @@
 
   <!-- 🔝 En-tête -->
 <header class="admin-header">
+  <div id="brevoIndicator" 
+     style="margin-left:20px;padding:6px 10px;border-radius:6px;font-weight:600;
+     display:inline-block;background:#ccc;color:#333;">
+  ⏳ Vérification Brevo...
+</div>
+
   <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
 
   <button class="btn primary" id="btnPortal">
@@ -430,6 +436,39 @@
   <button id="manualRefresh" style="border:none;background:#007bff;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;">🔁 Rafraîchir</button>
   <span id="countdown" style="color:#555;font-weight:600;">(60s)</span>
 </div>
+
+    <script>
+// 🔍 Vérifie l'état de Brevo toutes les 10 sec
+async function checkBrevo() {
+  try {
+    let r = await fetch("/brevo/status");
+    let data = await r.json();
+
+    let el = document.getElementById("brevoIndicator");
+
+    if (data.status === "ok") {
+      el.innerHTML = "🟢 Brevo API OK";
+      el.style.background = "#28a745";
+      el.style.color = "white";
+    } else {
+      el.innerHTML = "🔴 Brevo API KO";
+      el.style.background = "#dc3545";
+      el.style.color = "white";
+    }
+
+  } catch(e) {
+    let el = document.getElementById("brevoIndicator");
+    el.innerHTML = "🔴 Brevo API KO";
+    el.style.background = "#dc3545";
+    el.style.color = "white";
+  }
+}
+
+// Lancement + intervalle
+checkBrevo();
+setInterval(checkBrevo, 10000);
+</script>
+
 
 
 {% endblock %}
