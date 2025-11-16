@@ -3118,7 +3118,8 @@ def send_alert_brevo(message):
     LAST_BREVO_ALERT = time.time()
 
     try:
-        from utils import send_mail
+        # 📌 On utilise Gmail SMTP ici, jamais Brevo
+        from utils import send_mail_gmail
 
         html = f"""
         <h2>⚠️ ALERTE CRITIQUE – API BREVO</h2>
@@ -3128,13 +3129,13 @@ def send_alert_brevo(message):
         <p>Heure : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
         """
 
-        send_mail(
+        send_mail_gmail(
             "clement@integraleacademy.com",
             "⚠️ ALERTE CRITIQUE – Échec API Brevo",
             html
         )
 
-        print("🚨 Alerte envoyée à clement@integraleacademy.com")
+        print("🚨 Alerte envoyée à clement@integraleacademy.com via Gmail (OK)")
 
     except Exception as e:
         print("❌ Impossible d'envoyer l'alerte Gmail :", e)
