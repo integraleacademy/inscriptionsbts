@@ -61,11 +61,6 @@
 
   <!-- 🔝 En-tête -->
 <header class="admin-header">
-  <div id="brevoIndicator" 
-     style="margin-left:20px;padding:6px 10px;border-radius:6px;font-weight:600;
-     display:inline-block;background:#ccc;color:#333;">
-  ⏳ Vérification Brevo...
-</div>
 
   <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
 
@@ -137,9 +132,26 @@
   🔔 Relancés uniquement
 </label>
 
-    <button class="btn primary" type="submit">Filtrer</button>
-    <a class="btn secondary" href="{{ url_for('admin') }}">↻ Réinitialiser</a>
-  </form>
+<button class="btn primary" type="submit">Filtrer</button>
+<a class="btn secondary" href="{{ url_for('admin') }}">↻ Réinitialiser</a>
+
+<div id="brevoIndicator"
+     style="
+       display:inline-flex;
+       align-items:center;
+       padding:6px 12px;
+       margin-left:10px;
+       border-radius:8px;
+       font-weight:600;
+       background:#ccc;
+       color:#333;
+     ">
+  ⏳ Vérification Brevo...
+</div>
+
+</form>
+
+
 
   <!-- 📊 Tableau -->
   <div class="table-container">
