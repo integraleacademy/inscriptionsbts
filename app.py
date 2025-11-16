@@ -3096,6 +3096,84 @@ def admin_reconfirm_all():
         return jsonify(error=str(e)), 500
 
 
+# =====================================================
+# 🔔 MONITORING AUTOMATIQUE DE L'API BREVO
+# =====================================================
+import threading
+import time
+import requests
+
+LAST_BREVO_ALERT = 0  # timestamp de la dernière alerte envoyée
+
+
+def send_alert_brevo(message):
+    """Envoie une alerte par Gmail (indépendant de Brevo)"""
+    global LAST_BREVO_ALERT
+
+    # Anti-spam : pas plus d'une alerte toutes les 30 minutes
+    if time.time() - LAST_BREVO_ALERT < 1800:
+        print("⏳ Alerte déjà envoyée il y a moins de 30 minutes, on ignore.")
+        return
+
+    LAST_BREVO_ALERT = time.time()
+
+    try:
+        from utils import send_mail
+
+        html = f"""
+        <h2>⚠️ ALERTE CRITIQUE – API BREVO</h2>
+        <p>{message}</p>
+        <p><strong>L'API Brevo ne répond plus.</strong></p>
+        <p>Site : inscriptionsbts.onrender.com</p>
+        <p>Heure : {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}</p>
+        """
+
+        send_mail(
+            "clement@integraleacademy.com",
+            "⚠️ ALERTE CRITIQUE – Échec API Brevo",
+            html
+        )
+
+        print("🚨 Alerte envoyée à clement@integraleacademy.com")
+
+    except Exception as e:
+        print("❌ Impossible d'envoyer l'alerte Gmail :", e)
+
+
+def check_brevo_health():
+    """Teste la disponibilité de l'API Brevo toutes les 5 minutes"""
+    while True:
+        try:
+            print("🔎 Vérification API Brevo...")
+
+            api_key = os.getenv("BREVO_API_KEY", "")
+
+            headers = {
+                "api-key": api_key,
+                "Content-Type": "application/json"
+            }
+
+            # petit appel simple à l'API Brevo
+            r = requests.get("https://api.brevo.com/v3/account", headers=headers, timeout=10)
+
+            if r.status_code != 200:
+                msg = f"API Brevo en erreur : {r.status_code} – {r.text}"
+                print("❌", msg)
+                send_alert_brevo(msg)
+            else:
+                print("🟢 API Brevo OK")
+
+        except Exception as e:
+            msg = f"Erreur critique Brevo : {str(e)}"
+            print("❌", msg)
+            send_alert_brevo(msg)
+
+        time.sleep(300)  # 5 minutes
+
+
+# 🚀 Démarrage du monitoring Brevo
+monitor_thread = threading.Thread(target=check_brevo_health, daemon=True)
+monitor_thread.start()
 
 
 
