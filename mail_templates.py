@@ -17,161 +17,203 @@ def mail_html(template_name, **kwargs):
     # === Contenu des modèles ===
     templates = {
 
-                "accuse_reception": {
-            "title": "Confirmation de réception – Votre candidature Parcoursup",
+                   "accuse_reception": {
+            "title": "Accusé de réception – Votre candidature Parcoursup",
             "content": """
+<p>Bonjour {{ prenom }},</p>
 
-        <p>Bonjour {{ prenom }},</p>
+<p>
+Nous avons bien reçu votre candidature Parcoursup concernant notre {{ bts_label }} en alternance,
+en présentiel (Puget sur Argens, Var) / 100% en ligne à distance en visioconférence ZOOM. Nous vous confirmons que votre candidature a bien été prise en compte et que allons étudier votre dossier dans les prochains jours.
+</p>
 
-        <p>
-        Nous avons bien reçu votre candidature Parcoursup concernant notre {{ bts_label }} en alternance,
-        en présentiel (Puget sur Argens, Var) / 100% en ligne à distance en visioconférence ZOOM.
-        Nous vous confirmons que votre candidature a bien été prise en compte et que allons étudier
-        votre dossier dans les prochains jours.
-        </p>
+<p>
+Notre commission d'admission se réunit toutes les semaines et traite les dossiers par ordre d'arrivée. Vous recevrez donc une réponse (avis Favorable ou avis Défavorable) dans un délai de 10 à 15 jours. La réponse sera envoyée par mail et par SMS.
+</p>
 
-        <p>
-        Notre commission d'admission se réunit toutes les semaines et traite les dossiers par ordre d'arrivée.
-        Vous recevrez donc une réponse (avis Favorable ou avis Défavorable) dans un délai de 10 à 15 jours.
-        La réponse sera envoyée par mail et par SMS.
-        </p>
+<!-- ============================== -->
+<!-- 🧾 RÉCAPITULATIF DE L'INSCRIPTION -->
+<!-- ============================== -->
 
-        <div style="background:#fff8e1;border-left:5px solid #f4c45a;padding:18px 22px;
-                    border-radius:10px;margin:30px 0;">
-            <h3 style="margin-top:0;">🧾 Récapitulatif de l'inscription</h3>
+<div style="background:#fff8e1;border-left:5px solid #f4c45a;padding:20px;
+            border-radius:10px;margin:32px 0;">
+  <h3 style="margin-top:0;">🧾 Récapitulatif de l'inscription</h3>
 
-            <p><strong>Numéro de dossier :</strong> {{ numero_dossier }}</p>
-            <p><strong>Nom :</strong> {{ nom }}</p>
-            <p><strong>Prénom :</strong> {{ prenom }}</p>
-            <p><strong>Date de naissance :</strong> {{ date_naissance }}</p>
-            <p><strong>Formation choisie :</strong> {{ bts_label }}</p>
+  <p><strong>Numéro de dossier :</strong> {{ numero_dossier }}</p>
+  <p><strong>Nom :</strong> {{ nom }}</p>
+  <p><strong>Prénom :</strong> {{ prenom }}</p>
+  <p><strong>Date de naissance :</strong> {{ date_naissance }}</p>
+  <p><strong>Formation choisie :</strong> {{ bts_label }}</p>
 
-            <p><strong>Mode choisi :</strong><br>
-            {% if mode == "presentiel" %}
-                Présentiel (Puget sur Argens, Var)
-            {% else %}
-                100% en ligne à distance en visioconférence (ZOOM)
-            {% endif %}
-            </p>
-        </div>
+  <p><strong>Mode choisi :</strong><br>
+    {% if mode == "presentiel" %}
+      Présentiel (Puget sur Argens, Var)
+    {% else %}
+      100% en ligne à distance en visioconférence (ZOOM)
+    {% endif %}
+  </p>
+</div>
 
-        <h3 style="margin-top:40px;">📦 Suivi de votre inscription</h3>
-        <p>Retrouvez le suivi de votre inscription depuis votre Espace Candidat :</p>
+<!-- ============================== -->
+<!-- 📦 SUIVI DE L’INSCRIPTION      -->
+<!-- ============================== -->
 
-        <div style="margin-top:20px;padding:20px;background:#fafafa;border-radius:12px;
-                    border:1px solid #eee;">
+<h3 style="margin-top:40px;">📦 Suivi de votre inscription</h3>
+<p>Retrouvez le suivi de votre inscription depuis votre Espace Candidat :</p>
 
-            <div style="margin-bottom:18px;">
-                <div style="font-size:20px;">🕓</div>
-                <p style="margin:5px 0 0 0;"><strong>Pré-inscription reçue</strong></p>
-                <p style="margin:3px 0 0 0;color:#555;">Votre dossier a bien été enregistré.</p>
-            </div>
+<div style="margin-top:20px;padding-left:15px;border-left:4px solid #f4c45a;">
 
-            <div style="margin-bottom:18px;">
-                <div style="font-size:20px;">📨</div>
-                <p style="margin:5px 0 0 0;"><strong>Candidature en cours d’analyse</strong></p>
-                <p style="margin:3px 0 0 0;color:#555;">Traitement sous 10 à 15 jours.</p>
-            </div>
+  <div style="margin-bottom:22px;">
+    <div style="font-size:20px;">🕓</div>
+    <p style="margin:4px 0 0 0;"><strong>Pré-inscription reçue</strong></p>
+    <p style="margin:2px 0 0 0;color:#555;font-size:14px;">
+      Votre dossier a bien été enregistré.
+    </p>
+  </div>
 
-            <div style="margin-bottom:18px;">
-                <div style="font-size:20px;">✅</div>
-                <p style="margin:5px 0 0 0;"><strong>Candidature validée</strong></p>
-                <p style="margin:3px 0 0 0;color:#555;">(si avis favorable)</p>
-            </div>
+  <div style="margin-bottom:22px;">
+    <div style="font-size:20px;">📨</div>
+    <p style="margin:4px 0 0 0;"><strong>Candidature en cours d’analyse</strong></p>
+    <p style="margin:2px 0 0 0;color:#555;font-size:14px;">
+      Traitement sous 10 à 15 jours.
+    </p>
+  </div>
 
-            <div>
-                <div style="font-size:20px;">🎓</div>
-                <p style="margin:5px 0 0 0;"><strong>Inscription confirmée</strong></p>
-                <p style="margin:3px 0 0 0;color:#555;">Vous rejoindrez officiellement la rentrée 2026.</p>
-            </div>
-        </div>
+  <div style="margin-bottom:22px;">
+    <div style="font-size:20px;">✅</div>
+    <p style="margin:4px 0 0 0;"><strong>Candidature validée</strong></p>
+    <p style="margin:2px 0 0 0;color:#555;font-size:14px;">
+      (si avis favorable)
+    </p>
+  </div>
 
-        <p style="text-align:center;margin:30px 0;">
-            <a href="{{ lien_espace }}" class="btn" style="
-                display:inline-block;padding:12px 22px;background:#f4c45a;
-                color:#000;border-radius:8px;font-weight:bold;text-decoration:none;">
-                👉 Ouvrir mon espace candidat
-            </a>
-        </p>
+  <div style="margin-bottom:0;">
+    <div style="font-size:20px;">🎓</div>
+    <p style="margin:4px 0 0 0;"><strong>Inscription confirmée</strong></p>
+    <p style="margin:2px 0 0 0;color:#555;font-size:14px;">
+      Vous rejoindrez officiellement la rentrée 2026.
+    </p>
+  </div>
 
-        {% if mode == "distanciel" %}
-        <h3 style="margin-top:40px;">💻 Comment se déroule la formation 100% en ligne à distance ?</h3>
+</div>
 
-        <p>
-        ECOLE 100 % en ligne (2 jours par semaine pour tous les BTS sauf MOS 15 jours par mois).
-        Formation en visio-conférence ZOOM, en direct, avec enseignants de l'Éducation nationale.
-        </p>
+<p style="text-align:center;margin:30px 0;">
+  <a href="{{ lien_espace }}" class="btn">
+    👉 Ouvrir mon espace
+  </a>
+</p>
 
-        <p>
-        Les étudiants suivent un emploi du temps fixe, se connectent à ZOOM à des heures précises
-        et suivent tous les mêmes cours aux mêmes heures. Pas de plateforme e-learning,
-        les interactions sont 100% en direct.
-        </p>
+<!-- ============================== -->
+<!-- DISTANCIEL : TEXTE EXACT       -->
+<!-- ============================== -->
 
-        <p>
-        Les deux années de formation sont entièrement à distance. Les évaluations sont déposées
-        sur l'espace étudiant. Aucun déplacement. L’examen a lieu en fin de 2ᵉ année dans un lycée public.
-        </p>
+{% if mode == "distanciel" %}
+<h3 style="margin-top:40px;">Comment se déroule la formation 100% en ligne à distance ?</h3>
 
-        <p>
-        ENTREPRISE (3 jours/semaine, ou 15 jours/mois pour MOS) :  
-        En présentiel en entreprise.
-        </p>
-        {% endif %}
+<p>
+ECOLE 100 % en ligne (2 jours par semaine pour tous les BTS sauf MOS 15 jours par mois > affiche selon le BTS) :
+Cette formation se déroule 100 % en ligne à distance en visio-conférence (ZOOM) avec des formateurs expérimentés pour les thématiques professionnelles et des enseignants de l'Éducation nationale pour les thématiques générales. 
+</p>
 
-        <h3 style="margin-top:40px;">❓ Questions fréquentes</h3>
+<p>
+Les étudiants suivent un emploi du temps fixe, se connectant à ZOOM à des heures précises et suivent tous les mêmes cours aux mêmes heures. Il n'y a pas de plateforme de e-learning où les cours peuvent être visionnés à tout moment. Les interactions sont en temps réel : Grâce à la visioconférence, les étudiants peuvent poser des questions à leurs enseignants,  interagir avec les autres étudiants et participer aux mêmes discussions comme s’ils étaient tous réunis dans la même salle de classe.
+</p>
 
-        <p>
-        J'ai des questions ? Appelez le 04 22 47 07 68 pour réserver un rendez-vous téléphonique.
-        </p>
+<p>
+Les deux années de formation se déroulent entièrement à distance, il n'y a pas de déplacements à prévoir. Les évaluations et devoirs sont déposés sur l'espace étudiant et sont ensuite corrigés par les enseignants. Cette formation offre le même niveau de suivi et d’accompagnement que les formations en présentiel mais avec la possibilité de pouvoir suivre les cours depuis n'importe où grâce aux visioconférences ZOOM.
+</p>
 
-        <p>
-        Dois-je signer un contrat avant septembre 2026 ?  
-        Non : vous avez jusqu'à décembre 2026. Vous pouvez commencer les cours sans entreprise.
-        </p>
+<p>
+L'examen aura lieu en fin de 2ème année dans un centre d'examen (lycée public). 
+</p>
 
-        <p>
-        Avez-vous des entreprises partenaires ? Oui, dans toute la France.
-        Nous vous accompagnerons après validation de la pré-inscription.
-        </p>
+<p>
+ENTREPRISE (3 jours par semaine pour tous les BTS sauf MOS 15 jours par mois > affiche selon le BTS) :
+En présentiel au sein d'une entreprise. 
+</p>
+{% endif %}
 
-        <p>
-        La formation est-elle payante ?  
-        Non, totalement gratuite pour les apprentis (prise en charge par l'État).
-        </p>
+<!-- ============================== -->
+<!-- FAQ : TEXTE EXACT              -->
+<!-- ============================== -->
 
-        <p>
-        Prérequis : être titulaire d'un bac ou diplôme niveau 4.
-        </p>
+<h3 style="margin-top:40px;">J'ai des questions est-il possible d'échanger avec vous ?</h3>
+<p>
+Bien sûr, nous serons ravis de répondre à toutes vos questions lors d'un rendez-vous téléphonique. Pour réserver un rendez-vous téléphonique vous pouvez nous contacter au 04 22 47 07 68. 
+</p>
 
-        <p>
-        Agréments officiels : CFA agréé Ministère Éducation Nationale (UAI Paris 0756548K –
-        UAI Côte d’Azur 0831774C), Préfet PACA (NDA 93830600283), Qualiopi.
-        </p>
+<h3>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre 2026 ?</h3>
+<p>
+Vous aurez jusqu’au mois de décembre 2026 pour trouver une entreprise d’accueil et signer un contrat d’apprentissage. Pas d'inquiétude : la plupart des contrats d’apprentissage se concrétisent après la rentrée entre septembre et novembre. Vous pourrez donc commencer les cours au mois de septembre, même si vous n'avez pas encore signé de contrat d'apprentissage.
+</p>
 
-        <p>
-        Diplômes reconnus par l'État : examen officiel en fin de 2ᵉ année.
-        </p>
+<h3>Avez-vous un réseau d'entreprises partenaires ?</h3>
+<p>
+En effet, nous travaillons avec un réseau d'entreprises partenaires et nous pourrons vous mettre en relation selon votre profil et votre situation géographique. Dès que votre inscription aura été validée, nous vous accompagnerons dans la recherche d'une entreprise pour la signature de votre contrat d'apprentissage.
+</p>
 
-        <p>
-        Dossier BTS à télécharger :  
-        <a href="https://www.integraleacademy.com/dossiersbts">https://www.integraleacademy.com/dossiersbts</a>
-        </p>
+<h3>La formation est-elle payante ?</h3>
+<p>
+La formation est totalement gratuite pour les apprentis. Elle est prise en charge par l'Etat lors de la signature du contrat d'apprentissage avec l'entreprise. 
+</p>
 
-        <p>
-        Assistance :  
-        <a href="https://assistance-alw9.onrender.com/">https://assistance-alw9.onrender.com/</a>
-        </p>
+<h3>Quels sont les prérequis ?</h3>
+<p>
+Vous devez être titulaire d'un baccalauréat ou un autre diplôme de niveau 4. 
+</p>
 
-        <hr style="margin:40px 0;border:none;border-top:1px solid #eee;">
-        <p style="font-size:13px;color:#555;line-height:1.5;">
-            Intégrale Academy<br>
-            54 chemin du Carreou 83480 PUGET SUR ARGENS / 142 rue de Rivoli 75001 PARIS<br>
-            SIREN 840899884 - NDA 93830600283 - Qualiopi n°03169<br>
-            UAI 0831774C / 0756548K
-        </p>
-    """
+<h3>Quels sont vos agréments officiels ?</h3>
+<p>
+Notre Centre de Formation des Apprentis (CFA) est agréé par le Ministère de l'Education Nationale (UAI Paris : 0756548K - UAI Côte d'Azur : 0831774C) et par le Préfet de la Région PACA (NDA 93830600283). Nous sommes certifiés QUALIOPI, le label qui atteste de la qualité des formations proposées. Découvrez tous nos agréments en cliquant-ici (lien : https://www.integraleacademy.com/ecole)
+</p>
+
+<h3>Vos diplômes sont-ils reconnus par l'Etat ?</h3>
+<p>
+Les diplômes que nous proposons (Brevet de Technicien Supérieur BTS) sont des diplômes officiels délivrés par le Ministère de l'Education Nationale. L'examen se déroulera en fin de 2ème année dans un lycée public.
+</p>
+
+<!-- ============================== -->
+<!-- ENCARt DOSSIER BTS             -->
+<!-- ============================== -->
+
+<div style="background:#fafafa;border-radius:10px;padding:16px 18px;margin:30px 0;border:1px solid #eee;">
+  <h3 style="margin-top:0;margin-bottom:8px;">Découvrez notre BTS en détails</h3>
+  <p style="margin:0 0 10px 0;">
+    Téléchargez le Dossier de présentation en cliquant ici :
+  </p>
+  <p style="margin:0;">
+    <a href="https://www.integraleacademy.com/dossiersbts" style="color:#f4c45a;font-weight:600;text-decoration:none;">
+      https://www.integraleacademy.com/dossiersbts
+    </a>
+  </p>
+</div>
+
+<!-- ============================== -->
+<!-- BOUTON ASSISTANCE              -->
+<!-- ============================== -->
+
+<h3>Vous avez des questions ?</h3>
+<p>
+Appelez nous au 04 22 47 07 68 ou contactez l'assistance en cliquant sur le bouton ci-dessous :
+</p>
+
+<p style="text-align:center;margin:20px 0 35px 0;">
+  <a href="https://assistance-alw9.onrender.com/" class="btn">
+    Contacter l'assistance
+  </a>
+</p>
+
+<hr style="margin:40px 0;border:none;border-top:1px solid #eee;">
+
+<p style="font-size:13px;color:#555;line-height:1.5;">
+Intégrale Academy<br>
+54 chemin du Carreou 83480 PUGET SUR ARGENS / 142 rue de Rivoli 75001 PARIS<br>
+SIREN 840 899 884 - NDA 93830600283 - Certification Nationale QUALIOPI : n°03169 en date du 21/10/2024<br>
+UAI Côte d'Azur 0831774C - UAI Paris 0756548K
+</p>
+            """
         },
+
 
         "candidature_validee": {
             "title": "Candidature validée",
@@ -399,6 +441,7 @@ def mail_html(template_name, **kwargs):
         logo_url=logo_url,
         **kwargs
     )
+
 
 
 
