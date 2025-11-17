@@ -1118,7 +1118,7 @@ def submit():
     )
     send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
 
-    send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
+    
 
     tel = (form.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
