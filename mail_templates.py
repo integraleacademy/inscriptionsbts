@@ -31,96 +31,50 @@ def mail_html(template_name, **kwargs):
     # === Contenu des modèles ===
     templates = {
                 "accuse_reception": {
-            "title": "Confirmation de réception",
-            "content": f"""
-                <p>Bonjour {prenom},</p>
+    "title": "Confirmation de réception",
+    "content": f"""
+        <p>Bonjour {prenom},</p>
 
-                <p>Nous avons bien reçu votre pré-inscription pour le 
-                <strong>{bts_label}</strong>. Merci pour votre confiance.</p>
+        <p>Nous avons bien reçu votre pré-inscription pour le 
+        <strong>{bts_label}</strong>. Merci pour votre confiance.</p>
 
-                <!-- 🧾 RÉCAP COMPLET DU DOSSIER -->
-                <table width="100%" cellpadding="0" cellspacing="0" 
-                       style="background:#fef8e1;border:1px solid #f5dd9b;border-radius:10px;padding:14px 18px;margin:18px 0;">
-                  <tr>
-                    <td style="font-weight:600;padding-bottom:8px;">
-                      📄 Récapitulatif de votre demande :
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding-left:4px;font-size:14px;line-height:1.6;">
-                      <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
-                      <div><strong>Nom :</strong> {form_nom}</div>
-                      <div><strong>Prénom :</strong> {form_prenom}</div>
-                      <div><strong>Email :</strong> {form_email}</div>
-                      <div><strong>Téléphone :</strong> {form_tel}</div>
-                      <div><strong>Formation :</strong> {bts_label}</div>
-                      <div><strong>Mode :</strong> {form_mode_label}</div>
-                    </td>
-                  </tr>
-                </table>
+        <!-- 🧾 RÉCAP COMPLET DU DOSSIER -->
+        <table width="100%" cellpadding="0" cellspacing="0" 
+               style="background:#fef8e1;border:1px solid #f5dd9b;border-radius:10px;padding:14px 18px;margin:18px 0;">
+          <tr>
+            <td style="font-weight:600;padding-bottom:8px;">
+              📄 Récapitulatif de votre demande :
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-left:4px;font-size:14px;line-height:1.6;">
+              <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
+              <div><strong>Nom :</strong> {form_nom}</div>
+              <div><strong>Prénom :</strong> {form_prenom}</div>
+              <div><strong>Email :</strong> {form_email}</div>
+              <div><strong>Téléphone :</strong> {form_tel}</div>
+              <div><strong>Formation :</strong> {bts_label}</div>
+              <div><strong>Mode :</strong> {form_mode_label}</div>
+            </td>
+          </tr>
+        </table>
 
-                <!-- 🚀 SUIVI ÉTAPES (style proche de l’espace candidat) -->
-                <p style="margin-top:22px;margin-bottom:10px;font-weight:600;">
-                  🚀 Suivi de votre dossier
-                </p>
+        <!-- 🚀 TEXTE + BOUTON (remplace le suivi détaillé) -->
+        <p style="margin-top:22px;margin-bottom:10px;font-weight:600;">
+          🚀 Suivez les étapes de votre inscription directement depuis votre Espace Candidat
+        </p>
 
-                <table width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.6;">
-                  <tr>
-                    <td width="26" valign="top" align="center">🟢</td>
-                    <td>
-                      <strong>Pré-inscription reçue</strong><br>
-                      <span style="color:#555;">Votre formulaire a bien été enregistré.</span>
-                    </td>
-                  </tr>
-                  <tr><td colspan="2" style="font-size:12px;color:#bbb;padding:4px 0 4px 26px;">➜</td></tr>
+        <p style="text-align:center;margin-top:15px;">
+            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
+        </p>
 
-                  <tr>
-                    <td width="26" valign="top" align="center">🟡</td>
-                    <td>
-                      <strong>Candidature en cours d’analyse</strong><br>
-                      <span style="color:#555;">Notre équipe pédagogique étudie actuellement votre dossier.</span>
-                    </td>
-                  </tr>
-                  <tr><td colspan="2" style="font-size:12px;color:#bbb;padding:4px 0 4px 26px;">➜</td></tr>
+        <p style="margin-top:20px;">
+            À très bientôt,<br>
+            <strong>L’équipe Intégrale Academy</strong>
+        </p>
+    """
+},
 
-                  <tr>
-                    <td width="26" valign="top" align="center">⚪</td>
-                    <td>
-                      <strong>Candidature validée</strong><br>
-                      <span style="color:#777;">Vous recevrez un mail pour confirmer définitivement votre inscription.</span>
-                    </td>
-                  </tr>
-                  <tr><td colspan="2" style="font-size:12px;color:#bbb;padding:4px 0 4px 26px;">➜</td></tr>
-
-                  <tr>
-                    <td width="26" valign="top" align="center">⚪</td>
-                    <td>
-                      <strong>Inscription confirmée</strong><br>
-                      <span style="color:#777;">Votre place est réservée à Intégrale Academy.</span>
-                    </td>
-                  </tr>
-                  <tr><td colspan="2" style="font-size:12px;color:#bbb;padding:4px 0 4px 26px;">➜</td></tr>
-
-                  <tr>
-                    <td width="26" valign="top" align="center">⚪</td>
-                    <td>
-                      <strong>Rentrée septembre 2026</strong><br>
-                      <span style="color:#777;">Nous aurons le plaisir de vous accueillir à la rentrée.</span>
-                    </td>
-                  </tr>
-                </table>
-
-                <!-- 🔘 Ouvrir l’espace -->
-                <p style="text-align:center;margin-top:22px;">
-                    <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
-                </p>
-
-                <p style="margin-top:20px;">
-                    À très bientôt,<br>
-                    <strong>L’équipe Intégrale Academy</strong>
-                </p>
-            """
-        },
 
         "candidature_validee": {
             "title": "Candidature validée",
@@ -320,4 +274,5 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
