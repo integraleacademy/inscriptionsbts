@@ -1091,41 +1091,40 @@ def submit():
 
     lien_espace = url_for("espace_candidat", slug=slug, _external=True)
 
-html = mail_html(
-    "accuse_reception",
-    prenom=form.get("prenom"),
-    bts_label=bts_label,
-    lien_espace=lien_espace,
+    html = mail_html(
+        "accuse_reception",
+        prenom=form.get("prenom"),
+        bts_label=bts_label,
+        lien_espace=lien_espace,
 
-    # 📌 AJOUTER CECI :
-    form_nom=form.get("nom"),
-    form_email=form.get("email"),
-    form_tel=form.get("tel"),
-    mode_label="🏫 Présentiel" if (form.get("mode") == "presentiel") else "💻 Distanciel"
-)
-send_mail(
-    form.get("email", ""),
-    "Nous avons bien reçu votre pré-inscription – Intégrale Academy",
-    html
-)
+        # 📌 AJOUTER CECI :
+        form_nom=form.get("nom"),
+        form_email=form.get("email"),
+        form_tel=form.get("tel"),
+        mode_label="🏫 Présentiel" if (form.get("mode") == "presentiel") else "💻 Distanciel"
+    )
+    send_mail(
+        form.get("email", ""),
+        "Nous avons bien reçu votre pré-inscription – Intégrale Academy",
+        html
+    )
 
-# --- SMS ---
-tel = (form.get("tel", "") or "").replace(" ", "")
-if tel.startswith("0"):
-    tel = "+33" + tel[1:]
+    # --- SMS ---
+    tel = (form.get("tel", "") or "").replace(" ", "")
+    if tel.startswith("0"):
+        tel = "+33" + tel[1:]
 
-bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
-msg = sms_text(
-    "accuse_reception",
-    prenom=form.get("prenom", ""),
-    bts_label=bts_label,
-    lien_espace=lien_espace
-)
-send_sms_brevo(tel, msg)
+    bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
+    msg = sms_text(
+        "accuse_reception",
+        prenom=form.get("prenom", ""),
+        bts_label=bts_label,
+        lien_espace=lien_espace
+    )
+    send_sms_brevo(tel, msg)
 
-log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
-log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
-
+    log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
+    log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
     admin_html = render_template(
         "mail_admin_notif.html",
@@ -1137,6 +1136,7 @@ log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
     send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
     return redirect(lien_espace)
+
 
 
 
