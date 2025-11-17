@@ -1091,47 +1091,60 @@ def submit():
 
     lien_espace = url_for("espace_candidat", slug=slug, _external=True)
 
+    # 🔧 Définir le label BTS AVANT l'envoi du mail
+    bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
+
+    # ---------------------
+    # 📩 MAIL CANDIDAT
+    # ---------------------
     html = mail_html(
         "accuse_reception",
         prenom=form.get("prenom"),
         bts_label=bts_label,
         lien_espace=lien_espace,
 
-        # 📌 AJOUTER CECI :
+        # 📌 Variables en plus
         form_nom=form.get("nom"),
         form_email=form.get("email"),
         form_tel=form.get("tel"),
         mode_label="🏫 Présentiel" if (form.get("mode") == "presentiel") else "💻 Distanciel"
     )
+
     send_mail(
         form.get("email", ""),
         "Nous avons bien reçu votre pré-inscription – Intégrale Academy",
         html
     )
 
-    # --- SMS ---
+    # ---------------------
+    # 📱 SMS
+    # ---------------------
     tel = (form.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
 
-    bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
     msg = sms_text(
         "accuse_reception",
         prenom=form.get("prenom", ""),
         bts_label=bts_label,
         lien_espace=lien_espace
     )
+
     send_sms_brevo(tel, msg)
 
     log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
     log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
+    # ---------------------
+    # 📩 MAIL ADMIN
+    # ---------------------
     admin_html = render_template(
         "mail_admin_notif.html",
         numero=numero,
         nom=form.get("nom", ""),
         prenom=form.get("prenom", "")
     )
+
     from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
     send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
