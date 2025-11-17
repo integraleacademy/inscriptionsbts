@@ -150,30 +150,37 @@ def mail_html(template_name, **kwargs):
 
 
 
-<!-- 📘 DOSSIER BTS -->
-<div style="margin-top:28px;text-align:center;">
-  <a href="https://www.integraleacademy.com/dossiersbts"
-     class="btn"
-     style="background:#f4c45a;color:#000;font-weight:600;">
-     📘 Découvrez notre BTS en détails – Télécharger le dossier de présentation en cliquant ici
-  </a>
+<div style="margin-top:28px;padding:14px 18px;border-radius:10px;
+            background:#fff3d6;border:1px solid #f4c45a;">
+  <p style="margin:0;font-size:15px;color:#000;text-align:center;">
+    📘 Découvrez notre BTS en détails — 
+    <a href="https://www.integraleacademy.com/dossiersbts"
+       style="color:#000;font-weight:600;text-decoration:underline;">
+       télécharger le dossier de présentation
+    </a>
+  </p>
 </div>
 
 
-<!-- 🆘 ASSISTANCE – NOUVEL ENCADRÉ -->
-<div style="margin-top:28px;padding:18px;background:#eef1f7;border-radius:10px;border:1px solid #d0d7e3;text-align:center;">
-  <p style="margin:0 0 12px 0;font-size:15px;">
+
+<!-- 🆘 ASSISTANCE – VERSION ÉPURÉE & PROPRE -->
+<div style="margin-top:28px;padding:18px;border-radius:10px;
+            background:#f8faff;border:1px solid #dce6f5;text-align:center;">
+
+  <p style="margin:0 0 12px 0;font-size:15px;color:#444;">
     Vous avez des questions ?  
-    Appelez-nous au <strong>04 22 47 07 68</strong>  
+    Appelez-nous au <strong>04 22 47 07 68</strong><br>
     ou contactez l’assistance :
   </p>
 
   <a href="https://assistance-alw9.onrender.com/"
-     class="btn"
-     style="background:#2b2b2b;color:#fff;">
-     🆘 Contacter l'assistance
+     style="display:inline-block;background:#000;color:#fff;
+            padding:10px 18px;border-radius:8px;font-weight:600;
+            text-decoration:none;font-size:15px;">
+    🆘 Contacter l’assistance
   </a>
 </div>
+
 
 <p style="margin-top:30px;">
     À très bientôt,<br>
@@ -383,6 +390,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
