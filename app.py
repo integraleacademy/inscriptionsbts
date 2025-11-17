@@ -1091,27 +1091,40 @@ def submit():
 
     lien_espace = url_for("espace_candidat", slug=slug, _external=True)
 
-    html = mail_html(
-        "accuse_reception",
-        prenom=form.get("prenom", ""),
-        bts_label=BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts")),
-        lien_espace=lien_espace
-    )
-    send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
+html = mail_html(
+    "accuse_reception",
+    prenom=form.get("prenom", ""),
+    nom=form.get("nom", ""),
+    date_naissance=form.get("date_naissance", ""),
+    numero_dossier=numero_dossier,  # ⚠️ doit exister juste avant (tu l’as déjà)
+    bts_label=BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts")),
+    mode=form.get("mode", ""),
+    lien_espace=lien_espace
+)
 
-    tel = (form.get("tel", "") or "").replace(" ", "")
-    if tel.startswith("0"):
-        tel = "+33" + tel[1:]
-    bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
-    msg = sms_text(
-        "accuse_reception",
-        prenom=form.get("prenom", ""),
-        bts_label=bts_label,
-        lien_espace=lien_espace
-    )
-    send_sms_brevo(tel, msg)
-    log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
-    log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
+send_mail(
+    form.get("email", ""),
+    "Nous avons bien reçu votre pré-inscription – Intégrale Academy",
+    html
+)
+
+# --- SMS ---
+tel = (form.get("tel", "") or "").replace(" ", "")
+if tel.startswith("0"):
+    tel = "+33" + tel[1:]
+
+bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
+msg = sms_text(
+    "accuse_reception",
+    prenom=form.get("prenom", ""),
+    bts_label=bts_label,
+    lien_espace=lien_espace
+)
+send_sms_brevo(tel, msg)
+
+log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
+log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
+
 
     admin_html = render_template(
         "mail_admin_notif.html",
