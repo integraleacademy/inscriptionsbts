@@ -30,20 +30,31 @@ def mail_html(template_name, **kwargs):
 
     # === Contenu des modèles ===
     templates = {
-                "accuse_reception": {
-    "title": "Confirmation de réception",
+  "accuse_reception": {
+    "title": "Confirmation de réception de votre candidature",
     "content": f"""
         <p>Bonjour {prenom},</p>
 
-        <p>Nous avons bien reçu votre pré-inscription pour le 
-        <strong>{bts_label}</strong>. Merci pour votre confiance.</p>
+        <!-- ✉️ TEXTE INTRO DE CLÉMENT -->
+        <p>
+        Nous avons bien reçu votre candidature concernant notre <strong>{bts_label}</strong> 
+        en alternance, en présentiel (Puget sur Argens, Var) / 100% en ligne à distance en visioconférence ZOOM.
+        Nous vous confirmons que votre candidature a bien été prise en compte et que nous allons étudier 
+        votre dossier dans les prochains jours.
+        </p>
 
-        <!-- 🧾 RÉCAP COMPLET DU DOSSIER -->
+        <p>
+        Notre commission d'admission se réunit toutes les semaines et traite les dossiers par ordre d'arrivée. 
+        Vous recevrez donc une réponse (<strong>avis Favorable</strong> ou <strong>avis Défavorable</strong>) dans un délai de 
+        <strong>10 à 15 jours</strong>. La réponse sera envoyée par <strong>mail</strong> et par <strong>SMS</strong>.
+        </p>
+
+        <!-- 🧾 RÉCAP DU DOSSIER -->
         <table width="100%" cellpadding="0" cellspacing="0" 
-               style="background:#fef8e1;border:1px solid #f5dd9b;border-radius:10px;padding:14px 18px;margin:18px 0;">
+            style="background:#fef8e1;border:1px solid #f5dd9b;border-radius:10px;padding:14px 18px;margin:22px 0;">
           <tr>
-            <td style="font-weight:600;padding-bottom:8px;">
-              📄 Récapitulatif de votre demande :
+            <td style="font-weight:600;padding-bottom:8px;font-size:15px;">
+              📄 Récapitulatif de votre candidature :
             </td>
           </tr>
           <tr>
@@ -59,21 +70,108 @@ def mail_html(template_name, **kwargs):
           </tr>
         </table>
 
-        <!-- 🚀 TEXTE + BOUTON (remplace le suivi détaillé) -->
-        <p style="margin-top:22px;margin-bottom:10px;font-weight:600;">
-          🚀 Suivez les étapes de votre inscription directement depuis votre Espace Candidat
+        <!-- 🔗 REDIRECTION UNIQUE -->
+        <p style="margin-top:25px;margin-bottom:10px;font-weight:600;font-size:15px;">
+          📌 Suivez les étapes de votre inscription directement depuis votre Espace Candidat :
         </p>
 
-        <p style="text-align:center;margin-top:15px;">
+        <p style="text-align:center;margin-top:10px;">
             <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
         </p>
+    """
+        + (
+        # 🖥️ SI DISTANCIEL → AJOUT DU BLOC FORMATION EN LIGNE
+        """
+        <!-- 💻 BLOC FORMATION 100% EN LIGNE (affiché uniquement si distanciel) -->
+        <div style="background:#f3f7ff;border-left:4px solid #2b6cff;padding:18px;margin-top:30px;border-radius:10px;">
+          <h3 style="margin:0 0 10px 0;color:#2b6cff;">💻 Comment se déroule la formation 100% en ligne à distance ?</h3>
 
-        <p style="margin-top:20px;">
+          <p style="margin:0 0 10px 0;">
+          <strong>ÉCOLE 100 % en ligne :</strong><br>
+          Cette formation se déroule entièrement en visio-conférence (ZOOM) avec des formateurs expérimentés. 
+          Les étudiants suivent un emploi du temps fixe, se connectent à des horaires précis 
+          et interagissent en temps réel avec leurs enseignants et les autres étudiants.
+          </p>
+
+          <p style="margin:0 0 10px 0;">
+          Il ne s’agit pas d’une plateforme e-learning : les cours ne sont pas en libre accès, 
+          tout se déroule en direct comme dans une vraie classe.
+          </p>
+
+          <p style="margin:0 0 10px 0;">
+          Les deux années sont intégralement à distance (aucun déplacement). 
+          Les évaluations et devoirs sont déposés sur l’espace étudiant, puis corrigés par les enseignants.
+          </p>
+
+          <p style="margin:0 0 10px 0;">
+          L’examen final se déroule en fin de 2e année dans un centre d’examen public (lycée).
+          </p>
+
+          <p style="margin:0 0 0 0;">
+          <strong>ENTREPRISE :</strong><br>
+          En présentiel au sein de l’entreprise (alternance).
+          </p>
+        </div>
+        """
+        if "distance" in form_mode_label.lower() or "en ligne" in form_mode_label.lower() or "dist" in form_mode_label.lower()
+        else ""
+        )
+        + 
+        """
+        <!-- ❓ FAQ COMPACTE -->
+        <div style="margin-top:32px;padding:18px;background:#fafafa;border-radius:10px;border:1px solid #eee;">
+          <h3 style="margin-top:0;color:#444;">❓ Questions fréquentes</h3>
+
+          <p><strong>J'ai des questions, est-il possible d'échanger avec vous ?</strong><br>
+          Oui, avec plaisir 😊 Vous pouvez nous contacter au <strong>04 22 47 07 68</strong> pour réserver un rendez-vous téléphonique.</p>
+
+          <p><strong>Dois-je obligatoirement signer un contrat d’apprentissage avant septembre 2026 ?</strong><br>
+          Non — vous avez jusqu’à <strong>décembre 2026</strong>. La majorité des contrats se signent entre septembre et novembre.</p>
+
+          <p><strong>Avez-vous un réseau d'entreprises partenaires ?</strong><br>
+          Oui, nous travaillons avec un réseau d'entreprises partenaires et nous pourrons vous mettre en relation selon votre profil.</p>
+
+          <p><strong>La formation est-elle payante ?</strong><br>
+          Non, elle est 100% prise en charge dans le cadre d’un contrat d’apprentissage.</p>
+
+          <p><strong>Quels sont les prérequis ?</strong><br>
+          Avoir un <strong>baccalauréat</strong> ou un diplôme de niveau 4.</p>
+
+          <p><strong>Quels sont vos agréments officiels ?</strong><br>
+          CFA agréé Education Nationale (UAI Paris 0756548K / UAI Côte d’Azur 0831774C), 
+          NDA 93830600283, certification <strong>QUALIOPI</strong>. 
+          <a href="https://www.integraleacademy.com/ecole" style="color:#f4c45a;">Cliquez ici</a> pour les voir.</p>
+
+          <p><strong>Vos diplômes sont-ils reconnus ?</strong><br>
+          Oui, ce sont des diplômes d’État délivrés par le Ministère de l’Éducation Nationale.</p>
+        </div>
+
+        <!-- 📘 DOSSIER BTS -->
+        <div style="margin-top:28px;text-align:center;">
+          <a href="https://www.integraleacademy.com/dossiersbts" 
+             class="btn" 
+             style="background:#f4c45a;color:#000;font-weight:600;">
+             📘 Télécharger le dossier de présentation BTS
+          </a>
+        </div>
+
+        <!-- 🆘 ASSISTANCE -->
+        <div style="margin-top:24px;text-align:center;">
+          <p style="margin-bottom:10px;">Vous avez une question ?</p>
+          <a href="https://assistance-alw9.onrender.com/" 
+             class="btn" 
+             style="background:#222;color:#fff;">
+             🆘 Contacter l'assistance
+          </a>
+        </div>
+
+        <p style="margin-top:30px;">
             À très bientôt,<br>
             <strong>L’équipe Intégrale Academy</strong>
         </p>
     """
 },
+
 
 
         "candidature_validee": {
@@ -274,5 +372,6 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
