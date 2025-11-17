@@ -1092,12 +1092,32 @@ def submit():
 
     lien_espace = url_for("espace_candidat", slug=slug, _external=True)
 
+        # 🔹 Préparation des libellés pour le mail
+    bts_code = (form.get("bts") or "").strip().upper()
+    bts_label = BTS_LABELS.get(bts_code, form.get("bts"))
+
+    mode_raw = form.get("mode", "") or ""
+    if "dist" in mode_raw.lower():
+        mode_label_email = "💻 À distance 100% en ligne (visioconférence)"
+    else:
+        mode_label_email = "🏫 En présentiel à Puget-sur-Argens (Var, 83)"
+
+    # ✉️ Mail accusé de réception (avec récap + suivi)
     html = mail_html(
         "accuse_reception",
         prenom=form.get("prenom", ""),
-        bts_label=BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts")),
-        lien_espace=lien_espace
+        bts_label=bts_label,
+        lien_espace=lien_espace,
+
+        numero_dossier=numero,
+        form_nom=form.get("nom", ""),
+        form_prenom=form.get("prenom", ""),
+        form_email=form.get("email", ""),
+        form_tel=form.get("tel", ""),
+        form_mode_label=mode_label_email,
     )
+    send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
+
     send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
 
     tel = (form.get("tel", "") or "").replace(" ", "")
