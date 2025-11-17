@@ -30,7 +30,7 @@ def mail_html(template_name, **kwargs):
 
     # === Contenu des modèles ===
     templates = {
-  "accuse_reception": {
+ "accuse_reception": {
     "title": "Confirmation de réception de votre candidature",
     "content": f"""
         <p>Bonjour {prenom},</p>
@@ -118,33 +118,41 @@ def mail_html(template_name, **kwargs):
         )
         + 
         """
-        <!-- ❓ FAQ COMPACTE -->
-        <div style="margin-top:32px;padding:18px;background:#fafafa;border-radius:10px;border:1px solid #eee;">
-          <h3 style="margin-top:0;color:#444;">❓ Questions fréquentes</h3>
+<!-- ❓ FAQ COMPACTE – VERSION TEXTES DE CLÉMENT -->
+<div style="margin-top:32px;padding:18px;background:#fafafa;border-radius:10px;border:1px solid #eee;">
+  <h3 style="margin-top:0;color:#444;">❓ Questions fréquentes</h3>
 
-          <p><strong>J'ai des questions, est-il possible d'échanger avec vous ?</strong><br>
-          Oui, avec plaisir 😊 Vous pouvez nous contacter au <strong>04 22 47 07 68</strong> pour réserver un rendez-vous téléphonique.</p>
+  <p><strong>J'ai des questions est-il possible d'échanger avec vous ?</strong><br>
+  Bien sûr, nous serons ravis de répondre à toutes vos questions lors d'un rendez-vous téléphonique. 
+  Pour réserver un rendez-vous téléphonique vous pouvez nous contacter au <strong>04 22 47 07 68</strong>.</p>
 
-          <p><strong>Dois-je obligatoirement signer un contrat d’apprentissage avant septembre 2026 ?</strong><br>
-          Non — vous avez jusqu’à <strong>décembre 2026</strong>. La majorité des contrats se signent entre septembre et novembre.</p>
+  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre 2026 ?</strong><br>
+  Vous aurez jusqu’au mois de <strong>décembre 2026</strong> pour trouver une entreprise d’accueil et signer un contrat d’apprentissage. 
+  Pas d'inquiétude : la plupart des contrats d’apprentissage se concrétisent après la rentrée entre septembre et novembre. 
+  Vous pourrez donc commencer les cours au mois de septembre, même si vous n'avez pas encore signé de contrat d'apprentissage.</p>
 
-          <p><strong>Avez-vous un réseau d'entreprises partenaires ?</strong><br>
-          Oui, nous travaillons avec un réseau d'entreprises partenaires et nous pourrons vous mettre en relation selon votre profil.</p>
+  <p><strong>Avez-vous un réseau d'entreprises partenaires ?</strong><br>
+  En effet, nous travaillons avec un réseau d'entreprises partenaires et nous pourrons vous mettre en relation 
+  selon votre profil et votre situation géographique. Dès que votre inscription aura été validée, 
+  nous vous accompagnerons dans la recherche d'une entreprise pour la signature de votre contrat d'apprentissage.</p>
 
-          <p><strong>La formation est-elle payante ?</strong><br>
-          Non, elle est 100% prise en charge dans le cadre d’un contrat d’apprentissage.</p>
+  <p><strong>La formation est-elle payante ?</strong><br>
+  La formation est totalement gratuite pour les apprentis. Elle est prise en charge par l'État lors de la signature du contrat d'apprentissage avec l'entreprise.</p>
 
-          <p><strong>Quels sont les prérequis ?</strong><br>
-          Avoir un <strong>baccalauréat</strong> ou un diplôme de niveau 4.</p>
+  <p><strong>Quels sont les prérequis ?</strong><br>
+  Vous devez être titulaire d'un <strong>baccalauréat</strong> ou un autre diplôme de niveau 4.</p>
 
-          <p><strong>Quels sont vos agréments officiels ?</strong><br>
-          CFA agréé Education Nationale (UAI Paris 0756548K / UAI Côte d’Azur 0831774C), 
-          NDA 93830600283, certification <strong>QUALIOPI</strong>. 
-          <a href="https://www.integraleacademy.com/ecole" style="color:#f4c45a;">Cliquez ici</a> pour les voir.</p>
+  <p><strong>Quels sont vos agréments officiels ?</strong><br>
+  Notre Centre de Formation des Apprentis (CFA) est agréé par le Ministère de l'Éducation Nationale 
+  (UAI Paris : 0756548K - UAI Côte d'Azur : 0831774C) et par le Préfet de la Région PACA (NDA 93830600283). 
+  Nous sommes certifiés QUALIOPI, le label qui atteste de la qualité des formations proposées. 
+  Découvrez tous nos agréments en <a href="https://www.integraleacademy.com/ecole" style="color:#f4c45a;">cliquant ici</a>.</p>
 
-          <p><strong>Vos diplômes sont-ils reconnus ?</strong><br>
-          Oui, ce sont des diplômes d’État délivrés par le Ministère de l’Éducation Nationale.</p>
-        </div>
+  <p><strong>Vos diplômes sont-ils reconnus par l'État ?</strong><br>
+  Les diplômes que nous proposons (Brevet de Technicien Supérieur – BTS) sont des diplômes officiels délivrés 
+  par le Ministère de l'Éducation Nationale. L'examen se déroulera en fin de 2ème année dans un lycée public.</p>
+</div>
+
 
         <!-- 📘 DOSSIER BTS -->
         <div style="margin-top:28px;text-align:center;">
@@ -171,6 +179,7 @@ def mail_html(template_name, **kwargs):
         </p>
     """
 },
+
 
 
 
@@ -372,6 +381,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
