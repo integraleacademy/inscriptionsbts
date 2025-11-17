@@ -1093,15 +1093,16 @@ def submit():
 
 html = mail_html(
     "accuse_reception",
-    prenom=form.get("prenom", ""),
-    nom=form.get("nom", ""),
-    date_naissance=form.get("date_naissance", ""),
-    numero_dossier=numero_dossier,  # ⚠️ doit exister juste avant (tu l’as déjà)
-    bts_label=BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts")),
-    mode=form.get("mode", ""),
-    lien_espace=lien_espace
-)
+    prenom=form.get("prenom"),
+    bts_label=bts_label,
+    lien_espace=lien_espace,
 
+    # 📌 AJOUTER CECI :
+    form_nom=form.get("nom"),
+    form_email=form.get("email"),
+    form_tel=form.get("tel"),
+    mode_label="🏫 Présentiel" if (form.get("mode") == "presentiel") else "💻 Distanciel"
+)
 send_mail(
     form.get("email", ""),
     "Nous avons bien reçu votre pré-inscription – Intégrale Academy",
