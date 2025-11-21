@@ -256,6 +256,28 @@ def mail_html(template_name, **kwargs):
             <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
         </p>
     """
+
+    <div style="background:#fff6d9;border:1px solid #f4c45a;padding:22px;
+            border-radius:12px;margin:28px 0;text-align:center;">
+
+  <h3 style="margin:0 0 12px 0;color:#000;font-size:18px;">
+    🔔 Prochaine étape : confirmation de votre inscription
+  </h3>
+
+  <p style="margin:0 0 18px 0;font-size:15px;color:#444;">
+    Pour finaliser votre admission, veuillez confirmer votre inscription
+    en cliquant sur le bouton ci-dessous.
+  </p>
+
+  <a href="{{ lien_espace }}"
+     style="display:inline-block;background:#f4c45a;color:#000;
+            padding:12px 22px;border-radius:10px;font-weight:700;
+            text-decoration:none;font-size:16px;">
+      👉 Confirmer mon inscription
+  </a>
+
+</div>
+
         +
 
         # === BLOC DISTANCIEL SI MODE DISTANCE ===
@@ -636,6 +658,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
