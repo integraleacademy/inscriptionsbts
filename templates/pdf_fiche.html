@@ -231,6 +231,34 @@
   {% else %}—{% endif %}
 </div>
 
+ <h2>🛡️ FORMATION APS (Sécurité privée)</h2>
+
+<div class="box">
+  <span class="label">Souhaite suivre la formation APS :</span><br>
+  {% if row.aps_souhaitee is not none %}
+    {% if row.aps_souhaitee|int == 1 %}
+      ✅ Oui, le candidat souhaite suivre la formation APS
+    {% elif row.aps_souhaitee|int == 0 %}
+      ❌ Non, le candidat ne souhaite pas suivre la formation APS
+    {% else %}
+      {{ row.aps_souhaitee }}
+    {% endif %}
+  {% else %}
+    —
+  {% endif %}
+</div>
+
+<div class="box">
+  <span class="label">Session APS choisie :</span><br>
+  {{ row.aps_session or "—" }}
+</div>
+
+<div class="box">
+  <span class="label">Commentaire / raison si la formation APS n’est pas souhaitée :</span><br>
+  {{ row.raison_aps or "—" }}
+</div>
+ 
+
 <!-- 🔹 Nouveau bloc : CONTRAT D'APPRENTISSAGE -->
 <h2>🎓 CONTRAT D’APPRENTISSAGE</h2>
 <div class="box">
