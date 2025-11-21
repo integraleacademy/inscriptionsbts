@@ -307,7 +307,7 @@ def mail_html(template_name, **kwargs):
             """
         },
 
-                # =====================================================
+        # =====================================================
         # 🔔 RELANCES (mail + SMS)
         # =====================================================
         "relance_candidature_validee": {
@@ -349,18 +349,18 @@ def mail_html(template_name, **kwargs):
             """
         },
 
-                "demande_aps": {
-            "title": "Formation APS – Dossier CNAPS à compléter",
+       "demande_aps": {
+            "title": "Formation Agent de sécurité privée – Dossier CNAPS à compléter",
             "content": f"""
                 <p>Bonjour {prenom},</p>
 
                 <p>
                 Je fais suite à votre inscription en <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>.<br>
-                Vous avez indiqué souhaiter intégrer la formation <strong>Agent de Prévention et de Sécurité (APS)</strong>.
+                Vous avez indiqué que vous souhaitiez intégrer la formation <strong>Agent de Prévention et de Sécurité (APS)</strong>.
                 </p>
 
                 <p>
-                Celle-ci se déroulera dans nos locaux à <strong>Intégrale Academy – Puget-sur-Argens (VAR)</strong>,
+                Cette formation se déroulera dans nos locaux <strong>Intégrale Academy à Puget-sur-Argens (VAR)</strong>,
                 aux dates suivantes :
                 </p>
 
@@ -388,7 +388,7 @@ def mail_html(template_name, **kwargs):
                     </p>
 
                     <p style="margin-top:12px;font-weight:600;">
-                        👉 Merci de compléter ce formulaire pour déclencher votre demande :
+                        👉 Merci de compléter ce formulaire :
                     </p>
 
                     <p style="text-align:center;margin-top:10px;">
@@ -404,19 +404,19 @@ def mail_html(template_name, **kwargs):
                     <h3 style="margin-top:0;color:#1f5fbf;">💳 Financement de la formation</h3>
 
                     <p>
-                        Nous proposons cette session APS au tarif exceptionnel de
-                        <strong>950 € (au lieu de 1650 €)</strong> pour les étudiants du BTS.
+                        Nous proposons cette formation au tarif exceptionnel de
+                        <strong>950 € (au lieu de 1650 €)</strong> pour les étudiants inscrits en BTS MOS.
                     </p>
 
                     <p style="margin-top:10px;">
-                        Vous allez prochainement recevoir un
+                        Vous allez recevoir dans les prochains jours un 
                         <strong>mandat de prélèvement</strong> émis par notre banque <strong>QONTO</strong>.
-                        Merci de bien le compléter avec vos coordonnées bancaires.
+                        Nous vous remercions de bien vouloir compléter ce mandat avec vos coordonnées bancaires. ⚠️ Votre inscription sera validée dès que le mandat de prélèvement sera validé.
                     </p>
 
                     <p style="margin-top:10px;">
-                        ✔️ <strong>Important :</strong> Le prélèvement sera effectué
-                        <strong>uniquement le 1er jour de votre formation APS</strong>.
+                        ✔️ <strong>Rassurez vous :</strong> Le prélèvement sera effectué
+                        <strong>uniquement le 1er jour de votre formation (pas avant)</strong>.
                     </p>
                 </div>
 
@@ -471,6 +471,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
