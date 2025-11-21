@@ -2993,39 +2993,6 @@ def admin_count_confirmed():
         print("Erreur count_confirmed:", e)
         return jsonify(ok=False, error=str(e)), 500
 
-@app.post("/admin/send_mail_aps/<int:cid>")
-def admin_send_mail_aps(cid):
-    conn = get_db()
-    cur = conn.cursor()
-    cur.execute("SELECT nom, prenom, email, aps_session FROM candidats WHERE id=?", (cid,))
-    row = cur.fetchone()
-
-    if not row:
-        return {"ok": False, "error": "Candidat introuvable"}, 404
-
-    nom, prenom, email, aps_session = row
-
-    # génération du mail APS
-    from mail_templates import mail_html
-    html = mail_html(
-        "demande_aps",
-        prenom=prenom,
-        aps_session=aps_session
-    )
-
-    # envoi
-    from utils import send_mail
-    send_mail(
-        email,
-        "📩 Dossier APS – autorisation préalable CNAPS",
-        html
-    )
-
-    # log
-    log_event(cid, "MAIL_APS_ENVOYE", {"email": email})
-
-    return {"ok": True}
-
 
 
 # =====================================================
