@@ -906,6 +906,8 @@ def submit():
     aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
     aps_session_value = (form.get("aps_session") or "").strip()
     aps_session_other = (form.get("aps_session_other") or "").strip()
+    raison_aps = (form.get("raison_aps") or "").strip()
+
 
     APS_SESSIONS = {
         "puget": "8 juillet → 12 août 2026 — Intégrale Academy (Puget-sur-Argens)",
@@ -931,14 +933,21 @@ def submit():
         "projet_motivation": projet_motivation,
         "projet_recherche":  projet_recherche,
         "projet_travail":    projet_travail,
-        "aps_souhaitee":     aps_souhaitee,
-        "aps_session":       aps_session,
-        "bac_status": baccalaureat,
-        "entreprise_trouvee": entreprise_trouvee,
+
+        # APS
+        "aps_souhaitee":     aps_souhaitee,      # 1 ou 0
+        "aps_session":       aps_session,        # texte propre
+        "raison_aps":        raison_aps,         # texte libre
+        "label_aps":         aps_souhaitee,      # ✅ coche auto dans l’admin
+
+        # Bac / apprentissage
+        "bac_status":            baccalaureat,
+        "entreprise_trouvee":    entreprise_trouvee,
         "recherches_commencees": recherches_commencees,
-        "baccalaureat": baccalaureat,
+        "baccalaureat":          baccalaureat,
         "souhaite_accompagnement": souhaite_accompagnement,
     }
+
 
     # ✅ Vérification du numéro de sécurité sociale
     nir = form.get("num_secu", "")
