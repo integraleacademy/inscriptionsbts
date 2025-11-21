@@ -367,6 +367,27 @@ document.querySelectorAll('.next').forEach(btn => {
     });
   });
 
+  // ===== Affichage automatique du Pôle Alternance selon la réponse "cherche_idf" =====
+document.querySelectorAll("input[name='cherche_idf']").forEach(radio => {
+  radio.addEventListener("change", () => {
+    const box = document.querySelector(".pole-alternance-box");
+    if (!box) return;
+
+    if (radio.value === "oui") {
+      box.style.display = "block";   // 👉 afficher automatiquement
+    } else {
+      box.style.display = "none";    // 👉 cacher si NON
+
+      // 🔄 Reset du choix "souhaite_accompagnement"
+      const accOui = document.querySelector("input[name='souhaite_accompagnement'][value='oui']");
+      const accNon = document.querySelector("input[name='souhaite_accompagnement'][value='non']");
+      if (accOui) accOui.checked = false;
+      if (accNon) accNon.checked = false;
+    }
+  });
+});
+
+
   // === Vérif fichiers PDF + NIR avant envoi ===
   const form = document.querySelector('#inscriptionForm');
   if (form) {
@@ -1012,4 +1033,5 @@ setTimeout(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
+
 
