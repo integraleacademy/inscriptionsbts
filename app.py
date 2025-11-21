@@ -1070,11 +1070,23 @@ def submit():
             print("❌ Erreur envoi mail Pôle Alternance :", e)
 
     # --------------------- MAIL ACCUSE RECEPTION ---------------------
-    send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
+    admin_html = render_template(
+        "mail_admin_notif.html",
+        numero=numero,
+        nom=form.get("nom", ""),
+        prenom=form.get("prenom", "")
+    )
 
+    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
 
+    send_mail(
+        from_addr,
+        f"[ADMIN] Nouvelle pré-inscription {numero}",
+        admin_html
+    )
 
     return redirect(lien_espace)
+
 
 
 
