@@ -607,6 +607,39 @@ if (renvoiMailsBtn) {
   };
 }
 
+  const sendAPSBtn = document.getElementById("sendAPSBtn");
+
+if (sendAPSBtn) {
+  sendAPSBtn.onclick = async () => {
+    if (!window.currentId) return;
+    if (!confirm("Voulez-vous envoyer le mail APS à ce candidat ?")) return;
+
+    sendAPSBtn.disabled = true;
+    sendAPSBtn.textContent = "⏳ Envoi en cours…";
+
+    try {
+      const res = await fetch(`/admin/send_mail_aps/${window.currentId}`, {
+        method: "POST"
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        showToast("📩 Mail APS envoyé avec succès", "#28a745");
+      } else {
+        showToast("❌ Erreur : " + (data.error || "Impossible d'envoyer le mail"), "#dc3545");
+      }
+    } catch (err) {
+      showToast("❌ Erreur réseau : " + err.message, "#dc3545");
+    } finally {
+      sendAPSBtn.disabled = false;
+      sendAPSBtn.textContent = "📩 Envoyer mail APS";
+      closeActionsModal();
+    }
+  };
+}
+
+
 if (relancesBtn) {
   relancesBtn.onclick = () => {
     closeActionsModal();
@@ -1658,6 +1691,7 @@ async function onStatusChange(sel) {
     showToast("⚠️ Erreur de réponse serveur", "#dc3545");
   }
 }
+
 
 
 
