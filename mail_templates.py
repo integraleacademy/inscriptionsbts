@@ -36,26 +36,17 @@ def mail_html(template_name, **kwargs):
             with open(file_path, encoding="utf-8") as f:
                 html_content = f.read()
 
-            # Rendu complet dans base email + injection du content
             with open(BASE_TEMPLATE_PATH, encoding="utf-8") as f:
                 base_html = f.read()
 
+            # ⚠️ Correction IMPORTANTE : suppression des doublons kwargs
             return render_template_string(
                 base_html,
                 email_title=template_name.replace("_", " ").title(),
                 email_content=render_template_string(
                     html_content,
-                    **kwargs,
-                    prenom=prenom,
-                    bts_label=bts_label,
-                    lien_espace=lien_espace,
-                    numero_dossier=numero_dossier,
-                    form_nom=form_nom,
-                    form_prenom=form_prenom,
-                    form_email=form_email,
-                    form_tel=form_tel,
-                    form_mode_label=form_mode_label,
-                    logo_url=logo_url
+                    **kwargs,       # ⬅️ On garde le kwargs complet
+                    logo_url=logo_url  # ⬅️ On ajoute seulement le logo
                 ),
                 logo_url=logo_url
             )
