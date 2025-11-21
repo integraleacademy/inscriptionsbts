@@ -904,6 +904,9 @@ def submit():
 
     # === APS (sessions datées) ===
     aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
+    # === Auto-label APS dans l’admin ===
+    label_aps_auto = 1 if aps_souhaitee == 1 else 0
+
     aps_session_value = (form.get("aps_session") or "").strip()
     aps_session_other = (form.get("aps_session_other") or "").strip()
 
@@ -938,6 +941,7 @@ def submit():
         "recherches_commencees": recherches_commencees,
         "baccalaureat": baccalaureat,
         "souhaite_accompagnement": souhaite_accompagnement,
+        "label_aps": label_aps_auto,
     }
 
     # ✅ Vérification du numéro de sécurité sociale
@@ -1012,56 +1016,37 @@ def submit():
         try:
             print("📤 Préparation du mail Pôle Alternance...")
 
-            prenom = form.get("prenom", "")
-            nom = form.get("nom", "")
-            email = form.get("email", "")
-            tel = form.get("tel", "")
-            bts = form.get("bts", "")
-            mode = form.get("mode", "")
-            ville = form.get("ville", "")
-            projet_pourquoi = form.get("projet_pourquoi", "")
-            projet_objectif = form.get("projet_objectif", "")
-            projet_passions = form.get("projet_passions", "")
-            projet_qualites = ", ".join(request.form.getlist("qualites[]"))
-            projet_motivation = ", ".join(request.form.getlist("motivation[]"))
-            projet_recherche = ", ".join(request.form.getlist("valeurs[]"))
-            projet_travail = ", ".join(request.form.getlist("travail[]"))
+            html = f"""
+            <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
 
-            bts_label = BTS_LABELS.get(bts.strip().upper(), bts)
+              <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
 
-html = f"""
-    <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
+              <p>Bonjour,<br><br>
+              Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
 
-      <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
+              <ul>
+                <li><strong>Nom :</strong> {nom}</li>
+                <li><strong>Prénom :</strong> {prenom}</li>
+                <li><strong>Email :</strong> {email}</li>
+                <li><strong>Téléphone :</strong> {tel}</li>
+                <li><strong>Ville :</strong> {ville}</li>
+                <li><strong>BTS :</strong> {bts_label}</li>
+                <li><strong>Mode :</strong> {mode}</li>
+              </ul>
 
-      <p>Bonjour,<br><br>
-      Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
+              <p style='margin-top:15px; font-weight:600;'>📎 Pièces jointes :</p>
+              <ul>
+                <li>📄 CV du candidat</li>
+                <li>📝 Lettre de motivation</li>
+              </ul>
 
-      <ul>
-        <li><strong>Nom :</strong> {nom}</li>
-        <li><strong>Prénom :</strong> {prenom}</li>
-        <li><strong>Email :</strong> {email}</li>
-        <li><strong>Téléphone :</strong> {tel}</li>
-        <li><strong>Ville :</strong> {ville}</li>
-        <li><strong>BTS :</strong> {bts_label}</li>
-        <li><strong>Mode :</strong> {mode}</li>
-      </ul>
+              <p style='margin-top:25px;'>
+                Bien cordialement,<br>
+                <strong>Clément VAILLANT - Intégrale Academy</strong>
+              </p>
 
-      <p style='margin-top:15px; font-weight:600;'>📎 Pièces jointes :</p>
-      <ul>
-        <li>📄 CV du candidat</li>
-        <li>📝 Lettre de motivation</li>
-      </ul>
-
-      <p style='margin-top:25px;'>
-        Bien cordialement,<br>
-        <strong>Clément VAILLANT - Intégrale Academy</strong>
-      </p>
-
-    </div>
-"""
-
-
+            </div>
+            """
 
             attachments = []
             cand_dir = os.path.join(UPLOAD_DIR, cand_id)
@@ -1084,74 +1069,30 @@ html = f"""
         except Exception as e:
             print("❌ Erreur envoi mail Pôle Alternance :", e)
 
-    # 🧾 Logs et mails
-    candidat = {
-        "id": cand_id,
-        "numero_dossier": numero,
-        "email": form.get("email", ""),
-        "prenom": form.get("prenom", "")
-    }
-    log_event(candidat, "PREINSCRIPTION_RECU", {"email": candidat["email"]})
-
-    cur.execute("SELECT slug_public FROM candidats WHERE id=?", (cand_id,))
-    row = cur.fetchone()
-    slug = row[0] if row and row[0] else uuid.uuid4().hex[:10]
-    if not row or not row[0]:
-        cur.execute("UPDATE candidats SET slug_public=? WHERE id=?", (slug, cand_id))
-        conn.commit()
-
-    lien_espace = url_for("espace_candidat", slug=slug, _external=True)
-
-        # 🔹 Préparation des libellés pour le mail
-    bts_code = (form.get("bts") or "").strip().upper()
-    bts_label = BTS_LABELS.get(bts_code, form.get("bts"))
-
-    mode_raw = form.get("mode", "") or ""
-    if "dist" in mode_raw.lower():
-        mode_label_email = "💻 À distance 100% en ligne (visioconférence)"
-    else:
-        mode_label_email = "🏫 En présentiel à Puget-sur-Argens (Var, 83)"
-
-    # ✉️ Mail accusé de réception (avec récap + suivi)
-    html = mail_html(
-        "accuse_reception",
-        prenom=form.get("prenom", ""),
-        bts_label=bts_label,
-        lien_espace=lien_espace,
-
-        numero_dossier=numero,
-        form_nom=form.get("nom", ""),
-        form_prenom=form.get("prenom", ""),
-        form_email=form.get("email", ""),
-        form_tel=form.get("tel", ""),
-        form_mode_label=mode_label_email,
-    )
-    send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
-
-    
-
-    tel = (form.get("tel", "") or "").replace(" ", "")
-    if tel.startswith("0"):
-        tel = "+33" + tel[1:]
-    bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
-    msg = sms_text(
-        "accuse_reception",
-        prenom=form.get("prenom", ""),
-        bts_label=bts_label,
-        lien_espace=lien_espace
-    )
-    send_sms_brevo(tel, msg)
-    log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
-    log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
-
-    admin_html = render_template(
-        "mail_admin_notif.html",
-        numero=numero,
-        nom=form.get("nom", ""),
-        prenom=form.get("prenom", "")
-    )
-    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
+    # --------------------- MAIL ACCUSE RECEPTION ---------------------
     send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
+
+    # =====================================================
+    # 📩 ENVOI AUTOMATIQUE – DEMANDE APS
+    # =====================================================
+    try:
+        if aps_souhaitee == 1:
+            html_aps = mail_html(
+                "demande_aps",
+                prenom=form.get("prenom", ""),
+                bts_label=bts_label,
+                lien_espace="https://cnapsv5-1.onrender.com/"
+            )
+
+            send_mail(
+                form.get("email", ""),
+                "🛡️ Formation APS – Documents CNAPS à envoyer",
+                html_aps
+            )
+
+            print("📤 Mail APS envoyé automatiquement.")
+    except Exception as e:
+        print("❌ Erreur envoi mail APS :", e)
 
     return redirect(lien_espace)
 
