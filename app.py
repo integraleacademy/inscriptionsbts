@@ -1012,6 +1012,25 @@ def submit():
     cur.execute(sql, tuple(values))
     conn.commit()
 
+    # ========= LIEN ESPACE CANDIDAT =========
+    slug = uuid.uuid4().hex[:10]
+
+    cur.execute(
+        "UPDATE candidats SET slug_public=?, updated_at=? WHERE id=?",
+        (slug, now, cand_id)
+    )
+    conn.commit()
+
+    # On fabrique le lien espace candidat
+    lien_espace = url_for("espace_candidat", slug=slug, _external=True)
+
+    # Adresse expéditeur pour les mails admin
+    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
+
+
+
+    
+
     # =====================================================
     # 🤝 ENVOI AUTOMATIQUE – ACCOMPAGNEMENT PÔLE ALTERNANCE
     # =====================================================
@@ -1079,8 +1098,6 @@ def submit():
         nom=form.get("nom", ""),
         prenom=form.get("prenom", "")
     )
-
-    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
 
     send_mail(
         from_addr,
