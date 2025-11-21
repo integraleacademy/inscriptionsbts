@@ -1029,29 +1029,30 @@ def submit():
 
             bts_label = BTS_LABELS.get(bts.strip().upper(), bts)
 
-            html = f"""
-            <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
-              <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner</h2>
-              <p>Bonjour,<br><br>
-              Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
-              <ul>
-                <li><strong>Nom :</strong> {nom}</li>
-                <li><strong>Prénom :</strong> {prenom}</li>
-                <li><strong>Email :</strong> {email}</li>
-                <li><strong>Téléphone :</strong> {tel}</li>
-                <li><strong>Ville :</strong> {ville}</li>
-                <li><strong>BTS :</strong> {bts_label}</li>
-                <li><strong>Mode :</strong> {mode}</li>
-              </ul>
-              <p><strong>Pourquoi :</strong> {projet_pourquoi}</p>
-              <p><strong>Objectif :</strong> {projet_objectif}</p>
-              <p><strong>Passions :</strong> {projet_passions}</p>
-              <p><strong>Qualités :</strong> {projet_qualites}</p>
-              <p><strong>Motivations :</strong> {projet_motivation}</p>
-              <p><strong>Valeurs :</strong> {projet_recherche}</p>
-              <p><strong>Travail :</strong> {projet_travail}</p>
-            </div>
-            """
+      html = f"""
+    <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
+      <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
+
+      <p>Bonjour,<br><br>
+      Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
+
+      <ul>
+        <li><strong>Nom :</strong> {nom}</li>
+        <li><strong>Prénom :</strong> {prenom}</li>
+        <li><strong>Email :</strong> {email}</li>
+        <li><strong>Téléphone :</strong> {tel}</li>
+        <li><strong>Ville :</strong> {ville}</li>
+        <li><strong>BTS :</strong> {bts_label}</li>
+        <li><strong>Mode :</strong> {mode}</li>
+      </ul>
+
+      <p style='margin-top:25px;'>
+        Bien cordialement,<br>
+        <strong>Clément VAILLANT - Intégrale Academy</strong>
+      </p>
+    </div>
+"""
+
 
             attachments = []
             cand_dir = os.path.join(UPLOAD_DIR, cand_id)
