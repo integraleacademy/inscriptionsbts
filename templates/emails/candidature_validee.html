@@ -1,0 +1,102 @@
+<p>Bonjour {{ prenom }},</p>
+
+<p>
+Nous revenons vers vous suite à votre candidature concernant notre
+<strong>{{ bts_label }}</strong> en alternance,
+{% if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() %}
+    <strong>en présentiel (Puget sur Argens, Var)</strong>.
+{% else %}
+    <strong>en 100% en ligne à distance en visioconférence ZOOM</strong>.
+{% endif %}
+</p>
+
+<p>
+Après avoir étudié votre dossier, notre commission d'admission a décidé de donner un
+<strong style="color:#0a8a00;font-size:17px;">AVIS FAVORABLE 🥳</strong>
+à votre demande d’admission au sein de notre école Intégrale Academy.
+</p>
+
+<!-- 🔥 Encart Confirmation -->
+<div style="background:#fff6d9;border:1px solid #f4c45a;padding:22px;
+            border-radius:12px;margin:28px 0;text-align:center;">
+  <h3 style="margin:0 0 12px 0;color:#000;font-size:18px;">
+    🔔 Prochaine étape : confirmation de votre inscription
+  </h3>
+
+  <p style="margin:0 0 18px 0;font-size:15px;color:#444;">
+    Pour finaliser votre admission, veuillez confirmer votre inscription
+    en cliquant sur le bouton ci-dessous.
+  </p>
+
+  <a href="{{ lien_espace }}"
+     style="display:inline-block;background:#f4c45a;color:#000;
+            padding:12px 22px;border-radius:10px;font-weight:700;
+            text-decoration:none;font-size:16px;">
+      👉 Confirmer mon inscription
+  </a>
+</div>
+
+<!-- 🧾 Récapitulatif -->
+<table width="100%" cellpadding="0" cellspacing="0"
+    style="background:#fef8e1;border:1px solid #f5dd9b;border-radius:10px;padding:14px 18px;margin:18px 0;">
+  <tr>
+    <td style="font-weight:600;padding-bottom:8px;font-size:15px;">
+      📄 Récapitulatif de votre candidature :
+    </td>
+  </tr>
+  <tr>
+    <td style="padding-left:4px;font-size:14px;line-height:1.6;">
+      <div><strong>Numéro de dossier :</strong> {{ numero_dossier }}</div>
+      <div><strong>Nom :</strong> {{ form_nom }}</div>
+      <div><strong>Prénom :</strong> {{ form_prenom }}</div>
+      <div><strong>Email :</strong> {{ form_email }}</div>
+      <div><strong>Téléphone :</strong> {{ form_tel }}</div>
+      <div><strong>Formation :</strong> {{ bts_label }}</div>
+      <div><strong>Mode :</strong> {{ form_mode_label }}</div>
+    </td>
+  </tr>
+</table>
+
+<p style="margin-top:15px;margin-bottom:6px;font-weight:600;font-size:15px;">
+  📌 Suivez les étapes de votre inscription directement depuis votre Espace Candidat :
+</p>
+
+<p style="text-align:center;margin-top:0;">
+    <a href="{{ lien_espace }}" class="btn">🔑 Ouvrir mon espace candidat</a>
+</p>
+
+{% if "distance" in form_mode_label.lower() or "ligne" in form_mode_label.lower() or "dist" in form_mode_label.lower() %}
+<div style="background:#f3f7ff;border-left:4px solid #2b6cff;padding:18px;margin-top:28px;border-radius:10px;">
+  <h3 style="margin:0 0 10px 0;color:#2b6cff;">💻 Comment se déroule la formation 100% en ligne à distance ?</h3>
+
+  <p><strong>ÉCOLE 100 % en ligne :</strong><br>
+  Cette formation se déroule entièrement en visio-conférence (ZOOM) avec des formateurs expérimentés.</p>
+
+  <p>Ce n’est pas une plateforme e-learning : tout se déroule en direct comme dans une vraie classe.</p>
+
+  <p>Deux années entièrement à distance (aucun déplacement). Les devoirs sont transmis via l’espace étudiant.</p>
+
+  <p><strong>ENTREPRISE :</strong> En présentiel dans l’entreprise (alternance).</p>
+</div>
+{% endif %}
+
+<div style="margin-top:32px;padding:18px;background:#fafafa;border-radius:10px;border:1px solid #eee;">
+  <h3 style="margin-top:0;color:#444;">❓ Questions fréquentes</h3>
+
+  <p><strong>J'ai des questions est-il possible d'échanger avec vous ?</strong><br>
+  Bien sûr ! Appelez-nous au <strong>04 22 47 07 68</strong>.</p>
+
+  <p><strong>Dois-je obligatoirement signer un contrat avant septembre 2026 ?</strong><br>
+  Vous avez jusqu’à <strong>décembre 2026</strong>.</p>
+
+  <p><strong>Avez-vous un réseau d'entreprises partenaires ?</strong><br>
+  Oui, et nous vous accompagnerons après validation de votre inscription.</p>
+
+  <p><strong>Vos diplômes sont-ils reconnus par l'État ?</strong><br>
+  Oui, les BTS sont délivrés par le Ministère de l'Éducation Nationale.</p>
+</div>
+
+<p style="margin-top:30px;">
+    À très bientôt,<br>
+    <strong>L’équipe Intégrale Academy</strong>
+</p>
