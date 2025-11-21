@@ -96,7 +96,7 @@ def send_sms_brevo(phone_number, message):
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key['api-key'] = api_key
     api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
-    sender = "INTACAD"  # 11 caractères max, pas d’espace
+    sender = "INTACADEMY"  # 11 caractères max, pas d’espace
 
     # ✅ Ajout du paramètre unicode_enabled=True
     sms = sib_api_v3_sdk.SendTransacSms(
