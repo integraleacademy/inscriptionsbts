@@ -1082,6 +1082,7 @@ def submit():
                 prenom=form.get("prenom", ""),
                 bts_label=bts_label,
                 lien_espace="https://cnapsv5-1.onrender.com/"
+                aps_session=aps_session  # ← AJOUT ICI
             )
 
             send_mail(
