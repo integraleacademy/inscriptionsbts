@@ -1029,8 +1029,9 @@ def submit():
 
             bts_label = BTS_LABELS.get(bts.strip().upper(), bts)
 
-      html = f"""
+html = f"""
     <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
+
       <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
 
       <p>Bonjour,<br><br>
@@ -1046,12 +1047,20 @@ def submit():
         <li><strong>Mode :</strong> {mode}</li>
       </ul>
 
+      <p style='margin-top:15px; font-weight:600;'>📎 Pièces jointes :</p>
+      <ul>
+        <li>📄 CV du candidat</li>
+        <li>📝 Lettre de motivation</li>
+      </ul>
+
       <p style='margin-top:25px;'>
         Bien cordialement,<br>
         <strong>Clément VAILLANT - Intégrale Academy</strong>
       </p>
+
     </div>
 """
+
 
 
             attachments = []
