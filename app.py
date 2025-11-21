@@ -925,6 +925,9 @@ def submit():
     entreprise_trouvee = (form.get("entreprise_trouvee") or "").strip()
     recherches_commencees = (form.get("recherches_commencees") or "").strip()
     souhaite_accompagnement = (form.get("souhaite_accompagnement") or "").strip()
+    # Détection automatique de la formation APS
+    label_aps_auto = 1 if form.get("aps_souhaitee") == "oui" else 0
+
 
     form_overrides = {
         "projet_pourquoi":   projet_pourquoi,
