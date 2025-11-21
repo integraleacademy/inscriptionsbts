@@ -639,10 +639,35 @@ def mail_html(template_name, **kwargs):
         }
     }  # 👈 ici on ferme le dictionnaire, proprement.
 
-    # === Sécurité : vérifie que le modèle existe ===
+    # === 1) Vérifier si un fichier HTML dédié existe dans templates/emails/ ===
+    file_path = os.path.join("templates", "emails", f"{template_name}.html")
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, encoding="utf-8") as f:
+                html = f.read()
+            # Rendre le template avec les variables dynamiques
+            return render_template_string(
+                html,
+                **kwargs,
+                prenom=prenom,
+                bts_label=bts_label,
+                lien_espace=lien_espace,
+                numero_dossier=numero_dossier,
+                form_nom=form_nom,
+                form_prenom=form_prenom,
+                form_email=form_email,
+                form_tel=form_tel,
+                form_mode_label=form_mode_label,
+                logo_url=logo_url
+            )
+        except Exception as e:
+            return f"<p>Erreur chargement template HTML : {e}</p>"
+
+    # === 2) Sinon : ancien système (dictionnaire Python) ===
     tpl = templates.get(template_name)
     if not tpl:
         return f"<p>Modèle inconnu : {template_name}</p>"
+
 
     # === Lecture du modèle de base ===
     try:
@@ -658,6 +683,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
