@@ -1072,28 +1072,7 @@ def submit():
     # --------------------- MAIL ACCUSE RECEPTION ---------------------
     send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
-    # =====================================================
-    # 📩 ENVOI AUTOMATIQUE – DEMANDE APS
-    # =====================================================
-    try:
-        if aps_souhaitee == 1:
-            html_aps = mail_html(
-                "demande_aps",
-                prenom=form.get("prenom", ""),
-                bts_label=bts_label,
-                lien_espace="https://cnapsv5-1.onrender.com/"
-                aps_session=aps_session  # ← AJOUT ICI
-            )
 
-            send_mail(
-                form.get("email", ""),
-                "🛡️ Formation APS – Documents CNAPS à envoyer",
-                html_aps
-            )
-
-            print("📤 Mail APS envoyé automatiquement.")
-    except Exception as e:
-        print("❌ Erreur envoi mail APS :", e)
 
     return redirect(lien_espace)
 
@@ -1332,6 +1311,33 @@ def admin_update_status():
         )
         send_mail(full_row.get("email", ""), "Votre candidature est validée – Confirmez votre inscription", html)
         log_event(full_row, "MAIL_ENVOYE", {"type": "validation_inscription"})
+
+        # -------------------------
+        # 📩 MAIL APS AUTOMATIQUE
+        # -------------------------
+        try:
+            if full_row.get("label_aps") == 1:
+                aps_session = full_row.get("aps_session", "")
+
+                html_aps = mail_html(
+                    "demande_aps",
+                    prenom=full_row.get("prenom", ""),
+                    bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts")),
+                    aps_session=aps_session,
+                    lien_espace="https://cnapsv5-1.onrender.com/"
+                )
+
+                send_mail(
+                    full_row.get("email", ""),
+                    "🛡️ Formation APS – Documents CNAPS à envoyer",
+                    html_aps
+                )
+
+                print("📤 Mail APS envoyé automatiquement (statut validée).")
+                log_event(full_row, "MAIL_ENVOYE", {"type": "aps"})
+        except Exception as e:
+            print("❌ Erreur envoi mail APS :", e)
+
 
         tel = (full_row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
