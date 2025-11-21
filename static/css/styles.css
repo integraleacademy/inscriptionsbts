@@ -1191,10 +1191,9 @@ main.container.candidat {
   padding: 18px 0 12px;
   border-bottom: 3px solid #f4c45a;
   box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-  position: sticky;
-  top: 0;
-  z-index: 100;
+  /* plus de position sticky ici */
 }
+
 
 .brand-centered {
   display: flex;
