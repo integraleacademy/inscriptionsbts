@@ -996,8 +996,10 @@ def submit():
             values.append(json.dumps(mapping.get(c, [])))
         elif "verif_docs" in c or "replace_meta" in c:
             values.append("{}")
-        elif "nouveau_doc" in c or "label" in c or "permis_b" in c or "est_mineur" in c:
+        elif "nouveau_doc" in c or "permis_b" in c or "est_mineur" in c:
             values.append(0)
+        elif "label" in c:
+            values.append(form_overrides.get(c, 0))
         elif c == "statut":
             values.append("preinscription")
         elif c == "token_confirm":
