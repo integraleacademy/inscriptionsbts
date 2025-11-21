@@ -95,9 +95,11 @@ function showStep(index) {
 for (let input of inputs) {
   const style = window.getComputedStyle(input);
   // ✅ Ignore tous les champs qui ne sont pas dans l’onglet actif
-const isInCurrentTab = input.closest('.tab') === currentTab;
-if (!isInCurrentTab) continue;
+  const isInCurrentTab = input.closest('.tab') === currentTab;
+  if (!isInCurrentTab) continue;
 
+  // 🛑 On laisse la gestion de ce champ à notre logique spéciale
+  if (input.name === "souhaite_accompagnement") continue;
 
   // ✅ Ignore les radios non requis OU sans attribut "name"
   if (input.type === "radio" && (!input.required || !input.name)) continue;
@@ -1065,6 +1067,7 @@ setTimeout(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
+
 
 
 
