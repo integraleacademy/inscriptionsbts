@@ -226,6 +226,25 @@ if (stepIndex === 2) {
   const entrepriseTrouvee = document.querySelector('input[name="entreprise_trouvee"]:checked');
   const recherchesCommencees = document.querySelector('input[name="recherches_commencees"]:checked');
 
+// === Validation IDF + Pôle Alternance ===
+const chercheIDF = document.querySelector('input[name="cherche_idf"]:checked');
+const accPA = document.querySelector('input[name="souhaite_accompagnement"]:checked');
+
+if (!chercheIDF) {
+  alert("⚠️ Merci d’indiquer si vous recherchez une entreprise en Île-de-France.");
+  valid = false;
+}
+
+// Si cherche IDF = OUI → obligation de choisir OUI ou NON à Pôle Alternance
+if (chercheIDF && chercheIDF.value === "oui") {
+  if (!accPA) {
+    alert("⚠️ Merci d’indiquer si vous souhaitez être accompagné par Pôle Alternance.");
+    valid = false;
+  }
+}
+
+
+
   if (!entrepriseTrouvee) {
     alert("⚠️ Merci d’indiquer si vous avez déjà trouvé une entreprise pour votre alternance.");
     valid = false;
@@ -297,15 +316,22 @@ document.querySelectorAll('.next').forEach(btn => {
   btn.addEventListener('click', () => {
     if (!validateStep(currentStep)) return;
 
-    // 🧩 Étape 3 : modale Pôle Alternance
-   if (currentStep === 2) {
-  const radioOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]');
-  if (radioOui && radioOui.checked) {
-    const modal = document.getElementById("modalPole"); // ✅ on récupère la modale
-    if (modal) modal.style.display = "flex"; // ✅ on l’affiche
-    return; // on bloque ici jusqu’à clic sur "OK"
+// 🧩 Étape 3 : modale Pôle Alternance
+if (currentStep === 2) {
+
+  const chercheIDF = document.querySelector('input[name="cherche_idf"]:checked');
+  const accOui = document.querySelector('input[name="souhaite_accompagnement"][value="oui"]:checked');
+
+  // 🎯 Modale UNIQUEMENT si :
+  // - la personne cherche en IDF
+  // - elle veut aussi l’accompagnement
+  if (chercheIDF && chercheIDF.value === "oui" && accOui) {
+    const modal = document.getElementById("modalPole");
+    if (modal) modal.style.display = "flex";
+    return; // on attend le clic OK
   }
 }
+
 
 
     currentStep++;
@@ -367,18 +393,24 @@ document.querySelectorAll('.next').forEach(btn => {
     });
   });
 
-  // ===== Affichage automatique du Pôle Alternance selon la réponse "cherche_idf" =====
+// ===== Affichage automatique du Pôle Alternance selon la réponse "cherche_idf" =====
 document.querySelectorAll("input[name='cherche_idf']").forEach(radio => {
   radio.addEventListener("change", () => {
     const box = document.querySelector(".pole-alternance-box");
     if (!box) return;
 
     if (radio.value === "oui") {
-      box.style.display = "block";   // 👉 afficher automatiquement
-    } else {
-      box.style.display = "none";    // 👉 cacher si NON
+      box.style.display = "block";
 
-      // 🔄 Reset du choix "souhaite_accompagnement"
+      // ✨ Scroll automatique sur le bloc
+      setTimeout(() => {
+        box.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+
+    } else {
+      box.style.display = "none";
+
+      // 🔄 Reset des choix d’accompagnement
       const accOui = document.querySelector("input[name='souhaite_accompagnement'][value='oui']");
       const accNon = document.querySelector("input[name='souhaite_accompagnement'][value='non']");
       if (accOui) accOui.checked = false;
@@ -386,6 +418,7 @@ document.querySelectorAll("input[name='cherche_idf']").forEach(radio => {
     }
   });
 });
+
 
 
   // === Vérif fichiers PDF + NIR avant envoi ===
@@ -528,7 +561,6 @@ document.querySelectorAll('.btn.save').forEach(btn => {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
     data.current_step = currentStep;
-
     try {
       const res = await fetch('/save_draft', {
         method: 'POST',
@@ -1033,5 +1065,6 @@ setTimeout(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
+
 
 
