@@ -3199,7 +3199,47 @@ def brevo_status():
         return {"status": "error", "code": "exception"}
 
 
+# =====================================================
+# 📩 ENVOI MANUEL DU MAIL APS (bouton dans l’admin)
+# =====================================================
+@app.route("/admin/send_mail_aps/<cid>", methods=["POST"])
+def admin_send_mail_aps(cid):
+    if not require_admin():
+        return jsonify({"ok": False, "error": "Non autorisé"}), 403
 
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+    row = cur.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
+
+    row = dict(row)
+
+    try:
+        html = mail_html(
+            "demande_aps",
+            prenom=row.get("prenom", ""),
+            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+            aps_session=row.get("aps_session", ""),
+            lien_espace="https://cnapsv5-1.onrender.com/"
+        )
+
+        send_mail(
+            row.get("email", ""),
+            "🛡️ Formation APS – Documents CNAPS à envoyer",
+            html
+        )
+
+        log_event(row, "MAIL_ENVOYE", {"type": "aps"})
+
+        return jsonify({"ok": True})
+
+    except Exception as e:
+        print("❌ Erreur envoi mail APS :", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":
