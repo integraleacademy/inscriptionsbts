@@ -904,9 +904,6 @@ def submit():
 
     # === APS (sessions datées) ===
     aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
-    # === Auto-label APS dans l’admin ===
-    label_aps_auto = 1 if aps_souhaitee == 1 else 0
-
     aps_session_value = (form.get("aps_session") or "").strip()
     aps_session_other = (form.get("aps_session_other") or "").strip()
 
@@ -925,9 +922,6 @@ def submit():
     entreprise_trouvee = (form.get("entreprise_trouvee") or "").strip()
     recherches_commencees = (form.get("recherches_commencees") or "").strip()
     souhaite_accompagnement = (form.get("souhaite_accompagnement") or "").strip()
-    # Détection automatique de la formation APS
-    label_aps_auto = 1 if form.get("aps_souhaitee") == "oui" else 0
-
 
     form_overrides = {
         "projet_pourquoi":   projet_pourquoi,
@@ -944,7 +938,6 @@ def submit():
         "recherches_commencees": recherches_commencees,
         "baccalaureat": baccalaureat,
         "souhaite_accompagnement": souhaite_accompagnement,
-        "label_aps": label_aps_auto,
     }
 
     # ✅ Vérification du numéro de sécurité sociale
@@ -1012,25 +1005,6 @@ def submit():
     cur.execute(sql, tuple(values))
     conn.commit()
 
-    # ========= LIEN ESPACE CANDIDAT =========
-    slug = uuid.uuid4().hex[:10]
-
-    cur.execute(
-        "UPDATE candidats SET slug_public=?, updated_at=? WHERE id=?",
-        (slug, now, cand_id)
-    )
-    conn.commit()
-
-    # On fabrique le lien espace candidat
-    lien_espace = url_for("espace_candidat", slug=slug, _external=True)
-
-    # Adresse expéditeur pour les mails admin
-    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
-
-
-
-    
-
     # =====================================================
     # 🤝 ENVOI AUTOMATIQUE – ACCOMPAGNEMENT PÔLE ALTERNANCE
     # =====================================================
@@ -1038,14 +1012,28 @@ def submit():
         try:
             print("📤 Préparation du mail Pôle Alternance...")
 
+            prenom = form.get("prenom", "")
+            nom = form.get("nom", "")
+            email = form.get("email", "")
+            tel = form.get("tel", "")
+            bts = form.get("bts", "")
+            mode = form.get("mode", "")
+            ville = form.get("ville", "")
+            projet_pourquoi = form.get("projet_pourquoi", "")
+            projet_objectif = form.get("projet_objectif", "")
+            projet_passions = form.get("projet_passions", "")
+            projet_qualites = ", ".join(request.form.getlist("qualites[]"))
+            projet_motivation = ", ".join(request.form.getlist("motivation[]"))
+            projet_recherche = ", ".join(request.form.getlist("valeurs[]"))
+            projet_travail = ", ".join(request.form.getlist("travail[]"))
+
+            bts_label = BTS_LABELS.get(bts.strip().upper(), bts)
+
             html = f"""
             <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
-
-              <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
-
+              <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner</h2>
               <p>Bonjour,<br><br>
               Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
-
               <ul>
                 <li><strong>Nom :</strong> {nom}</li>
                 <li><strong>Prénom :</strong> {prenom}</li>
@@ -1055,18 +1043,13 @@ def submit():
                 <li><strong>BTS :</strong> {bts_label}</li>
                 <li><strong>Mode :</strong> {mode}</li>
               </ul>
-
-              <p style='margin-top:15px; font-weight:600;'>📎 Pièces jointes :</p>
-              <ul>
-                <li>📄 CV du candidat</li>
-                <li>📝 Lettre de motivation</li>
-              </ul>
-
-              <p style='margin-top:25px;'>
-                Bien cordialement,<br>
-                <strong>Clément VAILLANT - Intégrale Academy</strong>
-              </p>
-
+              <p><strong>Pourquoi :</strong> {projet_pourquoi}</p>
+              <p><strong>Objectif :</strong> {projet_objectif}</p>
+              <p><strong>Passions :</strong> {projet_passions}</p>
+              <p><strong>Qualités :</strong> {projet_qualites}</p>
+              <p><strong>Motivations :</strong> {projet_motivation}</p>
+              <p><strong>Valeurs :</strong> {projet_recherche}</p>
+              <p><strong>Travail :</strong> {projet_travail}</p>
             </div>
             """
 
@@ -1091,22 +1074,76 @@ def submit():
         except Exception as e:
             print("❌ Erreur envoi mail Pôle Alternance :", e)
 
-    # --------------------- MAIL ACCUSE RECEPTION ---------------------
+    # 🧾 Logs et mails
+    candidat = {
+        "id": cand_id,
+        "numero_dossier": numero,
+        "email": form.get("email", ""),
+        "prenom": form.get("prenom", "")
+    }
+    log_event(candidat, "PREINSCRIPTION_RECU", {"email": candidat["email"]})
+
+    cur.execute("SELECT slug_public FROM candidats WHERE id=?", (cand_id,))
+    row = cur.fetchone()
+    slug = row[0] if row and row[0] else uuid.uuid4().hex[:10]
+    if not row or not row[0]:
+        cur.execute("UPDATE candidats SET slug_public=? WHERE id=?", (slug, cand_id))
+        conn.commit()
+
+    lien_espace = url_for("espace_candidat", slug=slug, _external=True)
+
+        # 🔹 Préparation des libellés pour le mail
+    bts_code = (form.get("bts") or "").strip().upper()
+    bts_label = BTS_LABELS.get(bts_code, form.get("bts"))
+
+    mode_raw = form.get("mode", "") or ""
+    if "dist" in mode_raw.lower():
+        mode_label_email = "💻 À distance 100% en ligne (visioconférence)"
+    else:
+        mode_label_email = "🏫 En présentiel à Puget-sur-Argens (Var, 83)"
+
+    # ✉️ Mail accusé de réception (avec récap + suivi)
+    html = mail_html(
+        "accuse_reception",
+        prenom=form.get("prenom", ""),
+        bts_label=bts_label,
+        lien_espace=lien_espace,
+
+        numero_dossier=numero,
+        form_nom=form.get("nom", ""),
+        form_prenom=form.get("prenom", ""),
+        form_email=form.get("email", ""),
+        form_tel=form.get("tel", ""),
+        form_mode_label=mode_label_email,
+    )
+    send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
+
+    
+
+    tel = (form.get("tel", "") or "").replace(" ", "")
+    if tel.startswith("0"):
+        tel = "+33" + tel[1:]
+    bts_label = BTS_LABELS.get((form.get("bts") or "").strip().upper(), form.get("bts"))
+    msg = sms_text(
+        "accuse_reception",
+        prenom=form.get("prenom", ""),
+        bts_label=bts_label,
+        lien_espace=lien_espace
+    )
+    send_sms_brevo(tel, msg)
+    log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
+    log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
+
     admin_html = render_template(
         "mail_admin_notif.html",
         numero=numero,
         nom=form.get("nom", ""),
         prenom=form.get("prenom", "")
     )
-
-    send_mail(
-        from_addr,
-        f"[ADMIN] Nouvelle pré-inscription {numero}",
-        admin_html
-    )
+    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
+    send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
     return redirect(lien_espace)
-
 
 
 
@@ -1343,8 +1380,6 @@ def admin_update_status():
         )
         send_mail(full_row.get("email", ""), "Votre candidature est validée – Confirmez votre inscription", html)
         log_event(full_row, "MAIL_ENVOYE", {"type": "validation_inscription"})
-
-
 
         tel = (full_row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
@@ -3011,7 +3046,6 @@ def admin_count_confirmed():
         return jsonify(ok=False, error=str(e)), 500
 
 
-
 # =====================================================
 # 📢 ENVOI DE RECONFIRMATION À TOUS LES CANDIDATS "Inscription confirmée"
 # =====================================================
@@ -3183,47 +3217,7 @@ def brevo_status():
         return {"status": "error", "code": "exception"}
 
 
-# =====================================================
-# 📩 ENVOI MANUEL DU MAIL APS (bouton dans l’admin)
-# =====================================================
-@app.route("/admin/send_mail_aps/<cid>", methods=["POST"])
-def admin_send_mail_aps(cid):
-    if not require_admin():
-        return jsonify({"ok": False, "error": "Non autorisé"}), 403
 
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    row = cur.fetchone()
-    conn.close()
-
-    if not row:
-        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
-
-    row = dict(row)
-
-    try:
-        html = mail_html(
-            "demande_aps",
-            prenom=row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
-            aps_session=row.get("aps_session", ""),
-            lien_espace="https://cnapsv5-1.onrender.com/"
-        )
-
-        send_mail(
-            row.get("email", ""),
-            "🛡️ Formation APS – Documents CNAPS à envoyer",
-            html
-        )
-
-        log_event(row, "MAIL_ENVOYE", {"type": "aps"})
-
-        return jsonify({"ok": True})
-
-    except Exception as e:
-        print("❌ Erreur envoi mail APS :", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":
