@@ -530,23 +530,6 @@ with app.app_context():
 import time
 import sqlite3
 
-# ============================================
-# 🔧 Vérification / ajout de colonne statut_sms
-# ============================================
-def ensure_sms_column():
-    conn = db()
-    cur = conn.cursor()
-    try:
-        cur.execute("ALTER TABLE candidats ADD COLUMN statut_sms TEXT DEFAULT NULL")
-        conn.commit()
-        print("📩 Colonne statut_sms ajoutée à la table candidats")
-    except:
-        # colonne existe déjà, on ignore
-        pass
-
-ensure_sms_column()
-
-
 # =====================================================
 # 🧾 Vérifie et ajoute les colonnes apprentissage si manquantes
 # =====================================================
@@ -657,26 +640,6 @@ def ensure_relance_field():
 
 with app.app_context():
     ensure_relance_field()
-
-# =====================================================
-# 📡 Vérifie et ajoute la colonne statut_sms (statut du dernier SMS)
-# =====================================================
-def ensure_statut_sms_field():
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("PRAGMA table_info(candidats)")
-    cols = [r[1] for r in cur.fetchall()]
-
-    if "statut_sms" not in cols:
-        print("🧩 Ajout de la colonne statut_sms dans candidats…")
-        cur.execute("ALTER TABLE candidats ADD COLUMN statut_sms TEXT DEFAULT ''")
-        conn.commit()
-
-    conn.close()
-
-with app.app_context():
-    ensure_statut_sms_field()
-
 
 
 
@@ -1179,7 +1142,9 @@ def submit():
         bts_label=bts_label,
         lien_espace=lien_espace
     )
-    send_sms_brevo(tel, sms_msg, cid)
+    send_sms_brevo(tel, msg)
+    log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
+    log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
     admin_html = render_template(
         "mail_admin_notif.html",
@@ -1193,46 +1158,6 @@ def submit():
     return redirect(lien_espace)
 
 
-# =====================================================
-# 📡 WEBHOOK SMS BREVO – Mise à jour automatique statut_sms
-# =====================================================
-@app.route("/brevo-sms-webhook", methods=["POST"])
-def brevo_sms_webhook():
-    data = request.json or {}
-
-    sms_id = data.get("messageId")
-    event = data.get("event")  # delivered / failed / rejected / sent
-
-    if not sms_id:
-        return "no id", 200
-
-    conn = db()
-    cur = conn.cursor()
-
-    # Trouver le candidat grâce au log SMS_ENVOYE
-    cur.execute("""
-        SELECT candidat_id FROM logs
-        WHERE type='SMS_ENVOYE'
-        AND json_extract(payload, '$.id')=?
-        ORDER BY created_at DESC LIMIT 1
-    """, (sms_id,))
-    row = cur.fetchone()
-
-    if row:
-        cid = row["candidat_id"]
-
-        # Mettre à jour le statut dans la BDD
-        cur.execute(
-            "UPDATE candidats SET statut_sms=?, updated_at=? WHERE id=?",
-            (event, datetime.now().isoformat(), cid)
-        )
-        conn.commit()
-
-        # Log interne
-        log_event({"id": cid}, "SMS_STATUS", {"sms_id": sms_id, "event": event})
-
-    conn.close()
-    return "ok", 200
 
 
 # ---------------- Admin ----------------
@@ -1490,7 +1415,7 @@ def admin_update_status():
             lien_espace=lien_espace,
             lien_confirmation=lien_confirmation,
         )
-        send_sms_brevo(tel, sms_msg, cid)
+        send_sms_brevo(tel, sms_msg)
 
     # 2️⃣ INSCRIPTION CONFIRMÉE
     elif value == "confirmee":
@@ -1510,7 +1435,7 @@ def admin_update_status():
             prenom=ctx["prenom"],
             bts_label=ctx["bts_label"],
         )
-        send_sms_brevo(tel, sms_msg, cid)
+        send_sms_brevo(tel, sms_msg)
 
         # ✉ MAIL Bienvenue
         merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
@@ -1596,7 +1521,7 @@ def admin_export_json():
     return jsonify(rows)
 
 # =====================================================
-# 📘 NOMS COMPLETS DES BTSf
+# 📘 NOMS COMPLETS DES BTS
 # =====================================================
 BTS_LABELS = {
     "MCO": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO)",
@@ -2214,8 +2139,10 @@ def admin_files_notify():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, sms_msg, cid)
+    send_sms_brevo(tel, msg)
+    log_event(row, "SMS_ENVOYE", {"type": "docs_non_conformes", "tel": tel})
 
+    log_event(row, "MAIL_ENVOYE", {"type": "docs_non_conformes", "pieces": non_conformes})
 
     return jsonify({"ok": True})
 
@@ -2470,8 +2397,8 @@ def reconfirm():
     bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
 )
 
-    send_sms_brevo(tel, sms_msg, cid)
-
+    send_sms_brevo(tel, msg)
+    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_validee", "tel": tel})
 
 
     log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
@@ -2560,7 +2487,11 @@ def reconfirm_validate():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, sms_msg, cid)
+    send_sms_brevo(tel, msg)
+
+    log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
+    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation_validee"})
+    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_validee", "tel": tel})
 
     return render_template("reconfirm_ok.html", prenom=row.get("prenom", ""), bts_label=row.get("bts"))
 
@@ -2840,8 +2771,12 @@ def admin_reconfirm(cid):
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, sms_msg, cid)
+    send_sms_brevo(tel, msg)
 
+    # 🧾 Log
+    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation"})
+    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation", "tel": tel})
+    log_event(row, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
 
     return jsonify({"ok": True})
 
@@ -2982,8 +2917,9 @@ def admin_resend_mail_sms(cid):
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
         sms_msg = sms_text(tpl_sms, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-        send_sms_brevo(tel, sms_msg, cid)
+        send_sms_brevo(tel, sms_msg)
 
+        log_event({"id": cid}, "RENVOI_MAIL_SMS", {"type": action, "email": email, "tel": tel})
         return jsonify(ok=True)
 
     except Exception as e:
@@ -3184,7 +3120,11 @@ def admin_reconfirm_all():
             if tel.startswith("0"):
                 tel = "+33" + tel[1:]
             sms_msg = sms_text("reconfirmation_demandee", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-            send_sms_brevo(tel, sms_msg, cid)
+            send_sms_brevo(tel, sms_msg)
+
+            log_event({"id": cid}, "MAIL_ENVOYE", {"type": "reconfirmation"})
+            log_event({"id": cid}, "SMS_ENVOYE", {"type": "reconfirmation", "tel": tel})
+            log_event({"id": cid}, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
 
             sent_count += 1
             print(f"📤 Reconfirmation envoyée à {prenom} ({email})")
