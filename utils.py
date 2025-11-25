@@ -8,7 +8,6 @@ import requests
 import sib_api_v3_sdk
 import base64
 from sib_api_v3_sdk.rest import ApiException
-from app import BTS_LABELS
 
 
 # =====================================================
@@ -179,12 +178,18 @@ def send_mail_gmail(to, subject, html):
 def get_mail_context(row, lien_espace=None, lien_confirmation=None):
     """
     Retourne un dictionnaire standard, utilisé pour TOUS les mails.
+    ⚠️ Ne dépend plus de BTS_LABELS (pour éviter la boucle d'import).
+    Le label du BTS sera corrigé dans app.py après l'appel.
     """
+
     BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
 
     slug = row.get("slug_public")
     if not lien_espace:
         lien_espace = f"{BASE_URL}/espace/{slug}"
+
+    # On NE calcule PAS le vrai titre du BTS ici. On envoie juste le code brut.
+    bts_code = (row.get("bts") or "").strip().upper()
 
     return {
         "prenom": row.get("prenom", ""),
@@ -194,7 +199,7 @@ def get_mail_context(row, lien_espace=None, lien_confirmation=None):
         "form_tel": row.get("tel", ""),
         "numero_dossier": row.get("numero_dossier", ""),
         "form_mode_label": row.get("mode", ""),
-        "bts_label": BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+        "bts_label": bts_code,  # Le mapping BTS_LABELS sera fait dans app.py
         "lien_espace": lien_espace,
         "lien_confirmation": lien_confirmation or "",
     }
