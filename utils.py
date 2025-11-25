@@ -148,6 +148,19 @@ def make_signed_link(path: str, token: str) -> str:
     return f"{base}{path}?token={token}&sig={sig}"
 
 # =====================================================
+# 📘 NOMS COMPLETS DES BTS (mapping local pour éviter boucle d'import)
+# =====================================================
+BTS_LABELS = {
+    "MCO": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO)",
+    "MOS": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS)",
+    "PI": "BTS PROFESSIONS IMMOBILIÈRES (PI)",
+    "NDRC": "BTS NÉGOCIATION ET DIGITALISATION DE LA RELATION CLIENT (NDRC)",
+    "CG": "BTS COMPTABILITÉ ET GESTION (CG)",
+    "CI": "BTS COMMERCE INTERNATIONAL (CI)"
+}
+
+
+# =====================================================
 # ✉️ Envoi d’e-mail via Gmail SMTP (indépendant de Brevo)
 # =====================================================
 def send_mail_gmail(to, subject, html):
@@ -198,7 +211,7 @@ def get_mail_context(row, lien_espace=None, lien_confirmation=None):
         "form_tel": row.get("tel", ""),
         "numero_dossier": row.get("numero_dossier", ""),
         "form_mode_label": row.get("mode", ""),
-        "bts_label": bts_code,  # ⚠️ mapping dans app.py, pas ici !
+        "bts_label": BTS_LABELS.get(bts_code, bts_code),
         "lien_espace": lien_espace,
         "lien_confirmation": lien_confirmation or "",
     }
