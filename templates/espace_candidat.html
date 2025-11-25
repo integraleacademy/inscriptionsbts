@@ -6,25 +6,35 @@
 
 <style>
 
-.active-step {
-  background: #fff8e2;             /* jaune très léger */
-  border-left: 4px solid #f4c45a;
-  padding: 8px 10px;
-  border-radius: 6px;
-  margin-bottom: 6px;
+  .step-number {
+  font-size: 17px;
   font-weight: 600;
+  margin-right: 4px;
 }
 
-  #explication-etapes > div {
-  margin-bottom: 10px;
+
+#explication-etapes > div {
+  background: none !important;
+  padding: 6px 0;
+  margin-bottom: 8px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
+.active-step {
+  background: none !important;
+  border-left: none !important;
+  font-weight: 600;
+  color: #222;
+}
 
 .step-check {
-  color: #2ecc71;                  /* vert check ✔️ */
-  font-weight: bold;
-  margin-right: 6px;
+  font-size: 16px;
+  margin-top: 2px;
 }
+
 
 
   @media (max-width: 1500px) {
@@ -518,7 +528,7 @@ body.espace-candidat {
 {% endif %}
 
 <div id="explication-etapes" style="
-  background:#fdf8e7;
+  background:#fffdf7;
   border-left:4px solid #f4c45a;
   padding:18px 22px;
   border-radius:10px;
@@ -527,41 +537,49 @@ body.espace-candidat {
   line-height:1.55;
   color:#444;
 ">
+
 <strong style="font-size:15px;">ℹ️ Comprendre les étapes de votre dossier</strong>
 <br><br>
 
 <div class="{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-  <span class="step-check">{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <span class="step-number">1️⃣</span>
+  <span class="step-check">{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
   <strong>Pré-inscription reçue :</strong> nous avons bien reçu votre demande.
 </div>
 
 <div class="{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-  <span class="step-check">{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <span class="step-number">2️⃣</span>
+  <span class="step-check">{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
   <strong>Candidature en cours d'analyse :</strong> notre commission procède à l'étude de votre dossier et vérifie toutes les informations.
 </div>
 
 <div class="{% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-  <span class="step-check">{% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <span class="step-number">3️⃣</span>
+  <span class="step-check">{% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
   <strong>Candidature validée :</strong> notre commission a donné un AVIS FAVORABLE à votre demande d'admission. Pour intégrer notre école, vous devez Confirmer votre inscription.
 </div>
 
 <div class="{% if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-  <span class="step-check">{% if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <span class="step-number">4️⃣</span>
+  <span class="step-check">{% if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
   <strong>Inscription confirmée :</strong> vous êtes officiellement inscrit(e), tout est OK. Nous vous envoyons par courrier votre carte étudiante officielle et votre certificat de scolarité.
 </div>
 
 <div class="{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-  <span class="step-check">{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <span class="step-number">5️⃣</span>
+  <span class="step-check">{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
   <strong>Reconfirmation en attente :</strong> au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école, ou si vous avez changé d'avis.
 </div>
 
 <div class="{% if statut in ['reconfirmee','rentree'] %}active-step{% endif %}">
-  <span class="step-check">{% if statut in ['reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <span class="step-number">6️⃣</span>
+  <span class="step-check">{% if statut in ['reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
   <strong>Reconfirmation validée :</strong> vous avez confirmé que vous serez bien parmis nous pour la rentrée, tout est OK.
 </div>
 
 <div class="{% if statut == 'rentree' %}active-step{% endif %}">
-  <span class="step-check">{% if statut == 'rentree' %}✔️{% else %}⭕{% endif %}</span>
+  <span class="step-number">7️⃣</span>
+  <span class="step-check">{% if statut == 'rentree' %}✔️{% else %}—{% endif %}</span>
   <strong>Rentrée 2026 :</strong> la rentrée se déroulera au mois de septembre 2026.
 </div>
 
@@ -596,6 +614,7 @@ body.espace-candidat {
 
 
 {% endblock %}
+
 
 
 
