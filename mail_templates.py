@@ -12,9 +12,16 @@ def mail_html(template_name, **kwargs):
 
     # === Variables de base ===
     prenom = kwargs.get("prenom", "") or ""
-    bts_label = kwargs.get("bts_label", "") or ""
     lien_espace = kwargs.get("lien_espace", "#") or "#"
     lien_confirmation = kwargs.get("lien_confirmation", "#") or "#"
+
+    # --- Mapping BTS (AUTO) ---
+    bts_raw = (kwargs.get("bts_label", "") or "").strip().upper()
+    try:
+        from app import BTS_LABELS   # import local éviter boucle import
+        bts_label = BTS_LABELS.get(bts_raw, bts_raw)
+    except:
+        bts_label = bts_raw
 
     # 🔹 Variables pour le récap
     numero_dossier   = kwargs.get("numero_dossier", "") or ""
@@ -23,6 +30,7 @@ def mail_html(template_name, **kwargs):
     form_email       = kwargs.get("form_email", "") or ""
     form_tel         = kwargs.get("form_tel", "") or ""
     form_mode_label  = kwargs.get("form_mode_label", "") or ""
+
 
 
     # === Logo dynamique (utilise BASE_URL si définie sur Render) ===
@@ -631,6 +639,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
