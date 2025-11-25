@@ -385,15 +385,29 @@ if (currentStep === 2) {
   }
 
   // === Sélection Présentiel / Distanciel ===
-  const modeBtns = document.querySelectorAll('.mode-btn');
-  modeBtns.forEach(btn => {
-    btn.addEventListener('click', () => {
-      modeBtns.forEach(b => b.classList.remove('selected'));
-      btn.classList.add('selected');
-      const radio = btn.querySelector('input[type="radio"]');
-      if (radio) radio.checked = true;
+const modeBtns = document.querySelectorAll('.mode-btn');
+
+modeBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+
+    // 🔄 Réinitialise tous les boutons
+    modeBtns.forEach(b => {
+      b.classList.remove('selected');
+      b.classList.remove('disabled');
+      b.querySelector('input[type="radio"]').checked = false;
+    });
+
+    // 🟢 Sélectionne celui cliqué
+    btn.classList.add('selected');
+    btn.querySelector('input[type="radio"]').checked = true;
+
+    // 🔘 Grise les autres
+    modeBtns.forEach(b => {
+      if (b !== btn) b.classList.add('disabled');
     });
   });
+});
+
 
 // ===== Affichage automatique du Pôle Alternance selon la réponse "cherche_idf" =====
 document.querySelectorAll("input[name='cherche_idf']").forEach(radio => {
@@ -1067,6 +1081,7 @@ setTimeout(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
+
 
 
 
