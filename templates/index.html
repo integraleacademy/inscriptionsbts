@@ -160,13 +160,10 @@
     maxlength="15"
     required
     placeholder="Ex : 2842A12345678946"
-    oninput="formatNIR(this); verifierNumSecu();"
+    oninput="this.value = this.value.toUpperCase().replace(/[^0-9AB]/g, '').slice(0,15); verifierNumSecu();"
   >
-  <small id="numSecuHelp" style="color:#666;font-size:13px;">
-    15 caractères attendus (chiffres ou A/B pour la Corse)
-  </small>
+  <small id="numSecuHelp" style="color:#666;font-size:13px;">15 caractères attendus (chiffres ou A/B pour la Corse)</small>
 </label>
-
 
 
         <label>Email <input type="email" name="email" required></label>
@@ -662,14 +659,12 @@ function verifierNumSecu() {
   }
 
   // 👉 2. Longueur incorrecte
-// 👉 Tant qu'il n'y a pas 15 caractères, on n'affiche aucune erreur
-if (nir.length < 15) {
-    help.textContent = "15 caractères attendus (chiffres ou A/B pour la Corse)";
-    help.style.color = "#666";
-    input.style.borderColor = "";
-    return false; // On ne valide pas, mais on n'affiche pas d'erreur rouge
-}
-
+  if (nir.length !== 15) {
+    help.textContent = "❌ Le numéro doit contenir 15 caractères.";
+    help.style.color = "red";
+    input.style.borderColor = "red";
+    return false;
+  }
 
   // 👉 3. Format (chiffres + A/B)
   const regex = /^[12]\d{2}[0-1]\d[0-9AB]\d{3}\d{3}\d{2}$/;
