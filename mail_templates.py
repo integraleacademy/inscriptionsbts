@@ -14,6 +14,7 @@ def mail_html(template_name, **kwargs):
     prenom = kwargs.get("prenom", "") or ""
     bts_label = kwargs.get("bts_label", "") or ""
     lien_espace = kwargs.get("lien_espace", "#") or "#"
+    lien_confirmation = kwargs.get("lien_confirmation", "#") or "#"
 
     # 🔹 Variables pour le récap
     numero_dossier   = kwargs.get("numero_dossier", "") or ""
@@ -213,12 +214,12 @@ def mail_html(template_name, **kwargs):
             </p>
 
             <p style="margin:0 0 12px 0;">
-                Votre candidature a été validée, mais <a href="{lien_espace}" style="color:#000;text-decoration:underline;font-weight:600;">votre inscription n’est pas encore confirmée</a>.<br>
+                                Votre candidature a été validée, mais <a href="{lien_confirmation}" style="color:#000;text-decoration:underline;font-weight:600;">votre inscription n’est pas encore confirmée</a>.<br>
                 Pour intégrer notre école, vous devez confirmer votre inscription en cliquant sur le bouton ci-dessous :
             </p>
 
             <div style="text-align:center;margin-top:18px;">
-                <a href="{lien_espace}" class="btn"
+                                <a href="{lien_confirmation}" class="btn"
                 style="display:inline-block;background:#f4c45a;color:#000;padding:12px 22px;border-radius:8px;
                         font-weight:600;text-decoration:none;font-size:15px;">
                     ✨ Confirmer mon inscription
@@ -630,6 +631,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
