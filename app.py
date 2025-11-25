@@ -1307,7 +1307,7 @@ def admin_update_status():
     conn = db()
     cur = conn.cursor()
 
-    # 🕓 Enregistre la date correspondante selon le statut
+    # 🕓 Enregistre la date correspondant au statut
     now_iso = datetime.now().isoformat()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -1334,7 +1334,7 @@ def admin_update_status():
 
     conn.commit()
 
-    # 🧹 Si le candidat avait été relancé, on retire le badge automatiquement
+    # 🧹 Suppression badge relance
     if value in ["confirmee", "reconfirmee", "validee"]:
         try:
             cur.execute(
@@ -1342,33 +1342,35 @@ def admin_update_status():
                 (datetime.now().isoformat(), cid)
             )
             conn.commit()
-            print(f"🧹 Suppression du badge relance pour {cid}")
         except Exception as e:
             print("⚠️ Erreur suppression badge relance :", e)
 
-    # 🔄 On recharge la ligne complète pour renvoyer les infos fraîches au front
+    # 🔄 Recharge données fraîches pour le front
     cur.execute(
         "SELECT statut, date_validee, date_confirmee, date_reconfirmee, last_relance FROM candidats WHERE id=?",
         (cid,)
     )
     row = cur.fetchone()
-    if row:
-        row = dict(row)
-    else:
-        row = {
-            "statut": value,
-            "date_validee": None,
-            "date_confirmee": None,
-            "date_reconfirmee": None,
-            "last_relance": None,
-        }
+    row = dict(row) if row else {
+        "statut": value,
+        "date_validee": None,
+        "date_confirmee": None,
+        "date_reconfirmee": None,
+        "last_relance": None,
+    }
 
-    # ✉️ / 📱 Envois automatiques selon le statut choisi (inchangé)
-    # ⚠️ On relit la ligne complète pour les mails/sms
+    # 🔄 Récupération complète pour mails/SMS
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
     full_row = dict(cur.fetchone())
 
+    # =====================================================
+    # 📩 ENVOIS AUTOMATIQUES SELON STATUT
+    # =====================================================
+
+    # 1️⃣ CANDIDATURE VALIDÉE
     if value == "validee":
+
+        # 🔐 Token de confirmation
         token = full_row.get("token_confirm")
         if not token:
             token = new_token()
@@ -1381,72 +1383,71 @@ def admin_update_status():
             cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
             full_row = dict(cur.fetchone())
 
-        link = make_signed_link("/confirm-inscription", token)
+        # 👉 Lien confirmation
+        lien_confirmation = make_signed_link("/confirm-inscription", token)
 
-        html = mail_html(
-            "candidature_validee",
-            prenom=full_row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts")),
-            lien_espace=link
-        )
-        send_mail(full_row.get("email", ""), "Votre candidature est validée – Confirmez votre inscription", html)
-        log_event(full_row, "MAIL_ENVOYE", {"type": "validation_inscription"})
+        # 👉 Lien espace candidat
+        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+        slug = full_row.get("slug_public")
+        lien_espace = f"{BASE_URL}/espace/{slug}"
 
+        # 🎁 Contexte universel
+        ctx = get_mail_context(full_row, lien_espace=lien_espace, lien_confirmation=lien_confirmation)
+
+        # ✉ MAIL
+        html = mail_html("candidature_validee", **ctx)
+        send_mail(full_row["email"], "Votre candidature est validée – Confirmez votre inscription", html)
+
+        # 📱 SMS
         tel = (full_row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
-        msg = sms_text(
+        sms_msg = sms_text(
             "candidature_validee",
-            prenom=full_row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts"))
+            prenom=ctx["prenom"],
+            bts_label=ctx["bts_label"],
+            lien_confirmation=lien_confirmation,
         )
-        send_sms_brevo(tel, msg)
-        log_event(full_row, "SMS_ENVOYE", {"type": "candidature_validee", "tel": tel})
+        send_sms_brevo(tel, sms_msg)
 
+    # 2️⃣ INSCRIPTION CONFIRMÉE
     elif value == "confirmee":
-        html = mail_html(
-            "inscription_confirmee",
-            prenom=full_row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts"))
-        )
-        send_mail(full_row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
-        log_event(full_row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
 
+        ctx = get_mail_context(full_row)
+
+        # ✉ MAIL confirmation
+        html = mail_html("inscription_confirmee", **ctx)
+        send_mail(full_row["email"], "Inscription confirmée – Intégrale Academy", html)
+
+        # 📱 SMS
         tel = (full_row.get("tel", "") or "").replace(" ", "")
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
-        msg = sms_text(
+        sms_msg = sms_text(
             "inscription_confirmee",
-            prenom=full_row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((full_row.get("bts") or "").strip().upper(), full_row.get("bts"))
+            prenom=ctx["prenom"],
+            bts_label=ctx["bts_label"],
         )
-        send_sms_brevo(tel, msg)
-        log_event(full_row, "SMS_ENVOYE", {"type": "inscription_confirmee", "tel": tel})
+        send_sms_brevo(tel, sms_msg)
 
-        merci_html = render_template(
-            "mail_bienvenue.html",
-            prenom=full_row.get("prenom", ""),
-            bts=full_row.get("bts", "")
-        )
-        send_mail(full_row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
-        log_event(full_row, "MAIL_ENVOYE", {"type": "bienvenue"})
+        # ✉ MAIL Bienvenue
+        merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
+        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", merci_html)
 
+    # 3️⃣ RECONFIRMATION VALIDÉE
     elif value == "reconfirmee":
-        merci_html = render_template(
-            "mail_bienvenue.html",
-            prenom=full_row.get("prenom", ""),
-            bts=full_row.get("bts", "")
-        )
-        send_mail(full_row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
-        log_event(full_row, "MAIL_ENVOYE", {"type": "bienvenue_manuel"})
-        log_event(full_row, "STATUT_CHANGE", {"statut": "reconfirmee"})
 
-    # 🪶 Log général du changement de statut
+        ctx = get_mail_context(full_row)
+
+        merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
+        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", merci_html)
+
+    # LOG GENERAL
     log_event(full_row, "STATUT_CHANGE", {"statut": value})
 
     conn.close()
 
-    # 🧾 Réponse enrichie pour le front
+    # 🔁 Réponse front
     return jsonify({
         "ok": True,
         "statut": row.get("statut"),
@@ -1455,6 +1456,7 @@ def admin_update_status():
         "date_reconfirmee": row.get("date_reconfirmee"),
         "last_relance": row.get("last_relance"),
     })
+
 
 
 
