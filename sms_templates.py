@@ -18,7 +18,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
     "\n"
     "Nous allons étudier ton dossier et nous te donnerons une réponse prochainement.\n"
     "\n"
-    "📩 Tu recevras notre réponse officielle par mail et par SMS (pense à vérifier tes SPAMS).\n"
+    "📩 Tu recevras notre réponse officielle par mail et par SMS (penses à vérifier tes courriers indésirables).\n"
     "\n"
     f"🔗 Tu peux suivre les étapes de ton inscription depuis ton Espace Candidat :\n{lien_espace}\n"
     "\n"
@@ -39,7 +39,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
     "\n"
     f"Tu peux confirmer ton inscription directement en cliquant ici ou via le mail que je viens de t'envoyer : {lien_confirmation}\n"
     "\n"
-    "📩 Pense à vérifier tes SPAMS.\n"
+    "📩 Penses à vérifier tes courriers indésirables.\n"
     "\n"
     "Si tu as des questions, tu peux m'écrire sur WhatsApp ici : http://wa.me/33744304527\n"
     "- Clément VAILLANT · Directeur Intégrale Academy"
@@ -159,6 +159,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
     }
 
     return templates.get(template, "")
+
 
 
 
