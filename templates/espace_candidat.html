@@ -6,6 +6,18 @@
 
 <style>
 
+  .timeline-wrapper {
+  width: 100%;
+  overflow-x: auto;        /* garde le scroll */
+  display: flex;
+  justify-content: center; /* CENTRE la timeline */
+}
+
+.timeline-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+
   .step-number {
   font-size: 17px;
   font-weight: 600;
@@ -447,7 +459,9 @@ body.espace-candidat {
     <p class="statut-explication">{{ explication_statut }}</p>
   </div>
 
-<div class="timeline">
+<div class="timeline-wrapper">
+  <div class="timeline">
+
 
   <!-- Étape 1 -->
   <div class="step {{ 'active' if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] else '' }}">
@@ -534,7 +548,9 @@ body.espace-candidat {
   <div class="step {{ 'active' if statut == 'rentree' else '' }}">
     <div class="icon">🎉</div>
     <div class="label">Rentrée septembre 2026</div>
-  </div>
+  </div>  <!-- fin .timeline -->
+</div>    <!-- fin .timeline-wrapper -->
+
 </div>
 
   {% if statut in ['confirmee', 'reconf_en_cours'] %}
@@ -630,6 +646,7 @@ body.espace-candidat {
 
 
 {% endblock %}
+
 
 
 
