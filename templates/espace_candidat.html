@@ -175,18 +175,26 @@ body.espace-candidat {
   align-items: center;
   justify-content: flex-start;
   flex-wrap: nowrap;
-  overflow-x: auto;        /* scroll horizontal */
+
+  overflow-x: auto;     /* scroll si nécessaire */
   overflow-y: hidden;
+
   margin: 40px auto 30px;
   padding: 10px 0 20px 0;
   gap: 18px;
   box-sizing: border-box;
 
-  width: max-content;      /* la timeline s'adapte au contenu */
-  min-width: 1600px;       /* largeur minimale pour forcer l’apparition du scroll */
+  width: 100%;          /* ✅ s’adapte automatiquement */
+  max-width: 100%;      /* empêche de déborder */
   min-height: 140px;
+
   scrollbar-width: auto;
 }
+
+.timeline > * {
+  flex-shrink: 0;        /* les steps ne rétrécissent pas */
+}
+
 
 
 .timeline::-webkit-scrollbar {
@@ -622,6 +630,7 @@ body.espace-candidat {
 
 
 {% endblock %}
+
 
 
 
