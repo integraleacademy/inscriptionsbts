@@ -1179,7 +1179,7 @@ def submit():
         bts_label=bts_label,
         lien_espace=lien_espace
     )
-    send_sms_brevo(tel, sms_msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cid)
 
     admin_html = render_template(
         "mail_admin_notif.html",
@@ -1490,7 +1490,7 @@ def admin_update_status():
             lien_espace=lien_espace,
             lien_confirmation=lien_confirmation,
         )
-        send_sms_brevo(tel, sms_msg, cand_id)
+        send_sms_brevo(tel, sms_msg, cid)
 
     # 2️⃣ INSCRIPTION CONFIRMÉE
     elif value == "confirmee":
@@ -1510,7 +1510,7 @@ def admin_update_status():
             prenom=ctx["prenom"],
             bts_label=ctx["bts_label"],
         )
-        send_sms_brevo(tel, sms_msg, cand_id)
+        send_sms_brevo(tel, sms_msg, cid)
 
         # ✉ MAIL Bienvenue
         merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
@@ -1596,7 +1596,7 @@ def admin_export_json():
     return jsonify(rows)
 
 # =====================================================
-# 📘 NOMS COMPLETS DES BTS
+# 📘 NOMS COMPLETS DES BTSf
 # =====================================================
 BTS_LABELS = {
     "MCO": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO)",
@@ -2214,7 +2214,7 @@ def admin_files_notify():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, sms_msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cid)
 
 
     return jsonify({"ok": True})
@@ -2470,7 +2470,7 @@ def reconfirm():
     bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
 )
 
-    send_sms_brevo(tel, sms_msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cid)
 
 
 
@@ -2560,7 +2560,7 @@ def reconfirm_validate():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, sms_msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cid)
 
     return render_template("reconfirm_ok.html", prenom=row.get("prenom", ""), bts_label=row.get("bts"))
 
@@ -2840,7 +2840,8 @@ def admin_reconfirm(cid):
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, sms_msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cid)
+
 
     return jsonify({"ok": True})
 
@@ -2981,7 +2982,7 @@ def admin_resend_mail_sms(cid):
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
         sms_msg = sms_text(tpl_sms, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-        send_sms_brevo(tel, sms_msg, cand_id)
+        send_sms_brevo(tel, sms_msg, cid)
 
         return jsonify(ok=True)
 
@@ -3183,7 +3184,7 @@ def admin_reconfirm_all():
             if tel.startswith("0"):
                 tel = "+33" + tel[1:]
             sms_msg = sms_text("reconfirmation_demandee", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-            send_sms_brevo(tel, sms_msg, cand_id)
+            send_sms_brevo(tel, sms_msg, cid)
 
             sent_count += 1
             print(f"📤 Reconfirmation envoyée à {prenom} ({email})")
