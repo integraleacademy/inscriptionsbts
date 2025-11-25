@@ -84,7 +84,7 @@ def send_mail(to, subject, html, attachments=None):
 # =====================================================
 # 📱 ENVOI DE SMS AVEC BREVO (VERSION 2025 FINALE)
 # =====================================================
-def send_sms_brevo(phone_number, message, candidat_id=None):
+def send_sms_brevo(phone_number, message):
     api_key = BREVO_KEY
     print("🟡 DEBUG — Début send_sms_brevo()")
     print("🟡 DEBUG — Numéro :", phone_number)
@@ -96,11 +96,10 @@ def send_sms_brevo(phone_number, message, candidat_id=None):
 
     configuration = sib_api_v3_sdk.Configuration()
     configuration.api_key['api-key'] = api_key
-    api_instance = sib_api_v3_sdk.TransactionalSMSApi(
-        sib_api_v3_sdk.ApiClient(configuration)
-    )
+    api_instance = sib_api_v3_sdk.TransactionalSMSApi(sib_api_v3_sdk.ApiClient(configuration))
     sender = "INTACADEMY"  # 11 caractères max, pas d’espace
 
+    # ✅ Ajout du paramètre unicode_enabled=True
     sms = sib_api_v3_sdk.SendTransacSms(
         sender=sender,
         recipient=phone_number,
@@ -116,14 +115,6 @@ def send_sms_brevo(phone_number, message, candidat_id=None):
         sms_id = getattr(response, "messageId", None) or getattr(response, "message_id", None)
         print(f"✅ SMS envoyé à {phone_number} — ID: {sms_id}")
 
-        # 🧩 Log automatique du SMS
-        try:
-            if candidat_id:
-                from app import log_event
-                log_event({"id": candidat_id}, "SMS_ENVOYE", {"id": sms_id})
-        except Exception as e:
-            print("⚠️ Impossible de log le SMS :", e)
-
         return sms_id
 
     except ApiException as e:
@@ -132,8 +123,6 @@ def send_sms_brevo(phone_number, message, candidat_id=None):
     except Exception as e:
         print(f"❌ Erreur inattendue SMS : {e}")
         return False
-
-
 
 
 # =====================================================
