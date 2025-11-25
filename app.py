@@ -1394,6 +1394,11 @@ def admin_update_status():
 
         # 🎁 Contexte universel
         ctx = get_mail_context(full_row, lien_espace=lien_espace, lien_confirmation=lien_confirmation)
+        # 🟢 Correction obligatoire du nom complet du BTS
+        ctx["bts_label"] = BTS_LABELS.get(
+        ctx["bts_label"],
+        ctx["bts_label"]
+)
 
         # ✉ MAIL
         html = mail_html("candidature_validee", **ctx)
