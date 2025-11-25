@@ -11,6 +11,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
         # 📨 Accusé de réception
 "accuse_reception": (
     f"🎓 Intégrale Academy – BTS {bts_label}\n"
+    "\n"
     f"Bonjour {prenom},\n"
     "\n"
     "Je te confirme que nous avons bien reçu ta demande de Pré-inscription concernant notre BTS en alternance.\n"
@@ -28,14 +29,15 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
 
 
 "candidature_validee": (
-    f"✅ Intégrale Academy – BTS {bts_label}\n"
+    f"🎓 Intégrale Academy – BTS {bts_label}\n"
+    "\n"
     f"Bonjour {prenom},\n"
     "\n"
-    "Bonne nouvelle ! Nous avons étudié ta candidature et notre commission a donné un AVIS FAVORABLE à ta demande d'admission.\n"
+    "Je reviens vers toi concernant notre BTS en alternance ! Nous avons étudié ta candidature et notre commission a donné un AVIS FAVORABLE 🎉 à ta demande d'admission.\n"
     "\n"
-    "Pour intégrer notre école, tu dois maintenant confirmer ton inscription.\n"
+    "Pour intégrer notre école, tu dois maintenant confirmer ton inscription ✅.\n"
     "\n"
-    f"🔗 Tu peux confirmer ton inscription directement en cliquant ici ou via le mail que je viens de t'envoyer : {lien_confirmation}\n"
+    f"Tu peux confirmer ton inscription directement en cliquant ici ou via le mail que je viens de t'envoyer : {lien_confirmation}\n"
     "\n"
     "📩 Pense à vérifier tes SPAMS.\n"
     "\n"
@@ -157,6 +159,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
     }
 
     return templates.get(template, "")
+
 
 
 
