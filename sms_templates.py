@@ -11,18 +11,12 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
         # 📨 Accusé de réception
 "accuse_reception": (
     f"🎓 Intégrale Academy – BTS {bts_label}\n"
-    "\n"
-    f"Bonjour {prenom},\n"
-    "\n"
-    "Je te confirme que nous avons bien reçu ta demande de Pré-inscription concernant notre BTS en alternance.\n"
-    "\n"
-    "Nous allons étudier ton dossier et nous te donnerons une réponse prochainement.\n"
-    "\n"
-    "📩 Tu recevras notre réponse officielle par mail et par SMS (penses à vérifier tes courriers indésirables).\n"
-    "\n"
-    f"🔗 Tu peux suivre les étapes de ton inscription depuis ton Espace Candidat :\n{lien_espace}\n"
-    "\n"
-    "Si tu as des questions, tu peux m'envoyer un message sur WhatsApp : http://wa.me/33744304527\n"
+    f"Bonjour {prenom}, "
+    "Je te confirme que nous avons bien reçu ta demande de Pré-inscription concernant notre BTS en alternance. "
+    "Nous allons étudier ton dossier et nous te donnerons une réponse prochainement. "
+    "📩 Tu recevras notre réponse officielle par mail et par SMS (penses à vérifier tes courriers indésirables). "
+    f"🔗 Tu peux suivre les étapes de ton inscription depuis ton Espace Candidat : {lien_espace} "
+    "Si tu as des questions, tu peux m'envoyer un message sur WhatsApp : http://wa.me/33744304527 "
     "- Clément VAILLANT · Directeur Intégrale Academy"
 ),
 
@@ -159,6 +153,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
     }
 
     return templates.get(template, "")
+
 
 
 
