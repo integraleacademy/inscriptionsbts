@@ -32,8 +32,13 @@ services:
       sizeGB: 1
 
 redirects:
+  # ❌ Rediriger tout sauf /admin quand MAINTENANCE=true
   - from: /*
     to: https://www.integraleacademy.com/maintenance
     status: 307
     if:
-      env: MAINTENANCE=true
+      and:
+        - env: MAINTENANCE=true
+        - not:
+            path: ^/admin
+
