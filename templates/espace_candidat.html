@@ -175,29 +175,30 @@ body.espace-candidat {
   align-items: center;
   justify-content: flex-start;
   flex-wrap: nowrap;
-  overflow-x: auto;
-  overflow-y: hidden;          /* ✅ évite un scroll vertical moche */
+  overflow-x: scroll;        /* ✅ force l’apparition */
+  overflow-y: hidden;
   margin: 40px auto 30px;
-  padding: 10px 0;
-  gap: 18px;                   /* moins d’espace entre les éléments */
+  padding: 10px 0 20px 0;    /* ✅ espace pour la scrollbar */
+  gap: 18px;
   box-sizing: border-box;
   max-width: 100%;
-  scrollbar-width: thin;       /* Firefox : barre fine */
-  scrollbar-color: #f4c45a #fff;
+  min-height: 140px;         /* ✅ garantit le scroll visible */
+  scrollbar-width: auto;     /* Firefox */
 }
 
-  .timeline::-webkit-scrollbar {
-  height: 8px;                 /* hauteur de la barre */
+.timeline::-webkit-scrollbar {
+  height: 12px;              /* plus visible */
 }
 
 .timeline::-webkit-scrollbar-thumb {
-  background: #f4c45a;         /* ta couleur dorée */
-  border-radius: 10px;         /* arrondi pour faire propre */
+  background: #f4c45a;
+  border-radius: 10px;
 }
 
 .timeline::-webkit-scrollbar-track {
-  background: #fff;            /* fond blanc pour contraste */
+  background: #fff;
 }
+
 
 
 
@@ -568,7 +569,7 @@ body.espace-candidat {
 <div class="{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
   <span class="step-number">5️⃣</span>
   <span class="step-check">{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
-  <strong>Reconfirmation en attente :</strong>au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école, ou si vous avez changé d'avis.
+  <strong>Reconfirmation en attente :</strong> au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école, ou si vous avez changé d'avis.
 </div>
 
 <div class="{% if statut in ['reconfirmee','rentree'] %}active-step{% endif %}">
@@ -614,6 +615,7 @@ body.espace-candidat {
 
 
 {% endblock %}
+
 
 
 
