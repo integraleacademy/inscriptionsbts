@@ -641,6 +641,26 @@ def ensure_relance_field():
 with app.app_context():
     ensure_relance_field()
 
+# =====================================================
+# 📡 Vérifie et ajoute la colonne statut_sms (statut du dernier SMS)
+# =====================================================
+def ensure_statut_sms_field():
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("PRAGMA table_info(candidats)")
+    cols = [r[1] for r in cur.fetchall()]
+
+    if "statut_sms" not in cols:
+        print("🧩 Ajout de la colonne statut_sms dans candidats…")
+        cur.execute("ALTER TABLE candidats ADD COLUMN statut_sms TEXT DEFAULT ''")
+        conn.commit()
+
+    conn.close()
+
+with app.app_context():
+    ensure_statut_sms_field()
+
+
 
 
 # =========================
@@ -1158,6 +1178,46 @@ def submit():
     return redirect(lien_espace)
 
 
+# =====================================================
+# 📡 WEBHOOK SMS BREVO – Mise à jour automatique statut_sms
+# =====================================================
+@app.route("/brevo-sms-webhook", methods=["POST"])
+def brevo_sms_webhook():
+    data = request.json or {}
+
+    sms_id = data.get("messageId")
+    event = data.get("event")  # delivered / failed / rejected / sent
+
+    if not sms_id:
+        return "no id", 200
+
+    conn = db()
+    cur = conn.cursor()
+
+    # Trouver le candidat grâce au log SMS_ENVOYE
+    cur.execute("""
+        SELECT candidat_id FROM logs
+        WHERE type='SMS_ENVOYE'
+        AND json_extract(payload, '$.id')=?
+        ORDER BY created_at DESC LIMIT 1
+    """, (sms_id,))
+    row = cur.fetchone()
+
+    if row:
+        cid = row["candidat_id"]
+
+        # Mettre à jour le statut dans la BDD
+        cur.execute(
+            "UPDATE candidats SET statut_sms=?, updated_at=? WHERE id=?",
+            (event, datetime.now().isoformat(), cid)
+        )
+        conn.commit()
+
+        # Log interne
+        log_event({"id": cid}, "SMS_STATUS", {"sms_id": sms_id, "event": event})
+
+    conn.close()
+    return "ok", 200
 
 
 # ---------------- Admin ----------------
