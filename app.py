@@ -1179,7 +1179,7 @@ def submit():
         bts_label=bts_label,
         lien_espace=lien_espace
     )
-    send_sms_brevo(tel, msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cand_id)
 
     admin_html = render_template(
         "mail_admin_notif.html",
@@ -1490,7 +1490,7 @@ def admin_update_status():
             lien_espace=lien_espace,
             lien_confirmation=lien_confirmation,
         )
-        send_sms_brevo(tel, msg, cand_id)
+        send_sms_brevo(tel, sms_msg, cand_id)
 
     # 2️⃣ INSCRIPTION CONFIRMÉE
     elif value == "confirmee":
@@ -1510,7 +1510,7 @@ def admin_update_status():
             prenom=ctx["prenom"],
             bts_label=ctx["bts_label"],
         )
-        send_sms_brevo(tel, msg, cand_id)
+        send_sms_brevo(tel, sms_msg, cand_id)
 
         # ✉ MAIL Bienvenue
         merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
@@ -2214,7 +2214,8 @@ def admin_files_notify():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cand_id)
+
 
     return jsonify({"ok": True})
 
@@ -2469,7 +2470,8 @@ def reconfirm():
     bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
 )
 
-    send_sms_brevo(tel, msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cand_id)
+
 
 
     log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
@@ -2558,7 +2560,7 @@ def reconfirm_validate():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cand_id)
 
     return render_template("reconfirm_ok.html", prenom=row.get("prenom", ""), bts_label=row.get("bts"))
 
@@ -2838,7 +2840,7 @@ def admin_reconfirm(cid):
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, msg, cand_id)
+    send_sms_brevo(tel, sms_msg, cand_id)
 
     return jsonify({"ok": True})
 
@@ -2979,7 +2981,7 @@ def admin_resend_mail_sms(cid):
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
         sms_msg = sms_text(tpl_sms, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-        send_sms_brevo(tel, msg, cand_id)
+        send_sms_brevo(tel, sms_msg, cand_id)
 
         return jsonify(ok=True)
 
@@ -3181,7 +3183,7 @@ def admin_reconfirm_all():
             if tel.startswith("0"):
                 tel = "+33" + tel[1:]
             sms_msg = sms_text("reconfirmation_demandee", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-            send_sms_brevo(tel, msg, cand_id)
+            send_sms_brevo(tel, sms_msg, cand_id)
 
             sent_count += 1
             print(f"📤 Reconfirmation envoyée à {prenom} ({email})")
@@ -3335,46 +3337,6 @@ def admin_send_mail_aps(cid):
         print("❌ Erreur envoi mail APS :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
-# ======================================================
-# 📡 WEBHOOK BREVO — Statuts SMS
-# ======================================================
-@app.route("/webhook/sms", methods=["POST"])
-def webhook_sms():
-    data = request.json or {}
-
-    sms_id = data.get("messageId") or data.get("message_id")
-    status = data.get("event")  # delivered, failed, etc.
-    phone = data.get("recipient")  # numéro complet
-
-    print("📩 Webhook SMS reçu :", data)
-
-    if not sms_id or not phone or not status:
-        return {"error": "missing fields"}, 400
-
-    # On mappe les statuts Brevo → ton admin
-    mapping = {
-        "delivered": "delivered",
-        "sent": "sent",
-        "request": "sent",
-        "failed": "failed",
-        "rejected": "rejected"
-    }
-
-    statut = mapping.get(status, "sent")
-
-    conn = db()
-    cur = conn.cursor()
-
-    # Mise à jour du candidat via téléphone
-    cur.execute(
-        "UPDATE candidats SET statut_sms=?, updated_at=? WHERE tel LIKE ?",
-        (statut, datetime.now().isoformat(), f"%{phone[-9:]}")  # match sur les 9 derniers chiffres
-    )
-    conn.commit()
-
-    print(f"📡 Mise à jour statut SMS → {statut} pour {phone}")
-
-    return {"success": True}
 
 
 
