@@ -1179,9 +1179,7 @@ def submit():
         bts_label=bts_label,
         lien_espace=lien_espace
     )
-    send_sms_brevo(tel, msg)
-    log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
-    log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
+    send_sms_brevo(tel, msg, cand_id)
 
     admin_html = render_template(
         "mail_admin_notif.html",
@@ -1492,7 +1490,7 @@ def admin_update_status():
             lien_espace=lien_espace,
             lien_confirmation=lien_confirmation,
         )
-        send_sms_brevo(tel, sms_msg)
+        send_sms_brevo(tel, msg, cand_id)
 
     # 2️⃣ INSCRIPTION CONFIRMÉE
     elif value == "confirmee":
@@ -1512,7 +1510,7 @@ def admin_update_status():
             prenom=ctx["prenom"],
             bts_label=ctx["bts_label"],
         )
-        send_sms_brevo(tel, sms_msg)
+        send_sms_brevo(tel, msg, cand_id)
 
         # ✉ MAIL Bienvenue
         merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
@@ -2216,10 +2214,7 @@ def admin_files_notify():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, msg)
-    log_event(row, "SMS_ENVOYE", {"type": "docs_non_conformes", "tel": tel})
-
-    log_event(row, "MAIL_ENVOYE", {"type": "docs_non_conformes", "pieces": non_conformes})
+    send_sms_brevo(tel, msg, cand_id)
 
     return jsonify({"ok": True})
 
@@ -2474,8 +2469,7 @@ def reconfirm():
     bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
 )
 
-    send_sms_brevo(tel, msg)
-    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_validee", "tel": tel})
+    send_sms_brevo(tel, msg, cand_id)
 
 
     log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
@@ -2564,11 +2558,7 @@ def reconfirm_validate():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, msg)
-
-    log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
-    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation_validee"})
-    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_validee", "tel": tel})
+    send_sms_brevo(tel, msg, cand_id)
 
     return render_template("reconfirm_ok.html", prenom=row.get("prenom", ""), bts_label=row.get("bts"))
 
@@ -2848,12 +2838,7 @@ def admin_reconfirm(cid):
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
-    send_sms_brevo(tel, msg)
-
-    # 🧾 Log
-    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation"})
-    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation", "tel": tel})
-    log_event(row, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
+    send_sms_brevo(tel, msg, cand_id)
 
     return jsonify({"ok": True})
 
@@ -2994,9 +2979,8 @@ def admin_resend_mail_sms(cid):
         if tel.startswith("0"):
             tel = "+33" + tel[1:]
         sms_msg = sms_text(tpl_sms, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-        send_sms_brevo(tel, sms_msg)
+        send_sms_brevo(tel, msg, cand_id)
 
-        log_event({"id": cid}, "RENVOI_MAIL_SMS", {"type": action, "email": email, "tel": tel})
         return jsonify(ok=True)
 
     except Exception as e:
@@ -3197,11 +3181,7 @@ def admin_reconfirm_all():
             if tel.startswith("0"):
                 tel = "+33" + tel[1:]
             sms_msg = sms_text("reconfirmation_demandee", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-            send_sms_brevo(tel, sms_msg)
-
-            log_event({"id": cid}, "MAIL_ENVOYE", {"type": "reconfirmation"})
-            log_event({"id": cid}, "SMS_ENVOYE", {"type": "reconfirmation", "tel": tel})
-            log_event({"id": cid}, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
+            send_sms_brevo(tel, msg, cand_id)
 
             sent_count += 1
             print(f"📤 Reconfirmation envoyée à {prenom} ({email})")
