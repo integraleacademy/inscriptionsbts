@@ -6,6 +6,24 @@
 
 <style>
 
+  @media (max-width: 1500px) {
+  .timeline .step {
+    min-width: 70px;                /* taille réduite des steps */
+  }
+
+  .timeline .step .icon {
+    width: 45px;
+    height: 45px;
+    font-size: 20px;                /* icône plus petite */
+    line-height: 45px;
+  }
+
+  .timeline .step .label {
+    font-size: 12px;                /* texte un peu plus compact */
+  }
+}
+
+
   #explication-etapes {
   margin-top: 30px !important;
 }
@@ -127,12 +145,30 @@ body.espace-candidat {
   justify-content: flex-start;
   flex-wrap: nowrap;
   overflow-x: auto;
+  overflow-y: hidden;          /* ✅ évite un scroll vertical moche */
   margin: 40px auto 30px;
   padding: 10px 0;
-  gap: 18px;              /* moins d’espace entre les éléments */
+  gap: 18px;                   /* moins d’espace entre les éléments */
   box-sizing: border-box;
   max-width: 100%;
+  scrollbar-width: thin;       /* Firefox : barre fine */
+  scrollbar-color: #f4c45a #fff;
 }
+
+  .timeline::-webkit-scrollbar {
+  height: 8px;                 /* hauteur de la barre */
+}
+
+.timeline::-webkit-scrollbar-thumb {
+  background: #f4c45a;         /* ta couleur dorée */
+  border-radius: 10px;         /* arrondi pour faire propre */
+}
+
+.timeline::-webkit-scrollbar-track {
+  background: #fff;            /* fond blanc pour contraste */
+}
+
+
 
 /* Étape */
 .timeline .step {
@@ -502,6 +538,7 @@ body.espace-candidat {
 
 
 {% endblock %}
+
 
 
 
