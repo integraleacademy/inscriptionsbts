@@ -358,7 +358,7 @@ def mail_html(template_name, **kwargs):
     <strong>L’équipe Intégrale Academy</strong>
 </p>
     """
-}
+}, 
 
         "inscription_confirmee": {
             "title": "Inscription confirmée",
@@ -630,6 +630,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
