@@ -10,18 +10,18 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
     templates = {
         # 📨 Accusé de réception
         "accuse_reception": (
-            f"🎓 Intégrale Academy – Votre BTS {bts_label}\n"
+            f"🎓 Intégrale Academy – BTS {bts_label}\n"
             f"Bonjour {prenom},\n"
-            "Nous avons bien reçu votre pré-inscription pour intégrer notre BTS.\n"
+            "Nous avons bien reçu votre pré-inscription pour intégrer notre BTS en alternance.\n"
             "Nous allons étudier votre dossier et revenir vers vous dans les meilleurs délais.\n"
             "📩 Vous recevrez notre réponse par mail et par SMS (pensez à vérifier vos SPAMS).\n"
-            f"🔗 Suivez votre dossier ici : {lien_espace}\n"
+            f"🔗 Suivez toutes les étapes de votre inscription depuis votre Espace Candidat en cliquant ici : {lien_espace}\n"
             "— Intégrale Academy · Service inscriptions BTS"
         ),
 
         # ✅ Candidature validée
         "candidature_validee": (
-            f"✅ Intégrale Academy – Votre BTS {bts_label}\n"
+            f"✅ Intégrale Academy – BTS {bts_label}\n"
             f"Bonjour {prenom},\n"
             "Bonne nouvelle ! Votre candidature a été validée par notre équipe.\n"
             "Merci de confirmer votre inscription via le lien reçu par mail.\n"
@@ -140,6 +140,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
     }
 
     return templates.get(template, "")
+
 
 
 
