@@ -2,7 +2,7 @@
 # 📱 Modèles SMS – Intégrale Academy (version complète)
 # =====================================================
 
-def sms_text(template, prenom="", bts_label="", lien_espace=""):
+def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmation=""):
     """
     Retourne le message formaté selon le type de SMS demandé.
     Tous les messages utilisent Unicode (accents et emojis OK).
@@ -157,6 +157,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
     }
 
     return templates.get(template, "")
+
 
 
 
