@@ -24,12 +24,14 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
 "candidature_validee": (
     f"✅ Intégrale Academy – BTS {bts_label}\n"
     f"Bonjour {prenom},\n\n"
-    "Bonne nouvelle ! Nous avons étudié ta candidature et notre commission a donné un AVIS FAVORABLE.\n\n"
-    "Pour intégrer notre école, tu dois maintenant confirmer ton inscription depuis le mail que nous t’avons envoyé.\n"
+    "Bonne nouvelle ! Nous avons étudié ta candidature et notre commission a donné un AVIS FAVORABLE à ta demande d'admission.\n\n"
+    "Pour intégrer notre école, tu dois maintenant confirmer ton inscription.\n"
+    f"🔗 Tu peux confirmer ton inscription directement en cliquant ici ou via le mail que je viens de t'envoyer : {lien_confirmation}\n\n"
     "📩 Pense à vérifier tes SPAMS.\n\n"
     "Si tu as des questions, tu peux m’écrire sur WhatsApp ici : http://wa.me/33744304527\n"
     "— Clément VAILLANT · Directeur Intégrale Academy"
 ),
+
 
         # 🎓 Inscription confirmée
         "inscription_confirmee": (
@@ -142,6 +144,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
     }
 
     return templates.get(template, "")
+
 
 
 
