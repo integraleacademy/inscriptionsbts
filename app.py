@@ -530,6 +530,23 @@ with app.app_context():
 import time
 import sqlite3
 
+# ============================================
+# 🔧 Vérification / ajout de colonne statut_sms
+# ============================================
+def ensure_sms_column():
+    conn = db()
+    cur = conn.cursor()
+    try:
+        cur.execute("ALTER TABLE candidats ADD COLUMN statut_sms TEXT DEFAULT NULL")
+        conn.commit()
+        print("📩 Colonne statut_sms ajoutée à la table candidats")
+    except:
+        # colonne existe déjà, on ignore
+        pass
+
+ensure_sms_column()
+
+
 # =====================================================
 # 🧾 Vérifie et ajoute les colonnes apprentissage si manquantes
 # =====================================================
@@ -3338,6 +3355,46 @@ def admin_send_mail_aps(cid):
         print("❌ Erreur envoi mail APS :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
+# ======================================================
+# 📡 WEBHOOK BREVO — Statuts SMS
+# ======================================================
+@app.route("/webhook/sms", methods=["POST"])
+def webhook_sms():
+    data = request.json or {}
+
+    sms_id = data.get("messageId") or data.get("message_id")
+    status = data.get("event")  # delivered, failed, etc.
+    phone = data.get("recipient")  # numéro complet
+
+    print("📩 Webhook SMS reçu :", data)
+
+    if not sms_id or not phone or not status:
+        return {"error": "missing fields"}, 400
+
+    # On mappe les statuts Brevo → ton admin
+    mapping = {
+        "delivered": "delivered",
+        "sent": "sent",
+        "request": "sent",
+        "failed": "failed",
+        "rejected": "rejected"
+    }
+
+    statut = mapping.get(status, "sent")
+
+    conn = db()
+    cur = conn.cursor()
+
+    # Mise à jour du candidat via téléphone
+    cur.execute(
+        "UPDATE candidats SET statut_sms=?, updated_at=? WHERE tel LIKE ?",
+        (statut, datetime.now().isoformat(), f"%{phone[-9:]}")  # match sur les 9 derniers chiffres
+    )
+    conn.commit()
+
+    print(f"📡 Mise à jour statut SMS → {statut} pour {phone}")
+
+    return {"success": True}
 
 
 
