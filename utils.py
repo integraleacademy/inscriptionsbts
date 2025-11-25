@@ -84,7 +84,7 @@ def send_mail(to, subject, html, attachments=None):
 # =====================================================
 # 📱 ENVOI DE SMS AVEC BREVO (VERSION 2025 FINALE)
 # =====================================================
-def send_sms_brevo(phone_number, message):
+def send_sms_brevo(phone_number, message, candidat_id=None):
     api_key = BREVO_KEY
     print("🟡 DEBUG — Début send_sms_brevo()")
     print("🟡 DEBUG — Numéro :", phone_number)
@@ -116,12 +116,13 @@ def send_sms_brevo(phone_number, message):
         sms_id = getattr(response, "messageId", None) or getattr(response, "message_id", None)
         print(f"✅ SMS envoyé à {phone_number} — ID: {sms_id}")
 
-        # 🔎 Log interne de l’ID du SMS
+        # 🧩 Log automatique du SMS
         try:
-            from app import log_event
-            log_event({"id": None}, "SMS_ENVOYE", {"id": sms_id})
+            if candidat_id:
+                from app import log_event
+                log_event({"id": candidat_id}, "SMS_ENVOYE", {"id": sms_id})
         except Exception as e:
-            print("⚠️ Impossible de log l'ID du SMS:", e)
+            print("⚠️ Impossible de log le SMS :", e)
 
         return sms_id
 
@@ -131,6 +132,7 @@ def send_sms_brevo(phone_number, message):
     except Exception as e:
         print(f"❌ Erreur inattendue SMS : {e}")
         return False
+
 
 
 
