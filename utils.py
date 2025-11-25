@@ -177,11 +177,9 @@ def send_mail_gmail(to, subject, html):
 
 def get_mail_context(row, lien_espace=None, lien_confirmation=None):
     """
-    Retourne un dictionnaire standard, avec le nom complet du BTS.
-    Cette version utilise BTS_LABELS directement depuis app.py.
+    Retourne un dictionnaire standard, SANS importer app.py.
+    Le vrai nom du BTS sera ajouté dans app.py juste après l'appel.
     """
-
-    from app import BTS_LABELS  # 🔥 IMPORT AJOUTÉ
 
     BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
 
@@ -189,9 +187,8 @@ def get_mail_context(row, lien_espace=None, lien_confirmation=None):
     if not lien_espace:
         lien_espace = f"{BASE_URL}/espace/{slug}"
 
-    # 🔥 Correction : code normalisé + mapping vers nom complet
+    # 👉 On ne mappe PAS ici (sinon boucle d’import)
     bts_code = (row.get("bts") or "").strip().upper()
-    bts_label = BTS_LABELS.get(bts_code, row.get("bts", ""))
 
     return {
         "prenom": row.get("prenom", ""),
@@ -201,9 +198,7 @@ def get_mail_context(row, lien_espace=None, lien_confirmation=None):
         "form_tel": row.get("tel", ""),
         "numero_dossier": row.get("numero_dossier", ""),
         "form_mode_label": row.get("mode", ""),
-        "bts_label": bts_label,  # 🔥 Nom COMPLET du BTS
+        "bts_label": bts_code,  # ⚠️ mapping dans app.py, pas ici !
         "lien_espace": lien_espace,
         "lien_confirmation": lien_confirmation or "",
     }
-
-
