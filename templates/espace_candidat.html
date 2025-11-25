@@ -6,12 +6,24 @@
 
 <style>
 
-  .active-step {
-  background: #fff4d6;
+.active-step {
+  background: #fff8e2;             /* jaune très léger */
   border-left: 4px solid #f4c45a;
-  padding: 3px 6px;
-  border-radius: 5px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  margin-bottom: 6px;
   font-weight: 600;
+}
+
+  #explication-etapes > div {
+  margin-bottom: 10px;
+}
+
+
+.step-check {
+  color: #2ecc71;                  /* vert check ✔️ */
+  font-weight: bold;
+  margin-right: 6px;
 }
 
 
@@ -339,28 +351,35 @@ body.espace-candidat {
   .timeline .step::after { width: 4px; height: 40px; top: 70px; left: 50%; transform: translateX(-50%); }
 }
 
-  .assistance-block {
-  display:flex;
-  align-items:center;
-  gap:15px;
-  background:#fdf8e7;
-  border-left:4px solid #f4c45a;
-  padding:15px 18px;
-  margin-top:30px;
-  border-radius:10px;
-  font-size:15px;
+.assistance-block {
+  max-width: 600px;
+  margin: 40px auto;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #fffef8;
+  border-left: 4px solid #f4c45a;
+  padding: 18px 22px;
+  border-radius: 12px;
+  font-size: 15px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
+
 .assistance-block .icon {
-  font-size:32px;
+  font-size: 36px;
+  line-height: 1;
 }
+
 .assistance-block a {
-  font-weight:bold;
-  color:#1a73e8;
-  text-decoration:none;
+  font-weight: bold;
+  color: #1a73e8;
+  text-decoration: none;
 }
+
 .assistance-block a:hover {
-  text-decoration:underline;
+  text-decoration: underline;
 }
+
 
 </style>
 
@@ -501,44 +520,53 @@ body.espace-candidat {
 <div id="explication-etapes" style="
   background:#fdf8e7;
   border-left:4px solid #f4c45a;
-  padding:15px 20px;
+  padding:18px 22px;
   border-radius:10px;
-  margin:20px 0;
+  margin:25px 0;
   font-size:14px;
-  line-height:1.5;
+  line-height:1.55;
   color:#444;
 ">
-<strong>ℹ️ Comprendre les étapes de votre dossier</strong><br><br>
+<strong style="font-size:15px;">ℹ️ Comprendre les étapes de votre dossier</strong>
+<br><br>
 
 <div class="{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-• <strong>Pré-inscription reçue :</strong> nous avons bien reçu votre demande.
+  <span class="step-check">{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <strong>Pré-inscription reçue :</strong> nous avons bien reçu votre demande.
 </div>
 
 <div class="{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-• <strong>Candidature en cours d'analyse :</strong> notre commission procède à l'étude de votre dossier et vérifie toutes les informations.
+  <span class="step-check">{% if statut in ['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <strong>Candidature en cours d'analyse :</strong> notre commission procède à l'étude de votre dossier et vérifie toutes les informations.
 </div>
 
 <div class="{% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-• <strong>Candidature validée :</strong> notre commission a donné un AVIS FAVORABLE à votre demande d'admission. Pour intégrer notre école, vous devez Confirmer votre inscription.
+  <span class="step-check">{% if statut in ['validee','confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <strong>Candidature validée :</strong> notre commission a donné un AVIS FAVORABLE à votre demande d'admission. Pour intégrer notre école, vous devez Confirmer votre inscription.
 </div>
 
 <div class="{% if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-• <strong>Inscription confirmée :</strong> vous êtes officiellement inscrit(e), tout est OK. Nous vous envoyons par courrier votre carte étudiante officielle et votre certificat de scolarité.
+  <span class="step-check">{% if statut in ['confirmee','reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <strong>Inscription confirmée :</strong> vous êtes officiellement inscrit(e), tout est OK. Nous vous envoyons par courrier votre carte étudiante officielle et votre certificat de scolarité.
 </div>
 
 <div class="{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
-• <strong>Reconfirmation en attente :</strong> au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école, ou si vous avez changé d'avis.
+  <span class="step-check">{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <strong>Reconfirmation en attente :</strong> au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école, ou si vous avez changé d'avis.
 </div>
 
 <div class="{% if statut in ['reconfirmee','rentree'] %}active-step{% endif %}">
-• <strong>Reconfirmation validée :</strong> vous avez confirmé que vous serez bien parmis nous pour la rentrée, tout est OK.
+  <span class="step-check">{% if statut in ['reconfirmee','rentree'] %}✔️{% else %}⭕{% endif %}</span>
+  <strong>Reconfirmation validée :</strong> vous avez confirmé que vous serez bien parmis nous pour la rentrée, tout est OK.
 </div>
 
 <div class="{% if statut == 'rentree' %}active-step{% endif %}">
-• <strong>Rentrée 2026 :</strong> la rentrée se déroulera au mois de septembre 2026.
+  <span class="step-check">{% if statut == 'rentree' %}✔️{% else %}⭕{% endif %}</span>
+  <strong>Rentrée 2026 :</strong> la rentrée se déroulera au mois de septembre 2026.
 </div>
 
 </div>
+
 
 
 
@@ -560,13 +588,15 @@ body.espace-candidat {
   <div>
     <strong>Besoin d’aide ?</strong><br>
     Notre équipe est disponible pour répondre à vos questions.<br>
-    <a href="https://assistance-alw9.onrender.com/" target="_blank">👉 Accéder à l’assistance</a><br>
+    👉 <a href="https://assistance-alw9.onrender.com/" target="_blank">Accéder à l’assistance</a><br>
     📞 04 22 47 07 68
   </div>
 </div>
 
 
+
 {% endblock %}
+
 
 
 
