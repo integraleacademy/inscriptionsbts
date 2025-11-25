@@ -29,7 +29,16 @@ def mail_html(template_name, **kwargs):
     form_prenom      = kwargs.get("form_prenom", "") or ""
     form_email       = kwargs.get("form_email", "") or ""
     form_tel         = kwargs.get("form_tel", "") or ""
-    form_mode_label  = kwargs.get("form_mode_label", "") or ""
+    form_mode_label_raw = kwargs.get("form_mode_label", "") or ""
+    mode = form_mode_label_raw.lower()
+
+    if "pres" in mode:
+        form_mode_label = "En présentiel à Puget-sur-Argens (Var – 83)"
+    elif "dist" in mode:
+        form_mode_label = "100% en ligne à distance en visioconférence ZOOM"
+    else:
+        form_mode_label = form_mode_label_raw
+
 
 
 
@@ -639,6 +648,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
