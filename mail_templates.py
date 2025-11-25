@@ -192,7 +192,7 @@ def mail_html(template_name, **kwargs):
 
 
 
-   "candidature validee": {
+   "candidature_validee": {
     "title": "Votre candidature est validée",
     "content": f"""
         <p>Bonjour {prenom},</p>
@@ -630,6 +630,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
