@@ -3,19 +3,6 @@
 {% block content %}
 
 <style>
-
-  .sms {
-  font-weight: 600;
-  font-size: 13px;
-}
-
-.sms-ok   { color: #28a745; }
-.sms-fail { color: #dc3545; }
-.sms-reject { color: #f39c12; }
-.sms-sent { color: #888; }
-.sms-none { color: #bbb; }
-
-  
 /* 🎨 STYLE MODALE ACTIONS (version harmonisée) */
 .modal-section {
   margin-bottom: 18px;
@@ -176,7 +163,6 @@
           <th>BTS</th>
           <th>Mode</th>
           <th>Téléphone</th>
-          <th>SMS</th>
           <th>Email</th>
           <th>Statut</th>
           <th>Étiquettes</th>
@@ -191,20 +177,6 @@
           <td contenteditable="true" data-field="bts">{{ r.bts }}</td>
           <td contenteditable="true" data-field="mode">{{ r.mode }}</td>
           <td contenteditable="true" data-field="tel">{{ r.tel }}</td>
-          <td>
-  {% if r.statut_sms == "delivered" %}
-    <span class="sms sms-ok">🟢 Livré</span>
-  {% elif r.statut_sms == "failed" %}
-    <span class="sms sms-fail">🔴 Échec</span>
-  {% elif r.statut_sms == "rejected" %}
-    <span class="sms sms-reject">🟠 Rejeté</span>
-  {% elif r.statut_sms == "sent" %}
-    <span class="sms sms-sent">⚪ Envoyé</span>
-  {% else %}
-    <span class="sms sms-none">—</span>
-  {% endif %}
-</td>
-
           <td contenteditable="true" data-field="email">{{ r.email }}</td>
           <td>
             <select data-field="statut" class="status-select" data-statut="{{ r.statut or 'preinscription' }}">
