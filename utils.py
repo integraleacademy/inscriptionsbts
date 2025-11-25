@@ -8,6 +8,8 @@ import requests
 import sib_api_v3_sdk
 import base64
 from sib_api_v3_sdk.rest import ApiException
+from app import BTS_LABELS
+
 
 # =====================================================
 # ⚙️ Configuration des variables d'environnement
@@ -173,4 +175,28 @@ def send_mail_gmail(to, subject, html):
     except Exception as e:
         print("❌ Erreur Gmail SMTP:", e)
         return False
+
+def get_mail_context(row, lien_espace=None, lien_confirmation=None):
+    """
+    Retourne un dictionnaire standard, utilisé pour TOUS les mails.
+    """
+    BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+
+    slug = row.get("slug_public")
+    if not lien_espace:
+        lien_espace = f"{BASE_URL}/espace/{slug}"
+
+    return {
+        "prenom": row.get("prenom", ""),
+        "form_nom": row.get("nom", ""),
+        "form_prenom": row.get("prenom", ""),
+        "form_email": row.get("email", ""),
+        "form_tel": row.get("tel", ""),
+        "numero_dossier": row.get("numero_dossier", ""),
+        "form_mode_label": row.get("mode", ""),
+        "bts_label": BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+        "lien_espace": lien_espace,
+        "lien_confirmation": lien_confirmation or "",
+    }
+
 
