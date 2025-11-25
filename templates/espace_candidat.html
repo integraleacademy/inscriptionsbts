@@ -521,6 +521,12 @@ body.espace-candidat {
   </div>
 </div>
 
+  {% if statut in ['confirmee', 'reconf_en_cours'] %}
+<div class="reconf-info">
+  📅 La reconfirmation de votre inscription ouvrira en <strong>août 2026</strong>. Vous recevrez un mail pour confirmer si vous souhaitez toujours intégrer notre école 😀 ou si vous avez changé d'avis 😞.
+</div>
+{% endif %}
+
 <div id="explication-etapes" style="
   background:#fffdf7;
   border-left:4px solid #f4c45a;
@@ -562,7 +568,7 @@ body.espace-candidat {
 <div class="{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
   <span class="step-number">5️⃣</span>
   <span class="step-check">{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
-  <strong>Reconfirmation en attente :</strong> au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école, ou si vous avez changé d'avis.
+  <strong>Reconfirmation en attente :</strong>au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école, ou si vous avez changé d'avis.
 </div>
 
 <div class="{% if statut in ['reconfirmee','rentree'] %}active-step{% endif %}">
@@ -608,8 +614,6 @@ body.espace-candidat {
 
 
 {% endblock %}
-
-
 
 
 
