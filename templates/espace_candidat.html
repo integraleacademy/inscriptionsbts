@@ -5,6 +5,20 @@
 
 
 <style>
+
+  .reconf-info {
+  background:#fdf8e7;
+  border-left:4px solid #f4c45a;
+  padding:12px 18px;
+  margin:20px 0;
+  border-radius:8px;
+  text-align:center;
+  font-size:14px;
+  color:#555;
+}
+
+
+  
 /* === 🎨 STYLE ESPACE CANDIDAT === */
 body.espace-candidat {
   background: linear-gradient(180deg, #fff 0%, #fff9e6 100%);
@@ -274,11 +288,34 @@ body.espace-candidat {
   .timeline .step { margin-bottom: 25px; }
   .timeline .step::after { width: 4px; height: 40px; top: 70px; left: 50%; transform: translateX(-50%); }
 }
+
+  .assistance-block {
+  display:flex;
+  align-items:center;
+  gap:15px;
+  background:#fdf8e7;
+  border-left:4px solid #f4c45a;
+  padding:15px 18px;
+  margin-top:30px;
+  border-radius:10px;
+  font-size:15px;
+}
+.assistance-block .icon {
+  font-size:32px;
+}
+.assistance-block a {
+  font-weight:bold;
+  color:#1a73e8;
+  text-decoration:none;
+}
+.assistance-block a:hover {
+  text-decoration:underline;
+}
+
 </style>
 
 <div class="candidat-container">
   <div class="header">
-    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo Intégrale Academy">
     <h1>🎓 Espace Candidat</h1>
     <div class="divider"></div>
     <p>Bienvenue {{ row.prenom|upper }} {{ row.nom|upper }}</p>
@@ -377,6 +414,7 @@ body.espace-candidat {
     <div class="icon">🕒</div>
     <div class="label">Reconfirmation en attente</div>
   </div>
+  
 
   <div class="arrow {{ 'ok' if statut in ['reconfirmee','rentree'] else 'wait' }}">
     {{ 'OK' if statut in ['reconfirmee','rentree'] else 'À venir' }}
@@ -402,8 +440,13 @@ body.espace-candidat {
     <div class="icon">🎉</div>
     <div class="label">Rentrée septembre 2026</div>
   </div>
-
 </div>
+
+  {% if statut in ['confirmee', 'reconf_en_cours'] %}
+<div class="reconf-info">
+  📅 La reconfirmation de votre inscription ouvrira en <strong>août 2026</strong>.
+</div>
+{% endif %}
 
 
 
@@ -420,12 +463,19 @@ body.espace-candidat {
     ℹ️ Vous pouvez consulter l’avancement de votre dossier à tout moment depuis cette page.
   </div>
 
-  <div class="assistance">
-    <p>❓ Une question ? <a href="https://assistance-alw9.onrender.com/" target="_blank">Contactez l’assistance</a> ou appelez le <strong>04 22 47 07 68</strong>.</p>
+<div class="assistance-block">
+  <span class="icon">💬</span>
+  <div>
+    <strong>Besoin d’aide ?</strong><br>
+    Notre équipe est disponible pour répondre à vos questions.<br>
+    <a href="https://assistance-alw9.onrender.com/" target="_blank">👉 Accéder à l’assistance</a><br>
+    📞 04 22 47 07 68
   </div>
 </div>
 
+
 {% endblock %}
+
 
 
 
