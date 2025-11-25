@@ -12,21 +12,24 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
         "accuse_reception": (
             f"🎓 Intégrale Academy – BTS {bts_label}\n"
             f"Bonjour {prenom},\n"
-            "Nous avons bien reçu votre pré-inscription pour intégrer notre BTS en alternance.\n"
-            "Nous allons étudier votre dossier et revenir vers vous dans les meilleurs délais.\n"
-            "📩 Vous recevrez notre réponse par mail et par SMS (pensez à vérifier vos SPAMS).\n"
-            f"🔗 Suivez toutes les étapes de votre inscription depuis votre Espace Candidat en cliquant ici : {lien_espace}\n"
-            "— Intégrale Academy · Service inscriptions BTS"
+            "Je te confirme que nous avons bien reçu ta demande de Pré-inscription concernant notre BTS en alternance.\n"
+            "Nous allons étudier ton dossier et nous te donnerons une réponse prochainement.\n"
+            "📩 Tu recevras notre réponse officielle par mail et par SMS (penses à vérifier tes SPAMS).\n"
+            f"🔗 Tu peux aussi suivre toutes les étapes de ton inscription depuis ton Espace Candidat en cliquant ici : {lien_espace}\n"
+            "Si tu as des questions tu peux m'envoyer un message sur Whatsapp en cliquant ici : http://wa.me/33744304527\n"
+            "— Clément VAILLANT · Directeur Intégrale Academy"
         ),
 
         # ✅ Candidature validée
         "candidature_validee": (
             f"✅ Intégrale Academy – BTS {bts_label}\n"
             f"Bonjour {prenom},\n"
-            "Bonne nouvelle ! Votre candidature a été validée par notre équipe.\n"
-            "Merci de confirmer votre inscription via le lien reçu par mail.\n"
-            "📩 Pensez à vérifier vos SPAMS.\n"
-            "— Intégrale Academy · Service inscriptions BTS"
+            "Je fais suite à ta candidature concernant notre BTS en alternance.\n"
+            "Bonne nouvelle ! Nous avons étudié ton dossier et notre commission a donné un AVIS FAVORABLE à ta demande d'admission.\n"
+            "Pour intégrer notre école, tu dois maintenant confirmer ton inscription depuis le mail que t'avons envoyé.\n"
+            "📩 Penses à vérifier tes SPAMS.\n"
+            "Si tu as des questions tu peux m'envoyer un message sur Whatsapp en cliquant ici : http://wa.me/33744304527\n"
+            "— Clément VAILLANT · Directeur Intégrale Academy"
         ),
 
         # 🎓 Inscription confirmée
@@ -140,6 +143,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace=""):
     }
 
     return templates.get(template, "")
+
 
 
 
