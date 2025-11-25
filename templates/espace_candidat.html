@@ -28,12 +28,12 @@
 #explication-etapes > div {
   background: none !important;
   padding: 6px 0;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
   border-radius: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;      /* ⬅️ LE FIX */
+  line-height: 1.55;   /* joli espacement */
 }
+
 
 .active-step {
   background: none !important;
@@ -599,9 +599,16 @@ body.espace-candidat {
 
 <div class="{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
   <span class="step-number">5️⃣</span>
-  <span class="step-check">{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
-  <strong>Reconfirmation en attente :</strong> au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école ou si vous avez changé d'avis.
+  <span class="step-check">
+    {% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}
+      ✔️
+    {% else %}
+      —
+    {% endif %}
+  </span>
+  <strong>Reconfirmation en attente :</strong> au mois <strong>d’août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école ou si vous avez changé d'avis.
 </div>
+
 
 <div class="{% if statut in ['reconfirmee','rentree'] %}active-step{% endif %}">
   <span class="step-number">6️⃣</span>
@@ -646,6 +653,7 @@ body.espace-candidat {
 
 
 {% endblock %}
+
 
 
 
