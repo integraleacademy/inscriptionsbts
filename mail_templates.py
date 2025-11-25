@@ -192,7 +192,7 @@ def mail_html(template_name, **kwargs):
 
 
 
-    "candidature_validee": {
+   "candidature validee": {
     "title": "Votre candidature est validée",
     "content": f"""
         <p>Bonjour {prenom},</p>
@@ -201,19 +201,30 @@ def mail_html(template_name, **kwargs):
         <p>
         🎉 <strong>Excellente nouvelle !</strong><br>
         Nous faisons suite à votre candidature pour notre <strong>{bts_label}</strong> en alternance,
-        {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>en 100% en ligne à distance en visioconférence ZOOM</strong>"}.  
-        Après avoir étudié votre dossier, nous avons le plaisir de vous informer que notre commission a décidé de donner un <strong>AVIS FAVORABLE ✅</strong> à votre demande d'admission au sein de notre école Intégrale Academy. </p>
+        {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>en 100% en ligne à distance en visioconférence ZOOM</strong>"}.
+        <br><br>
+        Après avoir étudié votre dossier, nous avons le plaisir de vous informer que notre commission a décidé de donner un AVIS FAVORABLE ✅ à votre demande d'admission au sein de notre école Intégrale Academy.
+        </p>
 
         <!-- 🔔 MISE AU POINT IMPORTANTE -->
-        <p style="background:#fff7d6;padding:14px 18px;border-radius:10px;border:1px solid #f5e2a0;font-size:15px;line-height:1.5;">
-            📢 <strong>Prochaine étape :</strong><br>
-            Votre candidature a été validée, mais <u>votre inscription n’est pas encore confirmée</u>.  
-            Pour intégrer notre école, vous devez confirmer votre inscription en cliquant sur le bouton ci-dessous :
-        </p>
+        <div style="background:#fff7d6;padding:18px;border-radius:10px;border:1px solid #f5e2a0;font-size:15px;line-height:1.5;margin-top:20px;">
+            <p style="margin:0 0 8px 0;">
+                📍 <strong>Prochaine étape :</strong>
+            </p>
 
-        <p style="text-align:center;margin-top:18px;">
-            <a href="{lien_espace}" class="btn">✨ Confirmer mon inscription</a>
-        </p>
+            <p style="margin:0 0 12px 0;">
+                Votre candidature a été validée, mais <a href="{lien_espace}" style="color:#000;text-decoration:underline;font-weight:600;">votre inscription n’est pas encore confirmée</a>.<br>
+                Pour intégrer notre école, vous devez confirmer votre inscription en cliquant sur le bouton ci-dessous :
+            </p>
+
+            <div style="text-align:center;margin-top:18px;">
+                <a href="{lien_espace}" class="btn"
+                style="display:inline-block;background:#f4c45a;color:#000;padding:12px 22px;border-radius:8px;
+                        font-weight:600;text-decoration:none;font-size:15px;">
+                    ✨ Confirmer mon inscription
+                </a>
+            </div>
+        </div>
 
         <!-- 🧾 RÉCAP DU DOSSIER -->
         <table width="100%" cellpadding="0" cellspacing="0"
@@ -238,43 +249,42 @@ def mail_html(template_name, **kwargs):
 
         <!-- 🔗 REDIRECTION UNIQUE -->
         <p style="margin-top:15px;margin-bottom:6px;font-weight:600;font-size:15px;">
-          📌 Accédez à votre Espace Candidat pour suivre toutes les étapes :
+          📌 Suivez les étapes de votre inscription directement depuis votre Espace Candidat :
         </p>
 
         <p style="text-align:center;margin-top:0;">
             <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
         </p>
     """
+    +
 
-        +
+    # === BLOC DISTANCIEL SI MODE DISTANCE ===
+    (
+    """
+    <div style="background:#f3f7ff;border-left:4px solid #2b6cff;padding:18px;margin-top:28px;border-radius:10px;">
+      <h3 style="margin:0 0 10px 0;color:#2b6cff;">💻 Comment se déroule la formation 100% en ligne à distance ?</h3>
 
-        # === BLOC DISTANCIEL SI MODE DISTANCE ===
-        (
-        """
-        <div style="background:#f3f7ff;border-left:4px solid #2b6cff;padding:18px;margin-top:28px;border-radius:10px;">
-          <h3 style="margin:0 0 10px 0;color:#2b6cff;">💻 Comment se déroule la formation 100% en ligne à distance ?</h3>
+      <p style="margin:0 0 10px 0;">
+      <strong>ÉCOLE 100 % en ligne :</strong><br>
+      Cette formation se déroule entièrement en visio-conférence (ZOOM) avec des formateurs expérimentés.
+      Les étudiants suivent un emploi du temps fixe, se connectent à des horaires précis et interagissent en temps réel.
+      </p>
 
-          <p style="margin:0 0 10px 0;">
-          <strong>ÉCOLE 100 % en ligne :</strong><br>
-          Cette formation se déroule entièrement en visio-conférence (ZOOM) avec des formateurs expérimentés.
-          Les étudiants suivent un emploi du temps fixe, se connectent à des horaires précis et interagissent en temps réel.
-          </p>
+      <p style="margin:0 0 10px 0;">Ce n’est pas une plateforme e-learning : tout se déroule en direct comme dans une vraie classe.</p>
 
-          <p style="margin:0 0 10px 0;">Ce n’est pas une plateforme e-learning : tout se déroule en direct comme dans une vraie classe.</p>
+      <p style="margin:0 0 10px 0;">Deux années entièrement à distance (aucun déplacement). Les devoirs sont transmis via l’espace étudiant.</p>
 
-          <p style="margin:0 0 10px 0;">Deux années entièrement à distance (aucun déplacement). Les devoirs sont transmis via l’espace étudiant.</p>
+      <p style="margin:0 0 10px 0;">L’examen final se déroule dans un lycée public.</p>
 
-          <p style="margin:0 0 10px 0;">L’examen final se déroule dans un lycée public.</p>
+      <p style="margin:0;"><strong>ENTREPRISE :</strong><br> En présentiel dans l’entreprise (alternance).</p>
+    </div>
+    """
+    if "distance" in form_mode_label.lower() or "en ligne" in form_mode_label.lower() or "dist" in form_mode_label.lower()
+    else ""
+    )
+    +
 
-          <p style="margin:0;"><strong>ENTREPRISE :</strong><br> En présentiel dans l’entreprise (alternance).</p>
-        </div>
-        """
-        if "distance" in form_mode_label.lower() or "en ligne" in form_mode_label.lower() or "dist" in form_mode_label.lower()
-        else ""
-        )
-        +
-
-        """
+    """
 <!-- ❓ FAQ COMPACTE – VERSION TEXTES DE CLÉMENT -->
 <div style="margin-top:32px;padding:18px;background:#fafafa;border-radius:10px;border:1px solid #eee;">
   <h3 style="margin-top:0;color:#444;">❓ Questions fréquentes</h3>
@@ -315,8 +325,6 @@ def mail_html(template_name, **kwargs):
   par le Ministère de l'Éducation Nationale. L'examen se déroulera en fin de 2ème année dans un lycée public.</p>
 </div>
 
-
-
 <div style="margin-top:28px;padding:14px 18px;border-radius:10px;
             background:#fff3d6;border:1px solid #f4c45a;">
   <p style="margin:0;font-size:15px;color:#000;text-align:center;">
@@ -328,9 +336,6 @@ def mail_html(template_name, **kwargs):
   </p>
 </div>
 
-
-
-<!-- 🆘 ASSISTANCE – VERSION ÉPURÉE & PROPRE -->
 <div style="margin-top:28px;padding:18px;border-radius:10px;
             background:#f8faff;border:1px solid #dce6f5;text-align:center;">
 
@@ -348,13 +353,13 @@ def mail_html(template_name, **kwargs):
   </a>
 </div>
 
-
 <p style="margin-top:30px;">
     À très bientôt,<br>
     <strong>L’équipe Intégrale Academy</strong>
 </p>
     """
-},
+}
+
         "inscription_confirmee": {
             "title": "Inscription confirmée",
             "content": f"""
@@ -625,6 +630,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
