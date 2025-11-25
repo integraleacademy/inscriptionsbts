@@ -57,6 +57,26 @@
 </div>
 
   <style>
+
+   .center-block {
+  text-align: center;
+  margin: 20px 0;
+}
+
+.center-block .radio-row {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin-top: 10px;
+}
+
+.center-block label {
+  font-size: 16px;
+  font-weight: 500;
+}
+ 
+
+    
 .intro-screen {
   text-align:center;
   background:#fff8e1;
@@ -400,24 +420,32 @@
   <div class="apprentissage-box">
     <h3>📑 Contrat d’apprentissage – Entreprise d’accueil</h3>
 
-    <label>J’ai déjà trouvé une entreprise pour mon alternance :</label>
-    <div class="radio-row">
-      <label><input type="radio" name="entreprise_trouvee" value="oui" required> Oui</label>
-      <label><input type="radio" name="entreprise_trouvee" value="non" required> Non</label>
-    </div>
+<div class="center-block">
+  <label>J’ai déjà trouvé une entreprise pour mon alternance :</label>
+  <div class="radio-row">
+    <label><input type="radio" name="entreprise_trouvee" value="oui" required> Oui</label>
+    <label><input type="radio" name="entreprise_trouvee" value="non" required> Non</label>
+  </div>
+</div>
 
-    <label>J’ai déjà commencé mes recherches :</label>
-    <div class="radio-row">
-      <label><input type="radio" name="recherches_commencees" value="oui" required> Oui</label>
-      <label><input type="radio" name="recherches_commencees" value="non" required> Non</label>
-    </div>
 
-    <label>Je cherche une entreprise en Région Parisienne (75, 77, 78, 91, 92, 93, 94, 95) ?
+ <div class="center-block">
+  <label>J’ai déjà commencé mes recherches :</label>
+  <div class="radio-row">
+    <label><input type="radio" name="recherches_commencees" value="oui" required> Oui</label>
+    <label><input type="radio" name="recherches_commencees" value="non" required> Non</label>
+  </div>
+</div>
+
+
+<div class="center-block">
+  <label>Je cherche une entreprise en Région Parisienne (75, 77, 78, 91, 92, 93, 94, 95) ?</label>
   <div class="radio-row">
     <label><input type="radio" name="cherche_idf" value="oui" required> Oui</label>
     <label><input type="radio" name="cherche_idf" value="non" required> Non</label>
   </div>
-</label>
+</div>
+
 
     <!-- === 🤝 ENCADRÉ PÔLE ALTERNANCE === -->
     <div class="pole-alternance-box" style="margin-top:25px;background:#fff8e1;border:2px solid #f4c45a;border-radius:12px;padding:25px;">
