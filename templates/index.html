@@ -79,6 +79,29 @@
   from { opacity:0; transform:translateY(-10px); }
   to { opacity:1; transform:translateY(0); }
 }
+
+    .mode-btn.selected {
+  position: relative;
+  border: 2px solid #28a745 !important;
+  background: #e9ffe9 !important;
+  opacity: 1 !important;
+}
+
+.mode-btn.selected::after {
+  content: "✔️";
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 26px;
+}
+
+.mode-btn.disabled {
+  opacity: 0.4 !important;
+  filter: grayscale(100%);
+}
+
+    
+    
 </style>
 
 
@@ -623,6 +646,14 @@ function verifierNumSecu() {
   const help = document.getElementById("numSecuHelp");
   let val = input.value.trim().toUpperCase();
   let nir = val.replace(/\s+/g, "");
+  // ➤ Si le champ est vide : on remet le message normal, aucune erreur
+if (nir.length === 0) {
+    help.textContent = "15 caractères attendus (chiffres ou A/B pour la Corse)";
+    help.style.color = "#666";
+    input.style.borderColor = "";
+    return true;
+}
+
 
   // ✅ Autoriser chiffres et lettres A/B
   if (!/^[0-9AB]{13,15}$/.test(nir)) {
