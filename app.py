@@ -1407,7 +1407,6 @@ def admin_update_status():
             "candidature_validee",
             prenom=ctx["prenom"],
             bts_label=ctx["bts_label"],
-            lien_confirmation=lien_confirmation,
         )
         send_sms_brevo(tel, sms_msg)
 
