@@ -175,16 +175,19 @@ body.espace-candidat {
   align-items: center;
   justify-content: flex-start;
   flex-wrap: nowrap;
-  overflow-x: scroll;        /* ✅ force l’apparition */
+  overflow-x: auto;        /* scroll horizontal */
   overflow-y: hidden;
   margin: 40px auto 30px;
-  padding: 10px 0 20px 0;    /* ✅ espace pour la scrollbar */
+  padding: 10px 0 20px 0;
   gap: 18px;
   box-sizing: border-box;
-  max-width: 100%;
-  min-height: 140px;         /* ✅ garantit le scroll visible */
-  scrollbar-width: auto;     /* Firefox */
+
+  width: max-content;      /* la timeline s'adapte au contenu */
+  min-width: 1600px;       /* largeur minimale pour forcer l’apparition du scroll */
+  min-height: 140px;
+  scrollbar-width: auto;
 }
+
 
 .timeline::-webkit-scrollbar {
   height: 12px;              /* plus visible */
@@ -233,6 +236,8 @@ body.espace-candidat {
   color: #333;
   font-weight: 600;
   line-height: 1.2;
+  width: 110px;
+  white-space: normal;
 }
 
 /* === Flèches entre les étapes === */
@@ -363,21 +368,22 @@ body.espace-candidat {
 }
 
 .assistance-block {
-  max-width: 600px;
-  margin: 40px auto;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 30px 0;
   display: flex;
   align-items: center;
-  gap: 15px;
-  background: #fffef8;
+  gap: 18px;
+  background: #fffdf7; /* même couleur que le bloc étapes */
   border-left: 4px solid #f4c45a;
-  padding: 18px 22px;
-  border-radius: 12px;
+  padding: 22px 26px;
+  border-radius: 10px;
   font-size: 15px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
 }
 
 .assistance-block .icon {
-  font-size: 36px;
+  font-size: 42px;
   line-height: 1;
 }
 
@@ -385,6 +391,7 @@ body.espace-candidat {
   font-weight: bold;
   color: #1a73e8;
   text-decoration: none;
+  font-size: 15px;
 }
 
 .assistance-block a:hover {
@@ -569,7 +576,7 @@ body.espace-candidat {
 <div class="{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}active-step{% endif %}">
   <span class="step-number">5️⃣</span>
   <span class="step-check">{% if statut in ['reconf_en_cours','reconfirmee','rentree'] %}✔️{% else %}—{% endif %}</span>
-  <strong>Reconfirmation en attente :</strong> au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école, ou si vous avez changé d'avis.
+  <strong>Reconfirmation en attente :</strong> au mois <strong>d'août 2026</strong> vous recevrez par mail et par SMS une demande de Reconfirmation d'inscription. Nous vous demanderons si vous souhaitez toujours intégrer notre école ou si vous avez changé d'avis.
 </div>
 
 <div class="{% if statut in ['reconfirmee','rentree'] %}active-step{% endif %}">
@@ -615,6 +622,7 @@ body.espace-candidat {
 
 
 {% endblock %}
+
 
 
 
