@@ -645,12 +645,10 @@ function verifierNumSecu() {
   const input = document.getElementById("num_secu");
   const help = document.getElementById("numSecuHelp");
 
-  if (!input || !help) return true;
-
   let val = input.value.trim().toUpperCase();
   let nir = val.replace(/\s+/g, "");
 
-  // 👉 1. Champ vide → message par défaut
+  // 👉 Si rien n'est saisi → message normal, pas d'erreur
   if (nir.length === 0) {
     help.textContent = "15 caractères attendus (chiffres ou A/B pour la Corse)";
     help.style.color = "#666";
@@ -658,40 +656,85 @@ function verifierNumSecu() {
     return true;
   }
 
-  // 👉 2. Longueur incorrecte
-  if (nir.length !== 15) {
-    help.textContent = "❌ Le numéro doit contenir 15 caractères.";
+
+  // ✅ Autoriser chiffres et lettres A/B
+  if (!/^[0-9AB]{13,15}$/.test(nir)) {
+    help.textContent = "❌ Format invalide — seuls chiffres et A/B sont autorisés (15 caractères attendus)";
     help.style.color = "red";
     input.style.borderColor = "red";
     return false;
   }
 
-  // 👉 3. Format (chiffres + A/B)
-  const regex = /^[12]\d{2}[0-1]\d[0-9AB]\d{3}\d{3}\d{2}$/;
-  if (!regex.test(nir)) {
-    help.textContent = "❌ Format incorrect.";
+  // 🔁 copie pour le calcul (convertit seulement temporairement 2A / 2B)
+  const nirCalc = nir.replace("2A", "19").replace("2B", "18");
+  const digits = nirCalc.replace(/\D/g, "");
+
+  if (digits.length !== 15) {
+    help.textContent = "❌ Numéro incomplet — 15 chiffres attendus (A/B acceptés pour la Corse)";
     help.style.color = "red";
     input.style.borderColor = "red";
     return false;
   }
 
-  // 👉 4. Vérification de la clé
-  const key = parseInt(nir.slice(-2), 10);
-  const number = nir.slice(0, 13).replace("A", "0").replace("B", "0");
-  const computedKey = 97 - (parseInt(number, 10) % 97);
-
-  if (key !== computedKey) {
-    help.textContent = "❌ Numéro incohérent.";
+  // ✅ Vérification de la clé de contrôle
+  try {
+    const corps = digits.slice(0, 13);
+    const cle = parseInt(digits.slice(13, 15), 10);
+    const calc = 97n - (BigInt(corps) % 97n);
+    if (Number(calc) !== cle) {
+      help.textContent = "❌ Clé de contrôle incorrecte";
+      help.style.color = "red";
+      input.style.borderColor = "red";
+      return false;
+    }
+  } catch {
+    help.textContent = "❌ Format invalide";
     help.style.color = "red";
     input.style.borderColor = "red";
     return false;
   }
 
-  // 👉 5. Tout est bon
-  help.textContent = "✔️ Numéro valide et cohérent";
+  // ✅ Cohérence avec date de naissance et sexe
+  const dateInput = document.querySelector('input[name="date_naissance"]');
+  const sexeSelect = document.querySelector('select[name="sexe"]');
+  const s = parseInt(digits[0], 10);
+  const yy = digits.slice(1, 3);
+  const mm = digits.slice(3, 5);
+
+  if (dateInput && dateInput.value) {
+    const d = new Date(dateInput.value);
+    const yyExpected = String(d.getFullYear()).slice(-2);
+    const mmExpected = String(d.getMonth() + 1).padStart(2, "0");
+
+    if (yy !== yyExpected) {
+      help.textContent = `❌ Année ${yy} incohérente (attendu ${yyExpected})`;
+      help.style.color = "red";
+      input.style.borderColor = "red";
+      return false;
+    }
+
+    if (/^0[1-9]|1[0-2]$/.test(mm) && mm !== mmExpected) {
+      help.textContent = `❌ Mois ${mm} incohérent (attendu ${mmExpected})`;
+      help.style.color = "red";
+      input.style.borderColor = "red";
+      return false;
+    }
+  }
+
+  if (sexeSelect && sexeSelect.value) {
+    const valSexe = sexeSelect.value.toLowerCase();
+    if ((valSexe === "homme" && s !== 1) || (valSexe === "femme" && s !== 2)) {
+      help.textContent = "❌ Sexe incohérent avec le NIR";
+      help.style.color = "red";
+      input.style.borderColor = "red";
+      return false;
+    }
+  }
+
+  // ✅ Tout est bon
+  help.textContent = "✅ Numéro valide et cohérent";
   help.style.color = "green";
-  input.style.borderColor = "green";
-
+  input.style.borderColor = "#28a745";
   return true;
 }
 
