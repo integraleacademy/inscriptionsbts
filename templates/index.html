@@ -246,13 +246,22 @@
     </label>
 
     <!-- 💻 Distanciel -->
-    <label class="mode-btn distanciel" style="flex:1; min-width:260px; max-width:360px; background:#eaf7ff; border:2px solid #007bff33; border-radius:14px; padding:24px; text-align:center; cursor:pointer; transition:all .3s ease;">
-      <input type="radio" name="mode" value="distanciel" style="display:none;">
-      <div style="font-size:20px; font-weight:600;">💻 Formation 100 % à distance</div>
-      <p style="margin:10px 0 0; font-size:15px; color:#333;">
-        Suivez la formation depuis chez vous, en <strong>visioconférence (ZOOM) en direct</strong>, exactement au même rythme que les élèves en présentiel : même emploi du temps, mêmes enseignants, même accompagnement et la même qualité pédagogique.
-      </p>
-    </label>
+<label class="mode-btn distanciel" style="flex:1; min-width:260px; max-width:360px; background:#eaf7ff; border:2px solid #007bff33; border-radius:14px; padding:24px; text-align:center; cursor:pointer; transition:all .3s ease;">
+  <input type="radio" name="mode" value="distanciel" style="display:none;">
+  <div style="font-size:20px; font-weight:600;">💻 Formation 100 % à distance</div>
+
+  <p style="margin:10px 0 15px; font-size:15px; color:#333;">
+    Suivez la formation depuis chez vous, en <strong>visioconférence (ZOOM) en direct</strong>, exactement au même rythme que les élèves en présentiel : même emploi du temps, mêmes enseignants, même accompagnement et la même qualité pédagogique.
+  </p>
+
+  <!-- 🔘 Bouton directement dans la carte -->
+  <button id="btnInfosDistanciel"
+          type="button"
+          style="background:#fff;border:1px solid #007bff55;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:14px;">
+    ℹ️ Plus d’informations sur le distanciel
+  </button>
+</label>
+
   </div>
 
   <div style="margin-top:18px; background:#fff8e1; border-left:4px solid #f4c45a; padding:12px 18px; border-radius:10px;">
@@ -263,14 +272,7 @@
       soit au sein de <strong>l’académie de Nice</strong>.
     </p>
   </div>
-<!-- 🔍 Plus d'infos sur le distanciel -->
-<div style="text-align:center; margin-top:20px;">
-  <button id="btnInfosDistanciel" 
-          type="button" 
-          style="background:#eaf7ff;border:2px solid #007bff33;padding:10px 18px;border-radius:8px;cursor:pointer;">
-    ℹ️ Plus d’informations sur le distanciel
-  </button>
-</div>
+
 
 <!-- 💻 Bloc d'informations distanciel (masqué par défaut) -->
 <div id="infosDistanciel" 
@@ -279,15 +281,14 @@
   <h4>💻 Comment se déroule la formation 100% en ligne à distance ?</h4>
 
   <p><strong>ÉCOLE 100 % en ligne :</strong><br>
-  Cette formation se déroule entièrement en visio-conférence (ZOOM) avec des formateurs expérimentés.  
-  Les étudiants suivent un emploi du temps fixe, se connectent à des horaires précis et interagissent en temps réel.</p>
+  Si vous choisissiez l'option "100% en ligne à distance", la formation se déroule entièrement en live en visio-conférence (ZOOM) avec des formateurs expérimentés.  
+  Vous suivez un emploi du temps fixe, vous vous connectez à des horaires précis (en fonction du planning des cours) et vous intéragissez en temps réel avec les formateurs et les autres étudiants. Vos cours se déroulent en même temps que nos étudiants en présentiel.</p>
 
   <p><em>Ce n’est pas une plateforme e-learning : tout se déroule en direct comme dans une vraie classe.</em></p>
 
-  <p>Deux années entièrement à distance (aucun déplacement).  
-  Les devoirs sont transmis via l’espace étudiant.</p>
+  <p>Les deux années de formation se déroulent entièrement à distance, il n'y a pas de déplacements à prévoir. Les évaluations et devoirs sont à déposer sur l'Espace étudiant et sont ensuite corrigés par les enseignants.</p>
 
-  <p><strong>L’examen final</strong> se déroule dans un lycée public.</p>
+  <p><strong>L’examen final</strong> se déroule dans un lycée public, en fin de 2ème année, soit au sein de l'Académie de Nice, soit au sein de l'Académie de Paris (au choix).</p>
 
   <hr style="border:none;border-top:1px solid #f4c45a;margin:15px 0;">
 
