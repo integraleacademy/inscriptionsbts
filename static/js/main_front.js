@@ -569,14 +569,48 @@ document.querySelectorAll("input[name='cherche_idf']").forEach(radio => {
   
 
 // =====================================================
-// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (corrigé JSON)
+// 💾 ENREGISTRER ET REPRENDRE PLUS TARD (VERSION FINALE)
 // =====================================================
 document.querySelectorAll('.btn.save').forEach(btn => {
   btn.addEventListener('click', async () => {
     const form = document.querySelector('#inscriptionForm');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-    data.current_step = currentStep;
+    const data = {};
+    data["id"] = window.currentId || "{{ token|default('') }}"; 
+    data["current_step"] = currentStep;
+
+    // 🔥 Récupération de TOUTES les valeurs (vraiment tout)
+    const fields = form.querySelectorAll('input, select, textarea');
+
+    fields.forEach(field => {
+      const name = field.name;
+      if (!name) return;
+
+      // Ignore fichiers
+      if (field.type === "file") return;
+
+      // 🔄 Checkboxes multiples : nom="qualites[]" etc.
+      if (name.endsWith("[]")) {
+        if (!data[name]) data[name] = [];
+        if (field.checked) data[name].push(field.value);
+        return;
+      }
+
+      // ✔ Radios : stocke la valeur cochée
+      if (field.type === "radio") {
+        if (field.checked) data[name] = field.value;
+        return;
+      }
+
+      // ✔ Checkboxes simples
+      if (field.type === "checkbox") {
+        data[name] = field.checked ? 1 : 0;
+        return;
+      }
+
+      // ✔ Champs classiques
+      data[name] = field.value;
+    });
+
     try {
       const res = await fetch('/save_draft', {
         method: 'POST',
@@ -584,19 +618,20 @@ document.querySelectorAll('.btn.save').forEach(btn => {
         body: JSON.stringify(data)
       });
 
-      const responseData = await res.json();
+      const json = await res.json();
 
-      if (responseData && responseData.success) {
-        showFlash("✅ Données enregistrées, vous pourrez reprendre plus tard !", "success");
+      if (json && json.success) {
+        showFlash("💾 Votre brouillon a été sauvegardé avec succès.", "success");
       } else {
-        showFlash("❌ Erreur lors de l’enregistrement. Vérifiez votre connexion.", "error");
+        showFlash("❌ Impossible d’enregistrer. Réessayez dans quelques instants.", "error");
       }
-    } catch (err) {
-      console.error("Erreur JS SaveDraft:", err);
-      showFlash("⚠️ Une erreur est survenue pendant la sauvegarde.", "error");
+    } catch (e) {
+      console.error(e);
+      showFlash("⚠️ Une erreur de connexion empêche la sauvegarde.", "error");
     }
   });
 });
+
 
 
 
@@ -1081,6 +1116,101 @@ setTimeout(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   });
 }
+
+// =====================================================
+// ♻️ APPLY DRAFT : remplissage automatique du formulaire
+// =====================================================
+function applyDraft() {
+  if (!window.SAVED) return;
+
+  const data = window.SAVED;
+  const form = document.querySelector("#inscriptionForm");
+  if (!form) return;
+
+  const fields = form.querySelectorAll("input, select, textarea");
+
+  fields.forEach(field => {
+    const name = field.name;
+    if (!name) return;
+
+    // Si pas dans les données → on ignore
+    if (!(name in data)) return;
+
+    const value = data[name];
+
+    // --- Checkboxes multiples → nom="xxx[]"
+    if (name.endsWith("[]")) {
+      if (Array.isArray(value)) {
+        field.checked = value.includes(field.value);
+      }
+      return;
+    }
+
+    // --- Radios
+    if (field.type === "radio") {
+      field.checked = (field.value == value);
+      return;
+    }
+
+    // --- Checkboxes simples
+    if (field.type === "checkbox") {
+      field.checked = (value == 1 || value === true);
+      return;
+    }
+
+    // --- Autres champs
+    field.value = value;
+  });
+
+
+  // =====================================================
+  // 🔄 Réinjecte l’étape d’origine
+  // =====================================================
+  if ("current_step" in data) {
+    const step = parseInt(data.current_step);
+    if (!isNaN(step)) {
+      setTimeout(() => {
+        showStep(step);
+      }, 200);
+    }
+  }
+
+  // =====================================================
+  // 🔧 TRIGGERS SPÉCIAUX (nécessaire pour tout réafficher)
+  // =====================================================
+
+  // ⮕ BTS change : affiche MOS / MCO / etc.
+  const bts = document.querySelector('select[name="bts"]');
+  if (bts) bts.dispatchEvent(new Event("change"));
+
+  // ⮕ Bac status → affiche APS + "Autre bac"
+  document.querySelectorAll('input[name="bac_status"]').forEach(r => {
+    r.dispatchEvent(new Event("change"));
+  });
+
+  // ⮕ APS (oui/non)
+  document.querySelectorAll('input[name="aps_souhaitee"]').forEach(r => {
+    r.dispatchEvent(new Event("change"));
+  });
+
+  // ⮕ Recherche IDF
+  const idf = document.querySelector("input[name='cherche_idf']:checked");
+  if (idf) idf.dispatchEvent(new Event("change"));
+
+  // ⮕ Date de naissance → maj mineur
+  const birth = document.querySelector('input[name="date_naissance"]');
+  if (birth) birth.dispatchEvent(new Event("change"));
+}
+
+
+// =====================================================
+// 🚀 LANCEMENT AUTO quand la page charge
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  applyDraft();
+});
+
+
 
 
 
