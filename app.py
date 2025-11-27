@@ -46,7 +46,7 @@ def run_startup_integrity_checks():
         "static/css/styles.css",
         "static/logo-integrale.png",
     ]
-    missing = [p for p in required_files if not os.path.exists(p)]Flibellé
+    missing = [p for p in required_files if not os.path.exists(p)]
     if not os.path.exists(DATA_DIR):
         missing.append(DATA_DIR + "/ (répertoire)")
     if missing:
