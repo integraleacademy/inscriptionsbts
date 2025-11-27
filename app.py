@@ -2332,8 +2332,6 @@ def admin_status(cid):
     return jsonify({"ok": True, "statut": row.get("statut")})
 
 
-
-
 # ---------------- Confirmation ----------------
 
 def verify_token(query_token, query_sig):
@@ -2362,6 +2360,14 @@ def confirm_inscription():
             abort(404)
 
         row = dict(row)
+
+        # 🛑 L'utilisateur a déjà confirmé son inscription
+        if row.get("statut") == "confirmee":
+            return render_template(
+                "confirm_ok.html",
+                title="Inscription déjà confirmée",
+                deja=True
+            )
 
         # 🎓 Nom complet du BTS
         bts_label = BTS_LABELS.get(
@@ -2398,13 +2404,14 @@ def confirm_inscription():
     cur.execute("SELECT * FROM candidats WHERE token_confirm=?", (token,))
     row = dict(cur.fetchone())
 
+    # ➕ Mise à jour du statut
     cur.execute(
         "UPDATE candidats SET statut=?, updated_at=? WHERE id=?",
         ("confirmee", datetime.now().isoformat(), row["id"])
     )
     conn.commit()
 
-    # 🧹 Suppression automatique badge relance
+    # 🧹 Suppression badge relance
     try:
         cur.execute("UPDATE candidats SET last_relance=NULL WHERE id=?", (row["id"],))
         conn.commit()
@@ -2412,7 +2419,6 @@ def confirm_inscription():
         print("⚠️ Erreur suppression badge relance :", e)
 
     # ---------------------- MAILS ----------------------
-    # 🔎 On reconstitue un label propre pour le mode
     mode_raw = (row.get("mode") or "").lower()
 
     if "pres" in mode_raw:
@@ -2420,7 +2426,6 @@ def confirm_inscription():
     else:
         mode_label = "100% en ligne à distance en visioconférence ZOOM"
 
-    # ✉️ Mail "Inscription confirmée"
     html = mail_html(
         "inscription_confirmee",
         prenom=row.get("prenom", ""),
@@ -2432,10 +2437,8 @@ def confirm_inscription():
         form_tel=row.get("tel", ""),
         form_mode_label=mode_label
     )
-
     send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
 
-    # ✉️ Mail bienvenue
     merci_html = render_template(
         "mail_bienvenue.html",
         prenom=row.get("prenom", ""),
@@ -2443,12 +2446,12 @@ def confirm_inscription():
     )
     send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
 
-
     log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
     log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
     log_event(row, "STATUT_CHANGE", {"statut": "confirmee"})
 
     return render_template("confirm_ok.html", title="Inscription confirmée")
+
 
 
 
