@@ -140,6 +140,17 @@ if (stepIndex === 1) {
     valid = false;
   }
 
+    // 🚫 COUPE TOUTE VALIDATION APS SI BTS ≠ MOS
+  if (btsVal !== "MOS") {
+    document.querySelectorAll('input[name="aps_souhaitee"]').forEach(r => r.required = false);
+    document.querySelectorAll('input[name="aps_session"]').forEach(r => r.required = false);
+    const raison = document.querySelector('textarea[name="raison_aps"]');
+    if (raison) raison.required = false;
+
+    return valid; // ⬅⬅⬅ OBLIGATOIRE : on arrête la validation ici
+  }
+
+
   // ✅ Les conditions suivantes ne concernent que le BTS MOS
   if (btsVal === "MOS") {
     const bacStatusChecked = document.querySelector('input[name="bac_status"]:checked');
@@ -1209,6 +1220,7 @@ function applyDraft() {
 document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
+
 
 
 
