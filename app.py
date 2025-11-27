@@ -796,55 +796,58 @@ def save_draft():
         if not data:
             return jsonify({"success": False, "error": "Aucune donnée reçue"}), 400
 
-        # 🔹 Récupération des infos principales
-        email = data.get("email", "").strip()
-        prenom = data.get("prenom", "").strip()
-        bts_label = data.get("bts", "BTS")
-        mode = data.get("mode", "")
-        numero = dossier_number()
+        # 🔥 On sauvegarde TOUT, absolument tout :
+        # tous les champs text, select, radios, checkboxes, etc.
+        full_form = data.get("full_form", {})
+
+        # 🔑 Id unique du brouillon (token)
         token = new_token()
 
-        # 🔹 Génération du lien de reprise
+        # 🔗 Lien de reprise
         resume_link = f"{request.url_root.rstrip('/')}/reprendre/{token}"
 
-        # 🔹 Enregistrement du brouillon local (fichier ou base JSON)
+        # 🗂 Enregistrement complet du formulaire
         draft_data = {
             "id": token,
-            "email": email,
-            "prenom": prenom,
-            "bts": bts_label,
-            "mode": mode,
-            "numero_dossier": numero,
+            "resume_link": resume_link,
+            "full_form": full_form,
             "timestamp": datetime.now().isoformat()
         }
 
         DATA_FILE = os.path.join(DATA_DIR, "drafts.json")
         all_drafts = []
+
         if os.path.exists(DATA_FILE):
             try:
                 with open(DATA_FILE, "r", encoding="utf-8") as f:
                     all_drafts = json.load(f)
-            except Exception:
+            except:
                 all_drafts = []
+
         all_drafts.append(draft_data)
+
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(all_drafts, f, indent=2, ensure_ascii=False)
 
-        # 💌 Envoi du mail de reprise
-        html = mail_html(
-            "reprendre_plus_tard",
-            prenom=prenom,
-            bts_label=bts_label,
-            lien_espace=resume_link
+        # 💌 Mail de reprise
+        send_mail(
+            full_form.get("email", ""),
+            "Reprenez votre pré-inscription – Intégrale Academy",
+            mail_html(
+                "reprendre_plus_tard",
+                prenom=full_form.get("prenom", ""),
+                bts_label=full_form.get("bts", "BTS"),
+                lien_espace=resume_link
+            )
         )
-        send_mail(email, "Reprenez votre pré-inscription – Intégrale Academy", html)
 
-        print(f"🟢 Brouillon enregistré pour {prenom} ({email}) — lien : {resume_link}")
+        print(f"🟢 Brouillon complet enregistré — {resume_link}")
         return jsonify({"success": True, "link": resume_link})
 
     except Exception as e:
         print(f"❌ Erreur /save_draft : {e}")
         return jsonify({"success": False, "error": str(e)}), 500
+
 
 
 
@@ -859,40 +862,27 @@ def reprendre_formulaire(token):
     if not os.path.exists(DRAFT_PATH):
         abort(404)
 
-    # 📂 Chargement du fichier drafts.json
+    # 📂 Charger le fichier drafts.json
     try:
         with open(DRAFT_PATH, "r", encoding="utf-8") as f:
             drafts = json.load(f)
     except:
         drafts = []
 
-    # 🔒 NETTOYAGE AUTOMATIQUE DES BROUILLONS MAL FORMÉS
-    clean_drafts = []
-    for d in drafts:
-        if isinstance(d, dict) and "id" in d:
-            clean_drafts.append(d)
-
-    # 💾 Si on a supprimé des entrées corrompues → on réécrit le fichier propre
-    if len(clean_drafts) != len(drafts):
-        with open(DRAFT_PATH, "w", encoding="utf-8") as f:
-            json.dump(clean_drafts, f, indent=2, ensure_ascii=False)
-        drafts = clean_drafts
-
-    # 🔎 Recherche SÉCURISÉE du brouillon correspondant
     draft = next((d for d in drafts if d.get("id") == token), None)
     if not draft:
         abort(404)
 
-    # 🎯 On utilise les données du brouillon existant
-    data = draft
-    step = 1
+    saved_full_form = draft.get("full_form", {})
 
+    # 💥 On injecte TOUT dans la page
     return render_template(
         "index.html",
-        saved_data=data,
-        step=step,
-        title="Reprendre votre pré-inscription"
+        saved_data=saved_full_form,   # <--- ici : les données
+        step=1,
+        portal_closed=False
     )
+
 
 
 
