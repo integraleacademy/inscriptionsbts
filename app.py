@@ -714,7 +714,10 @@ def index():
             "index.html",
             title="Mode test (admin bypass)",
             portal_closed=False,
-            portal_message="🧑‍💻 Formulaire visible uniquement pour test."
+            portal_message="🧑‍💻 Formulaire visible uniquement pour test.",
+            portal_comment="",
+            saved_data=None,
+            step=0
         )
 
     # =====================================================
@@ -727,7 +730,9 @@ def index():
             title="Inscriptions momentanément fermées",
             portal_closed=True,
             portal_message=portal.get("message", ""),
-            portal_comment=portal.get("comment", "")
+            portal_comment=portal.get("comment", ""),
+            saved_data=None,
+            step=0
         )
 
     # =====================================================
@@ -737,8 +742,12 @@ def index():
         "index.html",
         title="Pré-inscriptions BTS 2026",
         portal_closed=False,
-        portal_message=""
+        portal_message="",
+        portal_comment="",
+        saved_data=None,
+        step=0
     )
+
 
 
 
