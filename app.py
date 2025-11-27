@@ -1405,11 +1405,7 @@ def admin_update_status():
 
         # 🎁 Contexte universel
         ctx = get_mail_context(full_row, lien_espace=lien_espace, lien_confirmation=lien_confirmation)
-        # 🟢 Correction obligatoire du nom complet du BTS
-        ctx["bts_label"] = BTS_LABELS.get(
-        ctx["bts_label"],
-        ctx["bts_label"]
-)
+        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
 
         # ✉ MAIL
         html = mail_html("candidature_validee", **ctx)
@@ -1428,10 +1424,17 @@ def admin_update_status():
         )
         send_sms_brevo(tel, sms_msg)
 
+
     # 2️⃣ INSCRIPTION CONFIRMÉE
     elif value == "confirmee":
 
+        # 🔄 Recharge les données fraîches
+        cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+        full_row = dict(cur.fetchone())
+
+        # 🎁 Contexte complet
         ctx = get_mail_context(full_row)
+        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
 
         # ✉ MAIL confirmation
         html = mail_html("inscription_confirmee", **ctx)
@@ -1452,13 +1455,16 @@ def admin_update_status():
         merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
         send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", merci_html)
 
+
     # 3️⃣ RECONFIRMATION VALIDÉE
     elif value == "reconfirmee":
 
         ctx = get_mail_context(full_row)
+        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
 
         merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
         send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", merci_html)
+
 
     # LOG GENERAL
     log_event(full_row, "STATUT_CHANGE", {"statut": value})
@@ -1474,6 +1480,7 @@ def admin_update_status():
         "date_reconfirmee": row.get("date_reconfirmee"),
         "last_relance": row.get("last_relance"),
     })
+
 
 
 
