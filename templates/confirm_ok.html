@@ -1,5 +1,75 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Inscription confirmée ✅</h2>
-<p>Merci, votre inscription est bien confirmée. Vous recevrez prochainement votre carte étudiante et votre certificat de scolarité par courrier.</p>
+
+<div class="confirm-final-container">
+
+  <div class="confirm-final-card">
+
+    <div class="icon-check">🎉</div>
+
+    <h2 class="title">Inscription confirmée</h2>
+
+    <p class="subtitle">
+      Merci, votre inscription est bien confirmée.  
+      Vous recevrez prochainement votre carte étudiante ainsi que votre certificat de scolarité par courrier.
+    </p>
+
+    <a href="https://integraleacademy.com" class="btn primary home-btn">
+      Retourner sur le site
+    </a>
+
+  </div>
+
+</div>
+
+
+<style>
+  .confirm-final-container {
+    max-width: 650px;
+    margin: 60px auto;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .confirm-final-card {
+    background: #fff;
+    padding: 50px 40px;
+    border-radius: 16px;
+    box-shadow: 0 3px 14px rgba(0,0,0,0.06);
+    animation: fadeIn 0.4s ease;
+  }
+
+  .icon-check {
+    font-size: 3rem;
+    margin-bottom: 15px;
+  }
+
+  .title {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: #222;
+  }
+
+  .subtitle {
+    font-size: 1.15rem;
+    color: #444;
+    margin-bottom: 30px;
+    line-height: 1.6;
+  }
+
+  .home-btn {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 12px 22px;
+    font-size: 1.1rem;
+    border-radius: 10px;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
 {% endblock %}
