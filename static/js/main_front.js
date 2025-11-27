@@ -615,7 +615,7 @@ document.querySelectorAll('.btn.save').forEach(btn => {
       const res = await fetch('/save_draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: JSON.stringify({ full_form: data })
       });
 
       const json = await res.json();
@@ -1209,6 +1209,7 @@ function applyDraft() {
 document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
+
 
 
 
