@@ -720,6 +720,28 @@ if (bacTypeSelectEl) {
   });
 }
 
+  // === Plus d'infos sur le distanciel ===
+const btnInfosDistanciel = document.getElementById("btnInfosDistanciel");
+const infosDistanciel = document.getElementById("infosDistanciel");
+
+if (btnInfosDistanciel && infosDistanciel) {
+  btnInfosDistanciel.addEventListener("click", () => {
+    const visible = infosDistanciel.style.display === "block";
+    infosDistanciel.style.display = visible ? "none" : "block";
+    
+    btnInfosDistanciel.textContent = visible 
+      ? "ℹ️ Plus d’informations sur le distanciel"
+      : "🔽 Masquer les informations";
+
+    if (!visible) {
+      setTimeout(() => {
+        infosDistanciel.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+    }
+  });
+}
+
+
 
   refreshLocks();
   showStep(0);
@@ -1230,6 +1252,7 @@ function applyDraft() {
 document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
+
 
 
 
