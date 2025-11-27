@@ -850,22 +850,34 @@ def reprendre_formulaire(token):
     if not os.path.exists(DRAFT_PATH):
         abort(404)
 
-    with open(DRAFT_PATH, "r", encoding="utf-8") as f:
-        try:
+    # 📂 Chargement du fichier drafts.json
+    try:
+        with open(DRAFT_PATH, "r", encoding="utf-8") as f:
             drafts = json.load(f)
-        except:
-            drafts = []
+    except:
+        drafts = []
 
-    # 🔍 On cherche le bon brouillon par son ID
-    draft = next((d for d in drafts if d["id"] == token), None)
+    # 🔒 NETTOYAGE AUTOMATIQUE DES BROUILLONS MAL FORMÉS
+    clean_drafts = []
+    for d in drafts:
+        if isinstance(d, dict) and "id" in d:
+            clean_drafts.append(d)
+
+    # 💾 Si on a supprimé des entrées corrompues → on réécrit le fichier propre
+    if len(clean_drafts) != len(drafts):
+        with open(DRAFT_PATH, "w", encoding="utf-8") as f:
+            json.dump(clean_drafts, f, indent=2, ensure_ascii=False)
+        drafts = clean_drafts
+
+    # 🔎 Recherche SÉCURISÉE du brouillon correspondant
+    draft = next((d for d in drafts if d.get("id") == token), None)
     if not draft:
         abort(404)
 
-    # ✅ On utilise les données du brouillon existant
+    # 🎯 On utilise les données du brouillon existant
     data = draft
-    step = 1  # tu peux changer si tu veux reprendre à une étape spécifique
+    step = 1
 
-    # 🧩 On affiche le formulaire principal avec les données sauvegardées
     return render_template(
         "index.html",
         saved_data=data,
