@@ -2364,8 +2364,11 @@ def confirm_inscription():
         # 🛑 L'utilisateur a déjà confirmé son inscription
         if row.get("statut") == "confirmee":
             return render_template(
-                "confirm_ok.html",
+                "confirm_inscription.html",
                 title="Inscription déjà confirmée",
+                row=row,
+                token=token,
+                sig=sig,
                 deja=True
             )
 
@@ -2383,6 +2386,7 @@ def confirm_inscription():
             sig=sig,
             bts_label=bts_label
         )
+
 
     # -------------------- POST --------------------
     token = request.form.get("token", "")
