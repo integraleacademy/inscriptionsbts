@@ -737,34 +737,44 @@ if (btsSelect && formationInfo) {
   const infos = {
     "MOS": `
       <h4>🎓 BTS MOS – Management Opérationnel de la Sécurité</h4>
-      <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38229</strong>.</p>
-      <p>Ce BTS forme les futurs responsables d’équipes de sécurité privée (surveillance, prévention, sûreté, incendie...)</p>
-      <p><strong>Durée :</strong> 2 ans — <strong>Examens officiels</strong> sous tutelle du Ministère de l’Éducation nationale.</p>
+      <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°41000</strong>.</p>
+      <p>Ce BTS forme les futurs responsables d’équipes de sécurité privée (surveillance, prévention, sûreté, incendie) et les futurs gendarmes, policiers, pompiers, militaires. </p>
+      <p><strong>Durée :</strong> 2 ans — <strong>Examen officiel</strong> organisé par le Ministère de l’Éducation nationale.</p>
     `,
     "MCO": `
       <h4>🎓 BTS MCO – Management Commercial Opérationnel</h4>
       <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38362</strong>.</p>
       <p>Ce BTS prépare aux métiers du commerce, de la gestion et du management d’équipe dans tous les secteurs d’activité.</p>
+      <p><strong>Durée :</strong> 2 ans — <strong>Examen officiel</strong> organisé par le Ministère de l’Éducation nationale.</p>
+
     `,
     "PI": `
       <h4>🏡 BTS PI – Professions Immobilières</h4>
       <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38292</strong>.</p>
       <p>Ce BTS forme les futurs négociateurs, gestionnaires et conseillers immobiliers pour agences et syndics.</p>
+      <p><strong>Durée :</strong> 2 ans — <strong>Examen officiel</strong> organisé par le Ministère de l’Éducation nationale.</p>
+
     `,
     "CI": `
       <h4>🌍 BTS CI – Commerce International</h4>
       <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38365</strong>.</p>
       <p>Ce BTS ouvre à des carrières à l’international : import-export, prospection, négociation et logistique internationale.</p>
+      <p><strong>Durée :</strong> 2 ans — <strong>Examen officiel</strong> organisé par le Ministère de l’Éducation nationale.</p>
+
     `,
     "NDRC": `
       <h4>🤝 BTS NDRC – Négociation et Digitalisation de la Relation Client</h4>
       <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38368</strong>.</p>
       <p>Formation orientée sur la relation client, la vente et le marketing digital. Idéale pour les profils commerciaux modernes.</p>
+      <p><strong>Durée :</strong> 2 ans — <strong>Examen officiel</strong> organisé par le Ministère de l’Éducation nationale.</p>
+
     `,
     "CG": `
       <h4>📊 BTS CG – Comptabilité et Gestion</h4>
       <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38329</strong>.</p>
       <p>Ce BTS prépare aux métiers de la gestion comptable, du contrôle et de la finance d’entreprise.</p>
+      <p><strong>Durée :</strong> 2 ans — <strong>Examen officiel</strong> organisé par le Ministère de l’Éducation nationale.</p>
+
     `
   };
 
@@ -1220,6 +1230,7 @@ function applyDraft() {
 document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
+
 
 
 
