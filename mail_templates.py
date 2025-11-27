@@ -379,13 +379,13 @@ def mail_html(template_name, **kwargs):
 }, 
 
 "inscription_confirmee": {
-    "title": "Inscription confirmée",
+    "title": "Inscription confirmée BTS en alternance",
     "content": f"""
 
 <p>Bonjour {prenom},</p>
 
 <p style="line-height:1.6;">
-    Nous avons bien reçu votre <strong>confirmation d'inscription</strong>.  
+    Nous vous informons que nous avons bien reçu votre <strong>confirmation d'inscription</strong>.  
     🎉 C'est désormais <strong>officiel</strong> : vous êtes inscrit(e) en  
     <strong>{bts_label}</strong> en alternance,<br>
     {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>en 100% en ligne à distance en visioconférence ZOOM</strong>"}.
@@ -877,6 +877,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
