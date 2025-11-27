@@ -20,7 +20,7 @@
 
     <div class="info-line">
       <span>BTS :</span>
-      <strong>{{ BTS_LABELS.get(row.bts, row.bts) }}</strong>
+      <strong>{{ bts_label }}</strong>
     </div>
 
     <div class="info-line">
@@ -48,7 +48,7 @@
       <input type="checkbox" name="c2">
       <span>
         Je confirme que je souhaite m’inscrire en
-        <strong>{{ BTS_LABELS.get(row.bts, row.bts) }}</strong>,
+        <strong>{{ bts_label }}</strong>,
         en
         <strong>
           {% if row.mode == "presentiel" %}
@@ -69,7 +69,6 @@
   </form>
 
 </div>
-
 
 <style>
   .confirm-container {
