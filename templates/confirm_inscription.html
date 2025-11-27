@@ -20,12 +20,18 @@
 
     <div class="info-line">
       <span>BTS :</span>
-      <strong>{{ row.bts }}</strong>
+      <strong>{{ BTS_LABELS.get(row.bts, row.bts) }}</strong>
     </div>
 
     <div class="info-line">
       <span>Mode :</span>
-      <strong>{{ row.mode }}</strong>
+      <strong>
+        {% if row.mode == "presentiel" %}
+          En présentiel (Puget sur Argens, Var)
+        {% else %}
+          100% en ligne, à distance, en visioconférence ZOOM
+        {% endif %}
+      </strong>
     </div>
   </div>
 
@@ -40,7 +46,18 @@
 
     <label class="checkbox-line">
       <input type="checkbox" name="c2">
-      <span>Je confirme que je souhaite m’inscrire en BTS <strong>{{ row.bts }}</strong>, en <strong>{{ 'présentiel' if row.mode=='presentiel' else 'distanciel' }}</strong></span>
+      <span>
+        Je confirme que je souhaite m’inscrire en
+        <strong>{{ BTS_LABELS.get(row.bts, row.bts) }}</strong>,
+        en
+        <strong>
+          {% if row.mode == "presentiel" %}
+            présentiel (Puget sur Argens, Var)
+          {% else %}
+            100% en ligne, à distance, en visioconférence ZOOM
+          {% endif %}
+        </strong>
+      </span>
     </label>
 
     <label class="checkbox-line">
