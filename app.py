@@ -2364,7 +2364,6 @@ def confirm_inscription():
         row = dict(row)
 
         # 🎓 Nom complet du BTS
-        from utils import BTS_LABELS
         bts_label = BTS_LABELS.get(
             (row.get("bts") or "").strip().upper(),
             row.get("bts")
@@ -2412,14 +2411,31 @@ def confirm_inscription():
     except Exception as e:
         print("⚠️ Erreur suppression badge relance :", e)
 
-    # 🎉 MAILS
+    # ---------------------- MAILS ----------------------
+    # 🔎 On reconstitue un label propre pour le mode
+    mode_raw = (row.get("mode") or "").lower()
+
+    if "pres" in mode_raw:
+        mode_label = "En présentiel (Puget sur Argens, Var)"
+    else:
+        mode_label = "100% en ligne à distance en visioconférence ZOOM"
+
+    # ✉️ Mail "Inscription confirmée"
     html = mail_html(
         "inscription_confirmee",
         prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+        numero_dossier=row.get("numero_dossier", ""),
+        form_nom=row.get("nom", ""),
+        form_prenom=row.get("prenom", ""),
+        form_email=row.get("email", ""),
+        form_tel=row.get("tel", ""),
+        form_mode_label=mode_label
     )
+
     send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
 
+    # ✉️ Mail bienvenue
     merci_html = render_template(
         "mail_bienvenue.html",
         prenom=row.get("prenom", ""),
@@ -2427,11 +2443,13 @@ def confirm_inscription():
     )
     send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
 
+
     log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
     log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
     log_event(row, "STATUT_CHANGE", {"statut": "confirmee"})
 
     return render_template("confirm_ok.html", title="Inscription confirmée")
+
 
 
 @app.route("/reconfirm")
