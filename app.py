@@ -1452,8 +1452,9 @@ def admin_update_status():
         send_sms_brevo(tel, sms_msg)
 
         # ✉ MAIL Bienvenue
-        merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
-        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", merci_html)
+        html_bienvenue = mail_html("bienvenue", **ctx)
+        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", html_bienvenue)
+
 
 
     # 3️⃣ RECONFIRMATION VALIDÉE
@@ -1462,8 +1463,9 @@ def admin_update_status():
         ctx = get_mail_context(full_row)
         ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
 
-        merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
-        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", merci_html)
+        html_bienvenue = mail_html("bienvenue", **ctx)
+        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", html_bienvenue)
+
 
 
     # LOG GENERAL
