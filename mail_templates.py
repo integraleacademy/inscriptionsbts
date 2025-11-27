@@ -586,6 +586,10 @@ def mail_html(template_name, **kwargs):
             Pour transmettre de nouveaux documents, cliquez ici :
         </p>
 
+        <p style="margin-top:8px;line-height:1.6;color:#444;">
+            👉 Le <strong>motif de non-conformité</strong> vous sera indiqué automatiquement lorsque vous cliquerez sur le bouton ci-dessous.
+        </p>
+
         <div style="text-align:center;margin:28px 0;">
             <a href="{lien_espace}"
                style="display:inline-block;background:#000;color:#fff;
@@ -602,6 +606,7 @@ def mail_html(template_name, **kwargs):
 
     """
 },
+
 
 "reprendre_plus_tard": {
     "title": "Reprendre ma pré-inscription 📝",
@@ -871,6 +876,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
