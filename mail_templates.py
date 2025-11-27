@@ -378,63 +378,63 @@ def mail_html(template_name, **kwargs):
     """
 }, 
 
-        "inscription_confirmee": {
+"inscription_confirmee": {
     "title": "Inscription confirmée",
     "content": f"""
 
 <p>Bonjour {prenom},</p>
 
-<!--✉️ INTRO SELON PRÉSENTIEL / DISTANCIEL -->
-<p>
+<p style="line-height:1.6;">
     Nous avons bien reçu votre <strong>confirmation d'inscription</strong>.  
-    C'est désormais officiel : vous êtes inscrit(e) en <strong>{bts_label}</strong> en alternance,  
+    🎉 C'est désormais <strong>officiel</strong> : vous êtes inscrit(e) en  
+    <strong>{bts_label}</strong> en alternance,<br>
     {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>en 100% en ligne à distance en visioconférence ZOOM</strong>"}.
-    <br><br>
-    Vous 
 </p>
 
-<!-- 🔔 MISE AU POINT IMPORTANTE -->
-<div style="background:#fff7d6;padding:18px;border-radius:10px;border:1px solid #f5e2a0;font-size:15px;line-height:1.5;margin-top:20px;">
+<!-- 🔔 BLOC PROCHAINE ÉTAPE -->
+<div style="background:#fff9e6;padding:20px;border-radius:12px;
+            border:1px solid #f1d28b;margin:25px 0;">
     
-    <p style="margin:0 0 8px 0;">
-        <strong>Prochaine étape :</strong>
+    <p style="margin:0 0 10px 0;font-size:16px;font-weight:700;color:#6a4d00;">
+        📍 Prochaine étape :
     </p>
 
-    <p style="margin:0 0 12px 0;">
-        Vous allez recevoir prochainement par courrier <strong>votre carte étudiante</strong> ainsi que <strong>votre certificat de scolarité</strong>.
+    <p style="margin:0;line-height:1.6;">
+        Vous allez recevoir prochainement par courrier  
+        <strong>votre carte étudiante</strong> ainsi que  
+        <strong>votre certificat de scolarité</strong>.
     </p>
-
 </div>
 
-        <!-- 🧾 RÉCAP DU DOSSIER -->
-        <table width="100%" cellpadding="0" cellspacing="0"
-            style="background:#fef8e1;border:1px solid #f5dd9b;border-radius:10px;padding:14px 18px;margin:22px 0;">
-          <tr>
-            <td style="font-weight:600;padding-bottom:8px;font-size:15px;">
-              📄 Récapitulatif de votre candidature :
-            </td>
-          </tr>
-          <tr>
-            <td style="padding-left:4px;font-size:14px;line-height:1.6;">
-              <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
-              <div><strong>Nom :</strong> {form_nom}</div>
-              <div><strong>Prénom :</strong> {form_prenom}</div>
-              <div><strong>Email :</strong> {form_email}</div>
-              <div><strong>Téléphone :</strong> {form_tel}</div>
-              <div><strong>Formation :</strong> {bts_label}</div>
-              <div><strong>Mode :</strong> {form_mode_label}</div>
-            </td>
-          </tr>
-        </table>
+<!-- 🧾 RÉCAP DU DOSSIER -->
+<table width="100%" cellpadding="0" cellspacing="0"
+    style="background:#fef8e1;border:1px solid #f5dd9b;border-radius:10px;padding:14px 18px;margin:22px 0;">
+  <tr>
+    <td style="font-weight:600;padding-bottom:8px;font-size:15px;">
+      📄 Récapitulatif de votre candidature :
+    </td>
+  </tr>
+  <tr>
+    <td style="padding-left:4px;font-size:14px;line-height:1.6;">
+      <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
+      <div><strong>Nom :</strong> {form_nom}</div>
+      <div><strong>Prénom :</strong> {form_prenom}</div>
+      <div><strong>Email :</strong> {form_email}</div>
+      <div><strong>Téléphone :</strong> {form_tel}</div>
+      <div><strong>Formation :</strong> {bts_label}</div>
+      <div><strong>Mode :</strong> {form_mode_label}</div>
+    </td>
+  </tr>
+</table>
 
-        <!-- 🔗 REDIRECTION UNIQUE -->
-        <p style="margin-top:15px;margin-bottom:6px;font-weight:600;font-size:15px;">
-          📌 Suivez les étapes de votre inscription directement depuis votre Espace Candidat :
-        </p>
+<!-- 🔗 REDIRECTION UNIQUE -->
+<p style="margin-top:15px;margin-bottom:6px;font-weight:600;font-size:15px;">
+  📌 Suivez les étapes de votre inscription directement depuis votre Espace Candidat :
+</p>
 
-        <p style="text-align:center;margin-top:0;">
-            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
-        </p>
+<p style="text-align:center;margin-top:0;">
+    <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
+</p>
     """
     +
 
@@ -539,6 +539,7 @@ def mail_html(template_name, **kwargs):
 </p>
     """
 },
+
 
         "reconfirmation": {
             "title": "Reconfirmation d’inscription",
@@ -876,6 +877,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
