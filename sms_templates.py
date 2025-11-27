@@ -26,7 +26,6 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
 
 "candidature_validee": (
     f"🎓 Intégrale Academy – BTS {bts_label}\n"
-    "\n"
     f"Bonjour {prenom},\n"
     "Je reviens vers toi concernant notre BTS en alternance ! Nous avons étudié ta candidature et notre commission a donné un AVIS FAVORABLE 🎉 à ta demande d'admission.\n"
     "Pour intégrer notre école, tu dois maintenant confirmer ton inscription ✅.\n"
@@ -40,13 +39,16 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
 
 
         # 🎓 Inscription confirmée
-        "inscription_confirmee": (
-            f"🎉 Intégrale Academy – Votre BTS {bts_label}\n"
-            f"Bonjour {prenom},\n"
-            "Votre inscription est confirmée. Bienvenue à Intégrale Academy !\n"
-            "Notre équipe vous contactera prochainement pour la suite administrative.\n"
-            "— Intégrale Academy · Service inscriptions BTS"
-        ),
+    "inscription_confirmee": (
+    f"🎓 Intégrale Academy – BTS {bts_label}\n"
+    f"Bonjour {prenom},\n"
+    "Je te confirme que tu es désormais officiellement inscrit au sein de notre école Intégrale Academy ! 🎉\n"
+    "📩 Tu recevras prochainement par courrier ta carte étudiante et ton certificat de scolarité.\n"
+    f"🔗 Tu peux suivre les étapes de ton inscription depuis ton Espace Candidat : {lien_espace}\n"
+    "💬 Si tu as des questions, tu peux m'envoyer un message sur WhatsApp : http://wa.me/33744304527\n"
+    "— Clément VAILLANT · Directeur Intégrale Academy"
+),
+
 
         # 📅 Reconfirmation demandée
         "reconfirmation_demandee": (
@@ -150,6 +152,7 @@ def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmatio
     }
 
     return templates.get(template, "")
+
 
 
 
