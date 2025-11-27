@@ -567,23 +567,72 @@ def mail_html(template_name, **kwargs):
                 <p>À très bientôt pour la rentrée chez Intégrale Academy.</p>
             """
         },
-        "docs_non_conformes": {
-            "title": "Documents non conformes",
-            "content": f"""
-                <p>Bonjour {prenom},</p>
-                <p>Certains documents ne sont pas conformes pour le <strong>{bts_label}</strong>.</p>
-                <p>Merci de les renvoyer dès que possible :</p>
-                <p><a href="{lien_espace}" class="btn">Envoyer mes nouvelles pièces</a></p>
-            """
-        },
-        "reprendre_plus_tard": {
-            "title": "Reprendre ma pré-inscription",
-            "content": f"""
-                <p>Bonjour {prenom},</p>
-                <p>Nous vous remercions de l'intérêt porté à nos BTS en alternance. Vous avez commencé votre Pré-inscription mais vous n'avez pas terminé ? Pas de soucis, vous pourrez reprendre votre pré-inscription à tout moment en cliquant sur le bouton ci-dessous :</p>
-                <p><a href="{lien_espace}" class="btn">Reprendre ma pré-inscription</a></p>
-            """
-        },
+"docs_non_conformes": {
+    "title": "Documents non conformes ⚠️",
+    "content": f"""
+
+        <p>Bonjour {prenom},</p>
+
+        <p style="margin-top:10px;line-height:1.6;">
+            Je reviens vers vous concernant votre Pré-inscription <strong>{bts_label}</strong>.
+        </p>
+
+        <p style="margin-top:10px;line-height:1.6;">
+            Certains documents que vous nous avez transmis ne sont pas conformes.
+        </p>
+
+        <p style="margin-top:10px;line-height:1.6;">
+            Afin que nous puissions étudier votre dossier, nous vous remercions de bien vouloir nous transmettre dès que possible de nouveaux documents.  
+            Pour transmettre de nouveaux documents, cliquez ici :
+        </p>
+
+        <div style="text-align:center;margin:28px 0;">
+            <a href="{lien_espace}"
+               style="display:inline-block;background:#000;color:#fff;
+                      padding:12px 22px;border-radius:8px;font-weight:600;
+                      text-decoration:none;font-size:15px;">
+                📤 Envoyer mes nouveaux documents
+            </a>
+        </div>
+
+        <p style="margin-top:25px;">
+            Merci,<br>
+            <strong>L’équipe Intégrale Academy</strong>
+        </p>
+
+    """
+},
+
+"reprendre_plus_tard": {
+    "title": "Reprendre ma pré-inscription 📝",
+    "content": f"""
+
+        <p>Bonjour {prenom},</p>
+
+        <p style="margin-top:10px;line-height:1.6;">
+            Nous vous remercions de l'intérêt porté à nos BTS en alternance.  
+            Vous avez commencé votre Pré-inscription mais vous n'avez pas terminé ?  
+            Pas de soucis 😉  
+            Vous pourrez reprendre votre pré-inscription à tout moment en cliquant sur le bouton ci-dessous :
+        </p>
+
+        <div style="text-align:center;margin:28px 0;">
+            <a href="{lien_espace}"
+               style="display:inline-block;background:#000;color:#fff;
+                      padding:12px 22px;border-radius:8px;font-weight:600;
+                      text-decoration:none;font-size:15px;">
+                🔄 Reprendre ma pré-inscription
+            </a>
+        </div>
+
+        <p style="margin-top:25px;">
+            À bientôt 👋,<br>
+            <strong>L’équipe Intégrale Academy</strong>
+        </p>
+
+    """
+},
+
         "certificat": {
             "title": "Votre certificat de scolarité",
             "content": f"""
@@ -601,14 +650,34 @@ def mail_html(template_name, **kwargs):
             """
         },
         "bienvenue": {
-            "title": "Bienvenue à Intégrale Academy 🎓",
-            "content": f"""
-                <p>Bonjour {prenom},</p>
-                <p>Nous sommes ravis de vous accueillir au sein d’<strong>Intégrale Academy</strong>.</p>
-                <p>Votre inscription au <strong>{bts_label}</strong> est désormais finalisée.</p>
-                <p><a href="{lien_espace}" class="btn">Accéder à mon espace</a></p>
-            """
-        },
+    "title": "Bienvenue à Intégrale Academy 🎓",
+    "content": f"""
+        <p>Bonjour {prenom},</p>
+
+        <p>
+            Nous sommes ravis de vous accueillir au sein d’<strong>Intégrale Academy</strong>.
+        </p>
+
+        <p>
+            Votre inscription au <strong>{bts_label}</strong> est désormais finalisée.
+        </p>
+
+        <div style="text-align:center;margin:30px 0 20px 0;">
+            <a href="{lien_espace}" class="btn"
+               style="display:inline-block;background:#000;color:#fff;
+                      padding:12px 22px;border-radius:8px;font-weight:600;
+                      text-decoration:none;font-size:15px;">
+                Accéder à mon espace
+            </a>
+        </div>
+
+        <p style="margin-top:25px;">
+            À très bientôt,<br>
+            <strong>L’équipe Intégrale Academy</strong>
+        </p>
+    """
+},
+
         "parcoursup_import": {
             "title": "Votre candidature Parcoursup – Intégrale Academy",
             "content": f"""
@@ -802,6 +871,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
