@@ -2696,11 +2696,11 @@ def espace_candidat(slug):
         row["mode_label"] = "🏫 En présentiel à Puget-sur-Argens (Var, 83)"
 
     explications = {
-        "preinscription": "Votre candidature a bien été enregistrée. Elle est en cours d’examen par notre équipe.",
-        "validee": "Votre candidature est validée. Vous allez recevoir un mail pour confirmer votre inscription.",
-        "confirmee": "Votre inscription est confirmée 🎓. Bienvenue à Intégrale Academy !",
-        "reconf_en_cours": "Une reconfirmation est en attente de votre part. Consultez vos e-mails pour finaliser.",
-        "reconfirmee": "Votre reconfirmation a été validée ✅.",
+        "preinscription": "Nous avons bien reçu votre Pré-inscription. Votre dossier est cours d’examen par notre équipe.",
+        "validee": "Votre candidature est validée. Vous devez confirmer votre inscription depuis le lien que nous vous avons envoyé par mail et par SMS.",
+        "confirmee": "Votre inscription est officiellement confirmée 🎓. Bienvenue à Intégrale Academy !",
+        "reconf_en_cours": "Vous souhaitez toujours intégrer notre école ? Vous avez changé d'avis ? Veuillez re-confirmer votre inscription depuis le mail que vous avez reçu.",
+        "reconfirmee": "Tout est OK : nous vous attendons en septembre 2026✅.",
         "docs_non_conformes": "Certains documents ont été jugés non conformes. Veuillez consulter votre e-mail pour les renvoyer.",
         "annulee": "Votre inscription a été annulée. Pour toute question, contactez notre équipe.",
     }
