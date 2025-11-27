@@ -1451,9 +1451,6 @@ def admin_update_status():
         )
         send_sms_brevo(tel, sms_msg)
 
-        # ✉ MAIL Bienvenue
-        merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
-        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", merci_html)
 
 
     # 3️⃣ RECONFIRMATION VALIDÉE
