@@ -736,7 +736,7 @@ const formationInfo = document.getElementById("formation-info");
 if (btsSelect && formationInfo) {
   const infos = {
     "MOS": `
-      <h4>🎓 BTS MOS – Management Opérationnel de la Sécurité</h4>
+      <h4>👮‍♀️ BTS MOS – Management Opérationnel de la Sécurité</h4>
       <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°41000</strong>.</p>
       <p>Ce BTS forme les futurs responsables d’équipes de sécurité privée (surveillance, prévention, sûreté, incendie) et les futurs gendarmes, policiers, pompiers, militaires. </p>
       <p><strong>Durée :</strong> 2 ans — <strong>Examen officiel</strong> organisé par le Ministère de l’Éducation nationale.</p>
@@ -770,7 +770,7 @@ if (btsSelect && formationInfo) {
 
     `,
     "CG": `
-      <h4>📊 BTS CG – Comptabilité et Gestion</h4>
+      <h4>📝 BTS CG – Comptabilité et Gestion</h4>
       <p>✅ <strong>Diplôme Officiel BTS</strong> – niveau 5 (BAC +2), enregistré au <strong>RNCP n°38329</strong>.</p>
       <p>Ce BTS prépare aux métiers de la gestion comptable, du contrôle et de la finance d’entreprise.</p>
       <p><strong>Durée :</strong> 2 ans — <strong>Examen officiel</strong> organisé par le Ministère de l’Éducation nationale.</p>
@@ -1230,6 +1230,7 @@ function applyDraft() {
 document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
+
 
 
 
