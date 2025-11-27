@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 
+<script>
+  window.SAVED = {{ saved_data | tojson | safe }};
+</script>
+
+
 {% if portal_closed %}
   <div style="max-width:700px;margin:80px auto;padding:40px;text-align:center;background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.05);">
     <h2 style="color:#222;margin-bottom:20px;">⚠️ Portail temporairement indisponible</h2>
@@ -773,31 +778,6 @@ function verifierNumSecu() {
   document.querySelector('select[name="sexe"]')?.addEventListener(evt, verifierNumSecu);
 });
 </script>
-
-{% if saved_data %}
-<script>
-  const saved = {{ saved_data|tojson|safe }};
-  const step = {{ step|default(0) }};
-  document.addEventListener("DOMContentLoaded", () => {
-    if (saved) {
-      for (const [key, value] of Object.entries(saved)) {
-        const field = document.querySelector(`[name="${key}"]`);
-        if (field) {
-          if (field.type === "checkbox" || field.type === "radio") {
-            field.checked = (field.value === value || value === "on");
-          } else {
-            field.value = value;
-          }
-        }
-      }
-      if (typeof showStep === "function") {
-        showStep(step);
-      }
-      alert("✅ Vos informations précédentes ont été rechargées automatiquement.");
-    }
-  });
-</script>
-{% endif %}
 
 <style>
 /* --- Style validation et chargement --- */
