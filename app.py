@@ -9,6 +9,7 @@ from parcoursup import bp_parcoursup
 from sms_templates import sms_text
 from mail_templates import mail_html
 from utils import get_mail_context
+from utils import BTS_LABELS
 
 # ============================
 # 🔒 STARTUP INTEGRITY CHECK – STRICT (Parcoursup inclus)
