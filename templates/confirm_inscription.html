@@ -3,70 +3,86 @@
 
 <div class="confirm-container">
 
-  <h2 class="confirm-title">✔️ Confirmation d'inscription</h2>
+  {% if deja %}
+    <!-- 🎉 CAS : inscription déjà confirmée -->
+    <h2 class="confirm-title"> Vous avez déjà confirmé votre inscription ✔️</h2>
 
-  <div class="confirm-card">
-    <h3>Votre dossier</h3>
-
-    <div class="info-line">
-      <span>Numéro de dossier :</span>
-      <strong>{{ row.numero_dossier }}</strong>
+    <div class="confirm-card">
+      <p style="font-size:1.1rem; line-height:1.6; text-align:center; margin:20px 0;">
+        Vous avez déjà validé votre inscription, tout est bon 🧡 <br>
+        Vous pouvez fermer cette page en toute sécurité.
+      </p>
     </div>
 
-    <div class="info-line">
-      <span>Nom / Prénom :</span>
-      <strong>{{ row.nom }} {{ row.prenom }}</strong>
-    </div>
+  {% else %}
+    <!-- 📝 CAS NORMAL : confirmation à faire -->
 
-    <div class="info-line">
-      <span>BTS :</span>
-      <strong>{{ bts_label }}</strong>
-    </div>
+    <h2 class="confirm-title">✔️ Confirmation d'inscription</h2>
 
-    <div class="info-line">
-      <span>Mode :</span>
-      <strong>
-        {% if row.mode == "presentiel" %}
-          En présentiel (Puget sur Argens, Var)
-        {% else %}
-          100% en ligne, à distance, en visioconférence ZOOM
-        {% endif %}
-      </strong>
-    </div>
-  </div>
+    <div class="confirm-card">
+      <h3>Votre dossier</h3>
 
-  <form method="post" class="confirm-form">
-    <input type="hidden" name="token" value="{{ token }}">
-    <input type="hidden" name="sig" value="{{ sig }}">
+      <div class="info-line">
+        <span>Numéro de dossier :</span>
+        <strong>{{ row.numero_dossier }}</strong>
+      </div>
 
-    <label class="checkbox-line">
-      <input type="checkbox" name="c1">
-      <span>Je confirme que ces informations sont exactes</span>
-    </label>
+      <div class="info-line">
+        <span>Nom / Prénom :</span>
+        <strong>{{ row.nom }} {{ row.prenom }}</strong>
+      </div>
 
-    <label class="checkbox-line">
-      <input type="checkbox" name="c2">
-      <span>
-        Je confirme que je souhaite m’inscrire en
-        <strong>{{ bts_label }}</strong>,
-        en
+      <div class="info-line">
+        <span>BTS :</span>
+        <strong>{{ bts_label }}</strong>
+      </div>
+
+      <div class="info-line">
+        <span>Mode :</span>
         <strong>
           {% if row.mode == "presentiel" %}
-            présentiel (Puget sur Argens, Var)
+            En présentiel (Puget sur Argens, Var)
           {% else %}
             100% en ligne, à distance, en visioconférence ZOOM
           {% endif %}
         </strong>
-      </span>
-    </label>
+      </div>
+    </div>
 
-    <label class="checkbox-line">
-      <input type="checkbox" name="c3">
-      <span>Je m’engage à intégrer cette formation à partir de septembre 2026</span>
-    </label>
+    <form method="post" class="confirm-form">
+      <input type="hidden" name="token" value="{{ token }}">
+      <input type="hidden" name="sig" value="{{ sig }}">
 
-    <button class="btn primary confirm-btn">Valider mon inscription</button>
-  </form>
+      <label class="checkbox-line">
+        <input type="checkbox" name="c1">
+        <span>Je confirme que ces informations sont exactes</span>
+      </label>
+
+      <label class="checkbox-line">
+        <input type="checkbox" name="c2">
+        <span>
+          Je confirme que je souhaite m’inscrire en
+          <strong>{{ bts_label }}</strong>,
+          en
+          <strong>
+            {% if row.mode == "presentiel" %}
+              présentiel (Puget sur Argens, Var)
+            {% else %}
+              100% en ligne, à distance, en visioconférence ZOOM
+            {% endif %}
+          </strong>
+        </span>
+      </label>
+
+      <label class="checkbox-line">
+        <input type="checkbox" name="c3">
+        <span>Je m’engage à intégrer cette formation à partir de septembre 2026</span>
+      </label>
+
+      <button class="btn primary confirm-btn">Valider mon inscription</button>
+    </form>
+
+  {% endif %}
 
 </div>
 
