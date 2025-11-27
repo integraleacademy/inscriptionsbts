@@ -63,7 +63,7 @@ def mail_html(template_name, **kwargs):
 
         <p>
         Notre commission d'admission se réunit toutes les semaines et traite les dossiers par ordre d'arrivée.
-        Vous recevrez donc une réponse (<strong>avis Favorable</strong> ou <strong>avis Défavorable</strong>) dans un délai de
+        Vous recevrez donc une réponse (<strong>avis Favorable</strong> ou <strong>avis Défavorable</strong>) dans un délai maximum de
         <strong>10 à 15 jours</strong>. La réponse sera envoyée par <strong>mail</strong> et par <strong>SMS</strong>.
         </p>
 
@@ -877,6 +877,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
