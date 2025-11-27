@@ -426,8 +426,8 @@ def mail_html(template_name, **kwargs):
             "title": "Reprendre ma pré-inscription",
             "content": f"""
                 <p>Bonjour {prenom},</p>
-                <p>Vous pouvez reprendre votre pré-inscription pour le <strong>{bts_label}</strong> à tout moment.</p>
-                <p><a href="{lien_espace}" class="btn">Reprendre maintenant</a></p>
+                <p>Nous vous remercions de l'intérêt porté à nos BTS en alternance. Vous avez commencé votre Pré-inscription mais vous n'avez pas terminé ? Pas de soucis, vous pourrez reprendre votre pré-inscription à tout moment en cliquant sur le bouton ci-dessous :</p>
+                <p><a href="{lien_espace}" class="btn">Reprendre ma pré-inscription</a></p>
             """
         },
         "certificat": {
@@ -648,6 +648,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
