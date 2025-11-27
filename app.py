@@ -2336,59 +2336,102 @@ def admin_status(cid):
 # ---------------- Confirmation ----------------
 
 def verify_token(query_token, query_sig):
-    if not query_token or not query_sig: return False
+    if not query_token or not query_sig:
+        return False
     return sign_token(query_token) == query_sig
 
-@app.route("/confirm-inscription", methods=["GET","POST"])
+
+@app.route("/confirm-inscription", methods=["GET", "POST"])
 def confirm_inscription():
+
+    # -------------------- GET --------------------
     if request.method == "GET":
-        token = request.args.get("token",""); sig = request.args.get("sig","")
-        if not verify_token(token, sig): abort(403)
-        conn = db(); cur = conn.cursor()
+        token = request.args.get("token", "")
+        sig = request.args.get("sig", "")
+
+        if not verify_token(token, sig):
+            abort(403)
+
+        conn = db()
+        cur = conn.cursor()
         cur.execute("SELECT * FROM candidats WHERE token_confirm=?", (token,))
         row = cur.fetchone()
-        if not row: abort(404)
-        return render_template("confirm_inscription.html", title="Confirmer mon inscription", row=dict(row), token=token, sig=sig)
 
-    token = request.form.get("token",""); sig = request.form.get("sig","")
-    if not verify_token(token, sig): abort(403)
+        if not row:
+            abort(404)
+
+        row = dict(row)
+
+        # 🎓 Nom complet du BTS
+        from utils import BTS_LABELS
+        bts_label = BTS_LABELS.get(
+            (row.get("bts") or "").strip().upper(),
+            row.get("bts")
+        )
+
+        return render_template(
+            "confirm_inscription.html",
+            title="Confirmer mon inscription",
+            row=row,
+            token=token,
+            sig=sig,
+            bts_label=bts_label
+        )
+
+    # -------------------- POST --------------------
+    token = request.form.get("token", "")
+    sig = request.form.get("sig", "")
+
+    if not verify_token(token, sig):
+        abort(403)
+
     c1 = request.form.get("c1") == "on"
     c2 = request.form.get("c2") == "on"
     c3 = request.form.get("c3") == "on"
+
     if not (c1 and c2 and c3):
         flash("Merci de cocher les 3 cases obligatoires.", "error")
         return redirect(request.referrer or url_for("index"))
 
-    conn = db(); cur = conn.cursor()
+    conn = db()
+    cur = conn.cursor()
     cur.execute("SELECT * FROM candidats WHERE token_confirm=?", (token,))
     row = dict(cur.fetchone())
-    cur.execute("UPDATE candidats SET statut=?, updated_at=? WHERE id=?", ("confirmee", datetime.now().isoformat(), row["id"]))
+
+    cur.execute(
+        "UPDATE candidats SET statut=?, updated_at=? WHERE id=?",
+        ("confirmee", datetime.now().isoformat(), row["id"])
+    )
     conn.commit()
 
-    # 🧹 Suppression automatique du badge relance après confirmation
+    # 🧹 Suppression automatique badge relance
     try:
         cur.execute("UPDATE candidats SET last_relance=NULL WHERE id=?", (row["id"],))
         conn.commit()
-        print(f"🧹 Badge relance supprimé pour {row['prenom']} {row['nom']} (inscription confirmée)")
     except Exception as e:
-        print("⚠️ Erreur suppression badge relance (confirm-inscription):", e)
+        print("⚠️ Erreur suppression badge relance :", e)
 
-
-
+    # 🎉 MAILS
     html = mail_html(
-    "inscription_confirmee",
-    prenom=row.get("prenom",""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-)
+        "inscription_confirmee",
+        prenom=row.get("prenom", ""),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+    )
+    send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
 
-    send_mail(row.get("email",""), "Inscription confirmée – Intégrale Academy", html)
-    merci_html = render_template("mail_bienvenue.html", prenom=row.get("prenom",""), bts=row.get("bts",""))
-    send_mail(row.get("email",""), "Bienvenue à Intégrale Academy 🎓", merci_html)
+    merci_html = render_template(
+        "mail_bienvenue.html",
+        prenom=row.get("prenom", ""),
+        bts=row.get("bts", "")
+    )
+    send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
 
-    log_event(row, "MAIL_ENVOYE", {"type":"bienvenue"})
-    log_event(row, "MAIL_ENVOYE", {"type":"inscription_confirmee"})
+    log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
+    log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
     log_event(row, "STATUT_CHANGE", {"statut": "confirmee"})
+
     return render_template("confirm_ok.html", title="Inscription confirmée")
+
 
 @app.route("/reconfirm")
 def reconfirm():
