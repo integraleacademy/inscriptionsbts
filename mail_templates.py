@@ -417,12 +417,13 @@ def mail_html(template_name, **kwargs):
   <tr>
     <td style="padding-left:4px;font-size:14px;line-height:1.6;">
       <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
-      <div><strong>Nom :</strong> {form_nom}</div>
-      <div><strong>Prénom :</strong> {form_prenom}</div>
-      <div><strong>Email :</strong> {form_email}</div>
-      <div><strong>Téléphone :</strong> {form_tel}</div>
+      <div><strong>Nom :</strong> {nom}</div>
+      <div><strong>Prénom :</strong> {prenom}</div>
+      <div><strong>Email :</strong> {email}</div>
+      <div><strong>Téléphone :</strong> {tel}</div>
       <div><strong>Formation :</strong> {bts_label}</div>
-      <div><strong>Mode :</strong> {form_mode_label}</div>
+     <div><strong>Mode :</strong> {mode_label}</div>
+
     </td>
   </tr>
 </table>
@@ -877,6 +878,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
