@@ -46,7 +46,7 @@ def run_startup_integrity_checks():
         "static/css/styles.css",
         "static/logo-integrale.png",
     ]
-    missing = [p for p in required_files if not os.path.exists(p)]
+    missing = [p for p in required_files if not os.path.exists(p)]Flibellé
     if not os.path.exists(DATA_DIR):
         missing.append(DATA_DIR + "/ (répertoire)")
     if missing:
@@ -2686,14 +2686,14 @@ def espace_candidat(slug):
     bts_label = BTS_LABELS.get(bts_code, row.get("bts"))
     row["bts_label"] = bts_label
 
-    # === Libellé du mode de formation ===
+        # === Libellé du mode de formation ===
     mode = (row.get("mode") or "").lower()
     if "dist" in mode:
         row["mode_label"] = "💻 À distance 100% en ligne (visioconférence)"
     else:
         row["mode_label"] = "🏫 En présentiel à Puget-sur-Argens (Var, 83)"
 
-explications = {
+    explications = {
         "preinscription": "Nous avons bien reçu votre Pré-inscription. Votre dossier est cours d’examen par notre équipe.",
         "validee": "Votre candidature est validée. Vous devez confirmer votre inscription depuis le lien que nous vous avons envoyé par mail et par SMS.",
         "confirmee": "Votre inscription est officiellement confirmée 🎓. Bienvenue à Intégrale Academy !",
@@ -2717,6 +2717,8 @@ explications = {
         explication_statut=explication_statut,
         commentaire=commentaire
     )
+
+
 
 
     # =====================================================
