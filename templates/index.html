@@ -2,7 +2,7 @@
 {% block content %}
 
 <script>
-  window.SAVED = {{ saved_data | tojson | safe }};
+  window.SAVED = {{ saved_data | default(None) | tojson | safe }};
 </script>
 
 
