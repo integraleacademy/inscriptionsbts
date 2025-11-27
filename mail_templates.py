@@ -379,13 +379,167 @@ def mail_html(template_name, **kwargs):
 }, 
 
         "inscription_confirmee": {
-            "title": "Inscription confirmée",
-            "content": f"""
-                <p>Bonjour {prenom},</p>
-                <p>Votre inscription au <strong>{bts_label}</strong> est désormais confirmée ✅.</p>
-                <p>Bienvenue à Intégrale Academy 🎓 !</p>
-            """
-        },
+    "title": "Inscription confirmée",
+    "content": f"""
+
+<p>Bonjour {prenom},</p>
+
+<!--✉️ INTRO SELON PRÉSENTIEL / DISTANCIEL -->
+<p>
+    Nous avons bien reçu votre <strong>confirmation d'inscription</strong>.  
+    C'est désormais officiel : vous êtes inscrit(e) en <strong>{bts_label}</strong> en alternance,  
+    {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>en 100% en ligne à distance en visioconférence ZOOM</strong>"}.
+    <br><br>
+    Vous 
+</p>
+
+<!-- 🔔 MISE AU POINT IMPORTANTE -->
+<div style="background:#fff7d6;padding:18px;border-radius:10px;border:1px solid #f5e2a0;font-size:15px;line-height:1.5;margin-top:20px;">
+    
+    <p style="margin:0 0 8px 0;">
+        <strong>Prochaine étape :</strong>
+    </p>
+
+    <p style="margin:0 0 12px 0;">
+        Vous allez recevoir prochainement par courrier <strong>votre carte étudiante</strong> ainsi que <strong>votre certificat de scolarité</strong>.
+    </p>
+
+</div>
+
+        <!-- 🧾 RÉCAP DU DOSSIER -->
+        <table width="100%" cellpadding="0" cellspacing="0"
+            style="background:#fef8e1;border:1px solid #f5dd9b;border-radius:10px;padding:14px 18px;margin:22px 0;">
+          <tr>
+            <td style="font-weight:600;padding-bottom:8px;font-size:15px;">
+              📄 Récapitulatif de votre candidature :
+            </td>
+          </tr>
+          <tr>
+            <td style="padding-left:4px;font-size:14px;line-height:1.6;">
+              <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
+              <div><strong>Nom :</strong> {form_nom}</div>
+              <div><strong>Prénom :</strong> {form_prenom}</div>
+              <div><strong>Email :</strong> {form_email}</div>
+              <div><strong>Téléphone :</strong> {form_tel}</div>
+              <div><strong>Formation :</strong> {bts_label}</div>
+              <div><strong>Mode :</strong> {form_mode_label}</div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- 🔗 REDIRECTION UNIQUE -->
+        <p style="margin-top:15px;margin-bottom:6px;font-weight:600;font-size:15px;">
+          📌 Suivez les étapes de votre inscription directement depuis votre Espace Candidat :
+        </p>
+
+        <p style="text-align:center;margin-top:0;">
+            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
+        </p>
+    """
+    +
+
+    # === BLOC DISTANCIEL SI MODE DISTANCE ===
+    (
+    """
+    <div style="background:#f3f7ff;border-left:4px solid #2b6cff;padding:18px;margin-top:28px;border-radius:10px;">
+      <h3 style="margin:0 0 10px 0;color:#2b6cff;">💻 Comment se déroule la formation 100% en ligne à distance ?</h3>
+
+      <p style="margin:0 0 10px 0;">
+      <strong>ÉCOLE 100 % en ligne :</strong><br>
+      Cette formation se déroule entièrement en visio-conférence (ZOOM) avec des formateurs expérimentés.
+      Les étudiants suivent un emploi du temps fixe, se connectent à des horaires précis et interagissent en temps réel.
+      </p>
+
+      <p style="margin:0 0 10px 0;">Ce n’est pas une plateforme e-learning : tout se déroule en direct comme dans une vraie classe.</p>
+
+      <p style="margin:0 0 10px 0;">Deux années entièrement à distance (aucun déplacement). Les devoirs sont transmis via l’espace étudiant.</p>
+
+      <p style="margin:0 0 10px 0;">L’examen final se déroule dans un lycée public.</p>
+
+      <p style="margin:0;"><strong>ENTREPRISE :</strong><br> En présentiel dans l’entreprise (alternance).</p>
+    </div>
+    """
+    if "distance" in form_mode_label.lower() or "en ligne" in form_mode_label.lower() or "dist" in form_mode_label.lower()
+    else ""
+    )
+    +
+
+    """
+<!-- ❓ FAQ COMPACTE – VERSION TEXTES DE CLÉMENT -->
+<div style="margin-top:32px;padding:18px;background:#fafafa;border-radius:10px;border:1px solid #eee;">
+  <h3 style="margin-top:0;color:#444;">❓ Questions fréquentes</h3>
+
+  <p><strong>J'ai des questions est-il possible d'échanger avec vous ?</strong><br>
+  Bien sûr, nous serons ravis de répondre à toutes vos questions lors d'un rendez-vous téléphonique.
+  Pour réserver un rendez-vous téléphonique vous pouvez nous contacter au
+  <strong>04 22 47 07 68</strong>.</p>
+
+  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre 2026 ?</strong><br>
+  Vous aurez jusqu’au mois de <strong>décembre 2026</strong> pour trouver une entreprise d’accueil et signer
+  un contrat d'apprentissage. Pas d'inquiétude : la plupart des contrats d’apprentissage se concrétisent
+  après la rentrée entre septembre et novembre. Vous pourrez donc commencer les cours au mois de septembre,
+  même si vous n'avez pas encore signé de contrat d'apprentissage.</p>
+
+  <p><strong>Avez-vous un réseau d'entreprises partenaires ?</strong><br>
+  En effet, nous travaillons avec un réseau d'entreprises partenaires et nous pourrons vous mettre en relation
+  selon votre profil et votre situation géographique. Dès que votre inscription aura été validée,
+  nous vous accompagnerons dans la recherche d'une entreprise pour la signature de votre contrat
+  d'apprentissage.</p>
+
+  <p><strong>La formation est-elle payante ?</strong><br>
+  La formation est totalement gratuite pour les apprentis. Elle est prise en charge par l'État lors de
+  la signature du contrat d'apprentissage avec l'entreprise.</p>
+
+  <p><strong>Quels sont les prérequis ?</strong><br>
+  Vous devez être titulaire d'un <strong>baccalauréat</strong> ou un autre diplôme de niveau 4.</p>
+
+  <p><strong>Quels sont vos agréments officiels ?</strong><br>
+  Notre Centre de Formation des Apprentis (CFA) est agréé par le Ministère de l'Éducation Nationale
+  (UAI Paris : 0756548K - UAI Côte d'Azur : 0831774C) et par le Préfet de la Région PACA
+  (NDA 93830600283). Nous sommes certifiés QUALIOPI, le label qui atteste de la qualité des formations
+  proposées. Découvrez tous nos agréments en
+  <a href="https://www.integraleacademy.com/ecole" style="color:#f4c45a;">cliquant-ici</a>.</p>
+
+  <p><strong>Vos diplômes sont-ils reconnus par l'État ?</strong><br>
+  Les diplômes que nous proposons (Brevet de Technicien Supérieur BTS) sont des diplômes officiels délivrés
+  par le Ministère de l'Éducation Nationale. L'examen se déroulera en fin de 2ème année dans un lycée public.</p>
+</div>
+
+<div style="margin-top:28px;padding:14px 18px;border-radius:10px;
+            background:#fff3d6;border:1px solid #f4c45a;">
+  <p style="margin:0;font-size:15px;color:#000;text-align:center;">
+    📘 Découvrez notre BTS en détails — 
+    <a href="https://www.integraleacademy.com/dossiersbts"
+       style="color:#000;font-weight:600;text-decoration:underline;">
+       télécharger le dossier de présentation
+    </a>
+  </p>
+</div>
+
+<div style="margin-top:28px;padding:18px;border-radius:10px;
+            background:#f8faff;border:1px solid #dce6f5;text-align:center;">
+
+  <p style="margin:0 0 12px 0;font-size:15px;color:#444;">
+    Vous avez des questions ?  
+    Appelez-nous au <strong>04 22 47 07 68</strong><br>
+    ou contactez l’assistance :
+  </p>
+
+  <a href="https://assistance-alw9.onrender.com/"
+     style="display:inline-block;background:#000;color:#fff;
+            padding:10px 18px;border-radius:8px;font-weight:600;
+            text-decoration:none;font-size:15px;">
+    🆘 Contacter l’assistance
+  </a>
+</div>
+
+<p style="margin-top:30px;">
+    À très bientôt,<br>
+    <strong>L’équipe Intégrale Academy</strong>
+</p>
+    """
+},
+
         "reconfirmation": {
             "title": "Reconfirmation d’inscription",
             "content": f"""
@@ -648,6 +802,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
