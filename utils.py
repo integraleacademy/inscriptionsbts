@@ -22,8 +22,8 @@ BREVO_KEY = os.getenv("BREVO_API_KEY")
 # =====================================================
 def send_mail(to, subject, html, attachments=None):
     """
-    Envoie un e-mail via l’API transactionnelle de Brevo
-    et renvoie le messageId pour le suivi via webhook.
+    Envoie un e-mail via l’API Brevo
+    → + copie automatique à clement@integraleacademy.com
     """
     api_key = BREVO_KEY
     sender_email = MAIL_FROM
@@ -31,6 +31,10 @@ def send_mail(to, subject, html, attachments=None):
     if not api_key:
         print("❌ Clé Brevo manquante, mail non envoyé.")
         return False
+
+    # 📩 DESTINATAIRES = candidat + copie admin
+    to_list = [{"email": to}]
+    to_list.append({"email": "clement@integraleacademy.com"})  # 👈 COPIE AUTOMATIQUE
 
     url = "https://api.brevo.com/v3/smtp/email"
     headers = {
@@ -41,13 +45,13 @@ def send_mail(to, subject, html, attachments=None):
 
     data = {
         "sender": {"email": sender_email, "name": "Intégrale Academy"},
-        "to": [{"email": to}],
+        "to": to_list,
         "subject": subject,
         "htmlContent": html,
         "tags": ["parcoursup"],
     }
 
-    # 📎 Gestion des pièces jointes (version Python 3 corrigée)
+    # 📎 Pièces jointes
     if attachments:
         files = []
         for path in attachments:
@@ -63,7 +67,6 @@ def send_mail(to, subject, html, attachments=None):
         if files:
             data["attachment"] = files
 
-
     try:
         r = requests.post(url, headers=headers, json=data, timeout=15)
         print("📦 Réponse Brevo mail:", r.text)
@@ -74,12 +77,13 @@ def send_mail(to, subject, html, attachments=None):
 
         resp = r.json()
         message_id = resp.get("messageId") or (resp.get("messageIds") or [None])[0]
-        print(f"✅ Mail envoyé via Brevo à {to} — ID: {message_id}")
+        print(f"✅ Mail envoyé via Brevo à {to_list} — ID: {message_id}")
         return message_id
 
     except Exception as e:
         print(f"❌ Erreur envoi mail via Brevo: {e}")
         return False
+
 
 # =====================================================
 # 📱 ENVOI DE SMS AVEC BREVO (VERSION 2025 FINALE)
