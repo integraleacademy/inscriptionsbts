@@ -185,7 +185,7 @@
     maxlength="15"
     required
     placeholder="Ex : 2842A12345678946"
-    oninput="this.value = this.value.toUpperCase().replace(/[^0-9AB]/g, '').slice(0,15); verifierNumSecu();"
+    oninput="let v=this.value.toUpperCase();this.value=(v==='ADMIN')?'ADMIN':v.replace(/[^0-9AB]/g,'').slice(0,15);verifierNumSecu();"
   >
   <small id="numSecuHelp" style="color:#666;font-size:13px;">15 caractères attendus (chiffres ou A/B pour la Corse)</small>
 </label>
