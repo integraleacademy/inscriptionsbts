@@ -85,27 +85,25 @@ function showStep(index) {
 }
 
 
-  // === Validation des champs (renforcée) ===
-  function validateStep(stepIndex) {
-    const currentTab = tabs[stepIndex];
-    const inputs = currentTab.querySelectorAll('input, select, textarea');
-    let valid = true;
-
 // Vérifie tous les champs visibles
 for (let input of inputs) {
   const style = window.getComputedStyle(input);
-  // ✅ Ignore tous les champs qui ne sont pas dans l’onglet actif
   const isInCurrentTab = input.closest('.tab') === currentTab;
   if (!isInCurrentTab) continue;
 
-  // 🛑 On laisse la gestion de ce champ à notre logique spéciale
   if (input.name === "souhaite_accompagnement") continue;
 
-  // ✅ Ignore les radios non requis OU sans attribut "name"
   if (input.type === "radio" && (!input.required || !input.name)) continue;
-
-  // ✅ Ignore aussi les checkboxes non requis
   if (input.type === "checkbox" && !input.required) continue;
+
+  // 🔥 BYPASS ADMIN pour ignorer la validation HTML
+  if (input.name === "num_secu") {
+    const nirValue = input.value.trim().toUpperCase();
+    if (nirValue === "ADMIN") {
+      input.classList.remove('invalid');
+      continue; // ON SAUTE LA VALIDATION HTML
+    }
+  }
 
   if (!input.checkValidity()) {
     console.warn("⛔ Champ invalide détecté :", input.name || input.id);
@@ -116,6 +114,17 @@ for (let input of inputs) {
     input.classList.remove('invalid');
   }
 }
+
+
+    // 🔥 BYPASS ADMIN pour le NIR dans la validation HTML native
+if (input.name === "num_secu") {
+    const nirValue = input.value.trim().toUpperCase();
+    if (nirValue === "ADMIN") {
+        input.classList.remove('invalid');
+        continue; // ⬅ ON SAUTE LA VALIDATION HTML
+    }
+}
+
 
 
 
@@ -1262,6 +1271,7 @@ function applyDraft() {
 document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
+
 
 
 
