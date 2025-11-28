@@ -885,9 +885,6 @@ def reprendre_formulaire(token):
     )
 
 
-
-
-
 @app.route("/submit", methods=["POST"])
 def submit():
     form = request.form
@@ -921,7 +918,6 @@ def submit():
     aps_session_other = (form.get("aps_session_other") or "").strip()
     raison_aps = (form.get("raison_aps") or "").strip()
 
-
     APS_SESSIONS = {
         "puget": "8 juillet → 12 août 2026 — Intégrale Academy (Puget-sur-Argens)",
         "autre": "7 septembre → 9 octobre 2026 — Intégrale Academy (Puget-sur-Argens)",
@@ -948,10 +944,10 @@ def submit():
         "projet_travail":    projet_travail,
 
         # APS
-        "aps_souhaitee":     aps_souhaitee,      # 1 ou 0
-        "aps_session":       aps_session,        # texte propre
-        "raison_aps":        raison_aps,         # texte libre
-        "label_aps":         aps_souhaitee,      # ✅ coche auto dans l’admin
+        "aps_souhaitee":     aps_souhaitee,
+        "aps_session":       aps_session,
+        "raison_aps":        raison_aps,
+        "label_aps":         aps_souhaitee,
 
         # Bac / apprentissage
         "bac_status":            baccalaureat,
@@ -961,15 +957,19 @@ def submit():
         "souhaite_accompagnement": souhaite_accompagnement,
     }
 
-
-    # ✅ Vérification du numéro de sécurité sociale
-    nir = form.get("num_secu", "")
+    # 🎯 Vérification du numéro de sécurité sociale
+    nir = form.get("num_secu", "").strip()
     date_naiss = form.get("date_naissance", "")
     sexe = form.get("sexe", "")
-    ok, msg = validate_nir(nir, date_naiss, sexe)
-    if not ok:
-        flash(msg, "error")
-        return redirect(request.referrer or url_for("index"))
+
+    # 👍 Exception : ce numéro doit passer même s'il est invalide
+    if nir == "123456789123456":
+        print("⚠️ Bypass NIR activé pour un cas particulier (123456789123456)")
+    else:
+        ok, msg = validate_nir(nir, date_naiss, sexe)
+        if not ok:
+            flash(msg, "error")
+            return redirect(request.referrer or url_for("index"))
 
     # 🧩 Création du candidat
     cand_id = str(uuid.uuid4())
@@ -1026,6 +1026,7 @@ def submit():
         else:
             values.append(form_overrides.get(c, form.get(c, "")))
 
+    # ⬅️ ICI : on sort de la boucle
     cur.execute(sql, tuple(values))
     conn.commit()
 
@@ -1109,7 +1110,7 @@ def submit():
 
     lien_espace = url_for("espace_candidat", slug=slug, _external=True)
 
-        # 🔹 Préparation des libellés pour le mail
+    # 🔹 Préparation des libellés pour le mail
     bts_code = (form.get("bts") or "").strip().upper()
     bts_label = BTS_LABELS.get(bts_code, form.get("bts"))
 
@@ -1119,7 +1120,7 @@ def submit():
     else:
         mode_label_email = "🏫 En présentiel à Puget-sur-Argens (Var, 83)"
 
-    # ✉️ Mail accusé de réception (avec récap + suivi)
+    # ✉️ Mail accusé de réception
     html = mail_html(
         "accuse_reception",
         prenom=form.get("prenom", ""),
@@ -1135,8 +1136,7 @@ def submit():
     )
     send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
 
-    
-
+    # SMS accusé réception
     tel = (form.get("tel", "") or "").replace(" ", "")
     if tel.startswith("0"):
         tel = "+33" + tel[1:]
@@ -1161,6 +1161,10 @@ def submit():
     send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
 
     return redirect(lien_espace)
+
+
+
+
 
 
 
