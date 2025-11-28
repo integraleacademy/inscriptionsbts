@@ -119,10 +119,16 @@ for (let input of inputs) {
 
 
 
-    // 🔹 Étape 1 : vérif NIR
-    if (stepIndex === 0 && typeof verifierNumSecu === "function") {
-      if (!verifierNumSecu()) valid = false;
-    }
+// 🔹 Étape 1 : vérif NIR + BYPASS ADMIN
+if (stepIndex === 0) {
+  const nir = document.querySelector('input[name="num_secu"]')?.value?.trim().toUpperCase();
+  if (nir === "ADMIN") {
+    valid = true;  // 🔥 BYPASS
+  } else if (typeof verifierNumSecu === "function" && !verifierNumSecu()) {
+    valid = false;
+  }
+}
+
 
 // 🔹 Étape 2 : validation conditionnelle selon le BTS
 if (stepIndex === 1) {
@@ -475,13 +481,17 @@ document.querySelectorAll("input[name='cherche_idf']").forEach(radio => {
       const bacType = document.querySelector('select[name="bac_type"]');
       const bacAutre = document.querySelector('input[name="bac_autre"]');
  
-      // Vérifie NIR
-      if (typeof verifierNumSecu === "function" && !verifierNumSecu()) {
-        e.preventDefault();
-        alert("❌ Votre numéro de sécurité sociale est incohérent. Veuillez le corriger avant de continuer.");
-        showStep(0);
-        return;
-      }
+// Vérifie NIR + BYPASS ADMIN
+const nir = document.querySelector('input[name="num_secu"]')?.value?.trim().toUpperCase();
+if (nir !== "ADMIN") {
+  if (typeof verifierNumSecu === "function" && !verifierNumSecu()) {
+    e.preventDefault();
+    alert("❌ Votre numéro de sécurité sociale est incohérent. Veuillez le corriger avant de continuer.");
+    showStep(0);
+    return;
+  }
+}
+
 
       // Vérifie qu'un mode est choisi
       const modeSelected = document.querySelector('input[name="mode"]:checked');
@@ -1252,6 +1262,7 @@ function applyDraft() {
 document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
+
 
 
 
