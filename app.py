@@ -1055,9 +1055,9 @@ def submit():
 
             html = f"""
             <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
-              <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner</h2>
+              <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
               <p>Bonjour,<br><br>
-              Un nouveau candidat a demandé à être accompagné pour trouver une entreprise.</p>
+              Un nouveau candidat a demandé à être accompagné par Pôle Alternance pour trouver une entreprise (rentrée septembre 2026). Je vous trouverez ci-dessous les coordonnées du candidat. Vous trouverez également en pièce-jointe son CV et sa lettre de motivation. A bientôt, Clément VAILLANT (ceci est un mail automatique).</p>
               <ul>
                 <li><strong>Nom :</strong> {nom}</li>
                 <li><strong>Prénom :</strong> {prenom}</li>
@@ -1067,13 +1067,6 @@ def submit():
                 <li><strong>BTS :</strong> {bts_label}</li>
                 <li><strong>Mode :</strong> {mode}</li>
               </ul>
-              <p><strong>Pourquoi :</strong> {projet_pourquoi}</p>
-              <p><strong>Objectif :</strong> {projet_objectif}</p>
-              <p><strong>Passions :</strong> {projet_passions}</p>
-              <p><strong>Qualités :</strong> {projet_qualites}</p>
-              <p><strong>Motivations :</strong> {projet_motivation}</p>
-              <p><strong>Valeurs :</strong> {projet_recherche}</p>
-              <p><strong>Travail :</strong> {projet_travail}</p>
             </div>
             """
 
@@ -1088,7 +1081,7 @@ def submit():
                 print("⚠️ Impossible de lister les fichiers du candidat :", e)
 
             send_mail(
-                "clement.annecy@gmail.com",
+                "eric@polealternance.fr",
                 f"🤝 Nouveau candidat à accompagner – {prenom} {nom}",
                 html,
                 attachments=attachments if attachments else None
