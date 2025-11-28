@@ -715,8 +715,18 @@ function verifierNumSecu() {
   const input = document.getElementById("num_secu");
   const help = document.getElementById("numSecuHelp");
 
-  let val = input.value.trim().toUpperCase();
-  let nir = val.replace(/\s+/g, "");
+let val = input.value.trim().toUpperCase();
+let nir = val.replace(/\s+/g, "");
+
+// 🛑 Cas : né en France → 10 chiffres NON autorisés
+const pays = document.querySelector('input[name="pays_naissance"]')?.value?.trim().toLowerCase();
+if (pays === "france" && /^\d{10}$/.test(nir)) {
+  help.textContent = "❌ Vous êtes né(e) en France : un numéro à 10 chiffres n'est pas autorisé.";
+  help.style.color = "red";
+  input.style.borderColor = "red";
+  return false;
+}
+
 
     // 🇲🇨 --- Numéro monégasque : 10 chiffres → accepté automatiquement
   if (/^\d{10}$/.test(nir)) {
