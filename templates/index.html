@@ -714,13 +714,17 @@ function verifierNumSecu() {
   let val = input.value.trim().toUpperCase();
   let nir = val.replace(/\s+/g, "");
 
-    // === BYPASS ADMIN (Belges, Monégasques, cas spéciaux) ===
-  if (nir.toLowerCase() === "admin") {
-    help.textContent = "✅ Numéro bypassé (ADMIN)";
-    help.style.color = "green";
-    input.style.borderColor = "#28a745";
-    return true;
-  }
+// === BYPASS ABSOLU ADMIN ===
+if (val === "ADMIN") {
+  input.value = "ADMIN"; // Force la valeur
+  help.textContent = "✅ Numéro bypassé (ADMIN)";
+  help.style.color = "green";
+  input.classList.remove("invalid");
+  input.style.borderColor = "#28a745";
+
+  return true; // STOP : AUCUNE AUTRE VÉRIFICATION NE S'EXÉCUTE
+}
+
 
 
   // 👉 Si rien n'est saisi → message normal, pas d'erreur
