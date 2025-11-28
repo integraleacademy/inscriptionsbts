@@ -131,15 +131,16 @@
   .checkbox-line {
     display: flex;
     align-items: flex-start;
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     font-size: 1rem;
     cursor: pointer;
     line-height: 1.4;
   }
 
   .checkbox-line input {
-    margin-right: 10px;
-    margin-top: 3px;
+    margin-right: 12px;
+    margin-top: 4px;
+    transform: scale(1.2);
   }
 
   .confirm-form {
@@ -152,9 +153,60 @@
   .confirm-btn {
     width: 100%;
     margin-top: 15px;
-    font-size: 1.1rem;
-    padding: 12px;
+    font-size: 1.15rem;
+    padding: 13px;
     border-radius: 10px;
+  }
+
+  /* 📱 OPTIMISATION MOBILE */
+  @media (max-width: 600px) {
+
+    .confirm-container {
+      padding: 10px;
+      margin-top: 20px;
+    }
+
+    .confirm-title {
+      font-size: 1.45rem;
+      margin-bottom: 18px;
+      padding: 0 10px;
+    }
+
+    .confirm-card {
+      padding: 18px 16px;
+    }
+
+    .confirm-card h3 {
+      font-size: 1.2rem;
+      text-align: center;
+    }
+
+    .info-line {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      padding: 10px 0;
+      font-size: 1rem;
+    }
+
+    .info-line span {
+      color: #555;
+      font-size: 0.95rem;
+    }
+
+    .checkbox-line {
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    .confirm-form {
+      padding: 18px 16px;
+    }
+
+    .confirm-btn {
+      font-size: 1.05rem;
+      padding: 12px;
+    }
   }
 </style>
 
