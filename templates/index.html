@@ -182,33 +182,13 @@
     id="num_secu"
     type="text"
     inputmode="text"
+    maxlength="15"
     required
     placeholder="Ex : 2842A12345678946"
-    oninput="
-      let v = this.value.toUpperCase();
-
-      // 🔥 Autoriser ADMIN (même en cours de frappe)
-      if ('ADMIN'.startsWith(v)) { 
-        this.value = v; 
-        verifierNumSecu(); 
-        return; 
-      }
-
-      // 🔥 Si ADMIN complet → bypass
-      if (v === 'ADMIN') { 
-        this.value = 'ADMIN'; 
-        verifierNumSecu(); 
-        return; 
-      }
-
-      // 🔥 Sinon, filtrage normal
-      this.value = v.replace(/[^0-9AB]/g, '').slice(0,15);
-      verifierNumSecu();
-    "
+    oninput="this.value = this.value.toUpperCase().replace(/[^0-9AB]/g, '').slice(0,15); verifierNumSecu();"
   >
   <small id="numSecuHelp" style="color:#666;font-size:13px;">15 caractères attendus (chiffres ou A/B pour la Corse)</small>
 </label>
-
 
 
         <label>Email <input type="email" name="email" required></label>
@@ -734,20 +714,6 @@ function verifierNumSecu() {
   let val = input.value.trim().toUpperCase();
   let nir = val.replace(/\s+/g, "");
 
-// === BYPASS ABSOLU ADMIN ===
-if (val === "ADMIN") {
-  input.value = "ADMIN";
-  input.classList.add("nir-bypass");      // 🔥 AJOUT CLÉ
-  help.textContent = "✅ Numéro bypassé (ADMIN)";
-  help.style.color = "green";
-  input.classList.remove("invalid");
-  input.style.borderColor = "#28a745";
-  return true;
-}
-
-
-
-
   // 👉 Si rien n'est saisi → message normal, pas d'erreur
   if (nir.length === 0) {
     help.textContent = "15 caractères attendus (chiffres ou A/B pour la Corse)";
@@ -838,16 +804,6 @@ if (val === "ADMIN") {
   return true;
 }
 
-  // Désactive toute validation si bypass ADMIN activé
-document.getElementById("num_secu")?.addEventListener("input", (e) => {
-  if (e.target.classList.contains("nir-bypass")) {
-    e.target.style.borderColor = "#28a745";
-    document.getElementById("numSecuHelp").textContent = "✅ Numéro bypassé (ADMIN)";
-    document.getElementById("numSecuHelp").style.color = "green";
-  }
-});
-
-
 // Vérification automatique à chaque saisie
 ["input", "change"].forEach(evt => {
   document.getElementById("num_secu")?.addEventListener(evt, verifierNumSecu);
@@ -905,45 +861,6 @@ input.invalid, select.invalid, textarea.invalid {
 }
 </style>
 
-<script>
-// =====================================================
-// 🚀 BYPASS ADMIN — 100% FONCTIONNEL SANS RIEN TOUCHER D'AUTRE
-// =====================================================
 
-document.addEventListener("input", () => {
-  const nirField = document.querySelector('input[name="num_secu"]');
-  if (!nirField) return;
-
-  const val = nirField.value.trim().toUpperCase();
-
-  if (val === "ADMIN") {
-
-    // Visuel OK
-    nirField.style.borderColor = "#28a745";
-    const help = document.getElementById("numSecuHelp");
-    if (help) {
-      help.textContent = "✅ Numéro bypassé (ADMIN)";
-      help.style.color = "green";
-    }
-
-    // Débloque tous les boutons "suivant"
-    document.querySelectorAll(".next").forEach(btn => {
-      btn.onclick = () => {
-        currentStep = Math.min(currentStep + 1, tabs.length - 1);
-        showStep(currentStep);
-      };
-    });
-
-    // Débloque les onglets
-    document.querySelectorAll(".tabs button").forEach((btn, i) => {
-      btn.onclick = () => showStep(i);
-    });
-
-    // Bypass validation finale
-    const form = document.querySelector("#inscriptionForm");
-    if (form) form.onsubmit = () => true;
-  }
-});
-</script>
 
 {% endblock %}
