@@ -163,9 +163,6 @@
 <div id="bloc-resp-legal" style="display:none; margin-top:20px; background:#fff8e1; padding:15px; border-left:4px solid #f4c45a; border-radius:8px;">
   <h4>👨‍👩‍👧 Informations du responsable légal</h4>
   <p style="font-size:14px; color:#555;">⚠️ Vous êtes mineur(e) à la date d’inscription — merci d’indiquer les coordonnées du responsable légal :</p>
-
-
-
   
   <div class="grid">
     <label>Nom du responsable légal <input name="resp_nom"></label>
@@ -180,18 +177,17 @@
         <label>Code postal de naissance <input name="cp_naissance" required></label>
         <label>Pays de naissance <input name="pays_naissance" required></label>
 <label>Numéro de sécurité sociale
-<input 
-  name="num_secu"
-  id="num_secu"
-  type="text"
-  inputmode="text"
-  maxlength="15"
-  required
-  placeholder="Ex : 2842A12345678946"
-  oninput="verifierNumSecu();"
->
-<small id="numSecuHelp" style="color:#666;font-size:13px;">15 caractères attendus (chiffres ou A/B pour la Corse)</small>
-
+  <input 
+    name="num_secu"
+    id="num_secu"
+    type="text"
+    inputmode="text"
+    maxlength="15"
+    required
+    placeholder="Ex : 2842A12345678946"
+    oninput="this.value = this.value.toUpperCase().replace(/[^0-9AB]/g, '').slice(0,15); verifierNumSecu();"
+  >
+  <small id="numSecuHelp" style="color:#666;font-size:13px;">15 caractères attendus (chiffres ou A/B pour la Corse)</small>
 </label>
 
 
@@ -715,27 +711,8 @@ function verifierNumSecu() {
   const input = document.getElementById("num_secu");
   const help = document.getElementById("numSecuHelp");
 
-let val = input.value.trim().toUpperCase();
-let nir = val.replace(/\s+/g, "");
-
-// 🛑 Cas : né en France → 10 chiffres NON autorisés
-const pays = document.querySelector('input[name="pays_naissance"]')?.value?.trim().toLowerCase();
-if (pays === "france" && /^\d{10}$/.test(nir)) {
-  help.textContent = "❌ Vous êtes né(e) en France : un numéro à 10 chiffres n'est pas autorisé.";
-  help.style.color = "red";
-  input.style.borderColor = "red";
-  return false;
-}
-
-
-    // 🇲🇨 --- Numéro monégasque : 10 chiffres → accepté automatiquement
-  if (/^\d{10}$/.test(nir)) {
-    help.textContent = "🇲🇨 Numéro monégasque valide";
-    help.style.color = "green";
-    input.style.borderColor = "#28a745";
-    return true;
-  }
-
+  let val = input.value.trim().toUpperCase();
+  let nir = val.replace(/\s+/g, "");
 
   // 👉 Si rien n'est saisi → message normal, pas d'erreur
   if (nir.length === 0) {
