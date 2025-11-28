@@ -56,7 +56,7 @@ def mail_html(template_name, **kwargs):
         <!-- ✉️ INTRO SELON PRÉSENTIEL / DISTANCIEL -->
         <p>
         Nous avons bien reçu votre candidature concernant notre <strong>{bts_label}</strong> en alternance,
-        {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>en 100% en ligne à distance en visioconférence ZOOM</strong>"}.
+        {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>100% en ligne à distance en visioconférence ZOOM</strong>"}.
         Nous vous confirmons que votre candidature a bien été prise en compte et que nous allons étudier
         votre dossier dans les prochains jours.
         </p>
@@ -877,6 +877,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
