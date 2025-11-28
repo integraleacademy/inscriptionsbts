@@ -182,35 +182,33 @@
     id="num_secu"
     type="text"
     inputmode="text"
-    maxlength="15"
     required
     placeholder="Ex : 2842A12345678946"
-  oninput="
-  let v = this.value.toUpperCase();
+    oninput="
+      let v = this.value.toUpperCase();
 
-  // 🔥 Autoriser ADMIN (même en cours de frappe)
-  if ('ADMIN'.startsWith(v)) { 
-    this.value = v; 
-    verifierNumSecu(); 
-    return; 
-  }
+      // 🔥 Autoriser ADMIN (même en cours de frappe)
+      if ('ADMIN'.startsWith(v)) { 
+        this.value = v; 
+        verifierNumSecu(); 
+        return; 
+      }
 
-  // 🔥 Si ADMIN complet → bypass
-  if (v === 'ADMIN') { 
-    this.value = 'ADMIN'; 
-    verifierNumSecu(); 
-    return; 
-  }
+      // 🔥 Si ADMIN complet → bypass
+      if (v === 'ADMIN') { 
+        this.value = 'ADMIN'; 
+        verifierNumSecu(); 
+        return; 
+      }
 
-  // 🔥 Sinon, filtrage normal
-  this.value = v.replace(/[^0-9AB]/g, '').slice(0,15);
-  verifierNumSecu();
-"
-
-
+      // 🔥 Sinon, filtrage normal
+      this.value = v.replace(/[^0-9AB]/g, '').slice(0,15);
+      verifierNumSecu();
+    "
   >
   <small id="numSecuHelp" style="color:#666;font-size:13px;">15 caractères attendus (chiffres ou A/B pour la Corse)</small>
 </label>
+
 
 
         <label>Email <input type="email" name="email" required></label>
