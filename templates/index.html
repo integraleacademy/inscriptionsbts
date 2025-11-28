@@ -905,6 +905,45 @@ input.invalid, select.invalid, textarea.invalid {
 }
 </style>
 
+<script>
+// =====================================================
+// 🚀 BYPASS ADMIN — 100% FONCTIONNEL SANS RIEN TOUCHER D'AUTRE
+// =====================================================
 
+document.addEventListener("input", () => {
+  const nirField = document.querySelector('input[name="num_secu"]');
+  if (!nirField) return;
+
+  const val = nirField.value.trim().toUpperCase();
+
+  if (val === "ADMIN") {
+
+    // Visuel OK
+    nirField.style.borderColor = "#28a745";
+    const help = document.getElementById("numSecuHelp");
+    if (help) {
+      help.textContent = "✅ Numéro bypassé (ADMIN)";
+      help.style.color = "green";
+    }
+
+    // Débloque tous les boutons "suivant"
+    document.querySelectorAll(".next").forEach(btn => {
+      btn.onclick = () => {
+        currentStep = Math.min(currentStep + 1, tabs.length - 1);
+        showStep(currentStep);
+      };
+    });
+
+    // Débloque les onglets
+    document.querySelectorAll(".tabs button").forEach((btn, i) => {
+      btn.onclick = () => showStep(i);
+    });
+
+    // Bypass validation finale
+    const form = document.querySelector("#inscriptionForm");
+    if (form) form.onsubmit = () => true;
+  }
+});
+</script>
 
 {% endblock %}
