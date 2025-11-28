@@ -185,7 +185,13 @@
     maxlength="15"
     required
     placeholder="Ex : 2842A12345678946"
-    oninput="let v=this.value.toUpperCase();this.value=(v==='ADMIN')?'ADMIN':v.replace(/[^0-9AB]/g,'').slice(0,15);verifierNumSecu();"
+   oninput="
+  let v = this.value.toUpperCase();
+  if (v === 'ADMIN') { this.value = 'ADMIN'; verifierNumSecu(); return; }
+  this.value = v.replace(/[^0-9AB]/g, '').slice(0,15);
+  verifierNumSecu();
+"
+
   >
   <small id="numSecuHelp" style="color:#666;font-size:13px;">15 caractères attendus (chiffres ou A/B pour la Corse)</small>
 </label>
@@ -716,14 +722,15 @@ function verifierNumSecu() {
 
 // === BYPASS ABSOLU ADMIN ===
 if (val === "ADMIN") {
-  input.value = "ADMIN"; // Force la valeur
+  input.value = "ADMIN";
+  input.classList.add("nir-bypass");      // 🔥 AJOUT CLÉ
   help.textContent = "✅ Numéro bypassé (ADMIN)";
   help.style.color = "green";
   input.classList.remove("invalid");
   input.style.borderColor = "#28a745";
-
-  return true; // STOP : AUCUNE AUTRE VÉRIFICATION NE S'EXÉCUTE
+  return true;
 }
+
 
 
 
@@ -816,6 +823,16 @@ if (val === "ADMIN") {
   input.style.borderColor = "#28a745";
   return true;
 }
+
+  // Désactive toute validation si bypass ADMIN activé
+document.getElementById("num_secu")?.addEventListener("input", (e) => {
+  if (e.target.classList.contains("nir-bypass")) {
+    e.target.style.borderColor = "#28a745";
+    document.getElementById("numSecuHelp").textContent = "✅ Numéro bypassé (ADMIN)";
+    document.getElementById("numSecuHelp").style.color = "green";
+  }
+});
+
 
 // Vérification automatique à chaque saisie
 ["input", "change"].forEach(evt => {
