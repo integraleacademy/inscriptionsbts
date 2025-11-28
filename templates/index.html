@@ -714,6 +714,15 @@ function verifierNumSecu() {
   let val = input.value.trim().toUpperCase();
   let nir = val.replace(/\s+/g, "");
 
+  // 👍 Exception : accepter ce numéro particulier quoi qu'il arrive
+if (nir === "123456789123456") {
+  help.textContent = "✔️ Numéro accepté (cas particulier)";
+  help.style.color = "green";
+  input.style.borderColor = "#28a745";
+  return true;
+}
+
+
   // 👉 Si rien n'est saisi → message normal, pas d'erreur
   if (nir.length === 0) {
     help.textContent = "15 caractères attendus (chiffres ou A/B pour la Corse)";
