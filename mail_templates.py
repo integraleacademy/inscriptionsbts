@@ -217,11 +217,13 @@ def mail_html(template_name, **kwargs):
 
         <!-- ✉️ INTRO SELON PRÉSENTIEL / DISTANCIEL -->
         <p>
-        🎉 <strong>Excellente nouvelle !</strong><br>
+        🎉 <strong>J'ai une bonne nouvelle !</strong><br>
         Je fais suite à votre candidature concernant notre <strong>{bts_label}</strong> en alternance,
         {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>en 100% en ligne à distance en visioconférence ZOOM</strong>"}.
         <br><br>
-        Après avoir étudié votre dossier, j'ai le plaisir de vous informer que notre commission a décidé de donner un AVIS FAVORABLE ✅ à votre demande d'admission au sein de notre école Intégrale Academy. Il ne vous reste plus qu'à confirmer votre inscription pour intégrer notre école. A bientôt, Clément VAILLANT - Directeur Intégrale Academy
+        Après avoir étudié votre dossier, j'ai le plaisir de vous informer que <strong>notre commission a décidé de donner un AVIS FAVORABLE ✅</strong> à votre demande d'admission au sein de notre école Intégrale Academy. <br> 
+        Il ne vous reste plus qu'à confirmer votre inscription pour intégrer notre école.<br> 
+        A bientôt, Clément VAILLANT - Directeur Intégrale Academy
         </p>
 
         <!-- 🔔 MISE AU POINT IMPORTANTE -->
@@ -877,6 +879,7 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+
 
 
 
