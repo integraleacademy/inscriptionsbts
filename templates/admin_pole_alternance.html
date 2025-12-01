@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block body_class %}admin-page{% endblock %}
+{% block content %}
+
+<div class="admin-wrapper">
+
+  <!-- 🔝 En-tête -->
+  <header class="admin-header">
+    <h2>👥 Pôle Alternance — Candidats accompagnés</h2>
+
+    <a href="{{ url_for('admin') }}" class="btn secondary">
+      ⬅️ Retour admin
+    </a>
+  </header>
+
+  <!-- 📊 Tableau -->
+  <div class="table-container" style="margin-top:25px;">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Nom</th>
+          <th>Prénom</th>
+          <th>BTS</th>
+          <th>Mode</th>
+          <th>Téléphone</th>
+          <th>Email</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for r in rows %}
+        <tr data-id="{{ r.id }}">
+          <td>{{ r.nom }}</td>
+          <td>{{ r.prenom }}</td>
+          <td>{{ r.bts }}</td>
+          <td>{{ r.mode }}</td>
+          <td>{{ r.tel }}</td>
+          <td>{{ r.email }}</td>
+
+          <td>
+            <span style="padding:4px 8px;border-radius:6px;background:#eee;font-size:13px;">
+              {{ r.statut }}
+            </span>
+          </td>
+
+          <td style="white-space:nowrap;">
+            <a href="{{ url_for('admin_espace_candidat', cid=r.id) }}"
+               target="_blank"
+               class="btn small"
+               style="background:#f4c45a;color:#111;font-weight:600;">
+               👁️ Voir fiche
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+  </div>
+
+</div>
+
+{% endblock %}

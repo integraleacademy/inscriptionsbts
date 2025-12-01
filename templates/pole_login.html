@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Connexion Pôle Alternance{% endblock %}
+{% block content %}
+
+<div style="max-width:420px;margin:60px auto;padding:30px 28px;background:#fff;
+            border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+  <h2 style="text-align:center;margin-top:0;margin-bottom:10px;">🤝 Pôle Alternance</h2>
+  <p style="text-align:center;color:#555;font-size:14px;margin-bottom:20px;">
+    Espace réservé au partenaire <strong>Pôle Alternance Île-de-France</strong>.
+  </p>
+
+  {% if error %}
+    <div style="background:#ffe6e6;color:#b30000;padding:8px 10px;border-radius:8px;
+                font-size:14px;margin-bottom:15px;text-align:center;">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('pole_login') }}">
+    <label style="display:block;margin-bottom:10px;font-size:14px;color:#333;">
+      Adresse e-mail
+      <input type="email"
+             name="email"
+             required
+             style="width:100%;margin-top:5px;padding:8px 10px;border-radius:8px;
+                    border:1px solid #ccc;font-size:14px;">
+    </label>
+
+    <label style="display:block;margin-bottom:18px;font-size:14px;color:#333;">
+      Mot de passe
+      <input type="password"
+             name="password"
+             required
+             style="width:100%;margin-top:5px;padding:8px 10px;border-radius:8px;
+                    border:1px solid #ccc;font-size:14px;">
+    </label>
+
+    <button type="submit"
+            style="width:100%;background:#111;color:#fff;border:none;border-radius:8px;
+                   padding:10px 12px;font-size:15px;font-weight:600;cursor:pointer;">
+      🔐 Se connecter à l’espace Pôle Alternance
+    </button>
+
+    <p style="margin-top:15px;font-size:12px;color:#777;text-align:center;">
+      Accès réservé à <strong>eric@polealternance.fr</strong>
+    </p>
+  </form>
+</div>
+
+{% endblock %}
