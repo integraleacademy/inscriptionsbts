@@ -727,25 +727,38 @@ def admin_pole_alternance():
 
 @app.route("/admin/reprendre-plus-tard")
 def admin_reprendre_plus_tard():
-    # Accès réservé à Clément
+    # 🔐 Même protection que l’admin
     if session.get("email") != "clement@integraleacademy.com":
         return redirect("/admin")
 
     DATA_DIR = os.getenv("DATA_DIR", "/data")
     DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
 
-    drafts = []
-    if os.path.exists(DRAFT_PATH):
+    if not os.path.exists(DRAFT_PATH):
+        drafts = []
+    else:
         try:
             with open(DRAFT_PATH, "r", encoding="utf-8") as f:
                 drafts = json.load(f)
         except:
             drafts = []
 
-    # On trie par date du plus récent au plus ancien
-    drafts = sorted(drafts, key=lambda d: d.get("timestamp", ""), reverse=True)
+    # 🔁 Transformer les brouillons en un format exploitable par le template
+    rows = []
+    for d in drafts:
+        form = d.get("full_form", {})
 
-    return render_template("admin_reprendre_plus_tard.html", drafts=drafts)
+        rows.append({
+            "numero_dossier": form.get("numero_dossier", "—"),
+            "nom": form.get("nom", "—"),
+            "prenom": form.get("prenom", "—"),
+            "email": form.get("email", "—"),
+            "tel": form.get("tel", "—"),
+            "updated_at": d.get("timestamp", "—"),
+            "slug_public": form.get("slug_public", ""),
+        })
+
+    return render_template("admin_reprendre_plus_tard.html", rows=rows)
 
 
 
