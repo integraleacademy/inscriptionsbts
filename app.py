@@ -748,6 +748,7 @@ def admin_reprendre_plus_tard():
         form = d.get("full_form", {})
 
         rows.append({
+            "id": d.get("id"),   # 🔥 ESSENTIEL → le token unique
             "nom": form.get("nom", "—"),
             "prenom": form.get("prenom", "—"),
             "email": form.get("email", "—"),
@@ -757,6 +758,7 @@ def admin_reprendre_plus_tard():
         })
 
     return render_template("admin_reprendre_plus_tard.html", rows=rows)
+
 
 @app.route("/admin/delete-draft/<draft_id>", methods=["POST"])
 def admin_delete_draft(draft_id):
