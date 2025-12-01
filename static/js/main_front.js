@@ -312,20 +312,23 @@ if (stepIndex === 3) {
   valid = ok;
 }
 
-    // 🔹 Étape 5 : vérification taille des fichiers AVANT de passer au récap
+// 🔹 Étape 5 : vérification taille des fichiers AVANT de passer au récap
 if (stepIndex === 4) {
-  const maxSize = 8 * 1024 * 1024; // 8 Mo
+  const maxSize = 7 * 1024 * 1024; // 7 Mo pour éviter un blocage Render
   const fileInputs = document.querySelectorAll('#tab5 input[type="file"]');
 
   for (const input of fileInputs) {
+    const label = input.dataset.label || input.name || "Ce fichier";
+
     for (const file of input.files) {
       if (file.size > maxSize) {
-        alert(`❌ Le fichier "${file.name}" dépasse la limite de 8 Mo. Merci de choisir un fichier plus léger.`);
+        alert(`❌ ${label} : le fichier "${file.name}" dépasse la limite de 7 Mo.\n\nMerci de sélectionner un fichier plus léger.`);
         return false; // ⛔ bloque l’avancement
       }
     }
   }
 }
+
 
 
 
@@ -1296,6 +1299,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 200);
   }
 });
+
 
 
 
