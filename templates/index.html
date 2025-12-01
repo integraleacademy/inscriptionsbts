@@ -627,7 +627,7 @@
 
 
   <h3 style="text-align:center; color:#111; border-bottom:3px solid #f4c45a; padding-bottom:8px; margin-bottom:25px;">
-    📎 Pièces justificatives à transmettre
+    📎 Pièces justificatives à transmettre (8 Mo par fichier maximum)
   </h3>
 
   <div class="grid">
@@ -636,12 +636,12 @@
     <div class="justif-block">
       <h4>🪪 Carte d’identité / Passeport (en JPEG, PNG ou PDF)</h4>
       <div class="justif-inner">
-        <label>Recto (obligatoire)
-          <input type="file" name="ci" accept="application/pdf,image/*" required>
-        </label>
-        <label>Verso (facultatif)
-          <input type="file" name="ci2" accept="application/pdf,image/*">
-        </label>
+   <label>Recto (obligatoire)
+  <input type="file" name="ci" accept="application/pdf,image/*" required data-label="Carte d’identité - Recto">
+</label>
+<label>Verso (facultatif)
+  <input type="file" name="ci2" accept="application/pdf,image/*" data-label="Carte d’identité - Verso">
+</label>
       </div>
     </div>
 
@@ -651,8 +651,9 @@
       <div class="photo-inner">
         <div class="photo-upload">
           <label>Importer votre photo :
-            <input type="file" name="photo" accept="image/*" required>
-          </label>
+  <input type="file" name="photo" accept="image/*" required data-label="Photo d’identité">
+</label>
+
         </div>
         <div class="photo-example">
           <img src="{{ url_for('static', filename='photo-exemple.png') }}" alt="Exemples de photos" />
@@ -664,19 +665,19 @@
     <!-- 💳 Carte Vitale -->
     <div class="justif-block">
       <h4>💳 Carte Vitale (en PDF uniquement)</h4>
-      <label><input type="file" name="carte_vitale" accept="application/pdf" required></label>
+      <label><input type="file" name="carte_vitale" accept="application/pdf" required data-label="Carte Vitale"></label>
     </div>
 
     <!-- 📄 CV -->
     <div class="justif-block">
       <h4>📄 CV (en PDF uniquement)</h4>
-      <label><input type="file" name="cv" accept="application/pdf" required></label>
+      <label><input type="file" name="cv" accept="application/pdf" required data-label="CV"></label>
     </div>
 
     <!-- 🖋️ Lettre de motivation -->
     <div class="justif-block">
       <h4>🖋️ Lettre de motivation (en PDF uniquement)</h4>
-      <label><input type="file" name="lm" accept="application/pdf" required></label>
+     <label><input type="file" name="lm" accept="application/pdf" required data-label="Lettre de motivation"></label>
     </div>
 
   </div>
