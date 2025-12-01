@@ -725,6 +725,28 @@ def admin_pole_alternance():
                            statuts=STATUTS,
                            now=datetime.now)
 
+@app.route("/admin/reprendre-plus-tard")
+def admin_reprendre_plus_tard():
+    # 🔐 Accès autorisé uniquement à Clément
+    if session.get("email") != "clement@integraleacademy.com":
+        return redirect("/admin")
+
+    conn = db()
+    cur = conn.cursor()
+
+    rows = cur.execute("""
+        SELECT *
+        FROM candidats
+        WHERE saved = 1 AND statut = 'en_attente'
+        ORDER BY updated_at DESC
+    """).fetchall()
+
+    return render_template("admin_reprendre_plus_tard.html",
+                           rows=rows,
+                           statuts=STATUTS,
+                           now=datetime.now)
+
+
 
 # =====================================================
 # 🎯 Vérifie et ajoute la colonne "souhaite_accompagnement" si manquante
