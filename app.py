@@ -727,24 +727,25 @@ def admin_pole_alternance():
 
 @app.route("/admin/reprendre-plus-tard")
 def admin_reprendre_plus_tard():
-    # 🔐 Accès autorisé uniquement à Clément
+    # Accès réservé à Clément
     if session.get("email") != "clement@integraleacademy.com":
         return redirect("/admin")
 
-    conn = db()
-    cur = conn.cursor()
+    DATA_DIR = os.getenv("DATA_DIR", "/data")
+    DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
 
-    rows = cur.execute("""
-        SELECT *
-        FROM candidats
-        WHERE saved = 1 AND statut = 'en_attente'
-        ORDER BY updated_at DESC
-    """).fetchall()
+    drafts = []
+    if os.path.exists(DRAFT_PATH):
+        try:
+            with open(DRAFT_PATH, "r", encoding="utf-8") as f:
+                drafts = json.load(f)
+        except:
+            drafts = []
 
-    return render_template("admin_reprendre_plus_tard.html",
-                           rows=rows,
-                           statuts=STATUTS,
-                           now=datetime.now)
+    # On trie par date du plus récent au plus ancien
+    drafts = sorted(drafts, key=lambda d: d.get("timestamp", ""), reverse=True)
+
+    return render_template("admin_reprendre_plus_tard.html", drafts=drafts)
 
 
 
