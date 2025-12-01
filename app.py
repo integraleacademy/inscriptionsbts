@@ -743,22 +743,37 @@ def admin_reprendre_plus_tard():
         except:
             drafts = []
 
+    # 📌 Connexion DB pour vérifier les candidats existants
+    conn = db()
+    cur = conn.cursor()
+
     rows = []
     for d in drafts:
         form = d.get("full_form", {})
 
+        email = form.get("email", "")
+
+        # 🔍 Vérifie si l'email existe dans la table candidats (= inscrit)
+        existing = cur.execute(
+            "SELECT 1 FROM candidats WHERE email = ?", (email,)
+        ).fetchone()
+
+        deja_inscrit = 1 if existing else 0
+
         rows.append({
-            "id": d.get("id"),   # 🔥 ESSENTIEL → le token unique
+            "id": d.get("id"),
             "nom": form.get("nom", "—"),
             "prenom": form.get("prenom", "—"),
-            "email": form.get("email", "—"),
+            "email": email,
             "tel": form.get("tel", "—"),
             "bts": form.get("bts", "—"),
             "updated_at": d.get("timestamp", "—"),
-            "resume_link": d.get("resume_link", "#")
+            "resume_link": d.get("resume_link", "#"),
+            "deja_inscrit": deja_inscrit   # 👈 Pour afficher ✔️ / ❌
         })
 
     return render_template("admin_reprendre_plus_tard.html", rows=rows)
+
 
 
 @app.route("/admin/reprendre-plus-tard/delete/<token>", methods=["POST"])
