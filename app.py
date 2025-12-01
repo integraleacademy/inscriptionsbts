@@ -760,6 +760,37 @@ def admin_reprendre_plus_tard():
     return render_template("admin_reprendre_plus_tard.html", rows=rows)
 
 
+@app.route("/admin/reprendre-plus-tard/delete/<token>", methods=["POST"])
+def admin_delete_draft(token):
+    if not require_admin():
+        abort(403)
+
+    DATA_DIR = os.getenv("DATA_DIR", "/data")
+    DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
+
+    drafts = []
+    if os.path.exists(DRAFT_PATH):
+        try:
+            with open(DRAFT_PATH, "r", encoding="utf-8") as f:
+                drafts = json.load(f)
+        except:
+            drafts = []
+
+    # supprimer le bon token
+    new_drafts = [d for d in drafts if d.get("id") != token]
+
+    # écrire le fichier
+    try:
+        with open(DRAFT_PATH, "w", encoding="utf-8") as f:
+            json.dump(new_drafts, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print("❌ Erreur écriture drafts.json :", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+    print(f"🗑️ Brouillon supprimé : {token}")
+    return jsonify({"ok": True})
+
+
 @app.route("/admin/delete-draft/<draft_id>", methods=["POST"])
 def admin_delete_draft(draft_id):
     if not require_admin():
