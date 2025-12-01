@@ -79,6 +79,12 @@
 
     <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
     <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
+    <a href="{{ url_for('admin_pole_alternance') }}" 
+   class="btn secondary" 
+   style="display:inline-flex;align-items:center;gap:6px;">
+  👥 Pôle Alternance
+</a>
+
 
     <form action="{{ url_for('admin_clear_db') }}" method="post" style="display:inline"
           onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir tout effacer ? Cette action est irréversible.')">
