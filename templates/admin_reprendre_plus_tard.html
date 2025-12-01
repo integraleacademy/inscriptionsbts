@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>⏳ Dossiers "Reprendre plus tard"</h2>
+<p>Voici les candidats qui ont commencé une pré-inscription sans l'envoyer.</p>
+
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>N°</th>
+      <th>Nom</th>
+      <th>Prénom</th>
+      <th>Email</th>
+      <th>Téléphone</th>
+      <th>Dernière mise à jour</th>
+      <th>Espace candidat</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.numero_dossier }}</td>
+      <td>{{ row.nom }}</td>
+      <td>{{ row.prenom }}</td>
+      <td>{{ row.email }}</td>
+      <td>{{ row.tel }}</td>
+      <td>{{ row.updated_at[:16].replace('T',' ') }}</td>
+      <td>
+        <a href="/espace/{{ row.slug_public }}" class="btn small-btn">🔎 Voir</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}
