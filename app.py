@@ -725,11 +725,12 @@ def admin_pole_alternance():
                            statuts=STATUTS,
                            now=datetime.now)
 
+
 @app.route("/admin/reprendre-plus-tard")
 def admin_reprendre_plus_tard():
     # 🔐 Même protection que l’admin
-    if session.get("email") != "clement@integraleacademy.com":
-        return redirect("/admin")
+    if not require_admin():
+        return redirect("/login")
 
     DATA_DIR = os.getenv("DATA_DIR", "/data")
     DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
@@ -743,11 +744,9 @@ def admin_reprendre_plus_tard():
         except:
             drafts = []
 
-    # 🔁 Transformer les brouillons en un format exploitable par le template
     rows = []
     for d in drafts:
         form = d.get("full_form", {})
-
         rows.append({
             "numero_dossier": form.get("numero_dossier", "—"),
             "nom": form.get("nom", "—"),
@@ -756,6 +755,7 @@ def admin_reprendre_plus_tard():
             "tel": form.get("tel", "—"),
             "updated_at": d.get("timestamp", "—"),
             "slug_public": form.get("slug_public", ""),
+            "resume_link": d.get("resume_link", "#"),
         })
 
     return render_template("admin_reprendre_plus_tard.html", rows=rows)
