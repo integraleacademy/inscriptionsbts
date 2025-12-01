@@ -453,17 +453,19 @@ document.querySelectorAll("input[name='cherche_idf']").forEach(radio => {
   if (form) {
     form.addEventListener('submit', (e) => {
 
-      // === Vérification taille des fichiers AVANT envoi ===
+// === Vérification taille des fichiers AVANT envoi ===
 const maxSize = 8 * 1024 * 1024; // 8 Mo par fichier
 for (const input of form.querySelectorAll('input[type="file"]')) {
   for (const file of input.files) {
     if (file.size > maxSize) {
       e.preventDefault();
+      e.stopImmediatePropagation();   // ⛔ bloque tous les autres scripts
       alert(`❌ Le fichier "${file.name}" est trop volumineux (max 8 Mo).`);
-      return;
+      return false;                    // ⛔ empêche la réinitialisation
     }
   }
 }
+
 
       // ✅ Vérif téléphone
       const tel = document.querySelector('input[name="tel"]');
@@ -1264,6 +1266,7 @@ function applyDraft() {
 document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
+
 
 
 
