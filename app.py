@@ -685,6 +685,47 @@ def admin_login():
 def health():
     return "ok"
 
+@app.route("/login-pole", methods=["GET", "POST"])
+def pole_login():
+    error = None
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "").strip()
+
+        # 🔐 Identifiants autorisés
+        if email == "eric@polealternance.fr" and password == "polealternance":
+            session["polealternance"] = True
+            return redirect("/admin/pole-alternance")
+
+        error = "Identifiants incorrects."
+
+    return render_template("pole_login.html", error=error)
+
+
+@app.route("/admin/pole-alternance")
+def admin_pole_alternance():
+    # 🔐 Protection d’accès
+    if not session.get("polealternance") and session.get("email") != "clement@integraleacademy.com":
+        return redirect("/login-pole")
+
+    conn = get_db()
+    cur = conn.cursor()
+
+    # 🔍 On récupère uniquement les candidats accompagnés
+    rows = cur.execute("""
+        SELECT *
+        FROM candidats
+        WHERE souhaite_accompagnement = 'oui'
+        ORDER BY created_at DESC
+    """).fetchall()
+
+    return render_template("admin_pole_alternance.html",
+                           rows=rows,
+                           statuts=STATUTS,
+                           now=datetime.now)
+
+
 # =====================================================
 # 🎯 Vérifie et ajoute la colonne "souhaite_accompagnement" si manquante
 # =====================================================
