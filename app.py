@@ -212,6 +212,20 @@ def load_verif_docs(row):
 
 
 app = Flask(__name__)
+# 🔒 Limite maximale pour les uploads (50 Mo)
+app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+
+# 🛑 Erreur fichiers trop lourds (413)
+@app.errorhandler(413)
+def too_large(e):
+    return (
+        render_template(
+            "error_upload.html",
+            message="Le fichier que vous essayez d’envoyer est trop volumineux (maximum 8 Mo par fichier)."
+        ),
+        413
+    )
+     
 app.secret_key = os.getenv("SECRET_KEY", "change-me")
 # 🔐 Protection du module Parcoursup (toutes les routes /parcoursup)
 @bp_parcoursup.before_request
