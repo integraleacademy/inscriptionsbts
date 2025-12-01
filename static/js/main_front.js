@@ -1267,6 +1267,17 @@ document.addEventListener("DOMContentLoaded", () => {
   applyDraft();
 });
 
+// === Si l’URL contient #tab5, on force l'ouverture de l'étape fichiers ===
+document.addEventListener("DOMContentLoaded", () => {
+  if (window.location.hash === "#tab5") {
+    setTimeout(() => {
+      showStep(4); // Étape 5 = index 4
+    }, 200);
+  }
+});
+
+
+
 
 
 
