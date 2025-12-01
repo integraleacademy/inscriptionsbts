@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="max-width:700px;margin:80px auto;padding:40px;text-align:center;background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
+  <h2>📁 Fichier trop volumineux</h2>
+  <p style="font-size:1.1em;margin-top:15px;">
+    {{ message }}
+  </p>
+  <p style="margin-top:20px;">
+    Merci de réduire la taille du fichier ou de choisir un autre fichier avant de recommencer.
+  </p>
+  <a href="/" class="btn primary" style="margin-top:25px;display:inline-block;">🔙 Retour au formulaire</a>
+</div>
+
+{% endblock %}
