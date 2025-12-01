@@ -735,9 +735,8 @@ def admin_reprendre_plus_tard():
     DATA_DIR = os.getenv("DATA_DIR", "/data")
     DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
 
-    if not os.path.exists(DRAFT_PATH):
-        drafts = []
-    else:
+    drafts = []
+    if os.path.exists(DRAFT_PATH):
         try:
             with open(DRAFT_PATH, "r", encoding="utf-8") as f:
                 drafts = json.load(f)
@@ -747,18 +746,18 @@ def admin_reprendre_plus_tard():
     rows = []
     for d in drafts:
         form = d.get("full_form", {})
+
         rows.append({
-            "numero_dossier": form.get("numero_dossier", "—"),
             "nom": form.get("nom", "—"),
             "prenom": form.get("prenom", "—"),
             "email": form.get("email", "—"),
-            "tel": form.get("tel", "—"),
+            "bts": form.get("bts", "—"),
             "updated_at": d.get("timestamp", "—"),
-            "slug_public": form.get("slug_public", ""),
-            "resume_link": d.get("resume_link", "#"),
+            "resume_link": d.get("resume_link", "#")
         })
 
     return render_template("admin_reprendre_plus_tard.html", rows=rows)
+
 
 
 
