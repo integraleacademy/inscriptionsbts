@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div style="max-width:900px;margin:30px auto;background:#fff;padding:25px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
+<div style="max-width:1100px;margin:30px auto;background:#fff;padding:25px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,0.08);">
 
   <h2>⏳ Brouillons — Reprendre plus tard</h2>
 
@@ -15,9 +15,11 @@
         <th style="padding:10px;">Téléphone</th>
         <th style="padding:10px;">BTS</th>
         <th style="padding:10px;">Date</th>
+        <th style="padding:10px;">Inscription</th>
         <th style="padding:10px;">Action</th>
       </tr>
     </thead>
+
     <tbody>
       {% for r in rows %}
       <tr style="border-bottom:1px solid #ddd;" data-id="{{ r.id }}">
@@ -26,6 +28,7 @@
         <td style="padding:8px;">{{ r.email }}</td>
         <td style="padding:8px;">{{ r.tel }}</td>
         <td style="padding:8px;">{{ r.bts }}</td>
+
         <td style="padding:8px;">
           {% if r.updated_at %}
             {{ r.updated_at[:16].replace('T',' à ') }}
@@ -33,9 +36,19 @@
             —
           {% endif %}
         </td>
+
+        <!-- 🟢 / 🔴 INSCRIPTION -->
+        <td style="padding:8px;font-weight:600;text-align:center;">
+          {% if r.deja_inscrit %}
+            <span style="color:#28a745;">🟢 Inscrit</span>
+          {% else %}
+            <span style="color:#dc3545;">🔴 Pas inscrit</span>
+          {% endif %}
+        </td>
+
         <td style="padding:8px;display:flex;gap:6px;">
 
-          <!-- 🔗 Ouvrir le brouillon -->
+          <!-- 🔗 Ouvrir -->
           <a href="{{ r.resume_link }}" target="_blank"
              style="background:#007bff;color:white;padding:6px 10px;border-radius:6px;text-decoration:none;font-weight:600;">
              🔗 Ouvrir
@@ -78,7 +91,6 @@ async function deleteDraft(token) {
         const data = await res.json();
 
         if (data.ok) {
-            // Supprimer instantanément la ligne dans le tableau
             const row = document.querySelector(`tr[data-id="${token}"]`);
             if (row) row.remove();
         } else {
@@ -93,4 +105,3 @@ async function deleteDraft(token) {
 </script>
 
 {% endblock %}
-
