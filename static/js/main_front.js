@@ -140,12 +140,17 @@ if (stepIndex === 1) {
     valid = false;
   }
 
+  
+  
+
     // 🚫 COUPE TOUTE VALIDATION APS SI BTS ≠ MOS
   if (btsVal !== "MOS") {
     document.querySelectorAll('input[name="aps_souhaitee"]').forEach(r => r.required = false);
     document.querySelectorAll('input[name="aps_session"]').forEach(r => r.required = false);
     const raison = document.querySelector('textarea[name="raison_aps"]');
     if (raison) raison.required = false;
+
+    
 
     return valid; // ⬅⬅⬅ OBLIGATOIRE : on arrête la validation ici
   }
@@ -306,6 +311,22 @@ if (stepIndex === 3) {
 
   valid = ok;
 }
+
+    // 🔹 Étape 5 : vérification taille des fichiers AVANT de passer au récap
+if (stepIndex === 4) {
+  const maxSize = 8 * 1024 * 1024; // 8 Mo
+  const fileInputs = document.querySelectorAll('#tab5 input[type="file"]');
+
+  for (const input of fileInputs) {
+    for (const file of input.files) {
+      if (file.size > maxSize) {
+        alert(`❌ Le fichier "${file.name}" dépasse la limite de 8 Mo. Merci de choisir un fichier plus léger.`);
+        return false; // ⛔ bloque l’avancement
+      }
+    }
+  }
+}
+
 
 
     return valid;
@@ -1275,6 +1296,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 200);
   }
 });
+
 
 
 
