@@ -314,18 +314,30 @@ if (stepIndex === 3) {
 
 // 🔹 Étape 5 : vérification taille des fichiers AVANT de passer au récap
 if (stepIndex === 4) {
-  const maxSize = 7 * 1024 * 1024; // 7 Mo pour éviter un blocage Render
+  const maxSize = 7 * 1024 * 1024; // 7 Mo
   const fileInputs = document.querySelectorAll('#tab5 input[type="file"]');
 
+  let erreurs = []; // ← on stocke toutes les erreurs ici
+
   for (const input of fileInputs) {
-    const label = input.dataset.label || input.name || "Ce fichier";
+    const label = input.dataset.label || input.name || "Fichier";
 
     for (const file of input.files) {
       if (file.size > maxSize) {
-        alert(`❌ ${label} : le fichier "${file.name}" dépasse la limite de 7 Mo.\n\nMerci de sélectionner un fichier plus léger.`);
-        return false; // ⛔ bloque l’avancement
+        const tailleMo = (file.size / 1024 / 1024).toFixed(1);
+        erreurs.push(`- ${label} : "${file.name}" (${tailleMo} Mo)`);
       }
     }
+  }
+
+  // S'il y a une ou plusieurs erreurs → on affiche un seul message global
+  if (erreurs.length > 0) {
+    alert(
+      "❌ Certains fichiers dépassent la limite de 7 Mo :\n\n" +
+      erreurs.join("\n") +
+      "\n\nMerci de sélectionner des fichiers plus légers."
+    );
+    return false;
   }
 }
 
@@ -1299,6 +1311,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 200);
   }
 });
+
 
 
 
