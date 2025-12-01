@@ -709,7 +709,7 @@ def admin_pole_alternance():
     if not session.get("polealternance") and session.get("email") != "clement@integraleacademy.com":
         return redirect("/login-pole")
 
-    conn = get_db()
+    conn = db()
     cur = conn.cursor()
 
     # 🔍 On récupère uniquement les candidats accompagnés
