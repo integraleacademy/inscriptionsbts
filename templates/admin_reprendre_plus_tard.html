@@ -24,17 +24,23 @@
         <td style="padding:8px;">{{ r.prenom }}</td>
         <td style="padding:8px;">{{ r.email }}</td>
         <td style="padding:8px;">{{ r.bts }}</td>
-        <td style="padding:8px;">{{ r.updated_at[:16].replace('T',' à ') }}</td>
+        <td style="padding:8px;">
+          {% if r.updated_at %}
+            {{ r.updated_at[:16].replace('T',' à ') }}
+          {% else %}
+            —
+          {% endif %}
+        </td>
         <td style="padding:8px;display:flex;gap:6px;">
 
-          <!-- 🔗 Ouvrir -->
+          <!-- 🔗 Ouvrir le brouillon -->
           <a href="{{ r.resume_link }}" target="_blank"
              style="background:#007bff;color:white;padding:6px 10px;border-radius:6px;text-decoration:none;font-weight:600;">
              🔗 Ouvrir
           </a>
 
           <!-- 🗑️ Supprimer -->
-          <button onclick="deleteDraft('{{ r.id }}')" 
+          <button onclick="deleteDraft('{{ r.id }}')"
                   style="background:#dc3545;color:white;padding:6px 10px;border-radius:6px;font-weight:600;border:none;cursor:pointer;">
             🗑️ Supprimer
           </button>
@@ -44,6 +50,7 @@
       {% endfor %}
     </tbody>
   </table>
+
   {% else %}
 
   <p style="text-align:center;font-size:17px;color:#555;margin-top:40px;">
@@ -54,24 +61,31 @@
 
 </div>
 
+<!-- ========================== -->
+<!-- 🚮 SCRIPT SUPPRESSION -->
+<!-- ========================== -->
 <script>
-async function deleteDraft(id) {
+async function deleteDraft(token) {
     if (!confirm("⚠️ Supprimer ce brouillon ?")) return;
 
-    const res = await fetch("/admin/delete-draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id })
-    });
+    try {
+        const res = await fetch(`/admin/reprendre-plus-tard/delete/${token}`, {
+            method: "POST"
+        });
 
-    const data = await res.json();
+        const data = await res.json();
 
-    if (data.ok) {
-        // Supprime la ligne du tableau
-        const row = document.querySelector(`tr[data-id="${id}"]`);
-        if (row) row.remove();
-    } else {
-        alert("Erreur : " + data.error);
+        if (data.ok) {
+            // Supprimer instantanément la ligne dans le tableau
+            const row = document.querySelector(`tr[data-id="${token}"]`);
+            if (row) row.remove();
+        } else {
+            alert("Erreur : " + (data.error || "inconnue"));
+        }
+
+    } catch (error) {
+        alert("Une erreur est survenue : " + error);
+        console.error(error);
     }
 }
 </script>
