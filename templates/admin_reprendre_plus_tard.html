@@ -12,6 +12,7 @@
         <th style="padding:10px;">Nom</th>
         <th style="padding:10px;">Prénom</th>
         <th style="padding:10px;">Email</th>
+        <th style="padding:10px;">Téléphone</th>
         <th style="padding:10px;">BTS</th>
         <th style="padding:10px;">Date</th>
         <th style="padding:10px;">Action</th>
@@ -23,6 +24,7 @@
         <td style="padding:8px;">{{ r.nom }}</td>
         <td style="padding:8px;">{{ r.prenom }}</td>
         <td style="padding:8px;">{{ r.email }}</td>
+        <td style="padding:8px;">{{ r.tel }}</td>
         <td style="padding:8px;">{{ r.bts }}</td>
         <td style="padding:8px;">
           {% if r.updated_at %}
@@ -91,3 +93,4 @@ async function deleteDraft(token) {
 </script>
 
 {% endblock %}
+
