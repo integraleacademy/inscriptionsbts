@@ -19,17 +19,26 @@
     </thead>
     <tbody>
       {% for r in rows %}
-      <tr style="border-bottom:1px solid #ddd;">
+      <tr style="border-bottom:1px solid #ddd;" data-id="{{ r.id }}">
         <td style="padding:8px;">{{ r.nom }}</td>
         <td style="padding:8px;">{{ r.prenom }}</td>
         <td style="padding:8px;">{{ r.email }}</td>
         <td style="padding:8px;">{{ r.bts }}</td>
         <td style="padding:8px;">{{ r.updated_at[:16].replace('T',' à ') }}</td>
-        <td style="padding:8px;">
+        <td style="padding:8px;display:flex;gap:6px;">
+
+          <!-- 🔗 Ouvrir -->
           <a href="{{ r.resume_link }}" target="_blank"
              style="background:#007bff;color:white;padding:6px 10px;border-radius:6px;text-decoration:none;font-weight:600;">
              🔗 Ouvrir
           </a>
+
+          <!-- 🗑️ Supprimer -->
+          <button onclick="deleteDraft('{{ r.id }}')" 
+                  style="background:#dc3545;color:white;padding:6px 10px;border-radius:6px;font-weight:600;border:none;cursor:pointer;">
+            🗑️ Supprimer
+          </button>
+
         </td>
       </tr>
       {% endfor %}
@@ -44,5 +53,27 @@
   {% endif %}
 
 </div>
+
+<script>
+async function deleteDraft(id) {
+    if (!confirm("⚠️ Supprimer ce brouillon ?")) return;
+
+    const res = await fetch("/admin/delete-draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id })
+    });
+
+    const data = await res.json();
+
+    if (data.ok) {
+        // Supprime la ligne du tableau
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) row.remove();
+    } else {
+        alert("Erreur : " + data.error);
+    }
+}
+</script>
 
 {% endblock %}
