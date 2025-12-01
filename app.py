@@ -791,32 +791,6 @@ def admin_delete_draft(token):
     return jsonify({"ok": True})
 
 
-@app.route("/admin/delete-draft/<draft_id>", methods=["POST"])
-def admin_delete_draft(draft_id):
-    if not require_admin():
-        abort(403)
-
-    DATA_DIR = os.getenv("DATA_DIR", "/data")
-    DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
-
-    try:
-        with open(DRAFT_PATH, "r", encoding="utf-8") as f:
-            drafts = json.load(f)
-    except:
-        drafts = []
-
-    # 🔥 Filtre : supprime le draft correspondant
-    drafts = [d for d in drafts if d.get("id") != draft_id]
-
-    # 🔄 Réécrit le fichier
-    with open(DRAFT_PATH, "w", encoding="utf-8") as f:
-        json.dump(drafts, f, indent=2, ensure_ascii=False)
-
-    return jsonify({"ok": True})
-
-
-
-
 
 # =====================================================
 # 🎯 Vérifie et ajoute la colonne "souhaite_accompagnement" si manquante
