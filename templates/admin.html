@@ -161,41 +161,53 @@
 </div>
 
 <style>
-/* ======== LAYOUT DU DASHBOARD ======== */
+/* ======== DASHBOARD FIX – 1 LIGNE ======== */
 .ia-dashboard {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 18px;
-  padding: 20px 0;
-  max-width: 1400px;
-  margin: 0 auto 25px auto;
+  flex-wrap: nowrap;        /* 🔥 Force une seule ligne */
+  justify-content: flex-start;
+  gap: 12px;
+  overflow-x: auto;         /* 🔥 Ajoute un scroll horizontal si pas assez de place */
+  padding: 10px 0 20px 0;
+  margin-bottom: 10px;
 }
 
-/* ======== CARDS KPI ======== */
+.ia-dashboard::-webkit-scrollbar {
+  height: 6px;
+}
+.ia-dashboard::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+/* ======== CARDS ======== */
 .kpi-card {
-  flex: 1;
-  min-width: 180px;
-  max-width: 230px;
+  flex: 0 0 180px;          /* 🔥 Largeur fixe pour tenir en ligne */
   background: #fff;
-  border-radius: 16px;
-  padding: 20px 22px;
+  border-radius: 14px;
+  padding: 18px;
   display: flex;
   align-items: center;
-  gap: 14px;
-  box-shadow: 0 3px 12px rgba(0,0,0,0.08);
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border: 1px solid #eee;
-  transition: 0.25s ease;
+  transition: 0.2s;
+  white-space: nowrap;      /* Empêche les retours à la ligne */
 }
 
 .kpi-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 22px rgba(0,0,0,0.12);
+  transform: translateY(-3px);
 }
 
-/* ======== ICONES ======== */
-.kpi-icon { font-size: 32px; }
+.kpi-icon {
+  font-size: 28px;
+}
 
+.kpi-info { display:flex; flex-direction:column; }
+.kpi-value { font-size: 22px; font-weight: 700; }
+.kpi-label { font-size: 13px; color:#666; }
+
+/* ======== Couleurs ======== */
 .icon-gray  { color:#777; }
 .icon-blue  { color:#3a7bd5; }
 .icon-gold  { color:#f4c45a; }
@@ -203,12 +215,8 @@
 .icon-green { color:#4caf50; }
 .icon-red   { color:#e53935; }
 .icon-black { color:#222; }
-
-/* ======== TEXTES ======== */
-.kpi-info { display:flex; flex-direction:column; }
-.kpi-value { font-size: 26px; font-weight: 700; }
-.kpi-label { font-size: 13px; color:#555; }
 </style>
+
 
 
 
