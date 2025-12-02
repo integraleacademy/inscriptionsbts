@@ -62,6 +62,43 @@
   <!-- 🔝 En-tête -->
 <header class="admin-header">
 
+
+  
+
+  <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
+
+  <button class="btn primary" id="btnPortal">
+  🔒 Gestion Portail
+</button>
+
+    <button class="btn gold" id="btnMassReconfirm" style="margin-left:10px;">
+    📢 Envoyer reconfirmation à tous
+  </button>
+
+  <div class="admin-actions">
+    <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;">
+      📋 Gestion Parcoursup
+    </a>
+
+    <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
+    <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
+    <a href="/admin/reprendre-plus-tard" class="btn small-btn" style="background:#6c757d;">
+  ⏳ Reprendre plus tard
+</a>
+    <a href="{{ url_for('admin_pole_alternance') }}" 
+   class="btn secondary" 
+   style="display:inline-flex;align-items:center;gap:6px;">
+  👥 Pôle Alternance
+</a>
+
+
+    <form action="{{ url_for('admin_clear_db') }}" method="post" style="display:inline"
+          onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir tout effacer ? Cette action est irréversible.')">
+      <button class="btn danger">🗑️ Vider la base</button>
+    </form>
+  </div>
+</header>
+
 <!-- 📊 DASHBOARD INTÉGRALE ACADEMY -->
 <div class="ia-dashboard">
   
@@ -124,116 +161,56 @@
 </div>
 
 <style>
+/* ======== LAYOUT DU DASHBOARD ======== */
 .ia-dashboard {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 18px;
   padding: 20px 0;
-  border-bottom: 1px solid #ddd;
   max-width: 1400px;
-  margin: 0 auto 10px;
+  margin: 0 auto 25px auto;
 }
 
-/* Card */
+/* ======== CARDS KPI ======== */
 .kpi-card {
+  flex: 1;
+  min-width: 180px;
+  max-width: 230px;
   background: #fff;
-  border-radius: 14px;
-  padding: 16px 20px;
+  border-radius: 16px;
+  padding: 20px 22px;
   display: flex;
   align-items: center;
   gap: 14px;
-  min-width: 240px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.08);
   border: 1px solid #eee;
-  transition: 0.2s ease;
+  transition: 0.25s ease;
 }
 
 .kpi-card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
+  box-shadow: 0 6px 22px rgba(0,0,0,0.12);
 }
 
-/* Icones */
-.kpi-icon {
-  font-size: 32px;
-}
+/* ======== ICONES ======== */
+.kpi-icon { font-size: 32px; }
 
-.icon-gray  { color: #777; }
-.icon-blue  { color: #3a7bd5; }
-.icon-gold  { color: #f4c45a; }
-.icon-orange{ color: #ff8800; }
-.icon-green { color: #4caf50; }
-.icon-red   { color: #e53935; }
-.icon-black { color: #111; }
+.icon-gray  { color:#777; }
+.icon-blue  { color:#3a7bd5; }
+.icon-gold  { color:#f4c45a; }
+.icon-orange{ color:#ff8800; }
+.icon-green { color:#4caf50; }
+.icon-red   { color:#e53935; }
+.icon-black { color:#222; }
 
-/* Texte */
-.kpi-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.kpi-value {
-  font-size: 30px;
-  font-weight: 700;
-  color: #111;
-  line-height: 1.2;
-}
-
-.kpi-label {
-  font-size: 14px;
-  color: #555;
-  font-weight: 500;
-}
+/* ======== TEXTES ======== */
+.kpi-info { display:flex; flex-direction:column; }
+.kpi-value { font-size: 26px; font-weight: 700; }
+.kpi-label { font-size: 13px; color:#555; }
 </style>
 
 
-<style>
-  .stat-card {
-    background:#fff;
-    border:1px solid #ddd;
-    padding:10px 14px;
-    border-radius:10px;
-    font-weight:600;
-    font-size:14px;
-    box-shadow:0 2px 6px rgba(0,0,0,0.05);
-  }
-</style>
-
-  
-
-  <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
-
-  <button class="btn primary" id="btnPortal">
-  🔒 Gestion Portail
-</button>
-
-    <button class="btn gold" id="btnMassReconfirm" style="margin-left:10px;">
-    📢 Envoyer reconfirmation à tous
-  </button>
-
-  <div class="admin-actions">
-    <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;">
-      📋 Gestion Parcoursup
-    </a>
-
-    <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
-    <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
-    <a href="/admin/reprendre-plus-tard" class="btn small-btn" style="background:#6c757d;">
-  ⏳ Reprendre plus tard
-</a>
-    <a href="{{ url_for('admin_pole_alternance') }}" 
-   class="btn secondary" 
-   style="display:inline-flex;align-items:center;gap:6px;">
-  👥 Pôle Alternance
-</a>
-
-
-    <form action="{{ url_for('admin_clear_db') }}" method="post" style="display:inline"
-          onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir tout effacer ? Cette action est irréversible.')">
-      <button class="btn danger">🗑️ Vider la base</button>
-    </form>
-  </div>
-</header>
 
 
   <!-- 🔎 Barre de filtres -->
