@@ -1692,6 +1692,38 @@ async function onStatusChange(sel) {
   }
 }
 
+// =====================================================
+// 📊 CHARGEMENT DES STATISTIQUES ADMIN
+// =====================================================
+async function loadAdminStats() {
+  try {
+    const res = await fetch("/admin/stats");
+    const data = await res.json();
+    if (!data.ok) return;
+
+    const s = data.stats;
+
+    document.getElementById("st_pre").textContent = s.preinscription;
+    document.getElementById("st_val").textContent = s.validee;
+    document.getElementById("st_conf").textContent = s.confirmee;
+    document.getElementById("st_reconf").textContent = s.reconf_en_cours;
+    document.getElementById("st_reconf2").textContent = s.reconfirmee;
+    document.getElementById("st_ann").textContent = s.annulee;
+    document.getElementById("st_docs").textContent = s.docs_non_conformes;
+
+  } catch (err) {
+    console.error("Erreur stats admin :", err);
+  }
+}
+
+// 🔄 Charge au démarrage
+document.addEventListener("DOMContentLoaded", loadAdminStats);
+
+// 🔁 Recharge toutes les 60 secondes
+setInterval(loadAdminStats, 60000);
+
+
+
 
 
 
