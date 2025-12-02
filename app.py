@@ -1349,6 +1349,40 @@ def admin():
     rows = [r for r in rows if match(r)]
     return render_template("admin.html", title="Administration", rows=rows, statuts=STATUTS)
 
+@app.get("/api/kpi")
+def api_kpi():
+    """
+    Renvoie les stats pour la barre de KPI en haut de l'admin.
+    Les clés renvoyées correspondent aux statuts dans la table `candidats`.
+    """
+
+    import sqlite3  # au cas où ça ne soit pas déjà importé tout en haut
+
+    # ⚠️ Adapte DB_PATH si ton projet utilise un autre nom de variable
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    # 🧮 Statuts à compter
+    stats = {
+        "preinscription": 0,
+        "validee": 0,
+        "confirmee": 0,
+        "reconf_en_cours": 0,
+        "reconfirmee": 0,
+        "annulee": 0,
+        "docs_non_conformes": 0,
+    }
+
+    for statut in stats.keys():
+        cur.execute("SELECT COUNT(*) AS c FROM candidats WHERE statut = ?", (statut,))
+        row = cur.fetchone()
+        stats[statut] = row["c"] if row else 0
+
+    conn.close()
+    return jsonify(stats)
+c
+
 # =====================================================
 # 🔁 API JSON – Liste simplifiée des candidats pour refresh auto
 # =====================================================
