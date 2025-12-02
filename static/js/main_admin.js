@@ -1404,6 +1404,7 @@ setTimeout(() => {
 }, 500);
 
       showToast("🔁 Tableau actualisé", "#007bff");
+      if (window.refreshKPI) refreshKPI();
 
       newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
       // 🧩 Rebinding après refresh
@@ -1571,6 +1572,10 @@ async function refreshRow(id) {
     // 🪄 Aligne verticalement
     tr.style.verticalAlign = "middle";
     tr.querySelectorAll("td").forEach(td => (td.style.verticalAlign = "middle"));
+
+    // 👉 MET À JOUR LES KPI IMMÉDIATEMENT
+    await refreshKPI();
+    
   } catch (err) {
     console.warn("Erreur refreshRow:", err);
   }
@@ -1719,8 +1724,7 @@ async function loadAdminStats() {
 // 🔄 Charge au démarrage
 document.addEventListener("DOMContentLoaded", loadAdminStats);
 
-// 🔁 Recharge toutes les 60 secondes
-setInterval(loadAdminStats, 60000);
+
 
 
 
