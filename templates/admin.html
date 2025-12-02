@@ -615,16 +615,14 @@ checkBrevo();
 setInterval(checkBrevo, 10000);
 </script>
 
+   
+
     <script>
-// =========================
-//  🔄 REFRESH AUTO DES KPI
-// =========================
 async function refreshKPI() {
     try {
         const r = await fetch("/api/kpi");
         const data = await r.json();
 
-        // Mise à jour visuelle
         document.getElementById("st_pre").innerText = data.preinscription;
         document.getElementById("st_val").innerText = data.validee;
         document.getElementById("st_conf").innerText = data.confirmee;
@@ -632,27 +630,10 @@ async function refreshKPI() {
         document.getElementById("st_reconf2").innerText = data.reconfirmee;
         document.getElementById("st_ann").innerText = data.annulee;
         document.getElementById("st_docs").innerText = data.docs_non_conformes;
-
     } catch (e) {
         console.log("Erreur KPI", e);
     }
 }
-
-// =========================
-// 🔁 COUPLAGE AVEC AUTO-REFRESH EXISTANT
-// =========================
-function startAutoRefresh() {
-    // ton interval actuel rafraîche déjà les lignes, on ajoute KPI :
-    setInterval(() => {
-        if (window.autoRefreshEnabled) {
-            refreshKPI();
-        }
-    }, 5000); // toutes les 5 sec
-}
-
-// On lance l’écoute
-startAutoRefresh();
-refreshKPI(); // premier chargement
 </script>
 
 
