@@ -1381,7 +1381,6 @@ def api_kpi():
 
     conn.close()
     return jsonify(stats)
-c
 
 # =====================================================
 # 🔁 API JSON – Liste simplifiée des candidats pour refresh auto
