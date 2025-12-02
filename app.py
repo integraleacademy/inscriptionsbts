@@ -3458,12 +3458,14 @@ def brevo_status():
 
 @app.route("/admin/stats")
 def admin_stats():
-    conn = sqlite3.connect("db.sqlite")
-    conn.row_factory = sqlite3.Row
+    if not require_admin():
+        abort(403)
+
+    conn = db()
     cur = conn.cursor()
 
-    def count(status):
-        cur.execute("SELECT COUNT(*) FROM candidats WHERE statut=?", (status,))
+    def count(statut):
+        cur.execute("SELECT COUNT(*) FROM candidats WHERE statut=?", (statut,))
         return cur.fetchone()[0]
 
     stats = {
@@ -3473,10 +3475,12 @@ def admin_stats():
         "reconf_en_cours": count("reconf_en_cours"),
         "reconfirmee": count("reconfirmee"),
         "annulee": count("annulee"),
-        "docs_non_conformes": count("docs_non_conformes")
+        "docs_non_conformes": count("docs_non_conformes"),
     }
 
+    conn.close()
     return jsonify(ok=True, stats=stats)
+
 
 
 # =====================================================
