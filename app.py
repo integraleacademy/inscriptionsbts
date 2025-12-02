@@ -3456,6 +3456,29 @@ def brevo_status():
     except:
         return {"status": "error", "code": "exception"}
 
+@app.route("/admin/stats")
+def admin_stats():
+    conn = sqlite3.connect("db.sqlite")
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+
+    def count(status):
+        cur.execute("SELECT COUNT(*) FROM candidats WHERE statut=?", (status,))
+        return cur.fetchone()[0]
+
+    stats = {
+        "preinscription": count("preinscription"),
+        "validee": count("validee"),
+        "confirmee": count("confirmee"),
+        "reconf_en_cours": count("reconf_en_cours"),
+        "reconfirmee": count("reconfirmee"),
+        "annulee": count("annulee"),
+        "docs_non_conformes": count("docs_non_conformes")
+    }
+
+    return jsonify(ok=True, stats=stats)
+
+
 # =====================================================
 # 📩 ENVOI MANUEL DU MAIL APS (bouton dans l’admin)
 # =====================================================
