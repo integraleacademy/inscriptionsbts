@@ -62,24 +62,130 @@
   <!-- 🔝 En-tête -->
 <header class="admin-header">
 
-  <!-- 📊 STATISTIQUES -->
-<div id="adminStats" 
-     style="
-       margin:20px 0;
-       display:flex;
-       gap:12px;
-       flex-wrap:wrap;
-     ">
+<!-- 📊 DASHBOARD INTÉGRALE ACADEMY -->
+<div class="ia-dashboard">
   
-  <div class="stat-card">Pré-inscriptions à traiter : <strong id="st_pre"></strong></div>
-  <div class="stat-card">Candidatures validées : <strong id="st_val"></strong></div>
-  <div class="stat-card">Inscriptions confirmées : <strong id="st_conf"></strong></div>
-  <div class="stat-card">Reconfirmation en cours : <strong id="st_reconf"></strong></div>
-  <div class="stat-card">Re-confirmées : <strong id="st_reconf2"></strong></div>
-  <div class="stat-card">Inscriptions annulées : <strong id="st_ann"></strong></div>
-  <div class="stat-card">Docs non conformes : <strong id="st_docs"></strong></div>
+  <div class="kpi-card">
+    <div class="kpi-icon icon-gray">📝</div>
+    <div class="kpi-info">
+      <div class="kpi-value" id="st_pre">—</div>
+      <div class="kpi-label">Pré-inscriptions</div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon icon-blue">📤</div>
+    <div class="kpi-info">
+      <div class="kpi-value" id="st_val">—</div>
+      <div class="kpi-label">Validées</div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon icon-gold">🎓</div>
+    <div class="kpi-info">
+      <div class="kpi-value" id="st_conf">—</div>
+      <div class="kpi-label">Confirmées</div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon icon-orange">⏳</div>
+    <div class="kpi-info">
+      <div class="kpi-value" id="st_reconf">—</div>
+      <div class="kpi-label">Reconf. en cours</div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon icon-green">✔️</div>
+    <div class="kpi-info">
+      <div class="kpi-value" id="st_reconf2">—</div>
+      <div class="kpi-label">Re-confirmées</div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon icon-red">❌</div>
+    <div class="kpi-info">
+      <div class="kpi-value" id="st_ann">—</div>
+      <div class="kpi-label">Annulées</div>
+    </div>
+  </div>
+
+  <div class="kpi-card">
+    <div class="kpi-icon icon-black">⚠️</div>
+    <div class="kpi-info">
+      <div class="kpi-value" id="st_docs">—</div>
+      <div class="kpi-label">Docs non conformes</div>
+    </div>
+  </div>
 
 </div>
+
+<style>
+.ia-dashboard {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 18px;
+  padding: 20px 0;
+  border-bottom: 1px solid #ddd;
+  max-width: 1400px;
+  margin: 0 auto 10px;
+}
+
+/* Card */
+.kpi-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 240px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  border: 1px solid #eee;
+  transition: 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-3px);
+}
+
+/* Icones */
+.kpi-icon {
+  font-size: 32px;
+}
+
+.icon-gray  { color: #777; }
+.icon-blue  { color: #3a7bd5; }
+.icon-gold  { color: #f4c45a; }
+.icon-orange{ color: #ff8800; }
+.icon-green { color: #4caf50; }
+.icon-red   { color: #e53935; }
+.icon-black { color: #111; }
+
+/* Texte */
+.kpi-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-value {
+  font-size: 30px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.2;
+}
+
+.kpi-label {
+  font-size: 14px;
+  color: #555;
+  font-weight: 500;
+}
+</style>
+
 
 <style>
   .stat-card {
