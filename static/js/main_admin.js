@@ -1724,6 +1724,23 @@ async function loadAdminStats() {
 // 🔄 Charge au démarrage
 document.addEventListener("DOMContentLoaded", loadAdminStats);
 
+function updateRowCount() {
+    const tbody = document.querySelector(".admin-table tbody");
+    if (!tbody) return;
+
+    // On compte uniquement les lignes visibles
+    const count = Array.from(tbody.querySelectorAll("tr"))
+        .filter(tr => tr.style.display !== "none")
+        .length;
+
+    const el = document.getElementById("rowCount");
+    if (el) {
+        el.textContent = `📊 ${count} ligne${count > 1 ? "s" : ""} affichée${count > 1 ? "s" : ""}`;
+    }
+}
+
+
+
 
 
 
