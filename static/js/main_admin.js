@@ -1742,6 +1742,13 @@ function updateRowCount() {
     }
 }
 
+// 🟢 Recalcule le nombre de lignes après chaque rechargement lié aux filtres
+document.addEventListener("DOMContentLoaded", () => {
+    updateRowCount();
+});
+
+
+
 
 
 
