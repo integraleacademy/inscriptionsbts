@@ -307,6 +307,9 @@ filesModal.addEventListener("click", async (e) => {
 
 } // ✅ FIN if(filesModal)
 
+  updateRowCount();
+
+
 }); // ✅ FIN DOMContentLoaded
 
 
@@ -1738,6 +1741,7 @@ function updateRowCount() {
         el.textContent = `📊 ${count} ligne${count > 1 ? "s" : ""} affichée${count > 1 ? "s" : ""}`;
     }
 }
+
 
 
 
