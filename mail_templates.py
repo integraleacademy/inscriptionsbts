@@ -1011,7 +1011,7 @@ def mail_html(template_name, **kwargs):
                 <p>Bonne journée ☀️<br><b>L’équipe Intégrale Academy</b></p>
             """
         }
-    }  # 👈 ici on ferme le dictionnaire, proprement.
+    }  # 👈 FIN du dictionnaire templates
 
     # === Sécurité : vérifie que le modèle existe ===
     tpl = templates.get(template_name)
@@ -1032,26 +1032,26 @@ def mail_html(template_name, **kwargs):
         email_content=tpl["content"],
         logo_url=logo_url
     )
+# 👈 ICI on ferme correctement mail_html()
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# ==========================================================
+# 🧩 Fonction de compatibilité pour l'ancien système
+# ==========================================================
+def get_mail_context(row, lien_espace="#"):
+    return {
+        "prenom": row.get("prenom", ""),
+        "bts_label": row.get("bts", ""),
+        "lien_espace": lien_espace,
+        "lien_confirmation": row.get("lien_confirmation", "#"),
+        "numero_dossier": row.get("numero_dossier", ""),
+        "form_nom": row.get("nom", row.get("form_nom", "")),
+        "form_prenom": row.get("prenom", row.get("form_prenom", "")),
+        "form_email": row.get("email", row.get("form_email", "")),
+        "form_tel": row.get("tel", row.get("form_tel", "")),
+        "form_mode_label": row.get("mode", row.get("form_mode_label", "")),
+    }
 
 
 
