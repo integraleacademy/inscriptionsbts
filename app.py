@@ -3294,7 +3294,7 @@ def admin_relance(cid):
         mail_html_content = mail_html(mail_tpl, **ctx)
 
         mail_subject = {
-            "candidature_validee": "Relance – Confirmez votre inscription au BTS",
+            "candidature_validee": "Relance – Confirmez votre inscription BTS en alternance",
             "reconfirmation": "Relance – Reconfirmez votre inscription",
             "docs_non_conformes": "Relance – Documents à compléter",
         }.get(action, "Relance – Intégrale Academy")
