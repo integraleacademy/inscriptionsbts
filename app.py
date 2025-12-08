@@ -3115,7 +3115,7 @@ def api_set_portal_status():
 
 
 # =====================================================
-# ✉️📱 ADMIN – RENVOI MAILS (mail + SMS)
+# ✉️📱 ADMIN – RENVOI MAILS (mail + SMS) — VERSION CORRIGÉE
 # =====================================================
 @app.route("/admin/resend_mail_sms/<cid>", methods=["POST"])
 def admin_resend_mail_sms(cid):
@@ -3128,15 +3128,41 @@ def admin_resend_mail_sms(cid):
         if not row:
             return jsonify(error="Candidat introuvable"), 404
 
+        row = dict(row)
+
+        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+        slug = row.get("slug_public") or ""
         prenom = row["prenom"]
         email = row["email"]
         tel = row["tel"]
         bts_label = row["bts"]
 
-        # 🔗 lien correct vers l’espace candidat
-        lien_espace = make_signed_link("/espace", row["slug_public"])
+        # 🔗 lien principal vers l’espace candidat
+        lien_espace = f"{BASE_URL}/espace/{slug}"
 
-        # 📨 modèles mail
+        # =====================================================
+        # 🎯 1. RECONSTRUIRE LE CONTEXTE EXACTEMENT COMME AU PREMIER MAIL
+        # =====================================================
+        from mail_templates import get_mail_context, mail_html
+        from sms_templates import sms_text
+
+        ctx = get_mail_context(row, lien_espace=lien_espace)
+
+        # Nom complet BTS
+        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
+
+        # =====================================================
+        # 🔐 2. AJOUTER le lien de confirmation si "candidature validée"
+        # =====================================================
+        if action == "candidature_validee":
+            token = row.get("token_confirm")
+            if token:
+                lien_confirmation = f"{BASE_URL}/confirm-inscription?token={token}&sig={sign_token(token)}"
+                ctx["lien_confirmation"] = lien_confirmation
+
+        # =====================================================
+        # 📨 3. CHOISIR LE BON TEMPLATE
+        # =====================================================
         mapping_mail = {
             "candidature_validee": "candidature_validee",
             "inscription_confirmee": "inscription_confirmee",
@@ -3145,7 +3171,6 @@ def admin_resend_mail_sms(cid):
             "docs_non_conformes": "docs_non_conformes",
         }
 
-        # 📱 modèles SMS (le mot change pour "reconfirmation")
         mapping_sms = {
             "candidature_validee": "candidature_validee",
             "inscription_confirmee": "inscription_confirmee",
@@ -3157,22 +3182,29 @@ def admin_resend_mail_sms(cid):
         tpl_mail = mapping_mail.get(action)
         tpl_sms = mapping_sms.get(action)
 
-        if not tpl_mail or not tpl_sms:
+        if not tpl_mail:
             return jsonify(error="Action non reconnue"), 400
 
-        # ✉️ Envoi du mail
+        # =====================================================
+        # ✉️ 4. MAIL IDENTIQUE À L’ORIGINAL
+        # =====================================================
+        html_content = mail_html(tpl_mail, **ctx)
         subject = f"Intégrale Academy – {tpl_mail.replace('_', ' ').capitalize()}"
-        html_content = mail_html(tpl_mail, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
         send_mail(email, subject, html_content)
 
-        # 📱 Envoi du SMS (numéro formaté)
-        tel = (tel or "").replace(" ", "")
-        if tel.startswith("0"):
-            tel = "+33" + tel[1:]
-        sms_msg = sms_text(tpl_sms, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-        send_sms_brevo(tel, sms_msg)
+        # =====================================================
+        # 📱 5. SMS IDENTIQUE À L’ORIGINAL
+        # =====================================================
+        tel_formate = (tel or "").replace(" ", "")
+        if tel_formate.startswith("0"):
+            tel_formate = "+33" + tel_formate[1:]
 
-        log_event({"id": cid}, "RENVOI_MAIL_SMS", {"type": action, "email": email, "tel": tel})
+        sms_msg = sms_text(tpl_sms, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
+        send_sms_brevo(tel_formate, sms_msg)
+
+        # LOG
+        log_event({"id": cid}, "RENVOI_MAIL_SMS", {"type": action, "email": email, "tel": tel_formate})
+
         return jsonify(ok=True)
 
     except Exception as e:
@@ -3180,17 +3212,13 @@ def admin_resend_mail_sms(cid):
         return jsonify(error=str(e)), 500
 
 
+
 # =====================================================
-# 🔔 RELANCES (mail + SMS)
+# 🔔 RELANCES (mail + SMS) — VERSION CORRIGÉE
 # =====================================================
 @app.route("/admin/relance/<cid>", methods=["POST"])
 def admin_relance(cid):
     try:
-        from mail_templates import mail_html
-        from sms_templates import sms_text
-        from utils import send_mail, send_sms_brevo
-        import json
-
         data = request.get_json() or {}
         action = data.get("action", "").strip()
 
@@ -3198,59 +3226,73 @@ def admin_relance(cid):
         cur = con.cursor()
         cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
         row = cur.fetchone()
+
         if not row:
             return jsonify({"ok": False, "error": "Candidat introuvable"})
 
+        row = dict(row)
+
         prenom = row["prenom"]
-        bts_label = row["bts"]
         email = row["email"]
         tel = row["tel"]
+        bts_label = row["bts"]
+
         BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+        slug = row.get("slug_public") or ""
 
-         # 🔗 Lien correct pour mails ET SMS (identique aux originaux)
-        link = "#"
-
+        # ================================================
+        # 🔗 1. Déterminer le lien EXACT comme dans le mail initial
+        # ================================================
         if action == "candidature_validee":
-            token = row["token_confirm"]
-            link = f"{BASE_URL}/confirm-inscription?token={token}&sig={sign_token(token)}"
+            token = row.get("token_confirm")
+            lien_action = f"{BASE_URL}/confirm-inscription?token={token}&sig={sign_token(token)}"
 
         elif action == "reconfirmation":
-            token = row["token_reconfirm"]
-            link = f"{BASE_URL}/reconfirm-page?token={token}&sig={sign_token(token)}"
+            token = row.get("token_reconfirm")
+            lien_action = f"{BASE_URL}/reconfirm-page?token={token}&sig={sign_token(token)}"
 
         elif action == "docs_non_conformes":
-            token = row["replace_token"]
-            link = f"{BASE_URL}/replace-files?token={token}&sig={sign_token(token)}"
+            token = row.get("replace_token")
+            lien_action = f"{BASE_URL}/replace-files?token={token}&sig={sign_token(token)}"
 
         else:
-            slug = row["slug_public"] or ""
-            link = f"{BASE_URL}/espace/{slug}"
+            # Default → Espace candidat
+            lien_action = f"{BASE_URL}/espace/{slug}"
 
-        # 🧩 Lien final pour les modèles mail et SMS
-        lien_espace = link
+        # ================================================
+        # 🎯 2. Charger le même contexte que le mail original
+        # ================================================
+        from mail_templates import get_mail_context, mail_html
+        from sms_templates import sms_text
+        from utils import send_mail, send_sms_brevo
 
+        ctx = get_mail_context(row, lien_espace=lien_action)
 
+        # Nom complet BTS
+        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
 
-        print(f"🔔 RELANCE – Action : {action} pour {prenom} ({email})")
+        # Cas particulier : si relance candidature validée → lien de confirmation nécessaire
+        if action == "candidature_validee":
+            ctx["lien_confirmation"] = lien_action
 
-        # Dictionnaire d'association entre action -> modèle mail/SMS
+        # ================================================
+        # ✉️ 3. Mappage des templates
+        # ================================================
         mapping = {
-            "candidature_validee": ("relance_candidature_validee", "relance_candidature_validee"),
-            "reconfirmation": ("relance_reconfirmation", "relance_reconfirmation"),
-            "docs_non_conformes": ("relance_docs_non_conformes", "relance_docs_non_conformes"),
+            "candidature_validee": "relance_candidature_validee",
+            "reconfirmation": "relance_reconfirmation",
+            "docs_non_conformes": "relance_docs_non_conformes",
         }
 
-        mail_tpl, sms_tpl = mapping.get(action, (None, None))
+        mail_tpl = mapping.get(action)
         if not mail_tpl:
-            return jsonify({"ok": False, "error": "Type de relance inconnu"})
+            return jsonify({"ok": False, "error": "Action relance inconnue"})
 
-        # === Envoi mail ===
-        mail_html_content = mail_html(
-            mail_tpl,
-            prenom=prenom,
-            bts_label=bts_label,
-            lien_espace=lien_espace,
-        )
+        # ================================================
+        # ✉️ 4. MAIL IDENTIQUE AU MAIL ORIGINAL
+        # ================================================
+        mail_html_content = mail_html(mail_tpl, **ctx)
+
         mail_subject = {
             "candidature_validee": "Relance – Confirmez votre inscription au BTS",
             "reconfirmation": "Relance – Reconfirmez votre inscription",
@@ -3259,49 +3301,43 @@ def admin_relance(cid):
 
         mail_id = send_mail(email, mail_subject, mail_html_content)
 
-        # === Envoi SMS (avec formatage automatique du numéro) ===
-        tel_formate = str(tel).strip().replace(" ", "")
-        if tel_formate.startswith("0"):
-            tel_formate = "+33" + tel_formate[1:]
-        elif not tel_formate.startswith("+"):
-            tel_formate = "+33" + tel_formate  # fallback
+        # ================================================
+        # 📱 5. SMS IDENTIQUE AU SMS ORIGINAL
+        # ================================================
+        tel_fmt = str(tel).strip().replace(" ", "")
+        if tel_fmt.startswith("0"):
+            tel_fmt = "+33" + tel_fmt[1:]
 
-        sms_message = sms_text(
-            sms_tpl,
-            prenom=prenom,
-            bts_label=bts_label,
-            lien_espace=lien_espace,
+        sms_id = send_sms_brevo(
+            tel_fmt,
+            sms_text(mail_tpl, prenom=prenom, bts_label=bts_label, lien_espace=lien_action)
         )
-        sms_id = send_sms_brevo(tel_formate, sms_message)
 
-        # === Log de l’action ===
+        # ================================================
+        # 📝 6. LOG + date dernière relance
+        # ================================================
         cur.execute(
             "INSERT INTO logs (cid, type, payload, created_at) VALUES (?, ?, ?, datetime('now','localtime'))",
-            (cid, "RELANCE_ENVOYEE", f"{action} / mail_id: {mail_id} / sms_id: {sms_id}"),
+            (cid, "RELANCE_ENVOYEE", f"{action} / mail_id: {mail_id} / sms_id: {sms_id}")
         )
         con.commit()
 
-        # 🧩 Enregistrer la date de la dernière relance
-        try:
-            cur.execute(
-                "UPDATE candidats SET last_relance=?, updated_at=? WHERE id=?",
-                (datetime.now().isoformat(), datetime.now().isoformat(), cid)
-            )
-            con.commit()
-            print(f"🕓 Champ 'last_relance' mis à jour pour {prenom}")
-        except Exception as e:
-            print("⚠️ Erreur maj champ last_relance :", e)
+        cur.execute(
+            "UPDATE candidats SET last_relance=?, updated_at=? WHERE id=?",
+            (datetime.now().isoformat(), datetime.now().isoformat(), cid)
+        )
+        con.commit()
 
         con.close()
 
-
-        print(f"✅ Relance envoyée à {prenom} ({email}, {tel_formate})")
+        print(f"✅ Relance envoyée à {prenom} ({email})")
 
         return jsonify({"ok": True})
 
     except Exception as e:
-        print(f"❌ Erreur dans /admin/relance : {e}")
+        print(f"❌ Erreur RELANCE :", e)
         return jsonify({"ok": False, "error": str(e)})
+
 
 
 # =====================================================
