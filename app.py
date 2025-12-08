@@ -2610,14 +2610,7 @@ def confirm_inscription():
     )
     send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
 
-    merci_html = render_template(
-        "mail_bienvenue.html",
-        prenom=row.get("prenom", ""),
-        bts=row.get("bts", "")
-    )
-    send_mail(row.get("email", ""), "Bienvenue à Intégrale Academy 🎓", merci_html)
 
-    log_event(row, "MAIL_ENVOYE", {"type": "bienvenue"})
     log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
     log_event(row, "STATUT_CHANGE", {"statut": "confirmee"})
 
