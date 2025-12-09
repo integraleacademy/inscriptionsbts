@@ -3593,6 +3593,17 @@ def admin_send_mail_aps(cid):
         print("❌ Erreur envoi mail APS :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
+from flask import send_from_directory
+
+@app.route('/sw.js')
+def sw():
+    return send_from_directory('.', 'sw.js', mimetype='application/javascript')
+
+@app.route('/brevo-frame.html')
+def brevo_frame():
+    return send_from_directory('.', 'brevo-frame.html', mimetype='text/html')
+
+
 
 
 
