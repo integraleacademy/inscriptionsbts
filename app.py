@@ -2597,6 +2597,11 @@ def confirm_inscription():
     else:
         mode_label = "100% en ligne à distance en visioconférence ZOOM"
 
+    # 👉 Construire lien espace candidat
+    BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+    slug = row.get("slug_public")
+    lien_espace = f"{BASE_URL}/espace/{slug}"
+
     html = mail_html(
         "inscription_confirmee",
         prenom=row.get("prenom", ""),
@@ -2606,15 +2611,16 @@ def confirm_inscription():
         form_prenom=row.get("prenom", ""),
         form_email=row.get("email", ""),
         form_tel=row.get("tel", ""),
-        form_mode_label=mode_label
+        form_mode_label=mode_label,
+        lien_espace=lien_espace   # 👈 ESSENTIEL
     )
     send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
-
 
     log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
     log_event(row, "STATUT_CHANGE", {"statut": "confirmee"})
 
     return render_template("confirm_ok.html", title="Inscription confirmée")
+
 
 
 
