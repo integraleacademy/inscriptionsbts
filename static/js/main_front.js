@@ -1312,6 +1312,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
+// Enregistrement manuel du service worker pour Brevo
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("/sw.js")
+      .then(function(reg) {
+        console.log("Service Worker Brevo enregistré :", reg);
+      })
+      .catch(function(err) {
+        console.error("Erreur enregistrement SW Brevo :", err);
+      });
+  });
+}
+
+
+
 
 
 
