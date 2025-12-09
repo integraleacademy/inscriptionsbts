@@ -387,10 +387,10 @@ def mail_html(template_name, **kwargs):
 <p>Bonjour {prenom},</p>
 
 <p style="line-height:1.6;">
-    Nous vous informons que nous avons bien reçu votre <strong>confirmation d'inscription</strong>.  
+    Nous vous remercions d'avoir confirmé votre inscription. 
     🎉 C'est désormais <strong>officiel</strong> : vous êtes inscrit(e) en  
     <strong>{bts_label}</strong> en alternance,<br>
-    {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>en 100% en ligne à distance en visioconférence ZOOM</strong>"}.
+    {"<strong>en présentiel (Puget sur Argens, Var)</strong>" if "présentiel" in form_mode_label.lower() or "puget" in form_mode_label.lower() else "<strong>100% en ligne à distance en visioconférence ZOOM</strong>"}.
 </p>
 
 <!-- 🔔 BLOC PROCHAINE ÉTAPE -->
@@ -404,7 +404,7 @@ def mail_html(template_name, **kwargs):
     <p style="margin:0;line-height:1.6;">
         Vous allez recevoir prochainement par courrier  
         <strong>votre carte étudiante</strong> ainsi que  
-        <strong>votre certificat de scolarité</strong>.
+        <strong>votre certificat de scolarité</strong>. N'hésitez pas à nous contacter au 04 22 47 07 68 si vous avez la moindre question.
     </p>
 </div>
 
@@ -1052,6 +1052,7 @@ def get_mail_context(row, lien_espace="#"):
         "form_tel": row.get("tel", row.get("form_tel", "")),
         "form_mode_label": row.get("mode", row.get("form_mode_label", "")),
     }
+
 
 
 
