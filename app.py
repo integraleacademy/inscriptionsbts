@@ -1472,6 +1472,9 @@ def admin_update_field():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
+
+
+
 @app.route("/admin/update-status", methods=["POST"])
 def admin_update_status():
     if not require_admin():
@@ -1483,20 +1486,6 @@ def admin_update_status():
 
     conn = db()
     cur = conn.cursor()
-
-    # 🔽 On récupère l'ancien statut AVANT update
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    full_row = dict(cur.fetchone())
-
-    # 🛑 Sécurité ANTI-DOUBLON : si le statut demandé est déjà celui en base → on ne fait RIEN
-    if full_row.get("statut") == value:
-        return jsonify({
-            "ok": True,
-            "statut": full_row.get("statut"),
-            "date_validee": full_row.get("date_validee"),
-            "date_confirmee": full_row.get("date_confirmee"),
-            "date_reconfirmee": full_row.get("date_reconfirmee"),
-        })
 
     # 🕓 Enregistre la date correspondant au statut
     now_iso = datetime.now().isoformat()
@@ -1536,27 +1525,23 @@ def admin_update_status():
         except Exception as e:
             print("⚠️ Erreur suppression badge relance :", e)
 
-    # 🔄 Recharge données fraîches pour renvoyer au front
+    # 🔄 Recharge données fraîches pour le front
     cur.execute(
         "SELECT statut, date_validee, date_confirmee, date_reconfirmee, last_relance FROM candidats WHERE id=?",
         (cid,)
     )
-    row_obj = cur.fetchone()
-    
-    if row_obj:
-        row = dict(row_obj)
-    else:
-        row = {
-            "statut": value,
-            "date_validee": None,
-            "date_confirmee": None,
-            "date_reconfirmee": None,
-            "last_relance": None,
-        }
+    row = cur.fetchone()
+    row = dict(row) if row else {
+        "statut": value,
+        "date_validee": None,
+        "date_confirmee": None,
+        "date_reconfirmee": None,
+        "last_relance": None,
+    }
 
-    return jsonify({"ok": True, **row})
-
-
+    # 🔄 Récupération complète pour mails/SMS
+    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+    full_row = dict(cur.fetchone())
 
     # =====================================================
     # 📩 ENVOIS AUTOMATIQUES SELON STATUT
