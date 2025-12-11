@@ -1471,10 +1471,6 @@ def admin_update_field():
         print("❌ Erreur update-field :", e)
         return jsonify({"ok": False, "error": str(e)}), 500
 
-
-
-
-
 @app.route("/admin/update-status", methods=["POST"])
 def admin_update_status():
     if not require_admin():
@@ -1486,6 +1482,14 @@ def admin_update_status():
 
     conn = db()
     cur = conn.cursor()
+
+    # 🔽 On récupère l'ancien statut AVANT toute modification
+    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+    full_row = dict(cur.fetchone())
+
+    # 🛑 ANTI-DOUBLON : si le statut est déjà celui demandé → NE RIEN ENVOYER
+    if full_row.get("statut") == value:
+        return jsonify({"ok": True, "statut": value})
 
     # 🕓 Enregistre la date correspondant au statut
     now_iso = datetime.now().isoformat()
@@ -1525,23 +1529,89 @@ def admin_update_status():
         except Exception as e:
             print("⚠️ Erreur suppression badge relance :", e)
 
-    # 🔄 Recharge données fraîches pour le front
+    # 🔄 Recharge données fraîches
     cur.execute(
         "SELECT statut, date_validee, date_confirmee, date_reconfirmee, last_relance FROM candidats WHERE id=?",
         (cid,)
     )
-    row = cur.fetchone()
-    row = dict(row) if row else {
-        "statut": value,
-        "date_validee": None,
-        "date_confirmee": None,
-        "date_reconfirmee": None,
-        "last_relance": None,
-    }
+    row = dict(cur.fetchone())
 
-    # 🔄 Récupération complète pour mails/SMS
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    full_row = dict(cur.fetchone())
+    # ✉️📱 ENVOIS AUTOMATIQUES SELON STATUT
+    # IMPORTANT : maintenant qu’on est sûr que ce n'est pas un doublon → on envoie
+
+    # 1️⃣ CANDIDATURE VALIDÉE
+    if value == "validee":
+        token = full_row.get("token_confirm")
+        if not token:
+            token = new_token()
+            exp = (datetime.now() + timedelta(days=30)).isoformat()
+            cur.execute(
+                "UPDATE candidats SET token_confirm=?, token_confirm_exp=?, updated_at=? WHERE id=?",
+                (token, exp, datetime.now().isoformat(), cid)
+            )
+            conn.commit()
+            cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+            full_row = dict(cur.fetchone())
+
+        lien_confirmation = make_signed_link("/confirm-inscription", token)
+
+        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+        slug = full_row.get("slug_public")
+        lien_espace = f"{BASE_URL}/espace/{slug}"
+
+        ctx = get_mail_context(full_row, lien_espace=lien_espace, lien_confirmation=lien_confirmation)
+        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
+
+        html = mail_html("candidature_validee", **ctx)
+        send_mail(full_row["email"], "Votre candidature est validée – Confirmez votre inscription", html)
+
+        tel = (full_row.get("tel", "") or "").replace(" ", "")
+        if tel.startswith("0"):
+            tel = "+33" + tel[1:]
+        sms_msg = sms_text("candidature_validee", prenom=ctx["prenom"], bts_label=ctx["bts_label"],
+                           lien_espace=lien_espace, lien_confirmation=lien_confirmation)
+        send_sms_brevo(tel, sms_msg)
+
+    # 2️⃣ INSCRIPTION CONFIRMÉE
+    elif value == "confirmee":
+        cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+        full_row = dict(cur.fetchone())
+
+        ctx = get_mail_context(full_row)
+        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
+
+        html = mail_html("inscription_confirmee", **ctx)
+        send_mail(full_row["email"], "Inscription confirmée – Intégrale Academy", html)
+
+        tel = (full_row.get("tel", "") or "").replace(" ", "")
+        if tel.startswith("0"):
+            tel = "+33" + tel[1:]
+        sms_msg = sms_text("inscription_confirmee", prenom=ctx["prenom"], bts_label=ctx["bts_label"])
+        send_sms_brevo(tel, sms_msg)
+
+    # 3️⃣ RECONFIRMATION
+    elif value == "reconfirmee":
+        ctx = get_mail_context(full_row)
+        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
+
+        html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
+        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", html)
+
+    # LOG STATUT
+    log_event(full_row, "STATUT_CHANGE", {"statut": value})
+
+    conn.close()
+
+    # Réponse finale
+    return jsonify({
+        "ok": True,
+        **row
+    })
+
+
+
+
+
 
     # =====================================================
     # 📩 ENVOIS AUTOMATIQUES SELON STATUT
