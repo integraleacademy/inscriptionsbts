@@ -1472,7 +1472,7 @@ def admin_update_field():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-    @app.route("/admin/update-status", methods=["POST"])
+@app.route("/admin/update-status", methods=["POST"])
 def admin_update_status():
     if not require_admin():
         abort(403)
@@ -1541,15 +1541,21 @@ def admin_update_status():
         "SELECT statut, date_validee, date_confirmee, date_reconfirmee, last_relance FROM candidats WHERE id=?",
         (cid,)
     )
-    row = dict(cur.fetchone()) if cur.fetchone() else {
-        "statut": value,
-        "date_validee": None,
-        "date_confirmee": None,
-        "date_reconfirmee": None,
-        "last_relance": None,
-    }
+    row_obj = cur.fetchone()
+    
+    if row_obj:
+        row = dict(row_obj)
+    else:
+        row = {
+            "statut": value,
+            "date_validee": None,
+            "date_confirmee": None,
+            "date_reconfirmee": None,
+            "last_relance": None,
+        }
 
     return jsonify({"ok": True, **row})
+
 
 
     # =====================================================
