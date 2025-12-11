@@ -1472,10 +1472,7 @@ def admin_update_field():
         return jsonify({"ok": False, "error": str(e)}), 500
 
 
-
-
-
-@app.route("/admin/update-status", methods=["POST"])
+    @app.route("/admin/update-status", methods=["POST"])
 def admin_update_status():
     if not require_admin():
         abort(403)
@@ -1486,6 +1483,20 @@ def admin_update_status():
 
     conn = db()
     cur = conn.cursor()
+
+    # 🔽 On récupère l'ancien statut AVANT update
+    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
+    full_row = dict(cur.fetchone())
+
+    # 🛑 Sécurité ANTI-DOUBLON : si le statut demandé est déjà celui en base → on ne fait RIEN
+    if full_row.get("statut") == value:
+        return jsonify({
+            "ok": True,
+            "statut": full_row.get("statut"),
+            "date_validee": full_row.get("date_validee"),
+            "date_confirmee": full_row.get("date_confirmee"),
+            "date_reconfirmee": full_row.get("date_reconfirmee"),
+        })
 
     # 🕓 Enregistre la date correspondant au statut
     now_iso = datetime.now().isoformat()
@@ -1525,13 +1536,12 @@ def admin_update_status():
         except Exception as e:
             print("⚠️ Erreur suppression badge relance :", e)
 
-    # 🔄 Recharge données fraîches pour le front
+    # 🔄 Recharge données fraîches pour renvoyer au front
     cur.execute(
         "SELECT statut, date_validee, date_confirmee, date_reconfirmee, last_relance FROM candidats WHERE id=?",
         (cid,)
     )
-    row = cur.fetchone()
-    row = dict(row) if row else {
+    row = dict(cur.fetchone()) if cur.fetchone() else {
         "statut": value,
         "date_validee": None,
         "date_confirmee": None,
@@ -1539,9 +1549,8 @@ def admin_update_status():
         "last_relance": None,
     }
 
-    # 🔄 Récupération complète pour mails/SMS
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    full_row = dict(cur.fetchone())
+    return jsonify({"ok": True, **row})
+
 
     # =====================================================
     # 📩 ENVOIS AUTOMATIQUES SELON STATUT
