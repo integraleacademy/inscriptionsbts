@@ -1511,3 +1511,144 @@ td.editing {
   background: #eef5ff !important;
 }
 
+/* =======================================================
+   ✅ PATCH iPad / Tablette (à laisser TOUT EN BAS)
+   ======================================================= */
+
+/* Anti débordements */
+html, body { max-width: 100%; overflow-x: hidden; }
+
+/* iOS : empêche le zoom automatique sur focus (si < 16px) */
+@media (max-width: 1024px) {
+  input, select, textarea, button { font-size: 16px !important; }
+
+  /* Container public : plus confortable sur iPad */
+  .container {
+    width: auto;
+    margin: 18px 12px;
+    padding: 18px 14px;
+    border-radius: 12px;
+  }
+
+  /* Topbar : éviter l’overflow de la date (à droite) */
+  .datetime {
+    align-self: center !important;
+    margin-right: 0 !important;
+    max-width: 92vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .brand-centered .logo-centered { height: 60px; }
+  .brand-centered h1 { font-size: 1.4em; }
+
+  /* ADMIN : wrapper moins large + padding réduit */
+  .admin-wrapper {
+    width: 100% !important;
+    margin: 14px auto !important;
+    padding: 14px 12px !important;
+    border-radius: 12px;
+  }
+  .admin-full { padding: 0 !important; }
+
+  /* Header admin : passe en colonne et wrap les boutons */
+  .admin-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+  .admin-header .admin-actions {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .admin-header .admin-actions .btn.secondary,
+  .admin-header .admin-actions .btn.danger,
+  .admin-actions form button {
+    flex: 1 1 calc(50% - 8px) !important; /* 2 colonnes */
+    min-width: 160px !important;
+    text-align: center !important;
+    justify-content: center !important;
+  }
+
+  /* Barre filtres : en grille (sinon ça explose sur iPad) */
+  .filter-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+  }
+  .filter-bar input[type="text"],
+  .filter-bar select {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+  .filter-bar label { grid-column: 1 / -1 !important; }
+  .filter-bar button,
+  .filter-bar a.btn { min-height: 44px !important; }
+  #brevoIndicator {
+    grid-column: 1 / -1 !important;
+    margin-left: 0 !important;
+    justify-content: center !important;
+  }
+
+  /* TABLEAU : scroll horizontal fluide sur iPad */
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding: 10px 10px !important;
+  }
+
+  /* Forcer une largeur minimale -> scroll plutôt que casser */
+  .admin-table {
+    min-width: 1100px !important;
+    font-size: 14px !important;
+  }
+  .admin-table th, .admin-table td {
+    padding: 10px 10px !important;
+    white-space: nowrap !important;
+  }
+
+  /* Colonne étiquettes : autoriser retour à la ligne */
+  td.etiquettes {
+    white-space: normal !important;
+    max-width: 280px !important;
+  }
+  td.etiquettes label {
+    margin-right: 10px !important;
+    margin-bottom: 6px !important;
+  }
+
+  /* MODALES : largeur responsive (override des styles inline) */
+  .modal-content {
+    width: min(92vw, 720px) !important;
+    max-width: 92vw !important;
+    max-height: 88vh !important;
+    overflow: auto !important;
+    padding: 18px 16px !important;
+  }
+
+  /* Boutons : confort tactile */
+  .btn, button, a.btn { min-height: 44px; touch-action: manipulation; }
+
+  /* Panneau liveControl : ne gêne pas */
+  #liveControl {
+    left: 10px !important;
+    right: 10px !important;
+    bottom: 10px !important;
+    width: auto !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Mobile : filtres en 1 colonne */
+@media (max-width: 600px) {
+  .filter-bar { grid-template-columns: 1fr !important; }
+  .admin-header .admin-actions .btn.secondary,
+  .admin-header .admin-actions .btn.danger,
+  .admin-actions form button {
+    flex: 1 1 100% !important;
+  }
+}
+
+
