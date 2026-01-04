@@ -1651,4 +1651,56 @@ html, body { max-width: 100%; overflow-x: hidden; }
   }
 }
 
+/* =======================================================
+   ✅ PATCH iPad Pro / Safari "Desktop" (après tout)
+   ======================================================= */
+
+/* iPad Pro & tablettes larges : souvent 1112/1194/1366px */
+@media (max-width: 1366px), (hover: none) and (pointer: coarse) {
+
+  /* iOS : stop zoom sur focus */
+  input, select, textarea, button { font-size: 16px !important; }
+
+  /* Header admin : en colonne */
+  .admin-header {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  /* Barre de filtres : en grille */
+  .filter-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    align-items: stretch !important;
+  }
+
+  .filter-bar input[type="text"],
+  .filter-bar select {
+    width: 100% !important;
+    min-height: 44px !important;
+  }
+
+  .filter-bar label { grid-column: 1 / -1 !important; }
+
+  #brevoIndicator {
+    grid-column: 1 / -1 !important;
+    margin-left: 0 !important;
+    justify-content: center !important;
+  }
+
+  /* Table : scroll horizontal propre */
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .admin-table { min-width: 1100px !important; }
+
+  /* Modales : largeur responsive même si width inline */
+  .modal-content {
+    width: min(9
+
+
 
