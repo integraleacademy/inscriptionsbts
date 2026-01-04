@@ -1652,7 +1652,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
 }
 
 /* =======================================================
-   ✅ PATCH iPad Pro / Safari "Desktop" (après tout)
+   ✅ PATCH iPad Pro / Safari "Desktop" (TOUT EN BAS)
    ======================================================= */
 
 /* iPad Pro & tablettes larges : souvent 1112/1194/1366px */
@@ -1661,6 +1661,14 @@ html, body { max-width: 100%; overflow-x: hidden; }
   /* iOS : stop zoom sur focus */
   input, select, textarea, button { font-size: 16px !important; }
 
+  /* Admin wrapper : plus compact */
+  .admin-wrapper {
+    width: 100% !important;
+    margin: 14px auto !important;
+    padding: 14px 12px !important;
+    border-radius: 12px !important;
+  }
+
   /* Header admin : en colonne */
   .admin-header {
     flex-direction: column !important;
@@ -1668,7 +1676,13 @@ html, body { max-width: 100%; overflow-x: hidden; }
     gap: 10px !important;
   }
 
-  /* Barre de filtres : en grille */
+  /* Actions admin : wrap */
+  .admin-header .admin-actions {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  /* Barre de filtres : grille 2 colonnes */
   .filter-bar {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
@@ -1696,11 +1710,16 @@ html, body { max-width: 100%; overflow-x: hidden; }
     -webkit-overflow-scrolling: touch !important;
   }
 
-  .admin-table { min-width: 1100px !important; }
+  .admin-table {
+    min-width: 1100px !important;
+    font-size: 14px !important;
+  }
 
-  /* Modales : largeur responsive même si width inline */
+  /* Modales : responsive */
   .modal-content {
-    width: min(9
-
-
-
+    width: min(92vw, 720px) !important;
+    max-width: 92vw !important;
+    max-height: 88vh !important;
+    overflow: auto !important;
+  }
+}
