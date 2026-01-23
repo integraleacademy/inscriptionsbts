@@ -1195,7 +1195,7 @@ def submit():
             <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
               <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
               <p>Bonjour,<br><br>
-              Un nouveau candidat a demandé à être accompagné par Pôle Alternance pour trouver une entreprise (rentrée septembre 2026). Je vous trouverez ci-dessous les coordonnées du candidat. Vous trouverez également en pièce-jointe son CV et sa lettre de motivation. A bientôt, Clément VAILLANT (ceci est un mail automatique).</p>
+              Un nouveau candidat a demandé à être accompagné par Pôle Alternance pour trouver une entreprise (rentrée septembre 2026). Je vous prie de bien vouloir trouver ci-dessous les coordonnées du candidat. Vous trouverez également en pièce-jointe son CV et sa lettre de motivation. A bientôt, Clément VAILLANT (ceci est un mail automatique).</p>
               <ul>
                 <li><strong>Nom :</strong> {nom}</li>
                 <li><strong>Prénom :</strong> {prenom}</li>
