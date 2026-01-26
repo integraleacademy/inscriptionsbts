@@ -1024,6 +1024,8 @@ def reprendre_formulaire(token):
 
 @app.route("/submit", methods=["POST"])
 def submit():
+    from datetime import date  # ✅ import ici (ou mets-le en haut du fichier)
+
     form = request.form
     conn = db()
     cur = conn.cursor()
@@ -1034,20 +1036,20 @@ def submit():
     baccalaureat = (form.get("baccalaureat") or "").strip()
 
     # === Projet motivé : nouveaux champs ===
-    projet_pourquoi   = (form.get("projet_pourquoi") or "").strip()
-    projet_objectif   = (form.get("projet_objectif") or "").strip()
-    projet_passions   = (form.get("projet_passions") or "").strip()
+    projet_pourquoi = (form.get("projet_pourquoi") or "").strip()
+    projet_objectif = (form.get("projet_objectif") or "").strip()
+    projet_passions = (form.get("projet_passions") or "").strip()
 
     # Cases à cocher
-    qualites_list   = request.form.getlist("qualites[]")
+    qualites_list = request.form.getlist("qualites[]")
     motivation_list = request.form.getlist("motivation[]")
-    valeurs_list    = request.form.getlist("valeurs[]")
-    travail_list    = request.form.getlist("travail[]")
+    valeurs_list = request.form.getlist("valeurs[]")
+    travail_list = request.form.getlist("travail[]")
 
-    projet_qualites   = ", ".join(qualites_list)
+    projet_qualites = ", ".join(qualites_list)
     projet_motivation = ", ".join(motivation_list)
-    projet_recherche  = ", ".join(valeurs_list)
-    projet_travail    = ", ".join(travail_list)
+    projet_recherche = ", ".join(valeurs_list)
+    projet_travail = ", ".join(travail_list)
 
     # === APS (sessions datées) ===
     aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
@@ -1071,33 +1073,60 @@ def submit():
     recherches_commencees = (form.get("recherches_commencees") or "").strip()
     souhaite_accompagnement = (form.get("souhaite_accompagnement") or "").strip()
 
-    form_overrides = {
-        "projet_pourquoi":   projet_pourquoi,
-        "projet_objectif":   projet_objectif,
-        "projet_passions":   projet_passions,
-        "projet_qualites":   projet_qualites,
-        "projet_motivation": projet_motivation,
-        "projet_recherche":  projet_recherche,
-        "projet_travail":    projet_travail,
-
-        # APS
-        "aps_souhaitee":     aps_souhaitee,
-        "aps_session":       aps_session,
-        "raison_aps":        raison_aps,
-        "label_aps":         aps_souhaitee,
-
-        # Bac / apprentissage
-        "bac_status":            baccalaureat,
-        "entreprise_trouvee":    entreprise_trouvee,
-        "recherches_commencees": recherches_commencees,
-        "baccalaureat":          baccalaureat,
-        "souhaite_accompagnement": souhaite_accompagnement,
-    }
-
     # 🎯 Vérification du numéro de sécurité sociale
     nir = form.get("num_secu", "").strip()
     date_naiss = form.get("date_naissance", "")
     sexe = form.get("sexe", "")
+
+    # 🔞 Calcul automatique : mineur ou non
+    est_mineur = 0
+    try:
+        naissance = datetime.strptime(date_naiss, "%Y-%m-%d").date()
+        today = date.today()
+        age = today.year - naissance.year - (
+            (today.month, today.day) < (naissance.month, naissance.day)
+        )
+        if age < 18:
+            est_mineur = 1
+    except Exception:
+        est_mineur = 0
+
+    # 👤 Responsable légal (si mineur)
+    resp_nom = (form.get("resp_nom") or "").strip()
+    resp_prenom = (form.get("resp_prenom") or "").strip()
+    resp_email = (form.get("resp_email") or "").strip()
+    resp_tel = (form.get("resp_tel") or "").strip()
+
+    # ✅ Maintenant seulement : form_overrides (car est_mineur/resp_* existent)
+    form_overrides = {
+        "projet_pourquoi": projet_pourquoi,
+        "projet_objectif": projet_objectif,
+        "projet_passions": projet_passions,
+        "projet_qualites": projet_qualites,
+        "projet_motivation": projet_motivation,
+        "projet_recherche": projet_recherche,
+        "projet_travail": projet_travail,
+
+        # APS
+        "aps_souhaitee": aps_souhaitee,
+        "aps_session": aps_session,
+        "raison_aps": raison_aps,
+        "label_aps": aps_souhaitee,
+
+        # Bac / apprentissage
+        "bac_status": baccalaureat,
+        "entreprise_trouvee": entreprise_trouvee,
+        "recherches_commencees": recherches_commencees,
+        "baccalaureat": baccalaureat,
+        "souhaite_accompagnement": souhaite_accompagnement,
+
+        # Mineur / responsable légal
+        "est_mineur": est_mineur,
+        "resp_nom": resp_nom,
+        "resp_prenom": resp_prenom,
+        "resp_email": resp_email,
+        "resp_tel": resp_tel,
+    }
 
     # 👍 Exception : ce numéro doit passer même s'il est invalide
     if nir == "123456789123456":
@@ -1146,8 +1175,10 @@ def submit():
             values.append(json.dumps(mapping.get(c, [])))
         elif "verif_docs" in c or "replace_meta" in c:
             values.append("{}")
-        elif "nouveau_doc" in c or "permis_b" in c or "est_mineur" in c:
+        elif c == "nouveau_doc":
             values.append(0)
+        elif c in ("permis_b", "est_mineur"):
+            values.append(int(form_overrides.get(c, 0)))
         elif "label" in c:
             values.append(form_overrides.get(c, 0))
         elif c == "statut":
@@ -1163,7 +1194,6 @@ def submit():
         else:
             values.append(form_overrides.get(c, form.get(c, "")))
 
-    # ⬅️ ICI : on sort de la boucle
     cur.execute(sql, tuple(values))
     conn.commit()
 
