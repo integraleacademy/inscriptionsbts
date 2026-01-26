@@ -147,11 +147,15 @@
 <div class="box"><span class="label">Code postal de naissance :</span> {{ row.cp_naissance }}</div>
 <div class="box"><span class="label">Ville de naissance :</span> {{ row.ville_naissance }}</div>
 
-{% if row.est_mineur %}
+{# ✅ Affiche responsable légal si mineur OU si au moins un champ est rempli #}
+{% set is_mineur = (row.est_mineur|default(0)|int == 1) %}
+{% set has_resp = (row.resp_nom or row.resp_prenom or row.resp_email or row.resp_tel) %}
+
+{% if is_mineur or has_resp %}
 <div class="box">
   <span class="label">Responsable légal :</span><br>
-  {{ row.resp_prenom }} {{ row.resp_nom }}<br>
-  📧 {{ row.resp_email }} — 📞 {{ row.resp_tel }}
+  {{ (row.resp_prenom or "—") }} {{ (row.resp_nom or "") }}<br>
+  📧 {{ (row.resp_email or "—") }} — 📞 {{ (row.resp_tel or "—") }}
 </div>
 {% endif %}
 
