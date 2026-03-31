@@ -5,13 +5,14 @@ from flask import current_app  # <— nouveau
 import sys                     # <— nouveau
 sys.stdout.reconfigure(line_buffering=True)
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, send_file
 from werkzeug.utils import secure_filename
 from utils import send_mail, send_sms_brevo
 from mail_templates import mail_html
 from sms_templates import sms_text
 from openpyxl import load_workbook
 import unicodedata
+from markupsafe import Markup
 
 def normalize(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
@@ -22,11 +23,32 @@ bp_parcoursup = Blueprint("parcoursup", __name__, template_folder="templates")
 
 DATA_DIR = os.getenv("DATA_DIR", "/data")
 DB_PATH = os.path.join(DATA_DIR, "app.db")
+CLEANED_DIR = os.path.join(DATA_DIR, "parcoursup_cleaned")
+os.makedirs(CLEANED_DIR, exist_ok=True)
 
 def db():
     conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn
+
+def _clean_phone(raw_tel):
+    tel = str(raw_tel or "").strip().replace(" ", "")
+    tel = tel.replace(".", "").replace("-", "")
+    if tel.startswith("0033"):
+        tel = "+33" + tel[4:]
+    elif re.match(r"^33[1-9]\d{8}$", tel):
+        tel = "+33" + tel[2:]
+    elif re.match(r"^0[1-9]\d{8}$", tel):
+        tel = "+33" + tel[1:]
+    return tel
+
+def _clean_mode(raw_mode):
+    mode = (raw_mode or "").strip().lower()
+    if mode in ("presentiel", "présentiel"):
+        return "Présentiel"
+    if mode == "distanciel":
+        return "Distanciel"
+    return raw_mode
 
 def get_stats_parcoursup():
     conn = db()
@@ -432,24 +454,41 @@ def check_file():
     ws = wb.active
 
     erreurs = []
+    corrections = 0
     ligne_num = 2
 
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        nom, prenom, telephone, email, formation, mode = row[:6]
+    for row_cells in ws.iter_rows(min_row=2):
+        nom = row_cells[0].value if len(row_cells) > 0 else None
+        prenom = row_cells[1].value if len(row_cells) > 1 else None
+        telephone = row_cells[2].value if len(row_cells) > 2 else None
+        email = row_cells[3].value if len(row_cells) > 3 else None
+        mode = row_cells[5].value if len(row_cells) > 5 else None
+
         if not nom:
             erreurs.append(f"Ligne {ligne_num} : nom manquant")
         if not prenom:
             erreurs.append(f"Ligne {ligne_num} : prénom manquant")
 
         tel = str(telephone or "").strip().replace(" ", "")
-        if not re.match(r"^(?:\+33|0)[1-9]\d{8}$", tel):
+        tel_clean = _clean_phone(telephone)
+        if tel_clean != tel and len(row_cells) > 2:
+            row_cells[2].value = tel_clean
+            corrections += 1
+        if not re.match(r"^(?:\+33|0)[1-9]\d{8}$", tel_clean):
             erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
 
         mail = (email or "").strip().lower()
+        if len(row_cells) > 3 and mail != str(email or ""):
+            row_cells[3].value = mail
+            corrections += 1
         if "@" not in mail or "." not in mail:
             erreurs.append(f"Ligne {ligne_num} : e-mail invalide ({mail})")
 
-        if (mode or "").strip().lower() not in ("presentiel", "présentiel", "distanciel"):
+        mode_clean = _clean_mode(mode)
+        if mode_clean != mode and len(row_cells) > 5:
+            row_cells[5].value = mode_clean
+            corrections += 1
+        if (mode_clean or "").strip().lower() not in ("presentiel", "présentiel", "distanciel"):
             erreurs.append(f"Ligne {ligne_num} : mode invalide ({mode})")
 
         ligne_num += 1
@@ -459,11 +498,34 @@ def check_file():
         msg = f"❌ {len(erreurs)} erreur(s) détectée(s) :<br>" + "<br>".join(erreurs[:20])
         if len(erreurs) > 20:
             msg += f"<br>… et {len(erreurs) - 20} autres lignes à corriger."
-        flash(msg, "error")
+        cleaned_token = str(uuid.uuid4())
+        cleaned_name = f"parcoursup_nettoye_{cleaned_token}.xlsx"
+        cleaned_path = os.path.join(CLEANED_DIR, cleaned_name)
+        wb.save(cleaned_path)
+        clean_url = url_for("parcoursup.download_cleaned_file", token=cleaned_token)
+        msg += (
+            f"<br><br>🧹 Un nettoyage automatique a été préparé ({corrections} correction(s)). "
+            f"<a href='{clean_url}' target='_blank' rel='noopener'>Télécharger le fichier nettoyé</a>."
+        )
+        flash(Markup(msg), "error")
     else:
         flash("✅ Aucun problème détecté : le fichier est prêt à être importé.", "success")
 
     return redirect(url_for("parcoursup.dashboard"))
+
+@bp_parcoursup.route("/parcoursup/cleaned/<token>", methods=["GET"])
+def download_cleaned_file(token):
+    safe_token = secure_filename(token)
+    pattern = os.path.join(CLEANED_DIR, f"parcoursup_nettoye_{safe_token}.xlsx")
+    if not os.path.exists(pattern):
+        flash("Fichier nettoyé introuvable (lien expiré).", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+    return send_file(
+        pattern,
+        as_attachment=True,
+        download_name="parcoursup_nettoye.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 # =====================================================
 # 📩 RELANCER AUTOMATIQUEMENT LES NON OUVERTS APRÈS 48H
