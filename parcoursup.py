@@ -455,43 +455,47 @@ def check_file():
 
     erreurs = []
     corrections = 0
+    lignes_supprimees = 0
+    rows_to_delete = []
     ligne_num = 2
 
     for row_cells in ws.iter_rows(min_row=2):
-        nom = row_cells[0].value if len(row_cells) > 0 else None
-        prenom = row_cells[1].value if len(row_cells) > 1 else None
         telephone = row_cells[2].value if len(row_cells) > 2 else None
         email = row_cells[3].value if len(row_cells) > 3 else None
         mode = row_cells[5].value if len(row_cells) > 5 else None
-
-        if not nom:
-            erreurs.append(f"Ligne {ligne_num} : nom manquant")
-        if not prenom:
-            erreurs.append(f"Ligne {ligne_num} : prénom manquant")
 
         tel = str(telephone or "").strip().replace(" ", "")
         tel_clean = _clean_phone(telephone)
         if tel_clean != tel and len(row_cells) > 2:
             row_cells[2].value = tel_clean
             corrections += 1
-        if not re.match(r"^(?:\+33|0)[1-9]\d{8}$", tel_clean):
-            erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
 
         mail = (email or "").strip().lower()
         if len(row_cells) > 3 and mail != str(email or ""):
             row_cells[3].value = mail
             corrections += 1
-        if "@" not in mail or "." not in mail:
-            erreurs.append(f"Ligne {ligne_num} : e-mail invalide ({mail})")
+        
+        tel_ok = bool(re.match(r"^(?:\+33|0)[1-9]\d{8}$", tel_clean))
+        mail_ok = ("@" in mail and "." in mail)
+        ligne_vide = (not tel_clean and not mail)
+
+        if not ligne_vide and (not tel_ok or not mail_ok):
+            if not tel_ok:
+                erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
+            if not mail_ok:
+                erreurs.append(f"Ligne {ligne_num} : e-mail invalide ({mail})")
+            rows_to_delete.append(ligne_num)
 
         mode_clean = _clean_mode(mode)
         if mode_clean != mode and len(row_cells) > 5:
             row_cells[5].value = mode_clean
             corrections += 1
-        if (mode_clean or "").strip().lower() not in ("presentiel", "présentiel", "distanciel"):
-            erreurs.append(f"Ligne {ligne_num} : mode invalide ({mode})")
 
         ligne_num += 1
+
+    for row_idx in reversed(rows_to_delete):
+        ws.delete_rows(row_idx, 1)
+        lignes_supprimees += 1
 
     os.remove(temp_path)
     if erreurs:
@@ -504,7 +508,7 @@ def check_file():
         wb.save(cleaned_path)
         clean_url = url_for("parcoursup.download_cleaned_file", token=cleaned_token)
         msg += (
-            f"<br><br>🧹 Un nettoyage automatique a été préparé ({corrections} correction(s)). "
+            f"<br><br>🧹 Un nettoyage automatique a été préparé ({corrections} correction(s), {lignes_supprimees} ligne(s) supprimée(s)). "
             f"<a href='{clean_url}' target='_blank' rel='noopener'>Télécharger le fichier nettoyé</a>."
         )
         flash(Markup(msg), "error")
