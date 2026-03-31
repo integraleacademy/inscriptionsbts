@@ -57,6 +57,25 @@ def _clean_mode(raw_mode):
         return "Distanciel"
     return raw_mode
 
+def _clean_phone(raw_tel):
+    tel = str(raw_tel or "").strip().replace(" ", "")
+    tel = tel.replace(".", "").replace("-", "")
+    if tel.startswith("0033"):
+        tel = "+33" + tel[4:]
+    elif re.match(r"^33[1-9]\d{8}$", tel):
+        tel = "+33" + tel[2:]
+    elif re.match(r"^0[1-9]\d{8}$", tel):
+        tel = "+33" + tel[1:]
+    return tel
+
+def _clean_mode(raw_mode):
+    mode = (raw_mode or "").strip().lower()
+    if mode in ("presentiel", "présentiel"):
+        return "Présentiel"
+    if mode == "distanciel":
+        return "Distanciel"
+    return raw_mode
+
 def get_stats_parcoursup():
     conn = db()
     cur = conn.cursor()
@@ -524,6 +543,20 @@ def check_file():
         flash("✅ Aucun problème détecté : le fichier est prêt à être importé.", "success")
 
     return redirect(url_for("parcoursup.dashboard"))
+
+@bp_parcoursup.route("/parcoursup/cleaned/<token>", methods=["GET"])
+def download_cleaned_file(token):
+    safe_token = secure_filename(token)
+    pattern = os.path.join(CLEANED_DIR, f"parcoursup_nettoye_{safe_token}.xlsx")
+    if not os.path.exists(pattern):
+        flash("Fichier nettoyé introuvable (lien expiré).", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+    return send_file(
+        pattern,
+        as_attachment=True,
+        download_name="parcoursup_nettoye.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 @bp_parcoursup.route("/parcoursup/cleaned/<token>", methods=["GET"])
 def download_cleaned_file(token):
