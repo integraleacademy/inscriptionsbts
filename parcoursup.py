@@ -32,6 +32,32 @@ def db():
     return conn
 
 def _clean_phone(raw_tel):
+    tel = str(raw_tel or "").strip()
+    tel = re.sub(r"[^\d+]", "", tel)
+    if tel.startswith("00"):
+        tel = "+" + tel[2:]
+    if tel.startswith("+"):
+        tel = "+" + re.sub(r"\D", "", tel[1:])
+        return tel
+    if tel.startswith("0033"):
+        tel = "+33" + tel[4:]
+    elif re.match(r"^33[1-9]\d{8}$", tel):
+        tel = "+33" + tel[2:]
+    elif re.match(r"^0[1-9]\d{8}$", tel):
+        tel = "+33" + tel[1:]
+    elif re.match(r"^\d{9,15}$", tel):
+        tel = "+" + tel
+    return tel
+
+def _clean_mode(raw_mode):
+    mode = (raw_mode or "").strip().lower()
+    if mode in ("presentiel", "présentiel"):
+        return "Présentiel"
+    if mode == "distanciel":
+        return "Distanciel"
+    return raw_mode
+
+def _clean_phone(raw_tel):
     tel = str(raw_tel or "").strip().replace(" ", "")
     tel = tel.replace(".", "").replace("-", "")
     if tel.startswith("0033"):
@@ -370,9 +396,10 @@ def import_file():
                         continue
 
                     email = email.strip().lower()
-                    telephone = str(telephone).strip().replace(" ", "")
-                    if telephone.startswith("0"):
-                        telephone = "+33" + telephone[1:]
+                    telephone = _clean_phone(telephone)
+                    if not re.match(r"^\+\d{9,15}$", telephone):
+                        errors += 1
+                        continue
 
                     cur.execute("SELECT id FROM parcoursup_candidats WHERE email=? OR telephone=?", (email, telephone))
                     if cur.fetchone():
@@ -475,7 +502,7 @@ def check_file():
             row_cells[3].value = mail
             corrections += 1
         
-        tel_ok = bool(re.match(r"^(?:\+33|0)[1-9]\d{8}$", tel_clean))
+        tel_ok = bool(re.match(r"^\+\d{9,15}$", tel_clean))
         mail_ok = ("@" in mail and "." in mail)
         ligne_vide = (not tel_clean and not mail)
 
@@ -516,6 +543,20 @@ def check_file():
         flash("✅ Aucun problème détecté : le fichier est prêt à être importé.", "success")
 
     return redirect(url_for("parcoursup.dashboard"))
+
+@bp_parcoursup.route("/parcoursup/cleaned/<token>", methods=["GET"])
+def download_cleaned_file(token):
+    safe_token = secure_filename(token)
+    pattern = os.path.join(CLEANED_DIR, f"parcoursup_nettoye_{safe_token}.xlsx")
+    if not os.path.exists(pattern):
+        flash("Fichier nettoyé introuvable (lien expiré).", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+    return send_file(
+        pattern,
+        as_attachment=True,
+        download_name="parcoursup_nettoye.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
 
 @bp_parcoursup.route("/parcoursup/cleaned/<token>", methods=["GET"])
 def download_cleaned_file(token):
