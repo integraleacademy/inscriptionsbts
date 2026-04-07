@@ -1288,7 +1288,11 @@ async function refreshCandidateRow(id) {
 // =====================================================
 // 🕓 Actualisation automatique de tout le tableau admin
 // =====================================================
+const isParcoursupPage = window.location.pathname.startsWith("/parcoursup");
+
 document.addEventListener("DOMContentLoaded", () => {
+  if (isParcoursupPage) return;
+
   const table = document.querySelector(".admin-table tbody");
   if (!table) return;
 
@@ -1452,6 +1456,8 @@ newBody.querySelectorAll(".status-select").forEach(sel => {
 // 🧭 Détection et insertion des nouveaux candidats en live
 // =====================================================
 async function checkNewCandidats() {
+  if (isParcoursupPage) return;
+
   try {
     const res = await fetch("/admin/json", { cache: "no-store" });
     const data = await res.json();
