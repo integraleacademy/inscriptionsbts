@@ -34,38 +34,32 @@ def db():
 def _clean_phone(raw_tel):
     tel = str(raw_tel or "").strip()
     tel = re.sub(r"[^\d+]", "", tel)
+
     if tel.startswith("00"):
         tel = "+" + tel[2:]
     if tel.startswith("+"):
-        tel = "+" + re.sub(r"\D", "", tel[1:])
+        return "+" + re.sub(r"\D", "", tel[1:])
+
+    tel = re.sub(r"\D", "", tel)
+    if re.match(r"^33[1-9]\d{8}$", tel):
+        return "+33" + tel[2:]
+    if re.match(r"^[1-9]\d{8}$", tel):
+        return "0" + tel
+    if re.match(r"^0[1-9]\d{8}$", tel):
         return tel
-    if tel.startswith("0033"):
-        tel = "+33" + tel[4:]
-    elif re.match(r"^33[1-9]\d{8}$", tel):
-        tel = "+33" + tel[2:]
-    elif re.match(r"^0[1-9]\d{8}$", tel):
-        tel = "+33" + tel[1:]
-    elif re.match(r"^\d{9,15}$", tel):
-        tel = "+" + tel
     return tel
 
-def _clean_mode(raw_mode):
-    mode = (raw_mode or "").strip().lower()
-    if mode in ("presentiel", "présentiel"):
-        return "Présentiel"
-    if mode == "distanciel":
-        return "Distanciel"
-    return raw_mode
 
-def _clean_phone(raw_tel):
-    tel = str(raw_tel or "").strip().replace(" ", "")
-    tel = tel.replace(".", "").replace("-", "")
-    if tel.startswith("0033"):
-        tel = "+33" + tel[4:]
-    elif re.match(r"^33[1-9]\d{8}$", tel):
-        tel = "+33" + tel[2:]
-    elif re.match(r"^0[1-9]\d{8}$", tel):
-        tel = "+33" + tel[1:]
+def _is_valid_phone(tel):
+    return bool(
+        re.match(r"^0[1-9]\d{8}$", tel)
+        or re.match(r"^\+33[1-9]\d{8}$", tel)
+    )
+
+
+def _to_sms_phone(tel):
+    if re.match(r"^0[1-9]\d{8}$", tel):
+        return "+33" + tel[1:]
     return tel
 
 def _clean_mode(raw_mode):
@@ -397,7 +391,7 @@ def import_file():
 
                     email = email.strip().lower()
                     telephone = _clean_phone(telephone)
-                    if not re.match(r"^\+\d{9,15}$", telephone):
+                    if not _is_valid_phone(telephone):
                         errors += 1
                         continue
 
@@ -435,7 +429,7 @@ def import_file():
                         bts_label=formation,
                         lien_espace="https://inscriptionsbts.onrender.com/"
                     )
-                    sms_id = send_sms_brevo(telephone, sms_body)
+                    sms_id = send_sms_brevo(_to_sms_phone(telephone), sms_body)
                     if sms_id:
                         sms_sent += 1
                         cur.execute("UPDATE parcoursup_candidats SET sms_ok=1 WHERE id=?", (cid,))
@@ -501,7 +495,7 @@ def check_file():
             row_cells[3].value = mail
             corrections += 1
         
-        tel_ok = bool(re.match(r"^\+\d{9,15}$", tel_clean))
+        tel_ok = _is_valid_phone(tel_clean)
         mail_ok = ("@" in mail and "." in mail)
         ligne_vide = (not tel_clean and not mail)
 
