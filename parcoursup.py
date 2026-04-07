@@ -415,6 +415,7 @@ def import_file():
                         "parcoursup_import",
                         prenom=prenom,
                         bts_label=formation,
+                        form_mode_label=mode,
                         lien_espace="https://inscriptionsbts.onrender.com/"
                     )
                     if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", mail_body):
@@ -590,7 +591,7 @@ def relancer_non_ouverts():
                     send_mail(email, "Relance – Intégrale Academy", html)
 
                     # --- SMS ---
-                    msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription BTS {formation} ici 👉 inscriptionsbts.onrender.com"
+                    msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription {formation} ici 👉 inscriptionsbts.onrender.com"
                     send_sms_brevo(tel, msg)
 
                     # --- Log ---
@@ -831,7 +832,7 @@ def relancer_individuel(cid):
         send_mail(email, "Relance manuelle – Intégrale Academy", html)
 
         # --- SMS ---
-        msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription BTS {formation} ici 👉 inscriptionsbts.onrender.com"
+        msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription {formation} ici 👉 inscriptionsbts.onrender.com"
         send_sms_brevo(tel, msg)
 
         # --- Log en BDD ---
