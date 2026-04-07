@@ -548,20 +548,6 @@ def download_cleaned_file(token):
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
 
-@bp_parcoursup.route("/parcoursup/cleaned/<token>", methods=["GET"])
-def download_cleaned_file(token):
-    safe_token = secure_filename(token)
-    pattern = os.path.join(CLEANED_DIR, f"parcoursup_nettoye_{safe_token}.xlsx")
-    if not os.path.exists(pattern):
-        flash("Fichier nettoyé introuvable (lien expiré).", "error")
-        return redirect(url_for("parcoursup.dashboard"))
-    return send_file(
-        pattern,
-        as_attachment=True,
-        download_name="parcoursup_nettoye.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
 # =====================================================
 # 📩 RELANCER AUTOMATIQUEMENT LES NON OUVERTS APRÈS 48H
 # =====================================================
