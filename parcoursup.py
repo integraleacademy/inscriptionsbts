@@ -482,8 +482,7 @@ def check_file():
 
     erreurs = []
     corrections = 0
-    lignes_supprimees = 0
-    rows_to_delete = []
+    lignes_invalides = 0
     ligne_num = 2
 
     for row_cells in ws.iter_rows(min_row=2):
@@ -511,7 +510,7 @@ def check_file():
                 erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
             if not mail_ok:
                 erreurs.append(f"Ligne {ligne_num} : e-mail invalide ({mail})")
-            rows_to_delete.append(ligne_num)
+            lignes_invalides += 1
 
         mode_clean = _clean_mode(mode)
         if mode_clean != mode and len(row_cells) > 5:
@@ -519,10 +518,6 @@ def check_file():
             corrections += 1
 
         ligne_num += 1
-
-    for row_idx in reversed(rows_to_delete):
-        ws.delete_rows(row_idx, 1)
-        lignes_supprimees += 1
 
     os.remove(temp_path)
     if erreurs:
@@ -535,7 +530,8 @@ def check_file():
         wb.save(cleaned_path)
         clean_url = url_for("parcoursup.download_cleaned_file", token=cleaned_token)
         msg += (
-            f"<br><br>🧹 Un nettoyage automatique a été préparé ({corrections} correction(s), {lignes_supprimees} ligne(s) supprimée(s)). "
+            f"<br><br>🧹 Un nettoyage automatique a été préparé ({corrections} correction(s), 0 ligne supprimée). "
+            f"Les {lignes_invalides} ligne(s) en erreur sont conservées pour correction manuelle. "
             f"<a href='{clean_url}' target='_blank' rel='noopener'>Télécharger le fichier nettoyé</a>."
         )
         flash(Markup(msg), "error")
