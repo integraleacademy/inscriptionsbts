@@ -693,13 +693,15 @@ def mail_html(template_name, **kwargs):
 
                 <p>
                   🎓 Nous avons bien reçu votre candidature Parcoursup concernant notre
-                  <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>, en présentiel à Puget sur Argens (Var, 83) / 100% en ligne à distance en visioconférence (ZOOM) <em>(à adapter selon la personne)</em>.
+                  <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>,
+                  {"en présentiel à Puget sur Argens (Var, 83)" if "pres" in (form_mode_label or "").lower() or "puget" in (form_mode_label or "").lower() else "100% en ligne à distance en visioconférence (ZOOM)"}.
                 </p>
 
                 <table width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 16px 0;background:#0f172a;border-radius:10px;">
                   <tr>
                     <td style="padding:12px 14px;color:#ffffff;font-size:14px;line-height:1.5;">
-                      <strong>⚠️ ACTION REQUISE :</strong> Si vous souhaitez intégrer notre école, vous devez à présent compléter votre dossier de pré-inscription en cliquant ici.
+                      <strong>⚠️ ACTION REQUISE :</strong> Si vous souhaitez intégrer notre école, vous devez à présent compléter votre dossier de pré-inscription
+                      <a href="{lien_espace}" style="color:#f4c45a;font-weight:700;text-decoration:underline;">en cliquant ici</a>.
                     </td>
                   </tr>
                 </table>

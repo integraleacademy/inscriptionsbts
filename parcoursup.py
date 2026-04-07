@@ -415,6 +415,7 @@ def import_file():
                         "parcoursup_import",
                         prenom=prenom,
                         bts_label=formation,
+                        form_mode_label=mode,
                         lien_espace="https://inscriptionsbts.onrender.com/"
                     )
                     if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", mail_body):
