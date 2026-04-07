@@ -155,10 +155,31 @@
 
 
   <h3>📋 Liste des candidats Parcoursup</h3>
+  <div style="display:flex;align-items:center;gap:10px;margin:8px 0 12px 0;flex-wrap:wrap;">
+    <label style="display:flex;align-items:center;gap:6px;font-weight:600;">
+      <input type="checkbox" id="selectAllRectif">
+      Tout sélectionner
+    </label>
+    <form id="bulkRectifForm" action="{{ url_for('parcoursup.renvoyer_rectificatif_presentiel_bulk') }}" method="post" style="display:inline;">
+      <input type="hidden" name="cids" id="bulkRectifIds">
+      <button
+        type="submit"
+        id="bulkRectifBtn"
+        class="btn small"
+        style="background:#e67e22;color:white;"
+        disabled
+        onclick="return confirm('Envoyer le rectificatif présentiel aux candidats sélectionnés ?')"
+      >
+        ⚠️ Rectificatif groupé (0)
+      </button>
+    </form>
+    <small style="color:#666;">(Seuls les candidats en présentiel recevront le mail.)</small>
+  </div>
   {% if rows %}
   <table class="admin-table">
     <thead>
       <tr>
+        <th>Sel.</th>
         <th>Nom</th>
         <th>Prénom</th>
         <th>Téléphone</th>
@@ -183,6 +204,9 @@
 
 
         <td>
+  <input type="checkbox" class="rectif-checkbox" data-id="{{ r.id }}" title="Sélectionner pour rectificatif groupé">
+</td>
+<td>
   {% if r.relancee %}
     <span style="background:#f4c45a;color:#000;font-weight:600;border-radius:6px;padding:2px 6px;margin-right:6px;display:inline-block;">
       📩 Relancé
@@ -277,6 +301,22 @@
       onclick="return confirm('Confirmer la relance manuelle de ce candidat ?')"
     >
       🔁
+    </button>
+  </form>
+
+  <form
+    action="{{ url_for('parcoursup.renvoyer_rectificatif_presentiel', cid=r.id) }}"
+    method="post"
+    style="display:inline;"
+  >
+    <button
+      type="submit"
+      class="btn small"
+      style="background:#e67e22;color:white;"
+      title="Renvoyer le mail rectificatif présentiel"
+      onclick="return confirm('Renvoyer le rectificatif présentiel à ce candidat ?')"
+    >
+      ⚠️
     </button>
   </form>
 
@@ -399,6 +439,11 @@ document.addEventListener("DOMContentLoaded", () => {
               color = "#f4c45a";
               text = "Relance manuelle (admin)";
               break;
+            case "rectificatif_presentiel":
+              icon = "⚠️";
+              color = "#e67e22";
+              text = `Rectificatif présentiel envoyé à ${l.dest || ""}`;
+              break;
             default:
               text = l.type;
           }
@@ -421,6 +466,47 @@ document.addEventListener("DOMContentLoaded", () => {
 function closeLogsModal() {
   document.getElementById("logsModal").classList.add("hidden");
 }
+
+const rectifCheckboxes = Array.from(document.querySelectorAll(".rectif-checkbox"));
+const selectAllRectif = document.getElementById("selectAllRectif");
+const bulkRectifBtn = document.getElementById("bulkRectifBtn");
+const bulkRectifIds = document.getElementById("bulkRectifIds");
+const bulkRectifForm = document.getElementById("bulkRectifForm");
+
+function updateBulkRectifState() {
+  const selected = rectifCheckboxes.filter(cb => cb.checked).map(cb => cb.dataset.id);
+  const count = selected.length;
+  bulkRectifIds.value = selected.join(",");
+  bulkRectifBtn.disabled = count === 0;
+  bulkRectifBtn.innerText = `⚠️ Rectificatif groupé (${count})`;
+
+  if (rectifCheckboxes.length === 0) {
+    selectAllRectif.checked = false;
+    selectAllRectif.indeterminate = false;
+    return;
+  }
+  if (count === 0) {
+    selectAllRectif.checked = false;
+    selectAllRectif.indeterminate = false;
+  } else if (count === rectifCheckboxes.length) {
+    selectAllRectif.checked = true;
+    selectAllRectif.indeterminate = false;
+  } else {
+    selectAllRectif.checked = false;
+    selectAllRectif.indeterminate = true;
+  }
+}
+
+rectifCheckboxes.forEach(cb => cb.addEventListener("change", updateBulkRectifState));
+selectAllRectif?.addEventListener("change", () => {
+  rectifCheckboxes.forEach(cb => { cb.checked = selectAllRectif.checked; });
+  updateBulkRectifState();
+});
+bulkRectifForm?.addEventListener("submit", (e) => {
+  updateBulkRectifState();
+  if (!bulkRectifIds.value) e.preventDefault();
+});
+updateBulkRectifState();
 </script>
 
 

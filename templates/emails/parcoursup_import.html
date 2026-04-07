@@ -4,7 +4,8 @@
 🎓 Nous avons bien reçu votre candidature Parcoursup concernant notre
 <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>,
 {% set mode_lower = (form_mode_label|default('')|lower) %}
-{% if 'pres' in mode_lower or 'puget' in mode_lower %}
+{% set mode_norm = mode_lower|replace('é', 'e')|replace('è', 'e')|replace('ê', 'e')|replace('à', 'a') %}
+{% if 'pres' in mode_norm or 'puget' in mode_norm %}
 en présentiel à Puget sur Argens (Var, 83).
 {% else %}
 100% en ligne à distance en visioconférence (ZOOM).

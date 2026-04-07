@@ -18,6 +18,12 @@ def normalize(s):
     return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn')
 
 
+def _mode_is_presentiel(mode_raw: str) -> bool:
+    mode_norm = unicodedata.normalize("NFD", (mode_raw or "").lower())
+    mode_norm = "".join(c for c in mode_norm if unicodedata.category(c) != "Mn")
+    return "pres" in mode_norm or "puget" in mode_norm
+
+
 # Blueprint Parcoursup
 bp_parcoursup = Blueprint("parcoursup", __name__, template_folder="templates")
 
@@ -811,6 +817,129 @@ def relancer_individuel(cid):
         flash(f"Erreur lors de la relance : {e}", "error")
 
     conn.close()
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+@bp_parcoursup.route("/parcoursup/rectificatif-presentiel/<cid>", methods=["POST"])
+def renvoyer_rectificatif_presentiel(cid):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT prenom, email, formation, mode FROM parcoursup_candidats WHERE id=?", (cid,))
+    r = cur.fetchone()
+
+    if not r:
+        flash("Candidat introuvable.", "error")
+        conn.close()
+        return redirect(url_for("parcoursup.dashboard"))
+
+    prenom = (r["prenom"] or "").strip()
+    email = (r["email"] or "").strip()
+    formation = (r["formation"] or "").strip()
+    mode_raw = (r["mode"] or "").strip()
+
+    if not _mode_is_presentiel(mode_raw):
+        flash("Rectificatif non envoyé : ce candidat n'est pas en présentiel.", "error")
+        conn.close()
+        return redirect(url_for("parcoursup.dashboard"))
+
+    base_url = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+    lien_espace = f"{base_url}/"
+    now = datetime.now().isoformat()
+
+    try:
+        mail_body = mail_html(
+            "parcoursup_import_rectificatif_presentiel",
+            prenom=prenom,
+            bts_label=formation,
+            form_mode_label=mode_raw,
+            lien_espace=lien_espace
+        )
+        sent = send_mail(email, "Rectificatif important — Candidature Parcoursup (présentiel)", mail_body)
+
+        if sent:
+            cur.execute("""
+                UPDATE parcoursup_candidats
+                SET logs=json_insert(logs, '$[#]', json_object('type','rectificatif_presentiel','dest',?,'date',?))
+                WHERE id=?
+            """, (email, now, cid))
+            conn.commit()
+            flash(f"Rectificatif présentiel envoyé à {prenom} ✅", "success")
+        else:
+            flash(f"Échec d'envoi du rectificatif à {prenom}.", "error")
+
+    except Exception as e:
+        flash(f"Erreur lors de l'envoi du rectificatif : {e}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+@bp_parcoursup.route("/parcoursup/rectificatif-presentiel/bulk", methods=["POST"])
+def renvoyer_rectificatif_presentiel_bulk():
+    ids_raw = request.form.get("cids", "")
+    cids = [x.strip() for x in ids_raw.split(",") if x.strip()]
+    if not cids:
+        flash("Aucun candidat sélectionné.", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+
+    conn = db()
+    cur = conn.cursor()
+    placeholders = ",".join(["?"] * len(cids))
+    cur.execute(
+        f"SELECT id, prenom, email, formation, mode FROM parcoursup_candidats WHERE id IN ({placeholders})",
+        cids
+    )
+    rows = cur.fetchall()
+
+    base_url = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+    lien_espace = f"{base_url}/"
+    now = datetime.now().isoformat()
+
+    sent = skipped = errors = 0
+
+    try:
+        for r in rows:
+            cid = r["id"]
+            prenom = (r["prenom"] or "").strip()
+            email = (r["email"] or "").strip()
+            formation = (r["formation"] or "").strip()
+            mode_raw = (r["mode"] or "").strip()
+
+            if not _mode_is_presentiel(mode_raw):
+                skipped += 1
+                continue
+
+            try:
+                mail_body = mail_html(
+                    "parcoursup_import_rectificatif_presentiel",
+                    prenom=prenom,
+                    bts_label=formation,
+                    form_mode_label=mode_raw,
+                    lien_espace=lien_espace
+                )
+                ok = send_mail(email, "Rectificatif important — Candidature Parcoursup (présentiel)", mail_body)
+                if ok:
+                    cur.execute("""
+                        UPDATE parcoursup_candidats
+                        SET logs=json_insert(logs, '$[#]', json_object('type','rectificatif_presentiel','dest',?,'date',?))
+                        WHERE id=?
+                    """, (email, now, cid))
+                    sent += 1
+                else:
+                    errors += 1
+            except Exception:
+                errors += 1
+
+        conn.commit()
+    finally:
+        conn.close()
+
+    not_found = max(0, len(cids) - len(rows))
+    flash(
+        f"Rectificatif présentiel — envoyés ✅ {sent} | ignorés (non présentiel) ⏭️ {skipped} | introuvables ❓ {not_found} | erreurs ❌ {errors}",
+        "success" if sent else "error"
+    )
     return redirect(url_for("parcoursup.dashboard"))
 
 
