@@ -814,6 +814,63 @@ def relancer_individuel(cid):
     return redirect(url_for("parcoursup.dashboard"))
 
 
+@bp_parcoursup.route("/parcoursup/rectificatif-presentiel/<cid>", methods=["POST"])
+def renvoyer_rectificatif_presentiel(cid):
+    conn = db()
+    cur = conn.cursor()
+    cur.execute("SELECT prenom, email, formation, mode FROM parcoursup_candidats WHERE id=?", (cid,))
+    r = cur.fetchone()
+
+    if not r:
+        flash("Candidat introuvable.", "error")
+        conn.close()
+        return redirect(url_for("parcoursup.dashboard"))
+
+    prenom = (r["prenom"] or "").strip()
+    email = (r["email"] or "").strip()
+    formation = (r["formation"] or "").strip()
+    mode_raw = (r["mode"] or "").strip()
+    mode_norm = unicodedata.normalize("NFD", mode_raw.lower())
+    mode_norm = "".join(c for c in mode_norm if unicodedata.category(c) != "Mn")
+
+    if "pres" not in mode_norm and "puget" not in mode_norm:
+        flash("Rectificatif non envoyé : ce candidat n'est pas en présentiel.", "error")
+        conn.close()
+        return redirect(url_for("parcoursup.dashboard"))
+
+    base_url = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+    lien_espace = f"{base_url}/"
+    now = datetime.now().isoformat()
+
+    try:
+        mail_body = mail_html(
+            "parcoursup_import_rectificatif_presentiel",
+            prenom=prenom,
+            bts_label=formation,
+            form_mode_label=mode_raw,
+            lien_espace=lien_espace
+        )
+        sent = send_mail(email, "Rectificatif important — Candidature Parcoursup (présentiel)", mail_body)
+
+        if sent:
+            cur.execute("""
+                UPDATE parcoursup_candidats
+                SET logs=json_insert(logs, '$[#]', json_object('type','rectificatif_presentiel','dest',?,'date',?))
+                WHERE id=?
+            """, (email, now, cid))
+            conn.commit()
+            flash(f"Rectificatif présentiel envoyé à {prenom} ✅", "success")
+        else:
+            flash(f"Échec d'envoi du rectificatif à {prenom}.", "error")
+
+    except Exception as e:
+        flash(f"Erreur lors de l'envoi du rectificatif : {e}", "error")
+    finally:
+        conn.close()
+
+    return redirect(url_for("parcoursup.dashboard"))
+
+
     prenom = r["prenom"] or ""
     formation = r["formation"] or ""
     email = (r["email"] or "").strip()

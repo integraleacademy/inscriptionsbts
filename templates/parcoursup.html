@@ -280,6 +280,22 @@
     </button>
   </form>
 
+  <form
+    action="{{ url_for('parcoursup.renvoyer_rectificatif_presentiel', cid=r.id) }}"
+    method="post"
+    style="display:inline;"
+  >
+    <button
+      type="submit"
+      class="btn small"
+      style="background:#e67e22;color:white;"
+      title="Renvoyer le mail rectificatif présentiel"
+      onclick="return confirm('Renvoyer le rectificatif présentiel à ce candidat ?')"
+    >
+      ⚠️
+    </button>
+  </form>
+
   <!-- 🗑️ Supprimer le candidat -->
   <form
     action="{{ url_for('parcoursup.delete_candidat', cid=r.id) }}"
@@ -398,6 +414,11 @@ document.addEventListener("DOMContentLoaded", () => {
               icon = "🧑‍💻";
               color = "#f4c45a";
               text = "Relance manuelle (admin)";
+              break;
+            case "rectificatif_presentiel":
+              icon = "⚠️";
+              color = "#e67e22";
+              text = `Rectificatif présentiel envoyé à ${l.dest || ""}`;
               break;
             default:
               text = l.type;
