@@ -34,38 +34,32 @@ def db():
 def _clean_phone(raw_tel):
     tel = str(raw_tel or "").strip()
     tel = re.sub(r"[^\d+]", "", tel)
+
     if tel.startswith("00"):
         tel = "+" + tel[2:]
     if tel.startswith("+"):
-        tel = "+" + re.sub(r"\D", "", tel[1:])
+        return "+" + re.sub(r"\D", "", tel[1:])
+
+    tel = re.sub(r"\D", "", tel)
+    if re.match(r"^33[1-9]\d{8}$", tel):
+        return "+33" + tel[2:]
+    if re.match(r"^[1-9]\d{8}$", tel):
+        return "0" + tel
+    if re.match(r"^0[1-9]\d{8}$", tel):
         return tel
-    if tel.startswith("0033"):
-        tel = "+33" + tel[4:]
-    elif re.match(r"^33[1-9]\d{8}$", tel):
-        tel = "+33" + tel[2:]
-    elif re.match(r"^0[1-9]\d{8}$", tel):
-        tel = "+33" + tel[1:]
-    elif re.match(r"^\d{9,15}$", tel):
-        tel = "+" + tel
     return tel
 
-def _clean_mode(raw_mode):
-    mode = (raw_mode or "").strip().lower()
-    if mode in ("presentiel", "présentiel"):
-        return "Présentiel"
-    if mode == "distanciel":
-        return "Distanciel"
-    return raw_mode
 
-def _clean_phone(raw_tel):
-    tel = str(raw_tel or "").strip().replace(" ", "")
-    tel = tel.replace(".", "").replace("-", "")
-    if tel.startswith("0033"):
-        tel = "+33" + tel[4:]
-    elif re.match(r"^33[1-9]\d{8}$", tel):
-        tel = "+33" + tel[2:]
-    elif re.match(r"^0[1-9]\d{8}$", tel):
-        tel = "+33" + tel[1:]
+def _is_valid_phone(tel):
+    return bool(
+        re.match(r"^0[1-9]\d{8}$", tel)
+        or re.match(r"^\+33[1-9]\d{8}$", tel)
+    )
+
+
+def _to_sms_phone(tel):
+    if re.match(r"^0[1-9]\d{8}$", tel):
+        return "+33" + tel[1:]
     return tel
 
 def _clean_mode(raw_mode):
@@ -397,7 +391,7 @@ def import_file():
 
                     email = email.strip().lower()
                     telephone = _clean_phone(telephone)
-                    if not re.match(r"^\+\d{9,15}$", telephone):
+                    if not _is_valid_phone(telephone):
                         errors += 1
                         continue
 
@@ -435,7 +429,7 @@ def import_file():
                         bts_label=formation,
                         lien_espace="https://inscriptionsbts.onrender.com/"
                     )
-                    sms_id = send_sms_brevo(telephone, sms_body)
+                    sms_id = send_sms_brevo(_to_sms_phone(telephone), sms_body)
                     if sms_id:
                         sms_sent += 1
                         cur.execute("UPDATE parcoursup_candidats SET sms_ok=1 WHERE id=?", (cid,))
@@ -482,8 +476,7 @@ def check_file():
 
     erreurs = []
     corrections = 0
-    lignes_supprimees = 0
-    rows_to_delete = []
+    lignes_invalides = 0
     ligne_num = 2
 
     for row_cells in ws.iter_rows(min_row=2):
@@ -502,7 +495,7 @@ def check_file():
             row_cells[3].value = mail
             corrections += 1
         
-        tel_ok = bool(re.match(r"^\+\d{9,15}$", tel_clean))
+        tel_ok = _is_valid_phone(tel_clean)
         mail_ok = ("@" in mail and "." in mail)
         ligne_vide = (not tel_clean and not mail)
 
@@ -511,7 +504,7 @@ def check_file():
                 erreurs.append(f"Ligne {ligne_num} : téléphone invalide ({tel})")
             if not mail_ok:
                 erreurs.append(f"Ligne {ligne_num} : e-mail invalide ({mail})")
-            rows_to_delete.append(ligne_num)
+            lignes_invalides += 1
 
         mode_clean = _clean_mode(mode)
         if mode_clean != mode and len(row_cells) > 5:
@@ -519,10 +512,6 @@ def check_file():
             corrections += 1
 
         ligne_num += 1
-
-    for row_idx in reversed(rows_to_delete):
-        ws.delete_rows(row_idx, 1)
-        lignes_supprimees += 1
 
     os.remove(temp_path)
     if erreurs:
@@ -535,7 +524,8 @@ def check_file():
         wb.save(cleaned_path)
         clean_url = url_for("parcoursup.download_cleaned_file", token=cleaned_token)
         msg += (
-            f"<br><br>🧹 Un nettoyage automatique a été préparé ({corrections} correction(s), {lignes_supprimees} ligne(s) supprimée(s)). "
+            f"<br><br>🧹 Un nettoyage automatique a été préparé ({corrections} correction(s), 0 ligne supprimée). "
+            f"Les {lignes_invalides} ligne(s) en erreur sont conservées pour correction manuelle. "
             f"<a href='{clean_url}' target='_blank' rel='noopener'>Télécharger le fichier nettoyé</a>."
         )
         flash(Markup(msg), "error")
