@@ -696,6 +696,14 @@ def mail_html(template_name, **kwargs):
                   Votre profil est désormais enregistré chez <strong>Intégrale Academy</strong>.
                 </p>
 
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 16px 0;background:#0f172a;border-radius:10px;">
+                  <tr>
+                    <td style="padding:12px 14px;color:#ffffff;font-size:14px;line-height:1.5;">
+                      <strong>⚠️ ACTION REQUISE :</strong> ce message vous invite à compléter votre dossier d’inscription.
+                    </td>
+                  </tr>
+                </table>
+
                 <div style="margin:16px 0 20px 0;padding:14px 16px;border-radius:10px;background:#fff4f4;border:1px solid #f5b4b4;">
                   <p style="margin:0;font-size:14px;line-height:1.6;color:#8b1d1d;">
                     <strong>ℹ️ Information importante :</strong>
