@@ -590,7 +590,7 @@ def relancer_non_ouverts():
                     send_mail(email, "Relance – Intégrale Academy", html)
 
                     # --- SMS ---
-                    msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription BTS {formation} ici 👉 inscriptionsbts.onrender.com"
+                    msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription {formation} ici 👉 inscriptionsbts.onrender.com"
                     send_sms_brevo(tel, msg)
 
                     # --- Log ---
@@ -831,7 +831,7 @@ def relancer_individuel(cid):
         send_mail(email, "Relance manuelle – Intégrale Academy", html)
 
         # --- SMS ---
-        msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription BTS {formation} ici 👉 inscriptionsbts.onrender.com"
+        msg = f"Bonjour {prenom}, merci de finaliser votre pré-inscription {formation} ici 👉 inscriptionsbts.onrender.com"
         send_sms_brevo(tel, msg)
 
         # --- Log en BDD ---
