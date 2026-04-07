@@ -3,9 +3,18 @@
 # =====================================================
 
 import os
+import unicodedata
 from flask import render_template_string
 
 BASE_TEMPLATE_PATH = os.path.join("templates", "email_base.html")
+
+
+def _normalize_mode_text(value: str) -> str:
+    raw = (value or "").strip().lower()
+    return "".join(
+        c for c in unicodedata.normalize("NFD", raw)
+        if unicodedata.category(c) != "Mn"
+    )
 
 def mail_html(template_name, **kwargs):
     """Retourne le HTML complet d’un mail avec logo et design unifié."""
@@ -30,7 +39,7 @@ def mail_html(template_name, **kwargs):
     form_email       = kwargs.get("form_email", "") or ""
     form_tel         = kwargs.get("form_tel", "") or ""
     form_mode_label_raw = kwargs.get("form_mode_label", "") or ""
-    mode = form_mode_label_raw.lower()
+    mode = _normalize_mode_text(form_mode_label_raw)
 
     if "pres" in mode:
         form_mode_label = "En présentiel à Puget-sur-Argens (Var – 83)"
@@ -694,7 +703,76 @@ def mail_html(template_name, **kwargs):
                 <p>
                   🎓 Nous avons bien reçu votre candidature Parcoursup concernant notre
                   <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>,
-                  {"en présentiel à Puget sur Argens (Var, 83)" if "pres" in (form_mode_label or "").lower() or "puget" in (form_mode_label or "").lower() else "100% en ligne à distance en visioconférence (ZOOM)"}.
+                  {"en présentiel à Puget sur Argens (Var, 83)" if "pres" in mode or "puget" in mode else "100% en ligne à distance en visioconférence (ZOOM)"}.
+                </p>
+
+                <table width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 16px 0;background:#0f172a;border-radius:10px;">
+                  <tr>
+                    <td style="padding:12px 14px;color:#ffffff;font-size:14px;line-height:1.5;">
+                      <strong>⚠️ ACTION REQUISE :</strong> Si vous souhaitez intégrer notre école, vous devez à présent compléter votre dossier de pré-inscription
+                      <a href="{lien_espace}" style="color:#f4c45a;font-weight:700;text-decoration:underline;">en cliquant ici</a>.
+                    </td>
+                  </tr>
+                </table>
+
+                <div style="margin:16px 0 20px 0;padding:14px 16px;border-radius:10px;background:#fff4f4;border:1px solid #f5b4b4;">
+                  <p style="margin:0;font-size:14px;line-height:1.6;color:#8b1d1d;">
+                    <strong>ℹ️ Information importante :</strong>
+                    si vous avez déjà complété votre dossier d’inscription, merci de ne pas tenir compte de ce message.
+                  </p>
+                </div>
+
+                <div style="margin:20px 0;padding:16px 18px;border-radius:10px;background:#f6fbff;border:1px solid #dbeafe;">
+                  <p style="margin:0 0 10px 0;font-size:15px;"><strong>📌 Prochaine étape obligatoire :</strong></p>
+                  <p style="margin:0;font-size:14px;line-height:1.6;">
+                    ✅ Ce qui se passe ensuite :
+                  </p>
+                  <ul style="margin:8px 0 0 18px;padding:0;line-height:1.7;font-size:14px;">
+                    <li>Vous complétez votre dossier de pré-inscription.</li>
+                    <li>Notre commission étudie votre dossier (environ 10 jours).</li>
+                    <li>Vous recevez une réponse par email et SMS.</li>
+                    <li>En cas d’avis favorable, vous devrez confirmer votre inscription.</li>
+                  </ul>
+                </div>
+
+                <p style="text-align:center;margin:26px 0 18px 0;">
+                  <a href="{lien_espace}" style="display:inline-block;background:#f4c45a;color:#000;padding:12px 18px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">
+                    👉 Compléter ma pré-inscription
+                  </a>
+                </p>
+
+                <div style="margin:20px 0;padding:16px 18px;border-radius:10px;background:#fffaf0;border:1px solid #f5dd9b;">
+                  <p style="margin:0 0 8px 0;font-size:15px;"><strong>🗂️ Préparez ces éléments pour aller plus vite :</strong></p>
+                  <ul style="margin:8px 0 0 18px;padding:0;line-height:1.7;font-size:14px;">
+                    <li>Pièce d’identité en cours de validité</li>
+                    <li>Diplôme (ou justificatif de niveau 4 / baccalauréat)</li>
+                    <li>CV à jour</li>
+                    <li>Coordonnées complètes (email + téléphone)</li>
+                  </ul>
+                </div>
+
+                <p style="margin-top:20px;margin-bottom:6px;">
+                  💬 Besoin d’aide pour finaliser votre dossier ?<br>
+                  Contactez-nous au <strong>04 22 47 07 68</strong>.
+                </p>
+
+                <p style="margin-top:24px;">À très bientôt,<br><b>L’équipe Intégrale Academy</b></p>
+            """
+        },
+        "parcoursup_import_rectificatif_presentiel": {
+            "title": "Rectificatif — Votre candidature Parcoursup (présentiel)",
+            "content": f"""
+                <p>Bonjour {prenom},</p>
+
+                <div style="margin:12px 0 16px 0;padding:12px 14px;border-radius:10px;background:#fff4e5;border:1px solid #f4c45a;color:#7a4d00;">
+                  <strong>⚠️ Rectificatif :</strong> une erreur s’est glissée dans notre précédent email.
+                  Votre candidature est bien enregistrée <strong>en présentiel à Puget sur Argens (Var, 83)</strong>.
+                </div>
+
+                <p>
+                  🎓 Nous avons bien reçu votre candidature Parcoursup concernant notre
+                  <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>,
+                  en présentiel à Puget sur Argens (Var, 83).
                 </p>
 
                 <table width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 16px 0;background:#0f172a;border-radius:10px;">
