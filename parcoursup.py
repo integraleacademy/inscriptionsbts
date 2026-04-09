@@ -85,31 +85,78 @@ def _clean_mode(raw_mode):
 def _extract_manual_fields_from_text(raw_text):
     text = (raw_text or "").replace("\r", "\n")
     compact = re.sub(r"[ \t]+", " ", text)
+    lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.split("\n")]
+    lines = [ln for ln in lines if ln]
+
+    def _clean_name_piece(value):
+        value = re.sub(r"^[^A-Za-zÀ-ÿ]+", "", value or "")
+        value = re.sub(r"[^A-Za-zÀ-ÿ' -].*$", "", value)
+        value = re.sub(r"\s+", " ", value).strip(" -.,;:")
+        return value
 
     email_match = re.search(r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", compact)
     phone_match = re.search(r"(\+?\d[\d\s().-]{8,}\d)", compact)
 
     nom = ""
     prenom = ""
-    nom_match = re.search(r"\bNom\b\s*[:\-]?\s*([A-ZÀ-ÖØ-Ý' -]{2,})", compact)
-    prenom_match = re.search(r"\bPr[ée]nom(?:\(s\))?\b\s*[:\-]?\s*([A-ZÀ-ÿ' -]{2,})", compact)
-    if nom_match:
-        nom = nom_match.group(1).strip().split("\n")[0].strip()
-    if prenom_match:
-        prenom = prenom_match.group(1).strip().split("\n")[0].strip()
 
+    # 1) Priorité : champs libellés "Nom" / "Prénom(s)" (sur la même ligne ou la ligne suivante)
+    for i, line in enumerate(lines):
+        line_low = line.lower()
+        if not nom and re.fullmatch(r"nom[:\-]?", line_low):
+            if i + 1 < len(lines):
+                candidate = _clean_name_piece(lines[i + 1])
+                if len(candidate) >= 2:
+                    nom = candidate
+        if not prenom and re.fullmatch(r"pr[ée]nom(?:\(s\))?[:\-]?", line_low):
+            if i + 1 < len(lines):
+                candidate = _clean_name_piece(lines[i + 1])
+                if len(candidate) >= 2:
+                    prenom = candidate
+
+        if not nom:
+            m_nom = re.search(r"(?i)\bNom\b\s*[:\-]?\s*([^\n]+)$", line)
+            if m_nom:
+                candidate = _clean_name_piece(m_nom.group(1))
+                if len(candidate) >= 2:
+                    nom = candidate
+        if not prenom:
+            m_pre = re.search(r"(?i)\bPr[ée]nom(?:\(s\))?\b\s*[:\-]?\s*([^\n]+)$", line)
+            if m_pre:
+                candidate = _clean_name_piece(m_pre.group(1))
+                if len(candidate) >= 2:
+                    prenom = candidate
+
+    # 2) Fallback : en-tête civilité "M. NOM Prénom dd/mm/yyyy"
     if not nom or not prenom:
-        first_line = compact.split("\n")[0] if compact else ""
+        head_zone = " ".join(lines[:3])
+        m_head = re.search(
+            r"(?i)\b(?:M\.?|Mme|Mlle)\s+([A-ZÀ-ÖØ-Ý][A-ZÀ-ÖØ-Ý' -]{1,})\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' -]{1,})\s+\d{1,2}/\d{1,2}/\d{4}",
+            head_zone
+        )
+        if m_head:
+            if not nom:
+                nom = _clean_name_piece(m_head.group(1))
+            if not prenom:
+                prenom = _clean_name_piece(m_head.group(2))
+
+    # 3) Dernier fallback robuste
+    if not nom or not prenom:
+        first_line = lines[0] if lines else ""
         first_line = re.sub(r"\bn[°ºo]?\s*\d+\b", "", first_line, flags=re.IGNORECASE)
         first_line = re.sub(r"\b(M\.?|Mme|Mlle)\b", "", first_line, flags=re.IGNORECASE)
         first_line = re.sub(r"\b\d{1,2}/\d{1,2}/\d{4}\b", "", first_line)
         first_line = re.sub(r"\s+", " ", first_line).strip()
-        parts = [p for p in first_line.split(" ") if p]
+        parts = [_clean_name_piece(p) for p in first_line.split(" ")]
+        parts = [p for p in parts if len(p) >= 2]
         if len(parts) >= 2:
             if not nom:
-                nom = parts[0].upper()
+                nom = parts[0]
             if not prenom:
-                prenom = parts[1].title()
+                prenom = parts[1]
+
+    nom = nom.upper() if nom else ""
+    prenom = prenom.title() if prenom else ""
 
     return {
         "nom": nom,
