@@ -68,6 +68,16 @@ def _is_valid_email(email):
     return bool(email and re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email))
 
 
+def _is_valid_email(email):
+    email = (email or "").strip().lower()
+    return bool(email and re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email))
+
+
+def _is_valid_email(email):
+    email = (email or "").strip().lower()
+    return bool(email and re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email))
+
+
 def _to_sms_phone(tel):
     if re.match(r"^0[1-9]\d{8}$", tel):
         return "+33" + tel[1:]
@@ -80,6 +90,440 @@ def _clean_mode(raw_mode):
     if mode == "distanciel":
         return "Distanciel"
     return raw_mode
+
+
+def _extract_manual_fields_from_text(raw_text):
+    text = (raw_text or "").replace("\r", "\n")
+    compact = re.sub(r"[ \t]+", " ", text)
+    lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.split("\n")]
+    lines = [ln for ln in lines if ln]
+
+    def _clean_name_piece(value):
+        value = re.sub(r"^[^A-Za-zÀ-ÿ]+", "", value or "")
+        value = re.sub(r"[^A-Za-zÀ-ÿ' -].*$", "", value)
+        value = re.sub(r"\s+", " ", value).strip(" -.,;:")
+        return value
+
+    def _is_bad_name_piece(value):
+        v = (value or "").strip().lower()
+        v = unicodedata.normalize("NFD", v)
+        v = "".join(c for c in v if unicodedata.category(c) != "Mn")
+        v = v.replace("0", "o")
+        v = re.sub(r"[^a-z]", "", v)
+        if len(v) < 2:
+            return True
+        blocked = {
+            "nom", "prenom", "prenoms", "civilite", "date", "naissance", "nationalite",
+            "email", "mail", "telephone", "portable", "adresse"
+        }
+        return v in blocked or "prenom" in v
+
+    email_match = re.search(r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", compact)
+    phone_match = re.search(r"(\+?\d[\d\s().-]{8,}\d)", compact)
+
+    nom = ""
+    prenom = ""
+
+    # 1) Priorité haute : en-tête civilité "M. NOM Prénom dd/mm/yyyy"
+    head_zone = " ".join(lines[:4])
+    m_head = re.search(
+        r"(?i)\b(?:M\.?|Mme|Mlle)\s+([A-ZÀ-ÖØ-Ý][A-ZÀ-ÖØ-Ý' -]{1,})\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' -]{1,})\s+\d{1,2}/\d{1,2}/\d{4}",
+        head_zone
+    )
+    if m_head:
+        nom_candidate = _clean_name_piece(m_head.group(1))
+        prenom_candidate = _clean_name_piece(m_head.group(2))
+        if not _is_bad_name_piece(nom_candidate):
+            nom = nom_candidate
+        if not _is_bad_name_piece(prenom_candidate):
+            prenom = prenom_candidate
+
+    # 2) Champs libellés "Nom" / "Prénom(s)" (sur la même ligne ou la ligne suivante)
+    for i, line in enumerate(lines):
+        line_low = line.lower()
+        if not nom and re.fullmatch(r"nom[:\-]?", line_low):
+            if i + 1 < len(lines):
+                candidate = _clean_name_piece(lines[i + 1])
+                if not _is_bad_name_piece(candidate):
+                    nom = candidate
+        if not prenom and re.fullmatch(r"pr[ée]nom(?:\(s\))?[:\-]?", line_low):
+            if i + 1 < len(lines):
+                candidate = _clean_name_piece(lines[i + 1])
+                if not _is_bad_name_piece(candidate):
+                    prenom = candidate
+
+        if not nom:
+            m_nom = re.search(r"(?i)\bNom\b\s*[:\-]?\s*([^\n]+)$", line)
+            if m_nom:
+                candidate = _clean_name_piece(m_nom.group(1))
+                if not _is_bad_name_piece(candidate):
+                    nom = candidate
+        if not prenom:
+            m_pre = re.search(r"(?i)\bPr[ée]nom(?:\(s\))?\b\s*[:\-]?\s*([^\n]+)$", line)
+            if m_pre:
+                candidate = _clean_name_piece(m_pre.group(1))
+                if not _is_bad_name_piece(candidate):
+                    prenom = candidate
+
+    # 3) Dernier fallback robuste
+    if not nom or not prenom:
+        first_line = lines[0] if lines else ""
+        first_line = re.sub(r"\bn[°ºo]?\s*\d+\b", "", first_line, flags=re.IGNORECASE)
+        first_line = re.sub(r"\b(M\.?|Mme|Mlle)\b", "", first_line, flags=re.IGNORECASE)
+        first_line = re.sub(r"\b\d{1,2}/\d{1,2}/\d{4}\b", "", first_line)
+        first_line = re.sub(r"\s+", " ", first_line).strip()
+        parts = [_clean_name_piece(p) for p in first_line.split(" ")]
+        parts = [p for p in parts if not _is_bad_name_piece(p)]
+        if len(parts) >= 2:
+            if not nom:
+                nom = parts[0]
+            if not prenom:
+                prenom = parts[1]
+
+    # 4) Secours final : relecture de l'entête autour de la date
+    if _is_bad_name_piece(nom) or not prenom:
+        head_match = re.search(
+            r"(?i)(?:M\.?|Mme|Mlle)\s+(.{3,120}?)\s+\d{1,2}/\d{1,2}/\d{4}",
+            compact
+        )
+        if head_match:
+            candidates = [_clean_name_piece(t) for t in re.split(r"\s+", head_match.group(1))]
+            candidates = [c for c in candidates if not _is_bad_name_piece(c)]
+            if len(candidates) >= 2:
+                maybe_nom, maybe_prenom = candidates[0], candidates[1]
+                if _is_bad_name_piece(nom):
+                    nom = maybe_nom
+                if not prenom or _is_bad_name_piece(prenom):
+                    prenom = maybe_prenom
+
+    nom = _clean_name_piece(nom).split(" ")[0] if nom else ""
+    prenom = _clean_name_piece(prenom).split(" ")[0] if prenom else ""
+    nom = nom.upper() if nom and not _is_bad_name_piece(nom) else ""
+    prenom = prenom.title() if prenom and not _is_bad_name_piece(prenom) else ""
+
+    return {
+        "nom": nom,
+        "prenom": prenom,
+        "email": email_match.group(1).lower() if email_match else "",
+        "telephone": _clean_phone(phone_match.group(1)) if phone_match else "",
+        "ocr_text": text[:5000],
+    }
+
+
+def _ocr_extract_from_image(file_storage):
+    api_key = os.getenv("OCR_SPACE_API_KEY", "helloworld")
+    endpoint = os.getenv("OCR_SPACE_ENDPOINT", "https://api.ocr.space/parse/image")
+    file_storage.stream.seek(0)
+    payload = {
+        "language": "fre",
+        "isOverlayRequired": False,
+        "OCREngine": 2,
+        "scale": True,
+    }
+    files = {
+        "file": (file_storage.filename or "capture.png", file_storage.stream, file_storage.mimetype or "application/octet-stream"),
+    }
+    headers = {"apikey": api_key}
+    resp = requests.post(endpoint, data=payload, files=files, headers=headers, timeout=45)
+    resp.raise_for_status()
+    body = resp.json()
+    if body.get("IsErroredOnProcessing"):
+        errors = ", ".join(body.get("ErrorMessage") or []) or "Erreur OCR inconnue"
+        raise ValueError(errors)
+    parsed_results = body.get("ParsedResults") or []
+    parsed_text = "\n".join((r.get("ParsedText") or "") for r in parsed_results).strip()
+    if not parsed_text:
+        raise ValueError("Aucun texte détecté dans l'image.")
+    return _extract_manual_fields_from_text(parsed_text)
+
+
+def _insert_parcoursup_candidate(cur, nom, prenom, telephone, email, formation, mode):
+    email = (email or "").strip().lower()
+    telephone = _clean_phone(telephone)
+    formation = (formation or "").strip()
+    mode = _clean_mode((mode or "").strip())
+    nom = (nom or "").strip()
+    prenom = (prenom or "").strip()
+
+    if not email and not telephone:
+        return {"ok": False, "reason": "contact_missing"}
+    if email and not _is_valid_email(email):
+        return {"ok": False, "reason": "email_invalid"}
+    tel_for_storage = ""
+    if telephone:
+        if _is_valid_phone(telephone):
+            tel_for_storage = telephone
+        else:
+            if not email:
+                return {"ok": False, "reason": "phone_invalid"}
+
+    duplicate_checks = []
+    params = []
+    if email:
+        duplicate_checks.append("email = ?")
+        params.append(email)
+    if tel_for_storage:
+        duplicate_checks.append("telephone = ?")
+        params.append(tel_for_storage)
+    if duplicate_checks:
+        cur.execute(f"SELECT id FROM parcoursup_candidats WHERE {' OR '.join(duplicate_checks)}", params)
+        if cur.fetchone():
+            return {"ok": False, "reason": "duplicate"}
+
+    cid = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    cur.execute("""
+        INSERT INTO parcoursup_candidats
+        (id, nom, prenom, telephone, email, formation, mode, mail_ok, sms_ok, statut, logs, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'En attente de candidature', '[]', ?)
+    """, (cid, nom, prenom, tel_for_storage, email, formation, mode, now))
+
+    mails_sent = 0
+    sms_sent = 0
+    if email:
+        mail_body = mail_html(
+            "parcoursup_import",
+            prenom=prenom or "Candidat",
+            bts_label=formation,
+            form_mode_label=mode,
+            lien_espace="https://inscriptionsbts.onrender.com/"
+        )
+        if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", mail_body):
+            mails_sent = 1
+            cur.execute("UPDATE parcoursup_candidats SET mail_ok=1 WHERE id=?", (cid,))
+            cur.execute("UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type', 'mail', 'dest', ?, 'date', ?)) WHERE id=?", (email, now, cid))
+
+    if tel_for_storage:
+        sms_body = sms_text(
+            "parcoursup_import",
+            prenom=prenom or "Candidat",
+            bts_label=formation,
+            lien_espace="https://inscriptionsbts.onrender.com/"
+        )
+        sms_id = send_sms_brevo(_to_sms_phone(tel_for_storage), sms_body)
+        if sms_id:
+            sms_sent = 1
+            cur.execute("UPDATE parcoursup_candidats SET sms_ok=1 WHERE id=?", (cid,))
+            cur.execute("UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type', 'sms', 'dest', ?, 'id', ?, 'date', ?)) WHERE id=?", (tel_for_storage, str(sms_id), now, cid))
+
+    return {"ok": True, "mails_sent": mails_sent, "sms_sent": sms_sent}
+
+
+def _extract_manual_fields_from_text(raw_text):
+    text = (raw_text or "").replace("\r", "\n")
+    compact = re.sub(r"[ \t]+", " ", text)
+    lines = [re.sub(r"\s+", " ", ln).strip() for ln in text.split("\n")]
+    lines = [ln for ln in lines if ln]
+
+    def _clean_name_piece(value):
+        value = re.sub(r"^[^A-Za-zÀ-ÿ]+", "", value or "")
+        value = re.sub(r"[^A-Za-zÀ-ÿ' -].*$", "", value)
+        value = re.sub(r"\s+", " ", value).strip(" -.,;:")
+        return value
+
+    def _is_bad_name_piece(value):
+        v = (value or "").strip().lower()
+        v = unicodedata.normalize("NFD", v)
+        v = "".join(c for c in v if unicodedata.category(c) != "Mn")
+        v = v.replace("0", "o")
+        v = re.sub(r"[^a-z]", "", v)
+        if len(v) < 2:
+            return True
+        blocked = {
+            "nom", "prenom", "prenoms", "civilite", "date", "naissance", "nationalite",
+            "email", "mail", "telephone", "portable", "adresse"
+        }
+        return v in blocked or "prenom" in v
+
+    email_match = re.search(r"([A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,})", compact)
+    phone_match = re.search(r"(\+?\d[\d\s().-]{8,}\d)", compact)
+
+    nom = ""
+    prenom = ""
+
+    # 1) Priorité haute : en-tête civilité "M. NOM Prénom dd/mm/yyyy"
+    head_zone = " ".join(lines[:4])
+    m_head = re.search(
+        r"(?i)\b(?:M\.?|Mme|Mlle)\s+([A-ZÀ-ÖØ-Ý][A-ZÀ-ÖØ-Ý' -]{1,})\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ' -]{1,})\s+\d{1,2}/\d{1,2}/\d{4}",
+        head_zone
+    )
+    if m_head:
+        nom_candidate = _clean_name_piece(m_head.group(1))
+        prenom_candidate = _clean_name_piece(m_head.group(2))
+        if not _is_bad_name_piece(nom_candidate):
+            nom = nom_candidate
+        if not _is_bad_name_piece(prenom_candidate):
+            prenom = prenom_candidate
+
+    # 2) Champs libellés "Nom" / "Prénom(s)" (sur la même ligne ou la ligne suivante)
+    for i, line in enumerate(lines):
+        line_low = line.lower()
+        if not nom and re.fullmatch(r"nom[:\-]?", line_low):
+            if i + 1 < len(lines):
+                candidate = _clean_name_piece(lines[i + 1])
+                if not _is_bad_name_piece(candidate):
+                    nom = candidate
+        if not prenom and re.fullmatch(r"pr[ée]nom(?:\(s\))?[:\-]?", line_low):
+            if i + 1 < len(lines):
+                candidate = _clean_name_piece(lines[i + 1])
+                if not _is_bad_name_piece(candidate):
+                    prenom = candidate
+
+        if not nom:
+            m_nom = re.search(r"(?i)\bNom\b\s*[:\-]?\s*([^\n]+)$", line)
+            if m_nom:
+                candidate = _clean_name_piece(m_nom.group(1))
+                if not _is_bad_name_piece(candidate):
+                    nom = candidate
+        if not prenom:
+            m_pre = re.search(r"(?i)\bPr[ée]nom(?:\(s\))?\b\s*[:\-]?\s*([^\n]+)$", line)
+            if m_pre:
+                candidate = _clean_name_piece(m_pre.group(1))
+                if not _is_bad_name_piece(candidate):
+                    prenom = candidate
+
+    # 3) Dernier fallback robuste
+    if not nom or not prenom:
+        first_line = lines[0] if lines else ""
+        first_line = re.sub(r"\bn[°ºo]?\s*\d+\b", "", first_line, flags=re.IGNORECASE)
+        first_line = re.sub(r"\b(M\.?|Mme|Mlle)\b", "", first_line, flags=re.IGNORECASE)
+        first_line = re.sub(r"\b\d{1,2}/\d{1,2}/\d{4}\b", "", first_line)
+        first_line = re.sub(r"\s+", " ", first_line).strip()
+        parts = [_clean_name_piece(p) for p in first_line.split(" ")]
+        parts = [p for p in parts if not _is_bad_name_piece(p)]
+        if len(parts) >= 2:
+            if not nom:
+                nom = parts[0]
+            if not prenom:
+                prenom = parts[1]
+
+    # 4) Secours final : relecture de l'entête autour de la date
+    if _is_bad_name_piece(nom) or not prenom:
+        head_match = re.search(
+            r"(?i)(?:M\.?|Mme|Mlle)\s+(.{3,120}?)\s+\d{1,2}/\d{1,2}/\d{4}",
+            compact
+        )
+        if head_match:
+            candidates = [_clean_name_piece(t) for t in re.split(r"\s+", head_match.group(1))]
+            candidates = [c for c in candidates if not _is_bad_name_piece(c)]
+            if len(candidates) >= 2:
+                maybe_nom, maybe_prenom = candidates[0], candidates[1]
+                if _is_bad_name_piece(nom):
+                    nom = maybe_nom
+                if not prenom or _is_bad_name_piece(prenom):
+                    prenom = maybe_prenom
+
+    nom = _clean_name_piece(nom).split(" ")[0] if nom else ""
+    prenom = _clean_name_piece(prenom).split(" ")[0] if prenom else ""
+    nom = nom.upper() if nom and not _is_bad_name_piece(nom) else ""
+    prenom = prenom.title() if prenom and not _is_bad_name_piece(prenom) else ""
+
+    return {
+        "nom": nom,
+        "prenom": prenom,
+        "email": email_match.group(1).lower() if email_match else "",
+        "telephone": _clean_phone(phone_match.group(1)) if phone_match else "",
+        "ocr_text": text[:5000],
+    }
+
+
+def _ocr_extract_from_image(file_storage):
+    api_key = os.getenv("OCR_SPACE_API_KEY", "helloworld")
+    endpoint = os.getenv("OCR_SPACE_ENDPOINT", "https://api.ocr.space/parse/image")
+    file_storage.stream.seek(0)
+    payload = {
+        "language": "fre",
+        "isOverlayRequired": False,
+        "OCREngine": 2,
+        "scale": True,
+    }
+    files = {
+        "file": (file_storage.filename or "capture.png", file_storage.stream, file_storage.mimetype or "application/octet-stream"),
+    }
+    headers = {"apikey": api_key}
+    resp = requests.post(endpoint, data=payload, files=files, headers=headers, timeout=45)
+    resp.raise_for_status()
+    body = resp.json()
+    if body.get("IsErroredOnProcessing"):
+        errors = ", ".join(body.get("ErrorMessage") or []) or "Erreur OCR inconnue"
+        raise ValueError(errors)
+    parsed_results = body.get("ParsedResults") or []
+    parsed_text = "\n".join((r.get("ParsedText") or "") for r in parsed_results).strip()
+    if not parsed_text:
+        raise ValueError("Aucun texte détecté dans l'image.")
+    return _extract_manual_fields_from_text(parsed_text)
+
+
+def _insert_parcoursup_candidate(cur, nom, prenom, telephone, email, formation, mode):
+    email = (email or "").strip().lower()
+    telephone = _clean_phone(telephone)
+    formation = (formation or "").strip()
+    mode = _clean_mode((mode or "").strip())
+    nom = (nom or "").strip()
+    prenom = (prenom or "").strip()
+
+    if not email and not telephone:
+        return {"ok": False, "reason": "contact_missing"}
+    if email and not _is_valid_email(email):
+        return {"ok": False, "reason": "email_invalid"}
+    tel_for_storage = ""
+    if telephone:
+        if _is_valid_phone(telephone):
+            tel_for_storage = telephone
+        else:
+            if not email:
+                return {"ok": False, "reason": "phone_invalid"}
+
+    duplicate_checks = []
+    params = []
+    if email:
+        duplicate_checks.append("email = ?")
+        params.append(email)
+    if tel_for_storage:
+        duplicate_checks.append("telephone = ?")
+        params.append(tel_for_storage)
+    if duplicate_checks:
+        cur.execute(f"SELECT id FROM parcoursup_candidats WHERE {' OR '.join(duplicate_checks)}", params)
+        if cur.fetchone():
+            return {"ok": False, "reason": "duplicate"}
+
+    cid = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    cur.execute("""
+        INSERT INTO parcoursup_candidats
+        (id, nom, prenom, telephone, email, formation, mode, mail_ok, sms_ok, statut, logs, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 'En attente de candidature', '[]', ?)
+    """, (cid, nom, prenom, tel_for_storage, email, formation, mode, now))
+
+    mails_sent = 0
+    sms_sent = 0
+    if email:
+        mail_body = mail_html(
+            "parcoursup_import",
+            prenom=prenom or "Candidat",
+            bts_label=formation,
+            form_mode_label=mode,
+            lien_espace="https://inscriptionsbts.onrender.com/"
+        )
+        if send_mail(email, "Votre candidature Parcoursup – Intégrale Academy", mail_body):
+            mails_sent = 1
+            cur.execute("UPDATE parcoursup_candidats SET mail_ok=1 WHERE id=?", (cid,))
+            cur.execute("UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type', 'mail', 'dest', ?, 'date', ?)) WHERE id=?", (email, now, cid))
+
+    if tel_for_storage:
+        sms_body = sms_text(
+            "parcoursup_import",
+            prenom=prenom or "Candidat",
+            bts_label=formation,
+            lien_espace="https://inscriptionsbts.onrender.com/"
+        )
+        sms_id = send_sms_brevo(_to_sms_phone(tel_for_storage), sms_body)
+        if sms_id:
+            sms_sent = 1
+            cur.execute("UPDATE parcoursup_candidats SET sms_ok=1 WHERE id=?", (cid,))
+            cur.execute("UPDATE parcoursup_candidats SET logs=json_insert(logs, '$[#]', json_object('type', 'sms', 'dest', ?, 'id', ?, 'date', ?)) WHERE id=?", (tel_for_storage, str(sms_id), now, cid))
+
+    return {"ok": True, "mails_sent": mails_sent, "sms_sent": sms_sent}
 
 
 def _extract_manual_fields_from_text(raw_text):
@@ -644,6 +1088,152 @@ def import_file():
 
     flash(f"{imported} importés — {mails_sent} mails — {sms_sent} SMS — {duplicates} doublons — {errors} erreurs.", "success")
     print("🏁 Import terminé avec succès.")
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+@bp_parcoursup.route("/parcoursup/manual/extract", methods=["POST"])
+def extract_manual_from_image():
+    formation = (request.form.get("formation") or "").strip()
+    mode = _clean_mode((request.form.get("mode") or "").strip())
+    image = request.files.get("manual_image")
+    if not formation or not mode:
+        flash("Veuillez indiquer le BTS et le mode avant l'analyse.", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+    if not image or not image.filename:
+        flash("Veuillez choisir une image à analyser.", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+    try:
+        extracted = _ocr_extract_from_image(image)
+        session["parcoursup_manual_data"] = {
+            "formation": formation,
+            "mode": mode,
+            "nom": extracted.get("nom", ""),
+            "prenom": extracted.get("prenom", ""),
+            "email": extracted.get("email", ""),
+            "telephone": extracted.get("telephone", ""),
+            "ocr_text": extracted.get("ocr_text", ""),
+        }
+        flash("Image analysée. Vérifiez et corrigez les champs avant de valider.", "success")
+    except Exception as e:
+        session["parcoursup_manual_data"] = {
+            "formation": formation,
+            "mode": mode,
+        }
+        flash(f"Impossible d'analyser l'image automatiquement : {e}", "error")
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+@bp_parcoursup.route("/parcoursup/manual/import", methods=["POST"])
+def import_manual_candidate():
+    nom = request.form.get("nom")
+    prenom = request.form.get("prenom")
+    email = request.form.get("email")
+    telephone = request.form.get("telephone")
+    formation = request.form.get("formation")
+    mode = request.form.get("mode")
+    if not (formation or "").strip() or not (mode or "").strip():
+        flash("Veuillez renseigner le BTS et le mode avant validation.", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+
+    conn = db()
+    cur = conn.cursor()
+    try:
+        result = _insert_parcoursup_candidate(cur, nom, prenom, telephone, email, formation, mode)
+        if not result["ok"]:
+            reasons = {
+                "contact_missing": "Ajoutez au moins un e-mail ou un téléphone.",
+                "email_invalid": "L'e-mail est invalide.",
+                "phone_invalid": "Le téléphone est invalide.",
+                "duplicate": "Ce candidat existe déjà (e-mail ou téléphone).",
+            }
+            flash(reasons.get(result["reason"], "Import manuel impossible."), "error")
+            session["parcoursup_manual_data"] = {
+                "formation": formation,
+                "mode": mode,
+                "nom": (nom or "").strip(),
+                "prenom": (prenom or "").strip(),
+                "email": (email or "").strip(),
+                "telephone": _clean_phone(telephone),
+            }
+            return redirect(url_for("parcoursup.dashboard"))
+        conn.commit()
+        session.pop("parcoursup_manual_data", None)
+        flash(f"Import manuel effectué — {result['mails_sent']} mail(s) — {result['sms_sent']} SMS.", "success")
+    finally:
+        conn.close()
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+@bp_parcoursup.route("/parcoursup/manual/extract", methods=["POST"])
+def extract_manual_from_image():
+    formation = (request.form.get("formation") or "").strip()
+    mode = _clean_mode((request.form.get("mode") or "").strip())
+    image = request.files.get("manual_image")
+    if not formation or not mode:
+        flash("Veuillez indiquer le BTS et le mode avant l'analyse.", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+    if not image or not image.filename:
+        flash("Veuillez choisir une image à analyser.", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+    try:
+        extracted = _ocr_extract_from_image(image)
+        session["parcoursup_manual_data"] = {
+            "formation": formation,
+            "mode": mode,
+            "nom": extracted.get("nom", ""),
+            "prenom": extracted.get("prenom", ""),
+            "email": extracted.get("email", ""),
+            "telephone": extracted.get("telephone", ""),
+            "ocr_text": extracted.get("ocr_text", ""),
+        }
+        flash("Image analysée. Vérifiez et corrigez les champs avant de valider.", "success")
+    except Exception as e:
+        session["parcoursup_manual_data"] = {
+            "formation": formation,
+            "mode": mode,
+        }
+        flash(f"Impossible d'analyser l'image automatiquement : {e}", "error")
+    return redirect(url_for("parcoursup.dashboard"))
+
+
+@bp_parcoursup.route("/parcoursup/manual/import", methods=["POST"])
+def import_manual_candidate():
+    nom = request.form.get("nom")
+    prenom = request.form.get("prenom")
+    email = request.form.get("email")
+    telephone = request.form.get("telephone")
+    formation = request.form.get("formation")
+    mode = request.form.get("mode")
+    if not (formation or "").strip() or not (mode or "").strip():
+        flash("Veuillez renseigner le BTS et le mode avant validation.", "error")
+        return redirect(url_for("parcoursup.dashboard"))
+
+    conn = db()
+    cur = conn.cursor()
+    try:
+        result = _insert_parcoursup_candidate(cur, nom, prenom, telephone, email, formation, mode)
+        if not result["ok"]:
+            reasons = {
+                "contact_missing": "Ajoutez au moins un e-mail ou un téléphone.",
+                "email_invalid": "L'e-mail est invalide.",
+                "phone_invalid": "Le téléphone est invalide.",
+                "duplicate": "Ce candidat existe déjà (e-mail ou téléphone).",
+            }
+            flash(reasons.get(result["reason"], "Import manuel impossible."), "error")
+            session["parcoursup_manual_data"] = {
+                "formation": formation,
+                "mode": mode,
+                "nom": (nom or "").strip(),
+                "prenom": (prenom or "").strip(),
+                "email": (email or "").strip(),
+                "telephone": _clean_phone(telephone),
+            }
+            return redirect(url_for("parcoursup.dashboard"))
+        conn.commit()
+        session.pop("parcoursup_manual_data", None)
+        flash(f"Import manuel effectué — {result['mails_sent']} mail(s) — {result['sms_sent']} SMS.", "success")
+    finally:
+        conn.close()
     return redirect(url_for("parcoursup.dashboard"))
 
 
