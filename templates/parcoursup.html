@@ -76,6 +76,62 @@
     </button>
   </form>
 
+  <details {% if manual_data %}open{% endif %} style="margin-bottom:20px;border:1px solid #dfe6e9;border-radius:8px;padding:12px 14px;background:#f9fcff;">
+    <summary style="cursor:pointer;font-weight:700;color:#1e3a8a;">🧾 Import manuel (depuis image)</summary>
+    <p style="margin:10px 0 14px 0;color:#555;">
+      Choisissez d'abord le BTS et le mode, analysez une image Parcoursup, puis validez l'import (au moins e-mail ou téléphone).
+    </p>
+
+    <form method="post" action="{{ url_for('parcoursup.extract_manual_from_image') }}" enctype="multipart/form-data" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;align-items:end;margin-bottom:12px;">
+      <div>
+        <label style="font-weight:600;display:block;margin-bottom:4px;">🎓 BTS</label>
+        <input type="text" name="formation" required value="{{ manual_data.get('formation', '') }}" placeholder="Ex: BTS CI" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-weight:600;display:block;margin-bottom:4px;">💻 Mode</label>
+        <select name="mode" required style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;">
+          <option value="">Choisir...</option>
+          <option value="Présentiel" {% if manual_data.get('mode') == 'Présentiel' %}selected{% endif %}>Présentiel</option>
+          <option value="Distanciel" {% if manual_data.get('mode') == 'Distanciel' %}selected{% endif %}>Distanciel</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-weight:600;display:block;margin-bottom:4px;">🖼️ Capture Parcoursup</label>
+        <input type="file" name="manual_image" accept="image/*,.png,.jpg,.jpeg,.webp" required>
+      </div>
+      <div>
+        <button type="submit" class="btn secondary" style="width:100%;">🔎 Récupérer les infos</button>
+      </div>
+    </form>
+
+    <form method="post" action="{{ url_for('parcoursup.import_manual_candidate') }}" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;align-items:end;">
+      <input type="hidden" name="formation" value="{{ manual_data.get('formation', '') }}">
+      <input type="hidden" name="mode" value="{{ manual_data.get('mode', '') }}">
+      <div>
+        <label style="font-weight:600;display:block;margin-bottom:4px;">Nom</label>
+        <input type="text" name="nom" value="{{ manual_data.get('nom', '') }}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-weight:600;display:block;margin-bottom:4px;">Prénom</label>
+        <input type="text" name="prenom" value="{{ manual_data.get('prenom', '') }}" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-weight:600;display:block;margin-bottom:4px;">E-mail</label>
+        <input type="email" name="email" value="{{ manual_data.get('email', '') }}" placeholder="mail@exemple.com" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;">
+      </div>
+      <div>
+        <label style="font-weight:600;display:block;margin-bottom:4px;">Téléphone</label>
+        <input type="text" name="telephone" value="{{ manual_data.get('telephone', '') }}" placeholder="06..." style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;">
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span style="font-size:12px;color:#666;">BTS: <strong>{{ manual_data.get('formation', '—') }}</strong><br>Mode: <strong>{{ manual_data.get('mode', '—') }}</strong></span>
+      </div>
+      <div>
+        <button type="submit" class="btn primary" style="width:100%;">✅ Valider l'import manuel</button>
+      </div>
+    </form>
+  </details>
+
   <hr>
 
   <!-- 🎯 FILTRES AVANCÉS -->
