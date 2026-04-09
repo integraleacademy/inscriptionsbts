@@ -702,7 +702,7 @@ def mail_html(template_name, **kwargs):
 
                 <p>
                   🎓 Nous avons bien reçu votre candidature Parcoursup concernant notre
-                  <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>,
+                  <strong>{bts_label}</strong>,
                   {"en présentiel à Puget sur Argens (Var, 83)" if "pres" in mode or "puget" in mode else "100% en ligne à distance en visioconférence (ZOOM)"}.
                 </p>
 
@@ -771,7 +771,7 @@ def mail_html(template_name, **kwargs):
 
                 <p>
                   🎓 Nous avons bien reçu votre candidature Parcoursup concernant notre
-                  <strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>,
+                  <strong>{bts_label}</strong>,
                   en présentiel à Puget sur Argens (Var, 83).
                 </p>
 

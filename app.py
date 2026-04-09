@@ -253,7 +253,10 @@ def to_datetime(value):
         except Exception:
             return datetime.utcnow()
 
-app.register_blueprint(bp_parcoursup)
+if "parcoursup" not in app.blueprints:
+    app.register_blueprint(bp_parcoursup)
+else:
+    print("⚠️ Blueprint 'parcoursup' déjà enregistré — enregistrement ignoré.")
 
 
 # =====================================================
