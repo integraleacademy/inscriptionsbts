@@ -2,7 +2,7 @@
 
 <p>
 🎓 Nous avons bien reçu votre candidature Parcoursup concernant notre
-<strong>BTS Management Opérationnel de la Sécurité (MOS)</strong>,
+<strong>{{ bts_label }}</strong>,
 {% set mode_lower = (form_mode_label|default('')|lower) %}
 {% set mode_norm = mode_lower|replace('é', 'e')|replace('è', 'e')|replace('ê', 'e')|replace('à', 'a') %}
 {% if 'pres' in mode_norm or 'puget' in mode_norm %}
