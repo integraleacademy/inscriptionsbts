@@ -3555,12 +3555,12 @@ def send_alert_brevo(message):
         """
 
         send_mail_gmail(
-            "clement@integraleacademy.com",
+            "gestion@integraleacademy.com",
             "⚠️ ALERTE CRITIQUE – Échec API Brevo",
             html
         )
 
-        print("🚨 Alerte envoyée à clement@integraleacademy.com via Gmail (OK)")
+        print("🚨 Alerte envoyée à gestion@integraleacademy.com via Gmail (OK)")
 
     except Exception as e:
         print("❌ Impossible d'envoyer l'alerte Gmail :", e)
