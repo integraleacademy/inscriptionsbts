@@ -1321,14 +1321,7 @@ def submit():
     log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
     log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
-    admin_html = render_template(
-        "mail_admin_notif.html",
-        numero=numero,
-        nom=form.get("nom", ""),
-        prenom=form.get("prenom", "")
-    )
-    from_addr = os.getenv("MAIL_FROM", "ecole@integraleacademy.com")
-    send_mail(from_addr, f"[ADMIN] Nouvelle pré-inscription {numero}", admin_html)
+    # Notification email to the admin inbox disabled on request.
 
     return redirect(lien_espace)
 
