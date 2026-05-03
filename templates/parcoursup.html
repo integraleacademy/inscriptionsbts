@@ -7,18 +7,6 @@
     <h2>🎓 Gestion Parcoursup</h2>
     <p>Importez les candidatures Parcoursup et gérez leur suivi ici.</p>
 
-<form action="{{ url_for('parcoursup.relancer_non_ouverts') }}" method="post" style="margin-bottom:10px;">
-  <button
-    type="submit"
-    class="btn danger"
-    onclick="this.disabled=true;this.innerText='⏳ Relance en cours...';this.form.submit();"
-  >
-    📩 Relancer les non ouverts
-  </button>
-</form>
-
-  
-
   </header>
 
   <hr>
@@ -488,7 +476,7 @@ document.addEventListener("DOMContentLoaded", () => {
             case "relance_auto":
               icon = "🔁";
               color = "#f39c12";
-              text = "Relance automatique (48h)";
+              text = "Ancienne relance (automatique)";
               break;
             case "relance_manuelle":
               icon = "🧑‍💻";
