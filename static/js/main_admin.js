@@ -1178,6 +1178,62 @@ window.openFilesModal = openFilesModal;
 window.openActionsModal = openActionsModal;
 
 // =====================================================
+// 🧮 Affiche combien de candidats sont concernés par la relance candidature validée
+// =====================================================
+document.addEventListener("DOMContentLoaded", async () => {
+  const massValidatedBtn = document.getElementById("btnMassValidatedRelance");
+  if (!massValidatedBtn) return;
+
+  try {
+    const res = await fetch("/admin/count_validated_applications");
+    const data = await res.json();
+    if (data.ok) {
+      massValidatedBtn.textContent = `🔔 RELANCER TOUTES LES CANDIDATURES VALIDEES (${data.count})`;
+      massValidatedBtn.disabled = data.count === 0;
+      if (data.count === 0) {
+        massValidatedBtn.title = "Aucune candidature avec le statut Candidature validée";
+      }
+    }
+  } catch (err) {
+    console.warn("Impossible de récupérer le nombre de candidatures validées :", err);
+  }
+});
+
+// =====================================================
+// 🔔 RELANCE DE TOUTES LES CANDIDATURES VALIDÉES
+// =====================================================
+document.addEventListener("DOMContentLoaded", () => {
+  const massValidatedBtn = document.getElementById("btnMassValidatedRelance");
+  if (!massValidatedBtn) return;
+
+  massValidatedBtn.addEventListener("click", async () => {
+    const ok = confirm("⚠️ Envoyer la relance à toutes les personnes avec le statut 'Candidature validée' ?");
+    if (!ok) return;
+
+    massValidatedBtn.disabled = true;
+    const oldText = massValidatedBtn.textContent;
+    massValidatedBtn.textContent = "⏳ Envoi des relances en cours...";
+
+    try {
+      const res = await fetch("/admin/relance_all_validated", { method: "POST" });
+      const data = await res.json();
+
+      if (res.ok && data.ok) {
+        showToast(`✅ ${data.sent} relances envoyées aux candidatures validées !`, "#28a745");
+        setTimeout(() => location.reload(), 1500);
+      } else {
+        showToast("⚠️ " + (data.error || "Erreur lors de l’envoi des relances"), "#dc3545");
+      }
+    } catch (err) {
+      showToast("❌ Erreur réseau ou serveur", "#dc3545");
+    } finally {
+      massValidatedBtn.disabled = false;
+      massValidatedBtn.textContent = oldText;
+    }
+  });
+});
+
+// =====================================================
 // 🧮 Affiche combien de candidats sont concernés par la reconfirmation
 // =====================================================
 document.addEventListener("DOMContentLoaded", async () => {

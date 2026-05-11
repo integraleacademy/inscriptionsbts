@@ -3435,6 +3435,137 @@ def admin_relance(cid):
 
 
 
+def _send_relance_candidature_validee(cur, row):
+    """Envoie la même relance que le bouton individuel pour une candidature validée."""
+    row = dict(row)
+    cid = row["id"]
+    prenom = row.get("prenom") or ""
+    email = row.get("email") or ""
+    tel = row.get("tel") or ""
+    bts_label = row.get("bts") or ""
+
+    token = row.get("token_confirm")
+    now_iso = datetime.now().isoformat()
+    if not token:
+        token = new_token()
+        cur.execute(
+            "UPDATE candidats SET token_confirm=?, updated_at=? WHERE id=?",
+            (token, now_iso, cid)
+        )
+        row["token_confirm"] = token
+
+    base_url = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
+    lien_confirmation = f"{base_url}/confirm-inscription?token={token}&sig={sign_token(token)}"
+
+    from mail_templates import get_mail_context, mail_html
+    from sms_templates import sms_text
+    from utils import send_mail, send_sms_brevo
+
+    ctx = get_mail_context(row, lien_espace=lien_confirmation)
+    ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
+    ctx["lien_confirmation"] = lien_confirmation
+
+    mail_html_content = mail_html("relance_candidature_validee", **ctx)
+    mail_id = send_mail(
+        email,
+        "Relance – Confirmez votre inscription BTS en alternance",
+        mail_html_content
+    )
+
+    tel_fmt = str(tel).strip().replace(" ", "")
+    if tel_fmt.startswith("0"):
+        tel_fmt = "+33" + tel_fmt[1:]
+
+    sms_id = send_sms_brevo(
+        tel_fmt,
+        sms_text(
+            "relance_candidature_validee",
+            prenom=prenom,
+            bts_label=bts_label,
+            lien_espace=lien_confirmation
+        )
+    )
+
+    cur.execute(
+        "INSERT INTO logs (cid, type, payload, created_at) VALUES (?, ?, ?, datetime('now','localtime'))",
+        (cid, "RELANCE_ENVOYEE", f"candidature_validee / mail_id: {mail_id} / sms_id: {sms_id}")
+    )
+    cur.execute(
+        "UPDATE candidats SET last_relance=?, updated_at=? WHERE id=?",
+        (datetime.now().isoformat(), datetime.now().isoformat(), cid)
+    )
+
+    return mail_id, sms_id
+
+
+# =====================================================
+# 🧮 COMPTE LES CANDIDATS "Candidature validée"
+# =====================================================
+@app.route("/admin/count_validated_applications")
+def admin_count_validated_applications():
+    if not require_admin():
+        return jsonify(ok=False, error="Non autorisé"), 403
+
+    try:
+        conn = db()
+        count = conn.execute("SELECT COUNT(*) FROM candidats WHERE statut = 'validee'").fetchone()[0]
+        conn.close()
+        return jsonify(ok=True, count=count)
+    except Exception as e:
+        print("Erreur count_validated_applications:", e)
+        return jsonify(ok=False, error=str(e)), 500
+
+
+# =====================================================
+# 🔔 RELANCE TOUTES LES CANDIDATURES VALIDÉES
+# =====================================================
+@app.route("/admin/relance_all_validated", methods=["POST"])
+def admin_relance_all_validated():
+    if not require_admin():
+        return jsonify(ok=False, error="Non autorisé"), 403
+
+    conn = None
+    try:
+        conn = db()
+        cur = conn.cursor()
+        rows = cur.execute("""
+            SELECT *
+            FROM candidats
+            WHERE statut = 'validee'
+        """).fetchall()
+
+        if not rows:
+            conn.close()
+            return jsonify(ok=False, error="Aucun candidat avec le statut 'Candidature validée'."), 400
+
+        sent_count = 0
+        errors = []
+
+        for row in rows:
+            try:
+                _send_relance_candidature_validee(cur, row)
+                conn.commit()
+                sent_count += 1
+                print(f"✅ Relance candidature validée envoyée à {row['prenom']} ({row['email']})")
+            except Exception as e:
+                conn.rollback()
+                errors.append({"id": row["id"], "error": str(e)})
+                print(f"❌ Erreur relance candidature validée {row['id']}:", e)
+
+        conn.close()
+
+        if sent_count == 0 and errors:
+            return jsonify(ok=False, error="Aucune relance envoyée.", errors=errors), 500
+
+        return jsonify(ok=True, sent=sent_count, errors=errors)
+
+    except Exception as e:
+        if conn:
+            conn.close()
+        print("❌ Erreur relance_all_validated:", e)
+        return jsonify(ok=False, error=str(e)), 500
+
+
 # =====================================================
 # 🧮 COMPTE LES CANDIDATS "Inscription confirmée"
 # =====================================================
