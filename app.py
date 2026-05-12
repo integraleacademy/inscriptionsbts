@@ -1345,6 +1345,7 @@ def admin():
     flt_mode = request.args.get("mode","")
     flt_label = request.args.get("label","")
     flt_relance = request.args.get("relances","")
+    flt_carte_manquante = request.args.get("carte_etudiante_manquante", "")
 
     conn = db()
     cur = conn.cursor()
@@ -1358,12 +1359,15 @@ def admin():
             ok &= q in blob
         if flt_bts:
             ok &= row.get("bts","") == flt_bts
-        if flt_statut:
+        if flt_statut and not flt_carte_manquante:
             ok &= row.get("statut","") == flt_statut
         if flt_mode:
             ok &= row.get("mode","") == flt_mode
         if flt_relance:
             ok &= row.get("last_relance") not in (None, "", "null")
+        if flt_carte_manquante:
+            ok &= row.get("statut", "") == "confirmee"
+            ok &= row.get("label_carte_etudiante") not in (1, "1", True, "true", "True", "on", "yes")
         if flt_label == "APS":
             ok &= row.get("label_aps",0) == 1
         if flt_label == "AUT":
