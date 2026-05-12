@@ -270,6 +270,14 @@
 </label>
 
 <button class="btn primary" type="submit">Filtrer</button>
+<button
+  class="btn {% if request.args.get('carte_etudiante_manquante') %}gold{% else %}secondary{% endif %}"
+  type="submit"
+  name="carte_etudiante_manquante"
+  value="1"
+  title="Afficher uniquement les inscriptions confirmées sans carte étudiante cochée">
+  🎓 Cartes étudiantes à faire
+</button>
 <a class="btn secondary" href="{{ url_for('admin') }}">↻ Réinitialiser</a>
 
 <div id="brevoIndicator"
