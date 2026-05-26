@@ -1803,6 +1803,51 @@ def admin_export_json():
     rows = [dict(r) for r in cur.fetchall()]
     return jsonify(rows)
 
+@app.route("/admin/export-confirmed.xlsx")
+def admin_export_confirmed_xlsx():
+    if not require_admin(): abort(403)
+    from io import BytesIO
+    from openpyxl import Workbook
+
+    conn = db(); cur = conn.cursor()
+    cur.execute("""
+        SELECT nom, prenom, email, tel, bts, mode
+        FROM candidats
+        WHERE statut = 'confirmee'
+        ORDER BY created_at DESC
+    """)
+    rows = [dict(r) for r in cur.fetchall()]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Inscriptions confirmées"
+
+    headers = ["Nom", "Prénom", "Mail", "Téléphone", "Formation choisie", "Mode de suivi"]
+    ws.append(headers)
+
+    for row in rows:
+        ws.append([
+            row.get("nom", ""),
+            row.get("prenom", ""),
+            row.get("email", ""),
+            row.get("tel", ""),
+            row.get("bts", ""),
+            row.get("mode", "")
+        ])
+
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    return (
+        out.getvalue(),
+        200,
+        {
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Content-Disposition": "attachment; filename=inscriptions_confirmees.xlsx"
+        },
+    )
+
 # =====================================================
 # 📘 NOMS COMPLETS DES BTS
 # =====================================================
