@@ -1806,8 +1806,24 @@ def admin_export_json():
 @app.route("/admin/export-confirmed.xlsx")
 def admin_export_confirmed_xlsx():
     if not require_admin(): abort(403)
+    import re
     from io import BytesIO
     from openpyxl import Workbook
+
+    def format_nom(v: str) -> str:
+        return (v or "").strip().upper()
+
+    def format_prenom(v: str) -> str:
+        raw = (v or "").strip().lower()
+        if not raw:
+            return ""
+        return " ".join(part[:1].upper() + part[1:] for part in raw.split())
+
+    def format_tel(v: str) -> str:
+        digits = re.sub(r"\D", "", v or "")
+        if len(digits) == 10 and digits.startswith("0"):
+            return f"{digits[0:2]} {digits[2:4]} {digits[4:6]} {digits[6:8]} {digits[8:10]}"
+        return (v or "").strip()
 
     conn = db(); cur = conn.cursor()
     cur.execute("""
@@ -1827,10 +1843,10 @@ def admin_export_confirmed_xlsx():
 
     for row in rows:
         ws.append([
-            row.get("nom", ""),
-            row.get("prenom", ""),
+            format_nom(row.get("nom", "")),
+            format_prenom(row.get("prenom", "")),
             row.get("email", ""),
-            row.get("tel", ""),
+            format_tel(row.get("tel", "")),
             row.get("bts", ""),
             row.get("mode", "")
         ])
