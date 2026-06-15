@@ -80,7 +80,7 @@ class YpareoPersonPayloadTests(unittest.TestCase):
                         "indicatif": "+33",
                         "isDefaultAppel": True,
                         "isDefaultSms": True,
-                        "numero": "612345678",
+                        "numero": "0612345678",
                     }
                 ],
                 "adresse": {
@@ -125,6 +125,21 @@ class YpareoPersonPayloadTests(unittest.TestCase):
         )
 
         self.assertNotIn("adresse", payload)
+
+    def test_international_french_phone_is_converted_to_national_format(self):
+        payload = construire_payload_apprenant(
+            {"nom": "Dupont", "tel": "+33 6 12 34 56 78"}
+        )
+
+        self.assertEqual(payload["telephones"][0]["indicatif"], "+33")
+        self.assertEqual(payload["telephones"][0]["numero"], "0612345678")
+
+    def test_invalid_phone_is_omitted_instead_of_rejected_by_ypareo(self):
+        payload = construire_payload_apprenant(
+            {"nom": "Dupont", "tel": "12345"}
+        )
+
+        self.assertNotIn("telephones", payload)
 
 
 if __name__ == "__main__":

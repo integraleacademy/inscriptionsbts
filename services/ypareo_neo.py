@@ -129,14 +129,45 @@ def _first(obj, *names):
 
 
 def _normaliser_telephone_ypareo(value):
+    """Retourne un numéro français national à 10 chiffres accepté avec +33."""
     digits = re.sub(r"\D", "", str(value or ""))
     if digits.startswith("0033"):
         digits = digits[4:]
     elif digits.startswith("33"):
         digits = digits[2:]
-    if digits.startswith("0"):
-        digits = digits[1:]
-    return f"+33{digits}" if digits else ""
+    if len(digits) == 9 and not digits.startswith("0"):
+        digits = f"0{digits}"
+    if len(digits) != 10 or not digits.startswith("0"):
+        return ""
+    return digits
+
+
+def _construire_adresse_ypareo(candidat):
+    """Construit exclusivement une adresse candidat au format YPAREO."""
+    adresse_source = _first(candidat, "adresse", "address")
+    if isinstance(adresse_source, dict):
+        adresse = {
+            key: adresse_source.get(key)
+            for key in YPAREO_ADRESSE_KEYS
+            if adresse_source.get(key) not in (None, "")
+        }
+        if not any(adresse.get(key) for key in ("ligne1", "ligne2", "ligne3", "ligne4")):
+            return None
+        adresse.setdefault(
+            "codePostal", _first(candidat, "code_postal", "cp", "zip_code")
+        )
+        adresse.setdefault("ville", _first(candidat, "ville", "city"))
+    elif isinstance(adresse_source, str) and adresse_source.strip():
+        adresse = {
+            "ligne1": adresse_source.strip(),
+            "codePostal": _first(candidat, "code_postal", "cp", "zip_code"),
+            "ville": _first(candidat, "ville", "city"),
+        }
+    else:
+        return None
+
+    adresse.setdefault("paysAlpha", "FR")
+    return nettoyer_payload(adresse)
 
 
 def _construire_adresse_ypareo(candidat):
@@ -194,7 +225,7 @@ def construire_payload_apprenant(candidat):
                     "indicatif": "+33",
                     "isDefaultAppel": True,
                     "isDefaultSms": True,
-                    "numero": telephone.removeprefix("+33"),
+                    "numero": telephone,
                 }
             ]
             if telephone
