@@ -13,6 +13,16 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+YPAREO_ADRESSE_KEYS = (
+    "ligne1",
+    "ligne2",
+    "ligne3",
+    "ligne4",
+    "codePostal",
+    "ville",
+    "paysAlpha",
+)
+
 
 class YpareoError(Exception):
     """Erreur fonctionnelle ou HTTP présentable dans l'administration."""
@@ -129,6 +139,34 @@ def _normaliser_telephone_ypareo(value):
     return f"+33{digits}" if digits else ""
 
 
+def _construire_adresse_ypareo(candidat):
+    """Construit exclusivement une adresse candidat au format YPAREO."""
+    adresse_source = _first(candidat, "adresse", "address")
+    if isinstance(adresse_source, dict):
+        adresse = {
+            key: adresse_source.get(key)
+            for key in YPAREO_ADRESSE_KEYS
+            if adresse_source.get(key) not in (None, "")
+        }
+        if not any(adresse.get(key) for key in ("ligne1", "ligne2", "ligne3", "ligne4")):
+            return None
+        adresse.setdefault(
+            "codePostal", _first(candidat, "code_postal", "cp", "zip_code")
+        )
+        adresse.setdefault("ville", _first(candidat, "ville", "city"))
+    elif isinstance(adresse_source, str) and adresse_source.strip():
+        adresse = {
+            "ligne1": adresse_source.strip(),
+            "codePostal": _first(candidat, "code_postal", "cp", "zip_code"),
+            "ville": _first(candidat, "ville", "city"),
+        }
+    else:
+        return None
+
+    adresse.setdefault("paysAlpha", "FR")
+    return nettoyer_payload(adresse)
+
+
 def _normaliser_date(value):
     value = str(value or "").strip()
     if not value:
@@ -142,17 +180,26 @@ def _normaliser_date(value):
 
 
 def construire_payload_apprenant(candidat):
+    email = _first(candidat, "email")
+    telephone = _normaliser_telephone_ypareo(
+        _first(candidat, "telephone", "tel", "phone")
+    )
     return nettoyer_payload(
         {
             "nom": str(_first(candidat, "nom", "last_name")).upper(),
             "prenom": _first(candidat, "prenom", "first_name"),
-            "email": _first(candidat, "email"),
-            "telephone": _normaliser_telephone_ypareo(
-                _first(candidat, "telephone", "tel", "phone")
-            ),
-            "adresse": _first(candidat, "adresse", "address"),
-            "codePostal": _first(candidat, "code_postal", "cp", "zip_code"),
-            "ville": _first(candidat, "ville", "city"),
+            "emails": [{"adresse": email, "isDefault": True}] if email else [],
+            "telephones": [
+                {
+                    "indicatif": "+33",
+                    "isDefaultAppel": True,
+                    "isDefaultSms": True,
+                    "numero": telephone.removeprefix("+33"),
+                }
+            ]
+            if telephone
+            else [],
+            "adresse": _construire_adresse_ypareo(candidat),
             "dateNaissance": _normaliser_date(
                 _first(candidat, "date_naissance", "birth_date")
             ),
