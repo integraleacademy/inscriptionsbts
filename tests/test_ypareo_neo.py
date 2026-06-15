@@ -2,7 +2,11 @@ import os
 import unittest
 from unittest.mock import Mock, patch
 
-from services.ypareo_neo import YpareoError, get_ypareo_access_token
+from services.ypareo_neo import (
+    YpareoError,
+    construire_payload_apprenant,
+    get_ypareo_access_token,
+)
 
 
 class YpareoAuthenticationTests(unittest.TestCase):
@@ -49,6 +53,78 @@ class YpareoAuthenticationTests(unittest.TestCase):
             get_ypareo_access_token()
 
         post.assert_not_called()
+
+
+class YpareoPersonPayloadTests(unittest.TestCase):
+    def test_string_address_is_nested_with_candidate_location(self):
+        payload = construire_payload_apprenant(
+            {
+                "nom": "Dupont",
+                "prenom": "Jean",
+                "email": "jean@example.com",
+                "tel": "06 12 34 56 78",
+                "adresse": "12 rue du candidat",
+                "cp": "75001",
+                "ville": "Paris",
+            }
+        )
+
+        self.assertEqual(
+            payload,
+            {
+                "nom": "DUPONT",
+                "prenom": "Jean",
+                "emails": [{"adresse": "jean@example.com", "isDefault": True}],
+                "telephones": [
+                    {
+                        "indicatif": "+33",
+                        "isDefaultAppel": True,
+                        "isDefaultSms": True,
+                        "numero": "612345678",
+                    }
+                ],
+                "adresse": {
+                    "ligne1": "12 rue du candidat",
+                    "codePostal": "75001",
+                    "ville": "Paris",
+                    "paysAlpha": "FR",
+                },
+            },
+        )
+
+    def test_dict_address_keeps_only_ypareo_keys(self):
+        payload = construire_payload_apprenant(
+            {
+                "nom": "Dupont",
+                "adresse": {
+                    "ligne1": "1 avenue Exemple",
+                    "ligne2": "Bâtiment B",
+                    "codePostal": "69001",
+                    "ville": "Lyon",
+                    "paysAlpha": "BE",
+                    "country": "Belgique",
+                    "schoolAddress": "54 CHE DE CARREOU",
+                },
+            }
+        )
+
+        self.assertEqual(
+            payload["adresse"],
+            {
+                "ligne1": "1 avenue Exemple",
+                "ligne2": "Bâtiment B",
+                "codePostal": "69001",
+                "ville": "Lyon",
+                "paysAlpha": "BE",
+            },
+        )
+
+    def test_missing_candidate_address_omits_address_even_with_city(self):
+        payload = construire_payload_apprenant(
+            {"nom": "Dupont", "cp": "83480", "ville": "Puget-sur-Argens"}
+        )
+
+        self.assertNotIn("adresse", payload)
 
 
 if __name__ == "__main__":
