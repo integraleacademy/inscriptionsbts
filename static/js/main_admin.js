@@ -320,10 +320,15 @@ async function envoyerYpareoNeo(btn) {
   const id = btn.dataset.id;
   if (!id || btn.disabled) return;
   const errorDetail = btn.parentElement.querySelector(".ypareo-error-detail");
+  ouvrirProgressionYpareo();
   btn.disabled = true;
   btn.textContent = "⏳ Envoi…";
   btn.style.background = "#6c757d";
   if (errorDetail) errorDetail.style.display = "none";
+
+  const cursusTimer = window.setTimeout(() => {
+    definirEtapeYpareo("cursus");
+  }, 850);
 
   try {
     const response = await fetch(`/admin/ypareo-neo/${encodeURIComponent(id)}`, {
@@ -334,6 +339,8 @@ async function envoyerYpareoNeo(btn) {
     if (!response.ok || !data.ok) {
       throw new Error(data.error || `Erreur HTTP ${response.status}`);
     }
+    window.clearTimeout(cursusTimer);
+    definirEtapeYpareo("cursus");
     btn.textContent = "✅ Envoyé YPAREO";
     btn.style.background = "#28a745";
     btn.title = "";
@@ -344,8 +351,10 @@ async function envoyerYpareoNeo(btn) {
     }
     const checkbox = btn.closest("tr")?.querySelector('[data-field="label_ypareo"]');
     if (checkbox) checkbox.checked = true;
+    terminerProgressionYpareo(true);
     showToast(data.message || "✅ Candidat envoyé dans YPAREO", "#28a745");
   } catch (error) {
+    window.clearTimeout(cursusTimer);
     btn.textContent = "❌ Erreur YPAREO";
     btn.style.background = "#dc3545";
     btn.title = error.message;
@@ -354,9 +363,84 @@ async function envoyerYpareoNeo(btn) {
       errorDetail.textContent = error.message;
       errorDetail.style.display = "block";
     }
+    terminerProgressionYpareo(false, error.message);
     showToast(`❌ ${error.message}`, "#dc3545");
   }
 }
+
+function ouvrirProgressionYpareo() {
+  const modal = document.getElementById("ypareoProgressModal");
+  const card = document.getElementById("ypareoProgressCard");
+  const spinner = document.getElementById("ypareoProgressSpinner");
+  const error = document.getElementById("ypareoProgressError");
+  const close = document.getElementById("ypareoProgressClose");
+  card?.classList.remove("is-success", "is-error");
+  if (spinner) spinner.textContent = "";
+  document.getElementById("ypareoProgressTitle").textContent =
+    "Transmission en cours vers YPAREO NEO";
+  document.getElementById("ypareoProgressSubtitle").textContent =
+    "Création de la fiche apprenant et de son inscription à la formation…";
+  document.getElementById("ypareoProgressNote").textContent =
+    "Veuillez patienter et ne fermez pas cette page.";
+  document.getElementById("ypareoPersonStep")?.classList.add("active");
+  document.getElementById("ypareoPersonStep")?.classList.remove("done");
+  document.getElementById("ypareoCursusStep")?.classList.remove("active", "done");
+  document.getElementById("ypareoProgressLine")?.classList.remove("active");
+  if (error) {
+    error.textContent = "";
+    error.style.display = "none";
+  }
+  if (close) close.style.display = "none";
+  modal?.classList.remove("hidden");
+}
+
+function definirEtapeYpareo(etape) {
+  if (etape !== "cursus") return;
+  document.getElementById("ypareoPersonStep")?.classList.remove("active");
+  document.getElementById("ypareoPersonStep")?.classList.add("done");
+  document.getElementById("ypareoProgressLine")?.classList.add("active");
+  document.getElementById("ypareoCursusStep")?.classList.add("active");
+  const subtitle = document.getElementById("ypareoProgressSubtitle");
+  if (subtitle) subtitle.textContent = "La personne est prête. Création de son cursus de formation…";
+}
+
+function terminerProgressionYpareo(succes, message = "") {
+  const card = document.getElementById("ypareoProgressCard");
+  const spinner = document.getElementById("ypareoProgressSpinner");
+  const title = document.getElementById("ypareoProgressTitle");
+  const subtitle = document.getElementById("ypareoProgressSubtitle");
+  const note = document.getElementById("ypareoProgressNote");
+  const error = document.getElementById("ypareoProgressError");
+  const close = document.getElementById("ypareoProgressClose");
+
+  card?.classList.add(succes ? "is-success" : "is-error");
+  if (spinner) spinner.textContent = succes ? "✓" : "!";
+  if (title) title.textContent = succes ? "Transmission YPAREO terminée" : "Échec de la transmission YPAREO";
+  if (subtitle) {
+    subtitle.textContent = succes
+      ? "La personne et son cursus ont bien été créés dans YPAREO NEO."
+      : "La synchronisation n’a pas pu être terminée.";
+  }
+  if (note) {
+    note.textContent = succes
+      ? "Les identifiants YPAREO ont été enregistrés sur le candidat."
+      : "Corrigez le problème puis cliquez à nouveau sur Erreur YPAREO.";
+  }
+  document.getElementById("ypareoPersonStep")?.classList.remove("active");
+  document.getElementById("ypareoPersonStep")?.classList.add("done");
+  document.getElementById("ypareoProgressLine")?.classList.add("active");
+  document.getElementById("ypareoCursusStep")?.classList.remove("active");
+  if (succes) document.getElementById("ypareoCursusStep")?.classList.add("done");
+  if (!succes && error) {
+    error.textContent = message;
+    error.style.display = "block";
+  }
+  if (close) close.style.display = "block";
+}
+
+document.getElementById("ypareoProgressClose")?.addEventListener("click", () => {
+  document.getElementById("ypareoProgressModal")?.classList.add("hidden");
+});
 
 
 // ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ

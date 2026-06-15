@@ -54,6 +54,182 @@
   justify-content:space-between;
   margin-top:8px;
 }
+
+/* Fenêtre de progression YPAREO NEO */
+.ypareo-progress-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(7px);
+}
+
+.ypareo-progress-modal.hidden { display: none; }
+
+.ypareo-progress-card {
+  position: relative;
+  width: min(440px, calc(100vw - 32px));
+  padding: 32px 34px 26px;
+  overflow: hidden;
+  text-align: center;
+  color: #111c35;
+  border: 1px solid rgba(80, 214, 223, 0.72);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 95% 100%, rgba(190, 255, 239, 0.48), transparent 38%),
+    linear-gradient(145deg, #ffffff 0%, #f4f8ff 64%, #edfffb 100%);
+  box-shadow: 0 28px 70px rgba(10, 30, 65, 0.3);
+  animation: ypareoCardIn .25s ease-out;
+}
+
+.ypareo-progress-brand {
+  position: absolute;
+  top: 17px;
+  right: 20px;
+  color: #008ca8;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .18em;
+}
+
+.ypareo-progress-spinner {
+  width: 58px;
+  height: 58px;
+  margin: 0 auto 18px;
+  border: 7px solid #e4edff;
+  border-top-color: #17bf8b;
+  border-right-color: #2468e8;
+  border-radius: 50%;
+  box-shadow: 0 0 0 8px rgba(235, 242, 255, .7);
+  animation: ypareoSpin .85s linear infinite;
+}
+
+.ypareo-progress-card.is-success .ypareo-progress-spinner,
+.ypareo-progress-card.is-error .ypareo-progress-spinner {
+  display: grid;
+  place-items: center;
+  border: 0;
+  animation: none;
+  color: #fff;
+  font-size: 28px;
+  box-shadow: 0 0 0 8px rgba(226, 245, 238, .85);
+}
+
+.ypareo-progress-card.is-success .ypareo-progress-spinner { background: #18a96f; }
+.ypareo-progress-card.is-error .ypareo-progress-spinner {
+  background: #dc3545;
+  box-shadow: 0 0 0 8px rgba(255, 229, 232, .85);
+}
+
+.ypareo-progress-card h3 {
+  margin: 0;
+  color: #111c35;
+  font-size: 21px;
+  line-height: 1.25;
+}
+
+.ypareo-progress-subtitle {
+  min-height: 38px;
+  margin: 10px auto 18px;
+  color: #61708d;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.ypareo-progress-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0 17px;
+}
+
+.ypareo-progress-step {
+  padding: 7px 14px;
+  color: #71809b;
+  border: 1px solid #d1dced;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .82);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  transition: .2s ease;
+}
+
+.ypareo-progress-step.active {
+  color: #075be8;
+  border-color: #98bdfd;
+  background: #f3f7ff;
+  box-shadow: 0 0 0 4px rgba(44, 111, 238, .08);
+}
+
+.ypareo-progress-step.done {
+  color: #087c58;
+  border-color: #8fdabc;
+  background: #effcf7;
+}
+
+.ypareo-progress-line {
+  width: 38px;
+  height: 2px;
+  margin: 0 7px;
+  overflow: hidden;
+  background: #cfdae9;
+}
+
+.ypareo-progress-line::after {
+  display: block;
+  width: 100%;
+  height: 100%;
+  content: "";
+  background: #2468e8;
+  transform: translateX(-100%);
+  transition: transform .35s ease;
+}
+
+.ypareo-progress-line.active::after { transform: translateX(0); }
+
+.ypareo-progress-note {
+  margin: 0;
+  color: #60708c;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ypareo-progress-error {
+  display: none;
+  max-height: 105px;
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  overflow: auto;
+  color: #a52734;
+  border: 1px solid #f0b5bb;
+  border-radius: 10px;
+  background: #fff4f5;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.ypareo-progress-close {
+  display: none;
+  margin: 18px auto 0;
+  padding: 9px 22px;
+  color: #fff;
+  border: 0;
+  border-radius: 9px;
+  background: #17243e;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@keyframes ypareoSpin { to { transform: rotate(360deg); } }
+@keyframes ypareoCardIn {
+  from { opacity: 0; transform: translateY(10px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 </style>
 
 
@@ -408,6 +584,33 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+<!-- 🚀 MODALE — SYNCHRONISATION YPAREO NEO -->
+<div id="ypareoProgressModal"
+     class="ypareo-progress-modal hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="ypareoProgressTitle"
+     aria-live="polite">
+  <div id="ypareoProgressCard" class="ypareo-progress-card">
+    <span class="ypareo-progress-brand">YP</span>
+    <div id="ypareoProgressSpinner" class="ypareo-progress-spinner" aria-hidden="true"></div>
+    <h3 id="ypareoProgressTitle">Transmission en cours vers YPAREO NEO</h3>
+    <p id="ypareoProgressSubtitle" class="ypareo-progress-subtitle">
+      Création de la fiche apprenant et de son inscription à la formation…
+    </p>
+    <div class="ypareo-progress-steps" aria-label="Progression de la synchronisation">
+      <span id="ypareoPersonStep" class="ypareo-progress-step active">PERSONNE</span>
+      <span id="ypareoProgressLine" class="ypareo-progress-line"></span>
+      <span id="ypareoCursusStep" class="ypareo-progress-step">CURSUS</span>
+    </div>
+    <p id="ypareoProgressNote" class="ypareo-progress-note">
+      Veuillez patienter et ne fermez pas cette page.
+    </p>
+    <div id="ypareoProgressError" class="ypareo-progress-error"></div>
+    <button id="ypareoProgressClose" type="button" class="ypareo-progress-close">Fermer</button>
   </div>
 </div>
 
