@@ -53,12 +53,22 @@ def _safe_response_message(response):
 
 def get_ypareo_access_token():
     auth_token = _env("YPAREO_AUTH_TOKEN")
+    if auth_token.lower().startswith("bearer "):
+        raise YpareoError(
+            "Variable Render invalide : YPAREO_AUTH_TOKEN doit contenir uniquement "
+            "le token brut, sans préfixe « Bearer ».",
+            503,
+        )
     auth_endpoint = _env("YPAREO_AUTH_ENDPOINT")
     try:
         response = requests.post(
             _url(auth_endpoint),
-            headers={"Authorization": auth_token, "Accept": "application/json"},
-            timeout=30,
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            json={"token": auth_token},
+            timeout=15,
         )
     except requests.RequestException as exc:
         raise YpareoError(f"Erreur réseau pendant l’authentification YPAREO : {exc}") from exc
