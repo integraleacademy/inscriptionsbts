@@ -358,6 +358,21 @@
     ⚙️ Actions
   </button>
 
+  {% set ypareo_envoye = r.ypareo_id and r.ypareo_cursus_id %}
+  {% set ypareo_error = r.ypareo_cursus_erreur or r.ypareo_erreur %}
+  <button
+    type="button"
+    class="btn small ypareo-neo-btn"
+    data-id="{{ r.id }}"
+    {% if ypareo_envoye %}disabled{% endif %}
+    title="{{ ypareo_error|default('', true)|e }}"
+    style="margin-left:6px;background:{% if ypareo_envoye %}#28a745{% elif ypareo_error %}#dc3545{% else %}#6f42c1{% endif %};color:white;font-weight:600;">
+    {% if ypareo_envoye %}✅ Envoyé YPAREO{% elif ypareo_error %}❌ Erreur YPAREO{% else %}🚀 YPAREO NEO{% endif %}
+  </button>
+  <small class="ypareo-error-detail" style="display:{% if ypareo_error %}block{% else %}none{% endif %};color:#dc3545;white-space:normal;max-width:280px;margin-top:4px;">
+    {{ ypareo_error|default('', true) }}
+  </small>
+
   {% if r.nouveau_doc %}
     <span style="color:#28a745;font-weight:600;margin-left:8px;">📥 Nouveau document déposé</span>
   {% endif %}

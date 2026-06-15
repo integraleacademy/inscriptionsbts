@@ -67,6 +67,10 @@ table.querySelectorAll('.status-select').forEach(sel => {
       });
     });
 
+    table.querySelectorAll('.ypareo-neo-btn').forEach(btn => {
+      btn.addEventListener('click', () => envoyerYpareoNeo(btn));
+    });
+
     // 📎 Boutons pièces justificatives
     table.querySelectorAll('.files-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -311,6 +315,48 @@ filesModal.addEventListener("click", async (e) => {
 
 
 }); // ✅ FIN DOMContentLoaded
+
+async function envoyerYpareoNeo(btn) {
+  const id = btn.dataset.id;
+  if (!id || btn.disabled) return;
+  const errorDetail = btn.parentElement.querySelector(".ypareo-error-detail");
+  btn.disabled = true;
+  btn.textContent = "⏳ Envoi…";
+  btn.style.background = "#6c757d";
+  if (errorDetail) errorDetail.style.display = "none";
+
+  try {
+    const response = await fetch(`/admin/ypareo-neo/${encodeURIComponent(id)}`, {
+      method: "POST",
+      headers: { "Accept": "application/json" }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) {
+      throw new Error(data.error || `Erreur HTTP ${response.status}`);
+    }
+    btn.textContent = "✅ Envoyé YPAREO";
+    btn.style.background = "#28a745";
+    btn.title = "";
+    btn.disabled = true;
+    if (errorDetail) {
+      errorDetail.textContent = "";
+      errorDetail.style.display = "none";
+    }
+    const checkbox = btn.closest("tr")?.querySelector('[data-field="label_ypareo"]');
+    if (checkbox) checkbox.checked = true;
+    showToast(data.message || "✅ Candidat envoyé dans YPAREO", "#28a745");
+  } catch (error) {
+    btn.textContent = "❌ Erreur YPAREO";
+    btn.style.background = "#dc3545";
+    btn.title = error.message;
+    btn.disabled = false;
+    if (errorDetail) {
+      errorDetail.textContent = error.message;
+      errorDetail.style.display = "block";
+    }
+    showToast(`❌ ${error.message}`, "#dc3545");
+  }
+}
 
 
 // ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ

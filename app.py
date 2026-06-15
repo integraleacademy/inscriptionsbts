@@ -10,6 +10,7 @@ from sms_templates import sms_text
 from mail_templates import mail_html
 from utils import get_mail_context
 from utils import BTS_LABELS
+from services.ypareo_neo import YpareoError, creer_apprenant_ypareo
 
 # ============================
 # 🔒 STARTUP INTEGRITY CHECK – STRICT (Parcoursup inclus)
@@ -496,6 +497,9 @@ CREATE TABLE IF NOT EXISTS candidats (
     verif_docs TEXT, nouveau_doc INTEGER,
     replace_token TEXT, replace_token_exp TEXT, replace_meta TEXT,
     label_ypareo INTEGER, label_carte_etudiante INTEGER,
+    ypareo_id TEXT, ypareo_statut TEXT, ypareo_erreur TEXT,
+    ypareo_cursus_id TEXT, ypareo_cursus_statut TEXT,
+    ypareo_cursus_erreur TEXT, ypareo_sync_at TEXT,
     date_validee TEXT, date_confirmee TEXT, date_reconfirmee TEXT,
     slug_public TEXT
 );
@@ -527,7 +531,9 @@ def ensure_schema():
         "projet_qualites", "projet_motivation", "projet_recherche", "projet_travail",
         "verif_docs", "nouveau_doc", "replace_token", "replace_token_exp", "replace_meta",
         "label_ypareo", "label_carte_etudiante",
-        "date_validee", "date_confirmee", "date_reconfirmee", "slug_public"
+        "date_validee", "date_confirmee", "date_reconfirmee", "slug_public",
+        "ypareo_id", "ypareo_statut", "ypareo_erreur", "ypareo_cursus_id",
+        "ypareo_cursus_statut", "ypareo_cursus_erreur", "ypareo_sync_at"
     ]
 
     for col in expected_cols:
@@ -1378,6 +1384,118 @@ def admin():
 
     rows = [r for r in rows if match(r)]
     return render_template("admin.html", title="Administration", rows=rows, statuts=STATUTS)
+
+
+def _session_ypareo_depuis_candidat(candidat):
+    bts = str(
+        candidat.get("bts")
+        or candidat.get("formation")
+        or candidat.get("training_type")
+        or ""
+    ).upper().strip()
+    aliases = {
+        "MOS": "BTS MOS",
+        "MCO": "BTS MCO",
+        "NDRC": "BTS NDRC",
+        "PI": "BTS PI",
+        "CI": "BTS CI",
+    }
+    code = next((key for key in aliases if key in bts.split()), None)
+    if not code:
+        raise YpareoError(f"BTS non reconnu pour YPAREO : {bts or 'non renseigné'}", 400)
+    return {"training_type": aliases[code], "name": aliases[code]}
+
+
+@app.post("/admin/ypareo-neo/<id_candidat>")
+def admin_ypareo_neo(id_candidat):
+    if not require_admin():
+        return jsonify(ok=False, error="Authentification administrateur requise."), 403
+
+    conn = db()
+    candidat = get_candidat(conn, id_candidat)
+    if not candidat:
+        conn.close()
+        return jsonify(ok=False, error="Candidat introuvable."), 404
+    if candidat.get("ypareo_id") and candidat.get("ypareo_cursus_id"):
+        conn.close()
+        return jsonify(
+            ok=True,
+            already_synced=True,
+            message="Ce candidat a déjà été envoyé dans YPAREO.",
+            candidat=candidat,
+        )
+
+    now = datetime.now().isoformat()
+    try:
+        session_obj = _session_ypareo_depuis_candidat(candidat)
+        result = creer_apprenant_ypareo(candidat, session_obj)
+        conn.execute(
+            """
+            UPDATE candidats
+            SET ypareo_id=?, ypareo_statut='succes', ypareo_erreur='',
+                ypareo_cursus_id=?, ypareo_cursus_statut='succes',
+                ypareo_cursus_erreur='', ypareo_sync_at=?, label_ypareo=1,
+                updated_at=?
+            WHERE id=?
+            """,
+            (
+                str(result["personne_id"]),
+                str(result["cursus_id"] or ""),
+                now,
+                now,
+                id_candidat,
+            ),
+        )
+        conn.commit()
+        candidat = get_candidat(conn, id_candidat)
+        log_event(candidat, "YPAREO_NEO_SYNC", {
+            "statut": "succes",
+            "ypareo_id": candidat["ypareo_id"],
+            "ypareo_cursus_id": candidat["ypareo_cursus_id"],
+        })
+        return jsonify(ok=True, message="Personne et cursus créés dans YPAREO.", candidat=candidat)
+    except YpareoError as exc:
+        message = str(exc)
+        personne_id = str(exc.personne_id or candidat.get("ypareo_id") or "")
+        personne_statut = "succes" if personne_id else "erreur"
+        personne_erreur = "" if personne_id else message
+        conn.execute(
+            """
+            UPDATE candidats
+            SET ypareo_id=?, ypareo_statut=?, ypareo_erreur=?,
+                ypareo_cursus_statut='erreur', ypareo_cursus_erreur=?,
+                ypareo_sync_at=?, updated_at=?
+            WHERE id=?
+            """,
+            (
+                personne_id,
+                personne_statut,
+                personne_erreur,
+                message,
+                now,
+                now,
+                id_candidat,
+            ),
+        )
+        conn.commit()
+        candidat = get_candidat(conn, id_candidat)
+        log_event(candidat, "YPAREO_NEO_ERREUR", {"erreur": message})
+        return jsonify(ok=False, error=message, candidat=candidat), exc.status_code
+    except Exception:
+        app.logger.exception("Erreur interne pendant la synchronisation YPAREO du candidat %s", id_candidat)
+        message = "Erreur interne inattendue pendant la synchronisation YPAREO."
+        conn.execute(
+            """
+            UPDATE candidats SET ypareo_statut='erreur', ypareo_erreur=?,
+                ypareo_cursus_statut='erreur', ypareo_cursus_erreur=?,
+                ypareo_sync_at=?, updated_at=? WHERE id=?
+            """,
+            (message, message, now, now, id_candidat),
+        )
+        conn.commit()
+        return jsonify(ok=False, error=message), 500
+    finally:
+        conn.close()
 
 @app.get("/api/kpi")
 def api_kpi():
