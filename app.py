@@ -1,5 +1,5 @@
 
-import os, sqlite3, json, uuid
+import os, sqlite3, json, uuid, shutil
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
 from werkzeug.utils import secure_filename
@@ -1500,6 +1500,76 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
         )
         conn.commit()
         return {"ok": False, "error": message, "status_code": 500}
+
+
+def _creer_sauvegarde_ypareo_reset(conn):
+    """Crée une sauvegarde de sécurité avant un reset YPAREO."""
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    db_backup_path = os.path.join(DATA_DIR, f"data_backup_ypareo_reset_{timestamp}.db")
+    json_backup_path = os.path.join(DATA_DIR, f"data_backup_ypareo_reset_{timestamp}.json")
+    shutil.copy2(DB_PATH, db_backup_path)
+
+    candidats = [dict(row) for row in conn.execute("SELECT * FROM candidats").fetchall()]
+    with open(json_backup_path, "w", encoding="utf-8") as backup_file:
+        json.dump(candidats, backup_file, ensure_ascii=False, indent=2)
+
+    return {"db": db_backup_path, "json": json_backup_path}
+
+
+def _colonnes_ypareo_candidats(conn):
+    """Retourne toutes les colonnes candidat stockant des données YPAREO."""
+    rows = conn.execute("PRAGMA table_info(candidats)").fetchall()
+    return [row[1] for row in rows if str(row[1]).startswith("ypareo_")]
+
+
+@app.post("/admin/ypareo-neo/<candidate_id>/reset")
+def reset_ypareo_candidate(candidate_id):
+    if not require_admin():
+        abort(403)
+
+    app.logger.info("Réinitialisation YPAREO candidat : %s", candidate_id)
+    conn = db()
+    try:
+        candidat = get_candidat(conn, candidate_id)
+        if not candidat:
+            app.logger.warning("Réinitialisation YPAREO impossible : candidat introuvable (%s)", candidate_id)
+            flash("Candidat introuvable : données YPAREO non réinitialisées.", "error")
+            return redirect(url_for("admin"))
+
+        ypareo_cols = _colonnes_ypareo_candidats(conn)
+        champs_supprimes = [col for col in ypareo_cols if candidat.get(col) not in (None, "")]
+        backup_paths = _creer_sauvegarde_ypareo_reset(conn)
+        app.logger.info("Sauvegarde créée avant reset YPAREO : %s", backup_paths)
+
+        if ypareo_cols:
+            assignments = ", ".join(f"{col}=?" for col in ypareo_cols)
+            values = [""] * len(ypareo_cols)
+            values.extend([datetime.now().isoformat(), candidate_id])
+            conn.execute(
+                f"UPDATE candidats SET {assignments}, label_ypareo=0, updated_at=? WHERE id=?",
+                values,
+            )
+            conn.commit()
+
+        app.logger.info(
+            "Champs supprimés pour le reset YPAREO du candidat %s : %s",
+            candidate_id,
+            ", ".join(champs_supprimes) if champs_supprimes else "aucun champ renseigné",
+        )
+        log_event(dict(candidat), "YPAREO_NEO_RESET", {
+            "champs_supprimes": champs_supprimes,
+            "sauvegarde": backup_paths,
+        })
+        flash("Données YPAREO réinitialisées pour ce candidat.", "success")
+        return redirect(url_for("admin"))
+    except Exception:
+        conn.rollback()
+        app.logger.exception("Erreur pendant la réinitialisation YPAREO du candidat %s", candidate_id)
+        flash("Erreur pendant la réinitialisation des données YPAREO du candidat.", "error")
+        return redirect(url_for("admin"))
+    finally:
+        conn.close()
+
 
 
 @app.post("/admin/ypareo-neo/<id_candidat>")
