@@ -6,7 +6,9 @@ from services.ypareo_neo import (
     YpareoError,
     construire_payload_apprenant,
     construire_payload_cursus,
+    creer_apprenant_ypareo,
     get_ypareo_access_token,
+    inscrire_bts_mos_a_action_formation,
 )
 
 
@@ -266,6 +268,85 @@ class YpareoCursusPayloadTests(unittest.TestCase):
             construire_payload_cursus({"training_type": "BTS MCO"})
 
         self.assertEqual(context.exception.status_code, 503)
+
+
+class YpareoBtsMosActionFormationTests(unittest.TestCase):
+    @patch.dict(
+        os.environ,
+        {"YPAREO_API_URL": "https://ypareo.example"},
+        clear=True,
+    )
+    @patch("services.ypareo_neo.requests.put")
+    def test_inscrire_bts_mos_a_action_formation_uses_participation_endpoint(self, put):
+        response = Mock(ok=True, text='{"ok": true}', status_code=200)
+        response.json.return_value = {"ok": True}
+        put.return_value = response
+
+        result = inscrire_bts_mos_a_action_formation(123, "access-token")
+
+        self.assertEqual(result, {"ok": True})
+        put.assert_called_once_with(
+            "https://ypareo.example/api/inscription/123/participation",
+            json=[
+                {
+                    "dateDebut": "2026-07-27",
+                    "dateFin": "2027-07-25",
+                    "id": None,
+                    "idActionFormation": 42,
+                }
+            ],
+            headers={
+                "Authorization": "Bearer access-token",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_API_URL": "https://ypareo.example",
+            "YPAREO_AUTH_ENDPOINT": "/authenticate",
+            "YPAREO_AUTH_TOKEN": "initial-token",
+            "YPAREO_APPRENANTS_ENDPOINT": "/api/personne",
+            "YPAREO_CURSUS_ENDPOINT": "/api/personne/{IdPersonne}/cursus",
+            "YPAREO_ID_FORMATION_BTS_MOS": "formation-mos",
+            "YPAREO_ID_ORGANISME": "organisme",
+        },
+        clear=True,
+    )
+    @patch("services.ypareo_neo.requests.put")
+    @patch("services.ypareo_neo.requests.post")
+    def test_bts_mos_creation_attaches_created_affectation_module_to_action_formation(
+        self, post, put
+    ):
+        auth_response = Mock(ok=True, status_code=200, content=b"{}")
+        auth_response.json.return_value = {"access_token": "access-token"}
+        personne_response = Mock(ok=True, status_code=201, content=b"{}")
+        personne_response.json.return_value = {"idPersonne": 456}
+        cursus_response = Mock(ok=True, status_code=201, content=b"{}")
+        cursus_response.json.return_value = {
+            "idCursus": 789,
+            "module": {"idAffectationModule": 123},
+        }
+        post.side_effect = [auth_response, personne_response, cursus_response]
+        put_response = Mock(ok=True, text="", status_code=204)
+        put.return_value = put_response
+
+        result = creer_apprenant_ypareo(
+            {"id": "candidat-1", "nom": "Dupont"},
+            {"training_type": "BTS MOS 1ère année 2026-2028"},
+        )
+
+        self.assertEqual(result["personne_id"], 456)
+        self.assertEqual(result["cursus_id"], 789)
+        self.assertEqual(result["id_affectation_module"], 123)
+        put.assert_called_once()
+        self.assertEqual(
+            put.call_args.args[0],
+            "https://ypareo.example/api/inscription/123/participation",
+        )
 
 
 if __name__ == "__main__":
