@@ -2097,3 +2097,37 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
+
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".ypareo-af-finalize-btn");
+  if (!btn) return;
+  const id = btn.dataset.id;
+  const wrapper = btn.closest(".ypareo-af-finalize");
+  const input = wrapper?.querySelector(".ypareo-af-url-input");
+  const errorDetail = btn.parentElement?.parentElement?.querySelector(".ypareo-error-detail");
+  const oldText = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "⏳ Finalisation…";
+  if (errorDetail) errorDetail.style.display = "none";
+  try {
+    const response = await fetch(`/admin/ypareo-neo/${encodeURIComponent(id)}/finaliser-af`, {
+      method: "POST",
+      headers: { "Accept": "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ ypareo_af_url_affectation: input?.value || "" })
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) throw new Error(data.error || `Erreur HTTP ${response.status}`);
+    btn.textContent = "✅ AF rattachée";
+    btn.style.background = "#28a745";
+    wrapper?.remove();
+    showToast(data.message || "✅ AF YPAREO finalisée", "#28a745");
+  } catch (error) {
+    btn.disabled = false;
+    btn.textContent = oldText;
+    if (errorDetail) {
+      errorDetail.textContent = error.message;
+      errorDetail.style.display = "block";
+    }
+    showToast(`❌ ${error.message}`, "#dc3545");
+  }
+});
