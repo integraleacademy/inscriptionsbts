@@ -476,7 +476,8 @@ CREATE TABLE IF NOT EXISTS candidats (
     created_at TEXT,
     updated_at TEXT,
     nom TEXT, prenom TEXT, sexe TEXT,
-    date_naissance TEXT, ville_naissance TEXT, cp_naissance TEXT, pays_naissance TEXT,
+    date_naissance TEXT, ville_naissance TEXT, cp_naissance TEXT,
+    pays_naissance TEXT, nationalite TEXT,
     num_secu TEXT, email TEXT, tel TEXT,
     adresse TEXT, cp TEXT, ville TEXT,
     bts TEXT, mode TEXT,
@@ -528,6 +529,7 @@ def ensure_schema():
     cols = [r[1] for r in cur.fetchall()]
 
     expected_cols = [
+        "nationalite",
         "projet_qualites", "projet_motivation", "projet_recherche", "projet_travail",
         "verif_docs", "nouveau_doc", "replace_token", "replace_token_exp", "replace_meta",
         "label_ypareo", "label_carte_etudiante",
