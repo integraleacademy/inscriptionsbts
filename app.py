@@ -1406,24 +1406,17 @@ def _session_ypareo_depuis_candidat(candidat):
     return {"training_type": aliases[code], "name": aliases[code]}
 
 
-@app.post("/admin/ypareo-neo/<id_candidat>")
-def admin_ypareo_neo(id_candidat):
-    if not require_admin():
-        return jsonify(ok=False, error="Authentification administrateur requise."), 403
-
-    conn = db()
+def _synchroniser_candidat_ypareo(conn, id_candidat):
     candidat = get_candidat(conn, id_candidat)
     if not candidat:
-        conn.close()
-        return jsonify(ok=False, error="Candidat introuvable."), 404
+        return {"ok": False, "error": "Candidat introuvable.", "status_code": 404}
     if candidat.get("ypareo_id") and candidat.get("ypareo_cursus_id"):
-        conn.close()
-        return jsonify(
-            ok=True,
-            already_synced=True,
-            message="Ce candidat a déjà été envoyé dans YPAREO.",
-            candidat=candidat,
-        )
+        return {
+            "ok": True,
+            "already_synced": True,
+            "message": "Ce candidat a déjà été envoyé dans YPAREO.",
+            "candidat": candidat,
+        }
 
     now = datetime.now().isoformat()
     try:
@@ -1438,13 +1431,7 @@ def admin_ypareo_neo(id_candidat):
                 updated_at=?
             WHERE id=?
             """,
-            (
-                str(result["personne_id"]),
-                str(result["cursus_id"] or ""),
-                now,
-                now,
-                id_candidat,
-            ),
+            (str(result["personne_id"]), str(result["cursus_id"] or ""), now, now, id_candidat),
         )
         conn.commit()
         candidat = get_candidat(conn, id_candidat)
@@ -1453,7 +1440,7 @@ def admin_ypareo_neo(id_candidat):
             "ypareo_id": candidat["ypareo_id"],
             "ypareo_cursus_id": candidat["ypareo_cursus_id"],
         })
-        return jsonify(ok=True, message="Personne et cursus créés dans YPAREO.", candidat=candidat)
+        return {"ok": True, "message": "Personne et cursus créés dans YPAREO.", "candidat": candidat}
     except YpareoError as exc:
         message = str(exc)
         personne_id = str(exc.personne_id or candidat.get("ypareo_id") or "")
@@ -1467,20 +1454,12 @@ def admin_ypareo_neo(id_candidat):
                 ypareo_sync_at=?, updated_at=?
             WHERE id=?
             """,
-            (
-                personne_id,
-                personne_statut,
-                personne_erreur,
-                message,
-                now,
-                now,
-                id_candidat,
-            ),
+            (personne_id, personne_statut, personne_erreur, message, now, now, id_candidat),
         )
         conn.commit()
         candidat = get_candidat(conn, id_candidat)
         log_event(candidat, "YPAREO_NEO_ERREUR", {"erreur": message})
-        return jsonify(ok=False, error=message, candidat=candidat), exc.status_code
+        return {"ok": False, "error": message, "candidat": candidat, "status_code": exc.status_code}
     except Exception:
         app.logger.exception("Erreur interne pendant la synchronisation YPAREO du candidat %s", id_candidat)
         message = "Erreur interne inattendue pendant la synchronisation YPAREO."
@@ -1493,7 +1472,76 @@ def admin_ypareo_neo(id_candidat):
             (message, message, now, now, id_candidat),
         )
         conn.commit()
-        return jsonify(ok=False, error=message), 500
+        return {"ok": False, "error": message, "status_code": 500}
+
+
+@app.post("/admin/ypareo-neo/<id_candidat>")
+def admin_ypareo_neo(id_candidat):
+    if not require_admin():
+        return jsonify(ok=False, error="Authentification administrateur requise."), 403
+
+    conn = db()
+    try:
+        result = _synchroniser_candidat_ypareo(conn, id_candidat)
+        status_code = result.pop("status_code", 200)
+        return jsonify(result), status_code
+    finally:
+        conn.close()
+
+
+@app.get("/admin/ypareo-neo/count-confirmed")
+def admin_ypareo_neo_count_confirmed():
+    if not require_admin():
+        return jsonify(ok=False, error="Authentification administrateur requise."), 403
+    conn = db()
+    try:
+        count = conn.execute(
+            """
+            SELECT COUNT(*) FROM candidats
+            WHERE statut = 'confirmee'
+              AND (COALESCE(ypareo_id, '') = '' OR COALESCE(ypareo_cursus_id, '') = '')
+            """
+        ).fetchone()[0]
+        return jsonify(ok=True, count=count)
+    finally:
+        conn.close()
+
+
+@app.post("/admin/ypareo-neo/send-confirmed")
+def admin_ypareo_neo_send_confirmed():
+    if not require_admin():
+        return jsonify(ok=False, error="Authentification administrateur requise."), 403
+    conn = db()
+    try:
+        rows = conn.execute(
+            """
+            SELECT id FROM candidats
+            WHERE statut = 'confirmee'
+              AND (COALESCE(ypareo_id, '') = '' OR COALESCE(ypareo_cursus_id, '') = '')
+            ORDER BY created_at ASC
+            """
+        ).fetchall()
+        if not rows:
+            return jsonify(ok=False, error="Aucun dossier en inscription confirmée à envoyer vers YPAREO NEO."), 400
+
+        sent_ids = []
+        errors = []
+        for row in rows:
+            cid = row["id"]
+            result = _synchroniser_candidat_ypareo(conn, cid)
+            if result.get("ok"):
+                sent_ids.append(cid)
+            else:
+                errors.append({"id": cid, "error": result.get("error", "Erreur inconnue")})
+
+        return jsonify(
+            ok=not errors,
+            total=len(rows),
+            sent=len(sent_ids),
+            sent_ids=sent_ids,
+            errors=errors,
+            message=f"{len(sent_ids)} dossier(s) envoyé(s) vers YPAREO NEO.",
+        ), (207 if errors and sent_ids else 500 if errors else 200)
     finally:
         conn.close()
 

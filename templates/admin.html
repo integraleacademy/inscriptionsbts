@@ -225,6 +225,46 @@
   cursor: pointer;
 }
 
+
+.ypareo-confirm-card { max-width: 460px; }
+.ypareo-confirm-icon {
+  width: 62px;
+  height: 62px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f4efff, #edf5ff);
+  font-size: 30px;
+}
+.ypareo-confirm-count {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 18px 0;
+  padding: 16px 18px;
+  border: 1px solid #d8e4f5;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #ffffff, #f7faff);
+  color: #52627a;
+  font-weight: 800;
+  text-align: left;
+}
+.ypareo-confirm-count strong {
+  min-width: 74px;
+  color: #6f42c1;
+  font-size: 34px;
+  line-height: 1;
+  text-align: right;
+}
+.ypareo-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 @keyframes ypareoSpin { to { transform: rotate(360deg); } }
 @keyframes ypareoCardIn {
   from { opacity: 0; transform: translateY(10px) scale(.97); }
@@ -249,6 +289,10 @@
 
     <button class="btn gold" id="btnMassReconfirm" style="margin-left:10px;">
     📢 Envoyer reconfirmation à tous
+  </button>
+
+  <button class="btn" id="btnMassYpareoNeo" style="margin-left:10px;background:linear-gradient(135deg,#6f42c1,#2468e8);color:white;font-weight:800;box-shadow:0 10px 22px rgba(111,66,193,.22);">
+    🚀 YPAREO NEO
   </button>
 
   <button class="btn green" id="btnMassValidatedRelance" style="margin-left:10px;">
@@ -584,6 +628,34 @@
         {% endfor %}
       </tbody>
     </table>
+  </div>
+</div>
+
+
+<!-- 🚀 MODALE — CONFIRMATION ENVOI GLOBAL YPAREO NEO -->
+<div id="ypareoMassConfirmModal"
+     class="ypareo-progress-modal hidden"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="ypareoMassConfirmTitle">
+  <div class="ypareo-progress-card ypareo-confirm-card">
+    <span class="ypareo-progress-brand">YP</span>
+    <div class="ypareo-confirm-icon" aria-hidden="true">🚀</div>
+    <h3 id="ypareoMassConfirmTitle">Envoi groupé vers YPAREO NEO</h3>
+    <p class="ypareo-progress-subtitle">
+      Tous les dossiers en <strong>Inscription confirmée</strong> non encore envoyés seront transmis exactement comme avec le bouton YPAREO NEO de chaque ligne.
+    </p>
+    <div class="ypareo-confirm-count">
+      <span>Nombre de dossiers concernés</span>
+      <strong id="ypareoMassConfirmCount">—</strong>
+    </div>
+    <p class="ypareo-progress-note">
+      Vérifiez ce nombre avant de confirmer. L’envoi peut prendre quelques instants.
+    </p>
+    <div class="ypareo-confirm-actions">
+      <button id="ypareoMassCancel" type="button" class="ypareo-progress-close" style="display:inline-block;background:#eef2f7;color:#17243e;">Annuler</button>
+      <button id="ypareoMassConfirm" type="button" class="ypareo-progress-close" style="display:inline-block;background:#6f42c1;">Confirmer l’envoi</button>
+    </div>
   </div>
 </div>
 
