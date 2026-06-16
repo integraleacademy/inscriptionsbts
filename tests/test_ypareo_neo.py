@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 from services.ypareo_neo import (
     YpareoError,
     construire_payload_apprenant,
+    construire_payload_cursus,
     get_ypareo_access_token,
 )
 
@@ -140,6 +141,68 @@ class YpareoPersonPayloadTests(unittest.TestCase):
         )
 
         self.assertNotIn("telephones", payload)
+
+
+class YpareoCursusPayloadTests(unittest.TestCase):
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_ID_FORMATION_BTS_MCO": "formation-mco",
+            "YPAREO_ID_ORGANISME": "organisme",
+            "YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE": "42",
+        },
+        clear=False,
+    )
+    def test_cursus_uses_configured_situation_id(self):
+        payload = construire_payload_cursus({"training_type": "BTS MCO"})
+
+        self.assertEqual(
+            payload,
+            {
+                "idFormation": "formation-mco",
+                "idOrganisme": "organisme",
+                "nom": "BTS MCO",
+                "idSituationAvantApprentissage": 42,
+            },
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_ID_FORMATION_BTS_MCO": "formation-mco",
+            "YPAREO_ID_ORGANISME": "organisme",
+        },
+        clear=True,
+    )
+    def test_missing_situation_id_is_omitted_from_cursus_payload(self):
+        payload = construire_payload_cursus({"training_type": "BTS MCO"})
+
+        self.assertEqual(
+            payload,
+            {
+                "idFormation": "formation-mco",
+                "idOrganisme": "organisme",
+                "nom": "BTS MCO",
+            },
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_ID_FORMATION_BTS_MCO": "formation-mco",
+            "YPAREO_ID_ORGANISME": "organisme",
+            "YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE": "situation",
+        },
+        clear=True,
+    )
+    def test_non_numeric_situation_id_has_actionable_render_error(self):
+        with self.assertRaisesRegex(
+            YpareoError,
+            "identifiant numérique YPAREO",
+        ) as context:
+            construire_payload_cursus({"training_type": "BTS MCO"})
+
+        self.assertEqual(context.exception.status_code, 503)
 
 
 if __name__ == "__main__":
