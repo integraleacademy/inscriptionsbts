@@ -178,6 +178,9 @@ class YpareoCursusPayloadTests(unittest.TestCase):
                 "idFormation": "formation-mco",
                 "idOrganisme": "organisme",
                 "nom": "BTS MCO",
+                "statutPremiereAnnee": "Stagiaire formation pro 3 mois",
+                "etat": "Inscrit",
+                "referentPedagogique": "Clément VAILLANT",
                 "idSituationAvantApprentissage": 42,
             },
         )
@@ -199,8 +202,38 @@ class YpareoCursusPayloadTests(unittest.TestCase):
                 "idFormation": "formation-mco",
                 "idOrganisme": "organisme",
                 "nom": "BTS MCO",
+                "statutPremiereAnnee": "Stagiaire formation pro 3 mois",
+                "etat": "Inscrit",
+                "referentPedagogique": "Clément VAILLANT",
             },
         )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_ID_FORMATION_BTS_MCO": "formation-mco",
+            "YPAREO_ID_ORGANISME": "organisme",
+            "YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE": "42",
+        },
+        clear=False,
+    )
+    def test_general_bac_uses_situation_21_even_when_env_is_configured(self):
+        payload = construire_payload_cursus({"training_type": "BTS MCO"}, {"bac_type": "Général"})
+
+        self.assertEqual(payload["idSituationAvantApprentissage"], 21)
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_ID_FORMATION_BTS_MCO": "formation-mco",
+            "YPAREO_ID_ORGANISME": "organisme",
+        },
+        clear=True,
+    )
+    def test_professional_bac_uses_situation_31(self):
+        payload = construire_payload_cursus({"training_type": "BTS MCO"}, {"bac_type": "Professionnel"})
+
+        self.assertEqual(payload["idSituationAvantApprentissage"], 31)
 
     @patch.dict(
         os.environ,
