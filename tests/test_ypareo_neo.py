@@ -7,42 +7,65 @@ from services.ypareo_neo import (
     construire_payload_apprenant,
     construire_payload_cursus,
     creer_apprenant_ypareo,
-    _extract_id_affectation_module,
+    _extract_id_inscription_bts_mos_premiere_annee,
     get_ypareo_access_token,
     inscrire_bts_mos_a_action_formation,
 )
 
 
-class YpareoAffectationModuleExtractionTests(unittest.TestCase):
-    def test_extracts_known_direct_and_nested_affectation_ids(self):
+class YpareoBtsMosInscriptionExtractionTests(unittest.TestCase):
+    def test_extracts_first_year_inscription_by_order_from_data(self):
         self.assertEqual(
-            _extract_id_affectation_module(
-                {"cursus": {"modules": [{"idModuleAffectation": 467}]}}
+            _extract_id_inscription_bts_mos_premiere_annee(
+                {
+                    "data": {
+                        "id": "cursus-id",
+                        "inscriptions": [
+                            {
+                                "anneeInscription": {"ordre": 2, "nom": "2ème année"},
+                                "id": "second-year-id",
+                            },
+                            {
+                                "anneeInscription": {"ordre": 1, "nom": "1ère année"},
+                                "id": "first-year-id",
+                            },
+                        ],
+                    }
+                }
             ),
-            467,
-        )
-        self.assertEqual(
-            _extract_id_affectation_module({"moduleAffectation": {"id": 468}}),
-            468,
-        )
-        self.assertEqual(
-            _extract_id_affectation_module(
-                {"inscriptions": [{"inscription": {"id": 469}}]}
-            ),
-            469,
+            "first-year-id",
         )
 
-    def test_does_not_use_personne_cursus_or_formation_ids(self):
-        self.assertIsNone(
-            _extract_id_affectation_module(
+    def test_extracts_first_year_inscription_by_name_when_order_is_missing(self):
+        self.assertEqual(
+            _extract_id_inscription_bts_mos_premiere_annee(
                 {
-                    "idPersonne": 1066,
-                    "idCursus": 374,
-                    "idActionFormation": 42,
-                    "idFormation": 99,
+                    "data": {
+                        "inscriptions": [
+                            {
+                                "anneeInscription": {"nom": "1ère année"},
+                                "id": "first-year-id",
+                            }
+                        ]
+                    }
+                }
+            ),
+            "first-year-id",
+        )
+
+    def test_does_not_use_cursus_personne_or_formation_ids(self):
+        with self.assertRaisesRegex(YpareoError, "id_inscription"):
+            _extract_id_inscription_bts_mos_premiere_annee(
+                {
+                    "data": {
+                        "id": "cursus-id",
+                        "idPersonne": 1066,
+                        "idActionFormation": 42,
+                        "idFormation": 99,
+                        "inscriptions": [],
+                    }
                 }
             )
-        )
 
 
 class YpareoAuthenticationTests(unittest.TestCase):
@@ -349,7 +372,7 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
     )
     @patch("services.ypareo_neo.requests.put")
     @patch("services.ypareo_neo.requests.post")
-    def test_bts_mos_creation_attaches_created_affectation_module_to_action_formation(
+    def test_bts_mos_creation_attaches_first_year_inscription_to_action_formation(
         self, post, put
     ):
         auth_response = Mock(ok=True, status_code=200, content=b"{}")
@@ -359,7 +382,12 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
         cursus_response = Mock(ok=True, status_code=201, content=b"{}")
         cursus_response.json.return_value = {
             "idCursus": 789,
-            "module": {"idAffectationModule": 123},
+            "data": {
+                "inscriptions": [
+                    {"anneeInscription": {"ordre": 1}, "id": "first-year-id"},
+                    {"anneeInscription": {"ordre": 2}, "id": "second-year-id"},
+                ]
+            },
         }
         post.side_effect = [auth_response, personne_response, cursus_response]
         put_response = Mock(ok=True, text="", status_code=204)
@@ -372,74 +400,13 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
 
         self.assertEqual(result["personne_id"], 456)
         self.assertEqual(result["cursus_id"], 789)
-        self.assertEqual(result["id_affectation_module"], 123)
+        self.assertEqual(result["id_inscription_ypareo"], "first-year-id")
         put.assert_called_once()
         self.assertEqual(
             put.call_args.args[0],
-            "https://ypareo.example/api/inscription/123/participation",
+            "https://ypareo.example/api/inscription/first-year-id/participation",
         )
 
-    @patch.dict(
-        os.environ,
-        {
-            "YPAREO_API_URL": "https://ypareo.example",
-            "YPAREO_AUTH_ENDPOINT": "/authenticate",
-            "YPAREO_AUTH_TOKEN": "initial-token",
-            "YPAREO_APPRENANTS_ENDPOINT": "/api/personne",
-            "YPAREO_CURSUS_ENDPOINT": "/api/personne/{IdPersonne}/cursus",
-            "YPAREO_ID_FORMATION_BTS_MOS": "formation-mos",
-            "YPAREO_ID_ORGANISME": "organisme",
-        },
-        clear=True,
-    )
-    @patch("services.ypareo_neo.requests.put")
-    @patch("services.ypareo_neo.requests.get")
-    @patch("services.ypareo_neo.requests.post")
-    def test_bts_mos_creation_reads_affectation_module_from_cursus_detail_when_missing(
-        self, post, get, put
-    ):
-        auth_response = Mock(
-            ok=True,
-            status_code=200,
-            content=b"{}",
-            text='{"access_token":"access-token"}',
-        )
-        auth_response.json.return_value = {"access_token": "access-token"}
-        personne_response = Mock(
-            ok=True, status_code=201, content=b"{}", text='{"idPersonne":456}'
-        )
-        personne_response.json.return_value = {"idPersonne": 456}
-        cursus_response = Mock(
-            ok=True, status_code=201, content=b"{}", text='{"idCursus":789}'
-        )
-        cursus_response.json.return_value = {"idCursus": 789}
-        post.side_effect = [auth_response, personne_response, cursus_response]
-        detail_response = Mock(
-            ok=True, status_code=200, content=b"{}", text='{"affectation":{"id":467}}'
-        )
-        detail_response.json.return_value = {"affectation": {"id": 467}}
-        get.return_value = detail_response
-        put.return_value = Mock(ok=True, text="", status_code=204)
-
-        result = creer_apprenant_ypareo(
-            {"id": "candidat-1", "nom": "Dupont"},
-            {"training_type": "BTS MOS 1ère année 2026-2028"},
-        )
-
-        self.assertEqual(result["id_affectation_module"], 467)
-        get.assert_called_once_with(
-            "https://ypareo.example/api/personne/456/cursus/789",
-            headers={
-                "Authorization": "Bearer access-token",
-                "Accept": "application/json",
-                "Content-Type": "application/json",
-            },
-            timeout=30,
-        )
-        self.assertEqual(
-            put.call_args.args[0],
-            "https://ypareo.example/api/inscription/467/participation",
-        )
 
 
 if __name__ == "__main__":
