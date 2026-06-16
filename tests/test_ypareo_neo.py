@@ -412,11 +412,12 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
         self.assertEqual(result["personne_id"], 456)
         self.assertEqual(result["cursus_id"], 789)
         self.assertEqual(result["id_inscription_ypareo"], "first-year-id")
-        self.assertEqual(result["id_inscription_numerique_interne"], 467)
+        self.assertIsNone(result["id_inscription_numerique_interne"])
+        get.assert_not_called()
         put.assert_called_once()
         self.assertEqual(
             put.call_args.args[0],
-            "https://business.example/api/inscription/467/participation",
+            "https://business.example/api/inscription/first-year-id/participation",
         )
 
     @patch.dict(

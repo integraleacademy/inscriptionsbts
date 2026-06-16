@@ -579,7 +579,8 @@
   </button>
 
   {% set ypareo_envoye = r.ypareo_id and r.ypareo_cursus_id %}
-  {% set ypareo_error = r.ypareo_cursus_erreur or r.ypareo_erreur %}
+  {% set ypareo_af_en_attente = ypareo_envoye and r.ypareo_af_statut == 'en_attente' %}
+  {% set ypareo_error = r.ypareo_af_error or r.ypareo_cursus_erreur or r.ypareo_erreur %}
   <button
     type="button"
     class="btn small ypareo-neo-btn"
@@ -598,6 +599,22 @@
       ♻️ Réinitialiser YPAREO
     </button>
   </form>
+  {% if ypareo_af_en_attente %}
+    <div class="ypareo-af-finalize" style="margin-top:6px;white-space:normal;max-width:310px;">
+      <input type="text"
+             class="ypareo-af-url-input"
+             value="{{ r.ypareo_af_url_affectation|default('', true)|e }}"
+             placeholder="URL YPAREO affectation ou ID inscription numérique YPAREO"
+             aria-label="URL YPAREO affectation"
+             style="width:260px;max-width:100%;padding:6px;border:1px solid #ddd;border-radius:6px;">
+      <button type="button"
+              class="btn small ypareo-af-finalize-btn"
+              data-id="{{ r.id }}"
+              style="margin-top:4px;background:#0d6efd;color:white;font-weight:600;">
+        Finaliser AF YPAREO
+      </button>
+    </div>
+  {% endif %}
   <small class="ypareo-error-detail" style="display:{% if ypareo_error %}block{% else %}none{% endif %};color:#dc3545;white-space:normal;max-width:280px;margin-top:4px;">
     {{ ypareo_error|default('', true) }}
   </small>

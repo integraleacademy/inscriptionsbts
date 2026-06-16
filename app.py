@@ -10,7 +10,13 @@ from sms_templates import sms_text
 from mail_templates import mail_html
 from utils import get_mail_context
 from utils import BTS_LABELS
-from services.ypareo_neo import YpareoError, creer_apprenant_ypareo
+from services.ypareo_neo import (
+    YpareoError,
+    creer_apprenant_ypareo,
+    extraire_id_numerique_affectation_ypareo,
+    get_ypareo_access_token,
+    inscrire_bts_mos_a_action_formation,
+)
 
 # ============================
 # 🔒 STARTUP INTEGRITY CHECK – STRICT (Parcoursup inclus)
@@ -503,6 +509,9 @@ CREATE TABLE IF NOT EXISTS candidats (
     ypareo_cursus_erreur TEXT,
     ypareo_id_personne TEXT, ypareo_id_cursus TEXT,
     ypareo_id_dossier TEXT, ypareo_inscriptions TEXT,
+    ypareo_af_statut TEXT, ypareo_af_error TEXT,
+    ypareo_af_url_affectation TEXT, ypareo_af_id_numerique TEXT,
+    ypareo_af_synced_at TEXT,
     ypareo_sync_at TEXT,
     date_validee TEXT, date_confirmee TEXT, date_reconfirmee TEXT,
     slug_public TEXT
@@ -540,7 +549,9 @@ def ensure_schema():
         "ypareo_id", "ypareo_statut", "ypareo_erreur", "ypareo_cursus_id",
         "ypareo_cursus_statut", "ypareo_cursus_erreur",
         "ypareo_id_personne", "ypareo_id_cursus", "ypareo_id_dossier",
-        "ypareo_inscriptions", "ypareo_sync_at"
+        "ypareo_inscriptions", "ypareo_af_statut", "ypareo_af_error",
+        "ypareo_af_url_affectation", "ypareo_af_id_numerique",
+        "ypareo_af_synced_at", "ypareo_sync_at"
     ]
 
     for col in expected_cols:
@@ -1438,7 +1449,9 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
                 ypareo_cursus_id=?, ypareo_cursus_statut='succes',
                 ypareo_cursus_erreur=?,
                 ypareo_id_personne=?, ypareo_id_cursus=?, ypareo_id_dossier=?,
-                ypareo_inscriptions=?, ypareo_sync_at=?, label_ypareo=1,
+                ypareo_inscriptions=?, ypareo_af_statut=?, ypareo_af_error=?,
+                ypareo_af_id_numerique=?, ypareo_af_synced_at=?,
+                ypareo_sync_at=?, label_ypareo=1,
                 updated_at=?
             WHERE id=?
             """,
@@ -1454,6 +1467,10 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
                     "id_numerique_interne": result.get("id_inscription_numerique_interne"),
                     "participation_warning": result.get("participation_warning", ""),
                 }, ensure_ascii=False),
+                "en_attente" if result.get("participation_warning") else "rattachee",
+                result.get("participation_warning", ""),
+                str(result.get("id_inscription_numerique_interne") or ""),
+                now if result.get("participation_response") else "",
                 now,
                 now,
                 id_candidat,
@@ -1466,7 +1483,7 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
             "ypareo_id": candidat["ypareo_id"],
             "ypareo_cursus_id": candidat["ypareo_cursus_id"],
         })
-        message = result.get("participation_warning") or "Personne et cursus créés dans YPAREO."
+        message = result.get("participation_warning") or "Personne, cursus et action de formation BTS MOS rattachés avec succès dans YPAREO."
         return {"ok": True, "message": message, "candidat": candidat}
     except YpareoError as exc:
         message = str(exc)
@@ -1582,6 +1599,65 @@ def admin_ypareo_neo(id_candidat):
         result = _synchroniser_candidat_ypareo(conn, id_candidat)
         status_code = result.pop("status_code", 200)
         return jsonify(result), status_code
+    finally:
+        conn.close()
+
+
+@app.post("/admin/ypareo-neo/<candidate_id>/finaliser-af")
+def finaliser_af_ypareo(candidate_id):
+    if not require_admin():
+        return jsonify(ok=False, error="Authentification administrateur requise."), 403
+    data = request.get_json(silent=True) or request.form or {}
+    url_affectation = (data.get("ypareo_af_url_affectation") or data.get("url_affectation") or "").strip()
+    id_numerique = data.get("ypareo_af_id_numerique") or data.get("id_numerique")
+    if not id_numerique:
+        id_numerique = extraire_id_numerique_affectation_ypareo(url_affectation)
+    if not id_numerique:
+        return jsonify(ok=False, error="ID inscription numérique YPAREO introuvable dans l’URL saisie."), 400
+
+    conn = db()
+    try:
+        candidat = get_candidat(conn, candidate_id)
+        if not candidat:
+            return jsonify(ok=False, error="Candidat introuvable."), 404
+        if not (candidat.get("ypareo_id") or candidat.get("ypareo_id_personne")) or not (candidat.get("ypareo_cursus_id") or candidat.get("ypareo_id_cursus")):
+            return jsonify(ok=False, error="La personne et le cursus doivent déjà exister dans YPAREO."), 400
+
+        app.logger.info("URL affectation saisie manuellement : %s", url_affectation)
+        app.logger.info("ID numérique extrait : %s", id_numerique)
+        app.logger.info("PUT participation avec ID numérique")
+        token = get_ypareo_access_token()
+        response = inscrire_bts_mos_a_action_formation(id_numerique, token)
+        now = datetime.now().isoformat()
+        conn.execute(
+            """
+            UPDATE candidats
+            SET ypareo_af_statut='rattachee', ypareo_af_error='',
+                ypareo_af_url_affectation=?, ypareo_af_id_numerique=?,
+                ypareo_af_synced_at=?, ypareo_cursus_erreur='', updated_at=?
+            WHERE id=?
+            """,
+            (url_affectation, str(id_numerique), now, now, candidate_id),
+        )
+        conn.commit()
+        candidat = get_candidat(conn, candidate_id)
+        log_event(candidat, "YPAREO_AF_FINALISEE", {"id_numerique": id_numerique})
+        app.logger.info("Résultat final : AF YPAREO rattachée")
+        return jsonify(ok=True, message="Personne, cursus et action de formation BTS MOS rattachés avec succès dans YPAREO.", response=response)
+    except YpareoError as exc:
+        now = datetime.now().isoformat()
+        conn.execute(
+            """
+            UPDATE candidats
+            SET ypareo_af_statut='erreur', ypareo_af_error=?,
+                ypareo_af_url_affectation=?, ypareo_af_id_numerique=?, updated_at=?
+            WHERE id=?
+            """,
+            (str(exc), url_affectation, str(id_numerique), now, candidate_id),
+        )
+        conn.commit()
+        app.logger.warning("Résultat final : échec AF YPAREO %s", exc)
+        return jsonify(ok=False, error=str(exc)), getattr(exc, "status_code", 502)
     finally:
         conn.close()
 

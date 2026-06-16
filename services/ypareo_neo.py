@@ -622,11 +622,8 @@ def rechercher_id_numerique_inscription_bts_mos(
     return None
 
 
-def inscrire_bts_mos_a_action_formation(id_inscription_ypareo, access_token=None):
-    if access_token is None:
-        access_token = get_ypareo_access_token()
-    url = _business_url(f"/inscription/{id_inscription_ypareo}/participation")
-    payload = [
+def construire_payload_participation_bts_mos():
+    return [
         {
             "dateDebut": YPAREO_BTS_MOS_ACTION_FORMATION_DATE_DEBUT,
             "dateFin": YPAREO_BTS_MOS_ACTION_FORMATION_DATE_FIN,
@@ -634,6 +631,18 @@ def inscrire_bts_mos_a_action_formation(id_inscription_ypareo, access_token=None
             "idActionFormation": YPAREO_BTS_MOS_ACTION_FORMATION_ID,
         }
     ]
+
+
+def extraire_id_numerique_affectation_ypareo(value):
+    matches = re.findall(r"(\d+)(?!.*\d)", str(value or ""))
+    return int(matches[-1]) if matches else None
+
+
+def inscrire_bts_mos_a_action_formation(id_inscription_ypareo, access_token=None):
+    if access_token is None:
+        access_token = get_ypareo_access_token()
+    url = _business_url(f"/inscription/{id_inscription_ypareo}/participation")
+    payload = construire_payload_participation_bts_mos()
 
     response = requests.put(
         url, json=payload, headers=ypareo_headers(access_token), timeout=30
@@ -652,7 +661,8 @@ def inscrire_bts_mos_a_action_formation(id_inscription_ypareo, access_token=None
         logger.error("Réponse YPAREO complète en cas d’erreur : %s", response.text)
         if response.status_code == 404:
             raise YpareoError(
-                "Erreur YPAREO participation : endpoint introuvable. Vérifier que l’URL business et l’ID numérique interne sont utilisés, pas le GUID public."
+                "ID numérique interne d’inscription introuvable. Vérifier que l’URL business et l’ID numérique interne sont utilisés.",
+                status_code=404,
             )
         raise YpareoError(
             f"Erreur YPAREO participation ({response.status_code}) : {_safe_response_message(response)}"
@@ -687,11 +697,7 @@ def creer_cursus_ypareo(id_personne, session_obj, access_token, candidat=None):
         id_inscription_guid = _recuperer_id_inscription_bts_mos(data)
         result["id_inscription_ypareo"] = id_inscription_guid
         result["id_inscription_public_guid"] = id_inscription_guid
-        result["id_inscription_numerique_interne"] = (
-            rechercher_id_numerique_inscription_bts_mos(
-                id_personne, cursus_id, id_inscription_guid, access_token
-            )
-        )
+        result["id_inscription_numerique_interne"] = None
     return result
 
 
@@ -732,20 +738,23 @@ def creer_apprenant_ypareo(candidat, session_obj):
         logger.info(
             "ID inscription public GUID : %s", cursus.get("id_inscription_public_guid")
         )
-        id_interne = cursus.get("id_inscription_numerique_interne")
-        if id_interne is None:
-            participation_warning = (
-                "Personne et cursus créés dans YPAREO, mais inscription à l’action de formation non effectuée : "
-                "ID numérique interne d’inscription introuvable."
+        id_guid = cursus.get("id_inscription_public_guid")
+        logger.info("Tentative PUT participation avec GUID")
+        logger.info("id_inscription GUID utilisé : %s", id_guid)
+        try:
+            participation_response = inscrire_bts_mos_a_action_formation(
+                id_guid, access_token
             )
-            logger.warning(participation_warning)
-        else:
-            logger.info("id_inscription utilisé : %s", id_interne)
-            try:
-                participation_response = inscrire_bts_mos_a_action_formation(
-                    id_interne, access_token
+        except YpareoError as exc:
+            if getattr(exc, "status_code", None) == 404:
+                participation_warning = (
+                    "Personne et cursus créés dans YPAREO. L’action de formation n’a pas encore été rattachée "
+                    "car l’ID numérique interne est introuvable. Collez l’URL YPAREO d’affectation puis cliquez "
+                    "sur “Finaliser AF YPAREO”."
                 )
-            except YpareoError as exc:
+                logger.warning("Si 404 : passage en statut AF en attente")
+                logger.warning(participation_warning)
+            else:
                 participation_warning = str(exc)
                 logger.warning(
                     "Inscription à l’action de formation non effectuée : %s", exc
