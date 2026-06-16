@@ -589,6 +589,15 @@
     style="margin-left:6px;background:{% if ypareo_envoye %}#28a745{% elif ypareo_error %}#dc3545{% else %}#6f42c1{% endif %};color:white;font-weight:600;">
     {% if ypareo_envoye %}✅ Envoyé YPAREO{% elif ypareo_error %}❌ Erreur YPAREO{% else %}🚀 YPAREO NEO{% endif %}
   </button>
+  <form
+    method="post"
+    action="{{ url_for('reset_ypareo_candidate', candidate_id=r.id) }}"
+    style="display:inline;margin-left:6px;"
+    onsubmit="return confirm('Voulez-vous vraiment réinitialiser les données YPAREO de ce candidat ? Cela ne supprimera pas le candidat, mais effacera les IDs de synchronisation YPAREO enregistrés dans la plateforme.');">
+    <button type="submit" class="btn small" style="background:#ffc107;color:#111;font-weight:600;">
+      ♻️ Réinitialiser YPAREO
+    </button>
+  </form>
   <small class="ypareo-error-detail" style="display:{% if ypareo_error %}block{% else %}none{% endif %};color:#dc3545;white-space:normal;max-width:280px;margin-top:4px;">
     {{ ypareo_error|default('', true) }}
   </small>
