@@ -233,10 +233,10 @@ class YpareoCursusPayloadTests(unittest.TestCase):
         },
         clear=False,
     )
-    def test_general_bac_uses_situation_21_even_when_env_is_configured(self):
+    def test_bac_type_does_not_override_configured_situation_id(self):
         payload = construire_payload_cursus({"training_type": "BTS MCO"}, {"bac_type": "Général"})
 
-        self.assertEqual(payload["idSituationAvantApprentissage"], 21)
+        self.assertEqual(payload["idSituationAvantApprentissage"], 42)
 
     @patch.dict(
         os.environ,
@@ -246,10 +246,10 @@ class YpareoCursusPayloadTests(unittest.TestCase):
         },
         clear=True,
     )
-    def test_professional_bac_uses_situation_31(self):
+    def test_bac_type_does_not_add_default_situation_id(self):
         payload = construire_payload_cursus({"training_type": "BTS MCO"}, {"bac_type": "Professionnel"})
 
-        self.assertEqual(payload["idSituationAvantApprentissage"], 31)
+        self.assertNotIn("idSituationAvantApprentissage", payload)
 
     @patch.dict(
         os.environ,
