@@ -296,12 +296,6 @@ def id_formation_ypareo(session_obj):
 
 
 def _id_situation_avant_apprentissage(candidat=None):
-    bac_type = _normalize_text(_first(candidat or {}, "bac_type", "type_bac"))
-    if "general" in bac_type:
-        return 21
-    if "professionnel" in bac_type or bac_type == "pro":
-        return 31
-
     situation_id = _env("YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE", required=False)
     if not situation_id:
         return None
