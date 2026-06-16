@@ -7,9 +7,42 @@ from services.ypareo_neo import (
     construire_payload_apprenant,
     construire_payload_cursus,
     creer_apprenant_ypareo,
+    _extract_id_affectation_module,
     get_ypareo_access_token,
     inscrire_bts_mos_a_action_formation,
 )
+
+
+class YpareoAffectationModuleExtractionTests(unittest.TestCase):
+    def test_extracts_known_direct_and_nested_affectation_ids(self):
+        self.assertEqual(
+            _extract_id_affectation_module(
+                {"cursus": {"modules": [{"idModuleAffectation": 467}]}}
+            ),
+            467,
+        )
+        self.assertEqual(
+            _extract_id_affectation_module({"moduleAffectation": {"id": 468}}),
+            468,
+        )
+        self.assertEqual(
+            _extract_id_affectation_module(
+                {"inscriptions": [{"inscription": {"id": 469}}]}
+            ),
+            469,
+        )
+
+    def test_does_not_use_personne_cursus_or_formation_ids(self):
+        self.assertIsNone(
+            _extract_id_affectation_module(
+                {
+                    "idPersonne": 1066,
+                    "idCursus": 374,
+                    "idActionFormation": 42,
+                    "idFormation": 99,
+                }
+            )
+        )
 
 
 class YpareoAuthenticationTests(unittest.TestCase):
@@ -154,23 +187,17 @@ class YpareoPersonPayloadTests(unittest.TestCase):
         self.assertEqual(payload["telephones"][0]["numero"], "0612345678")
 
     def test_invalid_phone_is_omitted_instead_of_rejected_by_ypareo(self):
-        payload = construire_payload_apprenant(
-            {"nom": "Dupont", "tel": "12345"}
-        )
+        payload = construire_payload_apprenant({"nom": "Dupont", "tel": "12345"})
 
         self.assertNotIn("telephones", payload)
 
     def test_training_mode_adds_distanciel_keyword(self):
-        payload = construire_payload_apprenant(
-            {"nom": "Dupont", "mode": "Distanciel"}
-        )
+        payload = construire_payload_apprenant({"nom": "Dupont", "mode": "Distanciel"})
 
         self.assertEqual(payload["motsCles"], ["distanciel"])
 
     def test_training_mode_adds_presentiel_keyword(self):
-        payload = construire_payload_apprenant(
-            {"nom": "Dupont", "mode": "Présentiel"}
-        )
+        payload = construire_payload_apprenant({"nom": "Dupont", "mode": "Présentiel"})
 
         self.assertEqual(payload["motsCles"], ["présentiel"])
 
@@ -234,7 +261,9 @@ class YpareoCursusPayloadTests(unittest.TestCase):
         clear=False,
     )
     def test_bac_type_does_not_override_configured_situation_id(self):
-        payload = construire_payload_cursus({"training_type": "BTS MCO"}, {"bac_type": "Général"})
+        payload = construire_payload_cursus(
+            {"training_type": "BTS MCO"}, {"bac_type": "Général"}
+        )
 
         self.assertEqual(payload["idSituationAvantApprentissage"], 42)
 
@@ -247,7 +276,9 @@ class YpareoCursusPayloadTests(unittest.TestCase):
         clear=True,
     )
     def test_bac_type_does_not_add_default_situation_id(self):
-        payload = construire_payload_cursus({"training_type": "BTS MCO"}, {"bac_type": "Professionnel"})
+        payload = construire_payload_cursus(
+            {"training_type": "BTS MCO"}, {"bac_type": "Professionnel"}
+        )
 
         self.assertNotIn("idSituationAvantApprentissage", payload)
 
@@ -346,6 +377,68 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
         self.assertEqual(
             put.call_args.args[0],
             "https://ypareo.example/api/inscription/123/participation",
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_API_URL": "https://ypareo.example",
+            "YPAREO_AUTH_ENDPOINT": "/authenticate",
+            "YPAREO_AUTH_TOKEN": "initial-token",
+            "YPAREO_APPRENANTS_ENDPOINT": "/api/personne",
+            "YPAREO_CURSUS_ENDPOINT": "/api/personne/{IdPersonne}/cursus",
+            "YPAREO_ID_FORMATION_BTS_MOS": "formation-mos",
+            "YPAREO_ID_ORGANISME": "organisme",
+        },
+        clear=True,
+    )
+    @patch("services.ypareo_neo.requests.put")
+    @patch("services.ypareo_neo.requests.get")
+    @patch("services.ypareo_neo.requests.post")
+    def test_bts_mos_creation_reads_affectation_module_from_cursus_detail_when_missing(
+        self, post, get, put
+    ):
+        auth_response = Mock(
+            ok=True,
+            status_code=200,
+            content=b"{}",
+            text='{"access_token":"access-token"}',
+        )
+        auth_response.json.return_value = {"access_token": "access-token"}
+        personne_response = Mock(
+            ok=True, status_code=201, content=b"{}", text='{"idPersonne":456}'
+        )
+        personne_response.json.return_value = {"idPersonne": 456}
+        cursus_response = Mock(
+            ok=True, status_code=201, content=b"{}", text='{"idCursus":789}'
+        )
+        cursus_response.json.return_value = {"idCursus": 789}
+        post.side_effect = [auth_response, personne_response, cursus_response]
+        detail_response = Mock(
+            ok=True, status_code=200, content=b"{}", text='{"affectation":{"id":467}}'
+        )
+        detail_response.json.return_value = {"affectation": {"id": 467}}
+        get.return_value = detail_response
+        put.return_value = Mock(ok=True, text="", status_code=204)
+
+        result = creer_apprenant_ypareo(
+            {"id": "candidat-1", "nom": "Dupont"},
+            {"training_type": "BTS MOS 1ère année 2026-2028"},
+        )
+
+        self.assertEqual(result["id_affectation_module"], 467)
+        get.assert_called_once_with(
+            "https://ypareo.example/api/personne/456/cursus/789",
+            headers={
+                "Authorization": "Bearer access-token",
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+            },
+            timeout=30,
+        )
+        self.assertEqual(
+            put.call_args.args[0],
+            "https://ypareo.example/api/inscription/467/participation",
         )
 
 
