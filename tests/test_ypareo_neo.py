@@ -11,6 +11,7 @@ from services.ypareo_neo import (
     rechercher_id_numerique_inscription_bts_mos,
     get_ypareo_access_token,
     inscrire_bts_mos_a_action_formation,
+    rattacher_bts_mos_action_formation_automatiquement,
 )
 
 
@@ -418,6 +419,54 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
         self.assertEqual(
             put.call_args.args[0],
             "https://business.example/api/inscription/first-year-id/participation",
+        )
+
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_BUSINESS_API_BASE": "https://business.example/api",
+            "YPAREO_BUSINESS_PERSONNE_SEARCH_ENDPOINT": "/personnes?email={email}",
+            "YPAREO_BUSINESS_CURSUS_ENDPOINT": "/personne/{id_personne}/cursus",
+            "YPAREO_BUSINESS_AFFECTATION_ENDPOINT": "/personne/{id_personne}/cursus/{id_cursus}/module/affectation",
+        },
+        clear=True,
+    )
+    @patch("services.ypareo_neo.requests.put")
+    @patch("services.ypareo_neo.requests.get")
+    def test_auto_business_lookup_attaches_with_numeric_affectation(self, get, put):
+        person_response = Mock(ok=True, status_code=200, content=b"{}", text='{"items":[{"id":1066,"email":"lea@example.com"}]}')
+        person_response.json.return_value = {"items": [{"id": 1066, "email": "lea@example.com"}]}
+        cursus_response = Mock(ok=True, status_code=200, content=b"{}", text='{"items":[{"id":374,"nom":"BTS MOS","idPublic":"cursus-guid"}]}')
+        cursus_response.json.return_value = {"items": [{"id": 374, "nom": "BTS MOS", "idPublic": "cursus-guid"}]}
+        affectation_response = Mock(ok=True, status_code=200, content=b"{}", text='{"url":"/personne/1066/cursus/374/module/affectation/467"}')
+        affectation_response.json.return_value = {"url": "/personne/1066/cursus/374/module/affectation/467"}
+        get.side_effect = [person_response, cursus_response, affectation_response]
+        put_response = Mock(ok=True, text="", status_code=204)
+        put.return_value = put_response
+
+        ids, response = rattacher_bts_mos_action_formation_automatiquement(
+            {"email": "lea@example.com", "nom": "Martin", "prenom": "Léa"},
+            "person-guid",
+            "cursus-guid",
+            "access-token",
+        )
+
+        self.assertEqual(ids["id_personne_numerique"], 1066)
+        self.assertEqual(ids["id_cursus_numerique"], 374)
+        self.assertEqual(ids["id_affectation_numerique"], 467)
+        self.assertIsNone(response)
+        self.assertEqual(
+            [call.args[0] for call in get.call_args_list],
+            [
+                "https://business.example/api/personnes?email=lea@example.com",
+                "https://business.example/api/personne/1066/cursus",
+                "https://business.example/api/personne/1066/cursus/374/module/affectation",
+            ],
+        )
+        self.assertEqual(
+            put.call_args.args[0],
+            "https://business.example/api/inscription/467/participation",
         )
 
     @patch.dict(

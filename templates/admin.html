@@ -579,16 +579,17 @@
   </button>
 
   {% set ypareo_envoye = r.ypareo_id and r.ypareo_cursus_id %}
+  {% set ypareo_af_a_rattacher = ypareo_envoye and r.ypareo_af_statut != 'rattachee' %}
   {% set ypareo_af_en_attente = ypareo_envoye and r.ypareo_af_statut == 'en_attente' %}
   {% set ypareo_error = r.ypareo_af_error or r.ypareo_cursus_erreur or r.ypareo_erreur %}
   <button
     type="button"
     class="btn small ypareo-neo-btn"
     data-id="{{ r.id }}"
-    {% if ypareo_envoye %}disabled{% endif %}
+    {% if ypareo_envoye and not ypareo_af_a_rattacher %}disabled{% endif %}
     title="{{ ypareo_error|default('', true)|e }}"
-    style="margin-left:6px;background:{% if ypareo_envoye %}#28a745{% elif ypareo_error %}#dc3545{% else %}#6f42c1{% endif %};color:white;font-weight:600;">
-    {% if ypareo_envoye %}✅ Envoyé YPAREO{% elif ypareo_error %}❌ Erreur YPAREO{% else %}🚀 YPAREO NEO{% endif %}
+    style="margin-left:6px;background:{% if ypareo_envoye and not ypareo_af_a_rattacher %}#28a745{% elif ypareo_af_a_rattacher %}#0d6efd{% elif ypareo_error %}#dc3545{% else %}#6f42c1{% endif %};color:white;font-weight:600;">
+    {% if ypareo_envoye and not ypareo_af_a_rattacher %}✅ Envoyé YPAREO{% elif ypareo_af_a_rattacher %}🔗 Rattacher AF YPAREO{% elif ypareo_error %}❌ Erreur YPAREO{% else %}🚀 YPAREO NEO{% endif %}
   </button>
   <form
     method="post"

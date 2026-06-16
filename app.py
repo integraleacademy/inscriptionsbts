@@ -16,6 +16,7 @@ from services.ypareo_neo import (
     extraire_id_numerique_affectation_ypareo,
     get_ypareo_access_token,
     inscrire_bts_mos_a_action_formation,
+    rattacher_bts_mos_action_formation_automatiquement,
 )
 
 # ============================
@@ -1424,13 +1425,74 @@ def _session_ypareo_depuis_candidat(candidat):
     return {"training_type": aliases[code], "name": aliases[code]}
 
 
+
+def _rattacher_af_ypareo_existante(conn, candidat, session_obj):
+    """Retente uniquement le rattachement AF BTS MOS, sans recréer personne/cursus."""
+    now = datetime.now().isoformat()
+    personne_guid = candidat.get("ypareo_id_personne") or candidat.get("ypareo_id")
+    cursus_guid = candidat.get("ypareo_id_cursus") or candidat.get("ypareo_cursus_id")
+    try:
+        ids_business, response = rattacher_bts_mos_action_formation_automatiquement(
+            candidat, personne_guid, cursus_guid
+        )
+        id_affectation = ids_business.get("id_affectation_numerique")
+        conn.execute(
+            """
+            UPDATE candidats
+            SET ypareo_af_statut='rattachee', ypareo_af_error='',
+                ypareo_af_id_numerique=?, ypareo_id_dossier=?,
+                ypareo_inscriptions=?, ypareo_af_synced_at=?,
+                ypareo_sync_at=?, label_ypareo=1, updated_at=?
+            WHERE id=?
+            """,
+            (
+                str(id_affectation or ""),
+                str(id_affectation or ""),
+                json.dumps(ids_business, ensure_ascii=False),
+                now,
+                now,
+                now,
+                candidat["id"],
+            ),
+        )
+        conn.commit()
+        candidat = get_candidat(conn, candidat["id"])
+        log_event(candidat, "YPAREO_AF_AUTO_FINALISEE", ids_business)
+        return {
+            "ok": True,
+            "message": "Personne, cursus et action de formation BTS MOS rattachés avec succès dans YPAREO.",
+            "candidat": candidat,
+            "response": response,
+        }
+    except YpareoError as exc:
+        message = (
+            "Personne et cursus créés, mais impossible de retrouver automatiquement l’ID numérique business YPAREO. "
+            "Vérifier l’endpoint de recherche personne business."
+        )
+        conn.execute(
+            """
+            UPDATE candidats
+            SET ypareo_af_statut='en_attente', ypareo_af_error=?,
+                ypareo_sync_at=?, updated_at=?
+            WHERE id=?
+            """,
+            (message, now, now, candidat["id"]),
+        )
+        conn.commit()
+        candidat = get_candidat(conn, candidat["id"])
+        log_event(candidat, "YPAREO_AF_AUTO_ERREUR", {"erreur": str(exc)})
+        return {"ok": False, "error": message, "candidat": candidat, "status_code": 200}
+
 def _synchroniser_candidat_ypareo(conn, id_candidat):
     candidat = get_candidat(conn, id_candidat)
     if not candidat:
         return {"ok": False, "error": "Candidat introuvable.", "status_code": 404}
     personne_existante = candidat.get("ypareo_id") or candidat.get("ypareo_id_personne")
     cursus_existant = candidat.get("ypareo_cursus_id") or candidat.get("ypareo_id_cursus")
+    session_obj = _session_ypareo_depuis_candidat(candidat)
     if personne_existante and cursus_existant:
+        if (candidat.get("ypareo_af_statut") != "rattachee") and "MOS" in (candidat.get("bts") or "").upper():
+            return _rattacher_af_ypareo_existante(conn, candidat, session_obj)
         return {
             "ok": True,
             "already_synced": True,
@@ -1440,7 +1502,6 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
 
     now = datetime.now().isoformat()
     try:
-        session_obj = _session_ypareo_depuis_candidat(candidat)
         result = creer_apprenant_ypareo(candidat, session_obj)
         conn.execute(
             """
@@ -1465,6 +1526,8 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
                 json.dumps({
                     "public_guid": result.get("id_inscription_public_guid"),
                     "id_numerique_interne": result.get("id_inscription_numerique_interne"),
+                    "id_personne_numerique_business": result.get("id_personne_numerique_business"),
+                    "id_cursus_numerique_business": result.get("id_cursus_numerique_business"),
                     "participation_warning": result.get("participation_warning", ""),
                 }, ensure_ascii=False),
                 "en_attente" if result.get("participation_warning") else "rattachee",
@@ -1660,6 +1723,26 @@ def finaliser_af_ypareo(candidate_id):
         return jsonify(ok=False, error=str(exc)), getattr(exc, "status_code", 502)
     finally:
         conn.close()
+
+
+@app.get("/admin/ypareo-neo/diagnostic-business-personne")
+def diagnostic_business_personne_ypareo():
+    if not require_admin():
+        return jsonify(ok=False, error="Authentification administrateur requise."), 403
+    email = (request.args.get("email") or "").strip()
+    endpoint = os.getenv("YPAREO_BUSINESS_PERSONNE_SEARCH_ENDPOINT", "").strip()
+    if not endpoint:
+        return jsonify(
+            ok=False,
+            error="Configurer YPAREO_BUSINESS_PERSONNE_SEARCH_ENDPOINT avec l’endpoint business de recherche personne utilisé par l’interface YPAREO.",
+        ), 503
+    if not email:
+        return jsonify(ok=False, error="Paramètre email requis."), 400
+    from services.ypareo_neo import _build_business_url, _get_business_json
+    token = get_ypareo_access_token()
+    url = _build_business_url(endpoint, email=email, q=email, search=email)
+    payload = _get_business_json(url, token, "diagnostic recherche business personne")
+    return jsonify(ok=True, url=url, response=payload)
 
 
 @app.get("/admin/ypareo-neo/count-confirmed")

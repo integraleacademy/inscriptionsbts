@@ -622,6 +622,203 @@ def rechercher_id_numerique_inscription_bts_mos(
     return None
 
 
+
+def _endpoint_business_configure(name, message):
+    endpoint = _env(name, required=False)
+    if not endpoint:
+        raise YpareoError(message, status_code=503)
+    return endpoint
+
+
+def _build_business_url(endpoint, **params):
+    url = _business_url(endpoint)
+    for key, value in params.items():
+        url = url.replace("{" + key + "}", str(value or ""))
+        url = url.replace("{" + key[0].upper() + key[1:] + "}", str(value or ""))
+    return url
+
+
+def _get_business_json(url, access_token, log_label):
+    logger.info("URL appelée (%s) : %s", log_label, url)
+    try:
+        response = requests.get(url, headers=ypareo_headers(access_token), timeout=30)
+    except requests.RequestException as exc:
+        raise YpareoError(f"Erreur réseau pendant {log_label} : {exc}") from exc
+    logger.info("Réponse %s (%s) : %s", log_label, response.status_code, response.text)
+    if not response.ok:
+        raise YpareoError(
+            f"Erreur API business YPAREO {response.status_code} pendant {log_label} : {_safe_response_message(response)}"
+        )
+    if not response.content:
+        return {}
+    try:
+        return response.json()
+    except ValueError:
+        return response.text
+
+
+def _iter_dicts(data):
+    if isinstance(data, dict):
+        yield data
+        for value in data.values():
+            yield from _iter_dicts(value)
+    elif isinstance(data, list):
+        for item in data:
+            yield from _iter_dicts(item)
+
+
+def _numeric_value(obj, *keys):
+    for key in keys:
+        value = obj.get(key)
+        if isinstance(value, int) or (isinstance(value, str) and value.isdigit()):
+            return int(value)
+    return None
+
+
+def _matches_candidate_business(obj, candidat, id_personne_guid=None):
+    email = _normalize_text(_first(candidat, "email", "mail"))
+    nom = _normalize_text(_first(candidat, "nom", "last_name", "lastname"))
+    prenom = _normalize_text(_first(candidat, "prenom", "first_name", "firstname"))
+    date_naissance = _normaliser_date(_first(candidat, "date_naissance", "birth_date", "dateNaissance"))
+    serialized = _normalize_text(_format_ypareo_payload(obj))
+    if id_personne_guid and str(id_personne_guid) in _format_ypareo_payload(obj):
+        return True
+    score = 0
+    if email and email in serialized:
+        score += 3
+    if nom and nom in serialized:
+        score += 1
+    if prenom and prenom in serialized:
+        score += 1
+    if date_naissance and date_naissance in _format_ypareo_payload(obj):
+        score += 1
+    return score >= 3 or (score >= 2 and not email)
+
+
+def rechercher_personne_business_par_email(email, access_token=None, candidat=None, id_personne_guid=None):
+    if access_token is None:
+        access_token = get_ypareo_access_token()
+    logger.info("Recherche business personne par email : %s", email)
+    endpoint = _endpoint_business_configure(
+        "YPAREO_BUSINESS_PERSONNE_SEARCH_ENDPOINT",
+        "Personne et cursus créés, mais impossible de retrouver automatiquement l’ID numérique business YPAREO. Vérifier l’endpoint de recherche personne business.",
+    )
+    url = _build_business_url(endpoint, email=email, q=email, search=email)
+    payload = _get_business_json(url, access_token, "recherche business personne")
+    logger.info("Réponse business personne : %s", _format_ypareo_payload(payload))
+    candidat = candidat or {"email": email}
+    for obj in _iter_dicts(payload):
+        if not _matches_candidate_business(obj, candidat, id_personne_guid):
+            continue
+        numeric_id = _numeric_value(
+            obj,
+            "idPersonneNumerique",
+            "idPersonneInterne",
+            "idPersonne",
+            "idIndividu",
+            "id",
+        )
+        if numeric_id is not None:
+            logger.info("ID numérique personne trouvé : %s", numeric_id)
+            return numeric_id
+    raise YpareoError(
+        "Personne et cursus créés, mais impossible de retrouver automatiquement l’ID numérique business YPAREO. Vérifier l’endpoint de recherche personne business.",
+        status_code=404,
+    )
+
+
+def recuperer_cursus_business(id_personne_numerique, access_token=None, id_cursus_guid=None):
+    if access_token is None:
+        access_token = get_ypareo_access_token()
+    logger.info("Recherche business cursus")
+    endpoint = _env("YPAREO_BUSINESS_CURSUS_ENDPOINT", required=False) or "/personne/{id_personne}/cursus"
+    url = _build_business_url(endpoint, id_personne=id_personne_numerique, IdPersonne=id_personne_numerique)
+    payload = _get_business_json(url, access_token, "recherche business cursus")
+    logger.info("Réponse business cursus : %s", _format_ypareo_payload(payload))
+    for obj in _iter_dicts(payload):
+        serialized = _normalize_text(_format_ypareo_payload(obj))
+        guid_match = id_cursus_guid and str(id_cursus_guid) in _format_ypareo_payload(obj)
+        mos_match = "bts mos" in serialized or "management operationnel de la securite" in serialized
+        if not (guid_match or mos_match):
+            continue
+        numeric_id = _numeric_value(
+            obj,
+            "idCursusNumerique",
+            "idCursusInterne",
+            "idCursus",
+            "id",
+        )
+        if numeric_id is not None:
+            logger.info("ID numérique cursus trouvé : %s", numeric_id)
+            return numeric_id
+    raise YpareoError(
+        "Personne et cursus créés, mais impossible de retrouver automatiquement l’ID numérique cursus business YPAREO.",
+        status_code=404,
+    )
+
+
+def recuperer_id_affectation_business(id_personne_numerique, id_cursus_numerique, access_token=None):
+    if access_token is None:
+        access_token = get_ypareo_access_token()
+    logger.info("Recherche affectation AF")
+    endpoint = _env("YPAREO_BUSINESS_AFFECTATION_ENDPOINT", required=False) or "/personne/{id_personne}/cursus/{id_cursus}/module/affectation"
+    url = _build_business_url(
+        endpoint,
+        id_personne=id_personne_numerique,
+        IdPersonne=id_personne_numerique,
+        id_cursus=id_cursus_numerique,
+        IdCursus=id_cursus_numerique,
+    )
+    payload = _get_business_json(url, access_token, "recherche affectation AF")
+    logger.info("Réponse affectation : %s", _format_ypareo_payload(payload))
+    found = _extract_numeric_inscription_id(payload)
+    if found is not None:
+        logger.info("ID numérique affectation trouvé : %s", found)
+        return found
+    raise YpareoError(
+        "Personne et cursus créés, mais impossible de retrouver automatiquement l’ID numérique d’affectation business YPAREO.",
+        status_code=404,
+    )
+
+
+def retrouver_ids_numeriques_business_ypareo(candidat, id_personne_guid, id_cursus_guid, access_token=None):
+    if access_token is None:
+        access_token = get_ypareo_access_token()
+    id_personne_numerique = rechercher_personne_business_par_email(
+        _first(candidat, "email", "mail"),
+        access_token,
+        candidat=candidat,
+        id_personne_guid=id_personne_guid,
+    )
+    id_cursus_numerique = recuperer_cursus_business(
+        id_personne_numerique,
+        access_token,
+        id_cursus_guid=id_cursus_guid,
+    )
+    id_affectation_numerique = recuperer_id_affectation_business(
+        id_personne_numerique,
+        id_cursus_numerique,
+        access_token,
+    )
+    return {
+        "id_personne_numerique": id_personne_numerique,
+        "id_cursus_numerique": id_cursus_numerique,
+        "id_affectation_numerique": id_affectation_numerique,
+    }
+
+
+def rattacher_bts_mos_action_formation_automatiquement(candidat, id_personne_guid, id_cursus_guid, access_token=None):
+    if access_token is None:
+        access_token = get_ypareo_access_token()
+    ids = retrouver_ids_numeriques_business_ypareo(
+        candidat, id_personne_guid, id_cursus_guid, access_token
+    )
+    logger.info("PUT participation final")
+    participation_response = inscrire_bts_mos_a_action_formation(
+        ids["id_affectation_numerique"], access_token
+    )
+    return ids, participation_response
+
 def construire_payload_participation_bts_mos():
     return [
         {
@@ -747,13 +944,21 @@ def creer_apprenant_ypareo(candidat, session_obj):
             )
         except YpareoError as exc:
             if getattr(exc, "status_code", None) == 404:
-                participation_warning = (
-                    "Personne et cursus créés dans YPAREO. L’action de formation n’a pas encore été rattachée "
-                    "car l’ID numérique interne est introuvable. Collez l’URL YPAREO d’affectation puis cliquez "
-                    "sur “Finaliser AF YPAREO”."
-                )
-                logger.warning("Si 404 : passage en statut AF en attente")
-                logger.warning(participation_warning)
+                try:
+                    ids_business, participation_response = rattacher_bts_mos_action_formation_automatiquement(
+                        candidat, personne_id, cursus["id"], access_token
+                    )
+                    cursus["id_personne_numerique_business"] = ids_business.get("id_personne_numerique")
+                    cursus["id_cursus_numerique_business"] = ids_business.get("id_cursus_numerique")
+                    cursus["id_inscription_numerique_interne"] = ids_business.get("id_affectation_numerique")
+                except YpareoError as business_exc:
+                    participation_warning = (
+                        "Personne et cursus créés, mais impossible de retrouver automatiquement l’ID numérique business YPAREO. "
+                        "Vérifier l’endpoint de recherche personne business."
+                    )
+                    logger.warning("Si 404 : passage en statut AF en attente")
+                    logger.warning("Automatisation business YPAREO échouée : %s", business_exc)
+                    logger.warning(participation_warning)
             else:
                 participation_warning = str(exc)
                 logger.warning(
@@ -770,6 +975,8 @@ def creer_apprenant_ypareo(candidat, session_obj):
         "id_inscription_numerique_interne": cursus.get(
             "id_inscription_numerique_interne"
         ),
+        "id_personne_numerique_business": cursus.get("id_personne_numerique_business"),
+        "id_cursus_numerique_business": cursus.get("id_cursus_numerique_business"),
         "participation_response": participation_response,
         "participation_warning": participation_warning,
     }
