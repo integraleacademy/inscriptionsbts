@@ -316,6 +316,110 @@ filesModal.addEventListener("click", async (e) => {
 
 }); // ✅ FIN DOMContentLoaded
 
+
+function marquerBoutonYpareoEnvoye(btn, couleur = "#6c757d") {
+  if (!btn) return;
+  btn.textContent = "✅ Envoyé YPAREO";
+  btn.style.background = couleur;
+  btn.title = "";
+  btn.disabled = true;
+  const errorDetail = btn.parentElement?.querySelector(".ypareo-error-detail");
+  if (errorDetail) {
+    errorDetail.textContent = "";
+    errorDetail.style.display = "none";
+  }
+  const checkbox = btn.closest("tr")?.querySelector('[data-field="label_ypareo"]');
+  if (checkbox) checkbox.checked = true;
+}
+
+async function rafraichirCompteurYpareoMass() {
+  const btn = document.getElementById("btnMassYpareoNeo");
+  if (!btn) return 0;
+  try {
+    const res = await fetch("/admin/ypareo-neo/count-confirmed", { cache: "no-store" });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || "Compteur indisponible");
+    btn.textContent = `🚀 YPAREO NEO (${data.count})`;
+    btn.disabled = data.count === 0;
+    btn.title = data.count === 0
+      ? "Aucun dossier en inscription confirmée à envoyer vers YPAREO NEO"
+      : "Envoyer tous les dossiers en inscription confirmée vers YPAREO NEO";
+    return data.count;
+  } catch (err) {
+    console.warn("Impossible de récupérer le nombre de dossiers YPAREO NEO :", err);
+    return 0;
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const massYpareoBtn = document.getElementById("btnMassYpareoNeo");
+  const modal = document.getElementById("ypareoMassConfirmModal");
+  const countEl = document.getElementById("ypareoMassConfirmCount");
+  const cancelBtn = document.getElementById("ypareoMassCancel");
+  const confirmBtn = document.getElementById("ypareoMassConfirm");
+  if (!massYpareoBtn || !modal || !countEl || !confirmBtn) return;
+
+  rafraichirCompteurYpareoMass();
+
+  cancelBtn?.addEventListener("click", () => modal.classList.add("hidden"));
+
+  massYpareoBtn.addEventListener("click", async () => {
+    massYpareoBtn.disabled = true;
+    const count = await rafraichirCompteurYpareoMass();
+    massYpareoBtn.disabled = count === 0;
+    if (count === 0) {
+      showToast("Aucun dossier confirmé à envoyer vers YPAREO NEO.", "#6c757d");
+      return;
+    }
+    countEl.textContent = count;
+    modal.classList.remove("hidden");
+  });
+
+  confirmBtn.addEventListener("click", async () => {
+    modal.classList.add("hidden");
+    ouvrirProgressionYpareo();
+    document.getElementById("ypareoProgressSubtitle").textContent =
+      "Envoi groupé des dossiers confirmés vers YPAREO NEO…";
+    massYpareoBtn.disabled = true;
+    const oldText = massYpareoBtn.textContent;
+    massYpareoBtn.textContent = "⏳ Envoi YPAREO en cours…";
+
+    const cursusTimer = window.setTimeout(() => definirEtapeYpareo("cursus"), 850);
+    try {
+      const res = await fetch("/admin/ypareo-neo/send-confirmed", {
+        method: "POST",
+        headers: { "Accept": "application/json" }
+      });
+      const data = await res.json().catch(() => ({}));
+      window.clearTimeout(cursusTimer);
+      definirEtapeYpareo("cursus");
+
+      (data.sent_ids || []).forEach((id) => {
+        const btn = document.querySelector(`.ypareo-neo-btn[data-id="${CSS.escape(String(id))}"]`);
+        marquerBoutonYpareoEnvoye(btn, "#6c757d");
+      });
+
+      if (!res.ok || !data.ok) {
+        const detail = data.errors?.length
+          ? `${data.sent || 0}/${data.total || 0} envoyé(s). ${data.errors.length} erreur(s).`
+          : (data.error || "Erreur lors de l’envoi groupé YPAREO NEO.");
+        throw new Error(detail);
+      }
+
+      terminerProgressionYpareo(true, data.message || "Envoi groupé terminé.");
+      showToast(`✅ ${data.sent} dossier(s) envoyé(s) vers YPAREO NEO`, "#28a745");
+      await rafraichirCompteurYpareoMass();
+    } catch (err) {
+      window.clearTimeout(cursusTimer);
+      terminerProgressionYpareo(false, err.message);
+      showToast(`❌ ${err.message}`, "#dc3545");
+    } finally {
+      massYpareoBtn.textContent = oldText;
+      await rafraichirCompteurYpareoMass();
+    }
+  });
+});
+
 async function envoyerYpareoNeo(btn) {
   const id = btn.dataset.id;
   if (!id || btn.disabled) return;
@@ -341,16 +445,7 @@ async function envoyerYpareoNeo(btn) {
     }
     window.clearTimeout(cursusTimer);
     definirEtapeYpareo("cursus");
-    btn.textContent = "✅ Envoyé YPAREO";
-    btn.style.background = "#28a745";
-    btn.title = "";
-    btn.disabled = true;
-    if (errorDetail) {
-      errorDetail.textContent = "";
-      errorDetail.style.display = "none";
-    }
-    const checkbox = btn.closest("tr")?.querySelector('[data-field="label_ypareo"]');
-    if (checkbox) checkbox.checked = true;
+    marquerBoutonYpareoEnvoye(btn, "#28a745");
     terminerProgressionYpareo(true);
     showToast(data.message || "✅ Candidat envoyé dans YPAREO", "#28a745");
   } catch (error) {
