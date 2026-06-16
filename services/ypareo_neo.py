@@ -230,6 +230,17 @@ def _normaliser_date(value):
     return value
 
 
+def _mot_cle_mode_formation(candidat):
+    mode = _normalize_text(
+        _first(candidat, "mode", "mode_formation", "formation_mode", "form_mode")
+    )
+    if "dist" in mode:
+        return "distanciel"
+    if "presentiel" in mode or "pres" in mode or "puget" in mode:
+        return "présentiel"
+    return ""
+
+
 def construire_payload_apprenant(candidat):
     email = _first(candidat, "email")
     telephone = _normaliser_telephone_ypareo(
@@ -241,6 +252,7 @@ def construire_payload_apprenant(candidat):
     nationalite = _normaliser_code_pays(
         _first(candidat, "nationalite", "nationalité", "nationality")
     )
+    mot_cle_mode = _mot_cle_mode_formation(candidat)
     return nettoyer_payload(
         {
             "nom": str(_first(candidat, "nom", "last_name")).upper(),
@@ -263,6 +275,7 @@ def construire_payload_apprenant(candidat):
             "paysNaissanceAlpha": pays_naissance,
             "communeNaissance": _first(candidat, "ville_naissance", "birth_city"),
             "nationaliteAlpha": nationalite,
+            "motsCles": [mot_cle_mode] if mot_cle_mode else [],
         }
     )
 

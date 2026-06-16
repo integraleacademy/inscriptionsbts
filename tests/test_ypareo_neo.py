@@ -158,6 +158,20 @@ class YpareoPersonPayloadTests(unittest.TestCase):
 
         self.assertNotIn("telephones", payload)
 
+    def test_training_mode_adds_distanciel_keyword(self):
+        payload = construire_payload_apprenant(
+            {"nom": "Dupont", "mode": "Distanciel"}
+        )
+
+        self.assertEqual(payload["motsCles"], ["distanciel"])
+
+    def test_training_mode_adds_presentiel_keyword(self):
+        payload = construire_payload_apprenant(
+            {"nom": "Dupont", "mode": "Présentiel"}
+        )
+
+        self.assertEqual(payload["motsCles"], ["présentiel"])
+
 
 class YpareoCursusPayloadTests(unittest.TestCase):
     @patch.dict(
