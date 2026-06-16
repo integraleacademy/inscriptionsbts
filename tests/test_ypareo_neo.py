@@ -2,7 +2,12 @@ import os
 import unittest
 from unittest.mock import Mock, patch
 
-from services.ypareo_neo import YpareoError, get_ypareo_access_token
+from services.ypareo_neo import (
+    YpareoError,
+    construire_payload_apprenant,
+    construire_payload_cursus,
+    get_ypareo_access_token,
+)
 
 
 class YpareoAuthenticationTests(unittest.TestCase):
@@ -49,6 +54,155 @@ class YpareoAuthenticationTests(unittest.TestCase):
             get_ypareo_access_token()
 
         post.assert_not_called()
+
+
+class YpareoPersonPayloadTests(unittest.TestCase):
+    def test_string_address_is_nested_with_candidate_location(self):
+        payload = construire_payload_apprenant(
+            {
+                "nom": "Dupont",
+                "prenom": "Jean",
+                "email": "jean@example.com",
+                "tel": "06 12 34 56 78",
+                "adresse": "12 rue du candidat",
+                "cp": "75001",
+                "ville": "Paris",
+            }
+        )
+
+        self.assertEqual(
+            payload,
+            {
+                "nom": "DUPONT",
+                "prenom": "Jean",
+                "emails": [{"adresse": "jean@example.com", "isDefault": True}],
+                "telephones": [
+                    {
+                        "indicatif": "+33",
+                        "isDefaultAppel": True,
+                        "isDefaultSms": True,
+                        "numero": "0612345678",
+                    }
+                ],
+                "adresse": {
+                    "ligne1": "12 rue du candidat",
+                    "codePostal": "75001",
+                    "ville": "Paris",
+                    "paysAlpha": "FR",
+                },
+            },
+        )
+
+    def test_dict_address_keeps_only_ypareo_keys(self):
+        payload = construire_payload_apprenant(
+            {
+                "nom": "Dupont",
+                "adresse": {
+                    "ligne1": "1 avenue Exemple",
+                    "ligne2": "Bâtiment B",
+                    "codePostal": "69001",
+                    "ville": "Lyon",
+                    "paysAlpha": "BE",
+                    "country": "Belgique",
+                    "schoolAddress": "54 CHE DE CARREOU",
+                },
+            }
+        )
+
+        self.assertEqual(
+            payload["adresse"],
+            {
+                "ligne1": "1 avenue Exemple",
+                "ligne2": "Bâtiment B",
+                "codePostal": "69001",
+                "ville": "Lyon",
+                "paysAlpha": "BE",
+            },
+        )
+
+    def test_missing_candidate_address_omits_address_even_with_city(self):
+        payload = construire_payload_apprenant(
+            {"nom": "Dupont", "cp": "83480", "ville": "Puget-sur-Argens"}
+        )
+
+        self.assertNotIn("adresse", payload)
+
+    def test_international_french_phone_is_converted_to_national_format(self):
+        payload = construire_payload_apprenant(
+            {"nom": "Dupont", "tel": "+33 6 12 34 56 78"}
+        )
+
+        self.assertEqual(payload["telephones"][0]["indicatif"], "+33")
+        self.assertEqual(payload["telephones"][0]["numero"], "0612345678")
+
+    def test_invalid_phone_is_omitted_instead_of_rejected_by_ypareo(self):
+        payload = construire_payload_apprenant(
+            {"nom": "Dupont", "tel": "12345"}
+        )
+
+        self.assertNotIn("telephones", payload)
+
+
+class YpareoCursusPayloadTests(unittest.TestCase):
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_ID_FORMATION_BTS_MCO": "formation-mco",
+            "YPAREO_ID_ORGANISME": "organisme",
+            "YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE": "42",
+        },
+        clear=False,
+    )
+    def test_cursus_uses_configured_situation_id(self):
+        payload = construire_payload_cursus({"training_type": "BTS MCO"})
+
+        self.assertEqual(
+            payload,
+            {
+                "idFormation": "formation-mco",
+                "idOrganisme": "organisme",
+                "nom": "BTS MCO",
+                "idSituationAvantApprentissage": 42,
+            },
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_ID_FORMATION_BTS_MCO": "formation-mco",
+            "YPAREO_ID_ORGANISME": "organisme",
+        },
+        clear=True,
+    )
+    def test_missing_situation_id_is_omitted_from_cursus_payload(self):
+        payload = construire_payload_cursus({"training_type": "BTS MCO"})
+
+        self.assertEqual(
+            payload,
+            {
+                "idFormation": "formation-mco",
+                "idOrganisme": "organisme",
+                "nom": "BTS MCO",
+            },
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_ID_FORMATION_BTS_MCO": "formation-mco",
+            "YPAREO_ID_ORGANISME": "organisme",
+            "YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE": "situation",
+        },
+        clear=True,
+    )
+    def test_non_numeric_situation_id_has_actionable_render_error(self):
+        with self.assertRaisesRegex(
+            YpareoError,
+            "identifiant numérique YPAREO",
+        ) as context:
+            construire_payload_cursus({"training_type": "BTS MCO"})
+
+        self.assertEqual(context.exception.status_code, 503)
 
 
 if __name__ == "__main__":

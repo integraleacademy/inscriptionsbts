@@ -24,6 +24,30 @@ services:
         sync: false
       - key: MAINTENANCE
         sync: false
+      - key: YPAREO_API_URL
+        sync: false
+      - key: YPAREO_AUTH_ENDPOINT
+        sync: false
+      - key: YPAREO_AUTH_TOKEN
+        sync: false
+      - key: YPAREO_APPRENANTS_ENDPOINT
+        sync: false
+      - key: YPAREO_CURSUS_ENDPOINT
+        sync: false
+      - key: YPAREO_ID_ORGANISME
+        sync: false
+      - key: YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE
+        sync: false
+      - key: YPAREO_ID_FORMATION_BTS_MOS
+        sync: false
+      - key: YPAREO_ID_FORMATION_BTS_MCO
+        sync: false
+      - key: YPAREO_ID_FORMATION_BTS_NDRC
+        sync: false
+      - key: YPAREO_ID_FORMATION_BTS_PI
+        sync: false
+      - key: YPAREO_ID_FORMATION_BTS_CI
+        sync: false
     autoDeploy: true
     healthCheckPath: /health
     disk:
@@ -41,4 +65,3 @@ redirects:
         - env: MAINTENANCE=true
         - not:
             path: ^/admin
-
