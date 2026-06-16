@@ -500,7 +500,10 @@ CREATE TABLE IF NOT EXISTS candidats (
     label_ypareo INTEGER, label_carte_etudiante INTEGER,
     ypareo_id TEXT, ypareo_statut TEXT, ypareo_erreur TEXT,
     ypareo_cursus_id TEXT, ypareo_cursus_statut TEXT,
-    ypareo_cursus_erreur TEXT, ypareo_sync_at TEXT,
+    ypareo_cursus_erreur TEXT,
+    ypareo_id_personne TEXT, ypareo_id_cursus TEXT,
+    ypareo_id_dossier TEXT, ypareo_inscriptions TEXT,
+    ypareo_sync_at TEXT,
     date_validee TEXT, date_confirmee TEXT, date_reconfirmee TEXT,
     slug_public TEXT
 );
@@ -535,7 +538,9 @@ def ensure_schema():
         "label_ypareo", "label_carte_etudiante",
         "date_validee", "date_confirmee", "date_reconfirmee", "slug_public",
         "ypareo_id", "ypareo_statut", "ypareo_erreur", "ypareo_cursus_id",
-        "ypareo_cursus_statut", "ypareo_cursus_erreur", "ypareo_sync_at"
+        "ypareo_cursus_statut", "ypareo_cursus_erreur",
+        "ypareo_id_personne", "ypareo_id_cursus", "ypareo_id_dossier",
+        "ypareo_inscriptions", "ypareo_sync_at"
     ]
 
     for col in expected_cols:
@@ -1412,7 +1417,9 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
     candidat = get_candidat(conn, id_candidat)
     if not candidat:
         return {"ok": False, "error": "Candidat introuvable.", "status_code": 404}
-    if candidat.get("ypareo_id") and candidat.get("ypareo_cursus_id"):
+    personne_existante = candidat.get("ypareo_id") or candidat.get("ypareo_id_personne")
+    cursus_existant = candidat.get("ypareo_cursus_id") or candidat.get("ypareo_id_cursus")
+    if personne_existante and cursus_existant:
         return {
             "ok": True,
             "already_synced": True,
@@ -1429,11 +1436,28 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
             UPDATE candidats
             SET ypareo_id=?, ypareo_statut='succes', ypareo_erreur='',
                 ypareo_cursus_id=?, ypareo_cursus_statut='succes',
-                ypareo_cursus_erreur='', ypareo_sync_at=?, label_ypareo=1,
+                ypareo_cursus_erreur=?,
+                ypareo_id_personne=?, ypareo_id_cursus=?, ypareo_id_dossier=?,
+                ypareo_inscriptions=?, ypareo_sync_at=?, label_ypareo=1,
                 updated_at=?
             WHERE id=?
             """,
-            (str(result["personne_id"]), str(result["cursus_id"] or ""), now, now, id_candidat),
+            (
+                str(result["personne_id"]),
+                str(result["cursus_id"] or ""),
+                result.get("participation_warning", ""),
+                str(result["personne_id"]),
+                str(result["cursus_id"] or ""),
+                str(result.get("id_inscription_numerique_interne") or ""),
+                json.dumps({
+                    "public_guid": result.get("id_inscription_public_guid"),
+                    "id_numerique_interne": result.get("id_inscription_numerique_interne"),
+                    "participation_warning": result.get("participation_warning", ""),
+                }, ensure_ascii=False),
+                now,
+                now,
+                id_candidat,
+            ),
         )
         conn.commit()
         candidat = get_candidat(conn, id_candidat)
@@ -1442,7 +1466,8 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
             "ypareo_id": candidat["ypareo_id"],
             "ypareo_cursus_id": candidat["ypareo_cursus_id"],
         })
-        return {"ok": True, "message": "Personne et cursus créés dans YPAREO.", "candidat": candidat}
+        message = result.get("participation_warning") or "Personne et cursus créés dans YPAREO."
+        return {"ok": True, "message": message, "candidat": candidat}
     except YpareoError as exc:
         message = str(exc)
         personne_id = str(exc.personne_id or candidat.get("ypareo_id") or "")

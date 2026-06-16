@@ -55,6 +55,18 @@ def _url(endpoint):
     return f"{_env('YPAREO_API_URL').rstrip('/')}/{endpoint.lstrip('/')}"
 
 
+def _business_url(endpoint):
+    if endpoint.startswith(("http://", "https://")):
+        return endpoint
+    base = _env("YPAREO_BUSINESS_API_BASE", required=False).rstrip("/")
+    if not base:
+        base = (
+            "https://api-business.ypareo-neo.com/"
+            "a1969eb1-2ee5-4591-84d8-22c2ab1224ff/api"
+        )
+    return f"{base}/{endpoint.lstrip('/')}"
+
+
 def _safe_response_message(response):
     """Retourne un message API utile sans exposer un éventuel jeton."""
     try:
@@ -367,31 +379,6 @@ def _is_bts_mos(session_obj):
     return bool(re.search(r"\bbts\b", training) and re.search(r"\bmos\b", training))
 
 
-YPAREO_AFFECTATION_MODULE_ID_KEYS = {
-    "id_affectation_module",
-    "idAffectationModule",
-    "idAffectationModuleFormation",
-    "idModuleAffectation",
-    "idAffectation",
-    "idInscription",
-}
-YPAREO_AFFECTATION_MODULE_OBJECT_KEYS = {
-    "affectation",
-    "moduleAffectation",
-    "inscription",
-}
-YPAREO_AFFECTATION_MODULE_FORBIDDEN_KEYS = {
-    "idPersonne",
-    "IdPersonne",
-    "idCursus",
-    "IdCursus",
-    "idActionFormation",
-    "IdActionFormation",
-    "idFormation",
-    "IdFormation",
-}
-
-
 def _format_ypareo_payload(data):
     try:
         return json.dumps(data, ensure_ascii=False, default=str)
@@ -399,39 +386,64 @@ def _format_ypareo_payload(data):
         return str(data)
 
 
-def _extract_id_affectation_module(data):
-    """Recherche récursivement l’ID utilisé par /api/inscription/{ID}/participation."""
-    if isinstance(data, list):
-        for item in data:
-            found = _extract_id_affectation_module(item)
-            if found is not None:
-                return found
-        return None
+def _liste_inscriptions_cursus(cursus_response):
+    if not isinstance(cursus_response, dict):
+        return []
+    data = cursus_response.get("data")
+    if isinstance(data, dict) and isinstance(data.get("inscriptions"), list):
+        return data["inscriptions"]
+    if isinstance(cursus_response.get("inscriptions"), list):
+        return cursus_response["inscriptions"]
+    return []
 
-    if not isinstance(data, dict):
-        return None
 
-    for key, value in data.items():
-        if key in YPAREO_AFFECTATION_MODULE_FORBIDDEN_KEYS:
+def _extract_id_inscription_bts_mos_premiere_annee(cursus_response):
+    """Retourne l’ID inscription BTS MOS 1ère année depuis la réponse cursus."""
+    inscriptions = _liste_inscriptions_cursus(cursus_response)
+    logger.info(
+        "Liste des inscriptions reçues : %s", _format_ypareo_payload(inscriptions)
+    )
+    print(
+        "YPAREO BTS MOS - Liste des inscriptions reçues:",
+        _format_ypareo_payload(inscriptions),
+    )
+
+    selected = None
+    for inscription in inscriptions:
+        if not isinstance(inscription, dict):
             continue
-        if key in YPAREO_AFFECTATION_MODULE_ID_KEYS and value not in (None, ""):
-            return value
+        annee = inscription.get("anneeInscription") or {}
+        if isinstance(annee, dict) and annee.get("ordre") == 1:
+            selected = inscription
+            break
 
-    for object_key in YPAREO_AFFECTATION_MODULE_OBJECT_KEYS:
-        nested = data.get(object_key)
-        if isinstance(nested, dict):
-            value = nested.get("id") or nested.get("Id")
-            if value not in (None, ""):
-                return value
+    if selected is None:
+        for inscription in inscriptions:
+            if not isinstance(inscription, dict):
+                continue
+            annee = inscription.get("anneeInscription") or {}
+            nom = annee.get("nom") if isinstance(annee, dict) else None
+            if isinstance(nom, str) and _normalize_text(nom) == "1ere annee":
+                selected = inscription
+                break
 
-    for key, nested in data.items():
-        if key in YPAREO_AFFECTATION_MODULE_FORBIDDEN_KEYS:
-            continue
-        if isinstance(nested, (dict, list)):
-            found = _extract_id_affectation_module(nested)
-            if found is not None:
-                return found
-    return None
+    logger.info(
+        "Inscription sélectionnée : %s", _format_ypareo_payload(selected)
+    )
+    print(
+        "YPAREO BTS MOS - Inscription sélectionnée:",
+        _format_ypareo_payload(selected),
+    )
+    if not selected or selected.get("id") in (None, ""):
+        raise YpareoError(
+            "YPAREO a créé le cursus BTS MOS mais l’id_inscription de 1ère année est introuvable. "
+            f"Réponse création cursus : {_format_ypareo_payload(cursus_response)}"
+        )
+
+    id_inscription = selected["id"]
+    logger.info("id_inscription utilisé : %s", id_inscription)
+    print("YPAREO BTS MOS - id_inscription utilisé:", id_inscription)
+    return id_inscription
 
 
 def _get_ypareo(url, access_token, operation):
@@ -439,9 +451,11 @@ def _get_ypareo(url, access_token, operation):
         response = requests.get(url, headers=ypareo_headers(access_token), timeout=30)
     except requests.RequestException as exc:
         raise YpareoError(f"Erreur réseau pendant {operation} : {exc}") from exc
+    if operation == "la création de la personne":
+        logger.info("Réponse création personne : %s", response.text)
     if operation == "la création du cursus":
         print("YPAREO création cursus - réponse complète :", response.text)
-        logger.info("Réponse complète création cursus : %s", response.text)
+        logger.info("Réponse création cursus : %s", response.text)
     if not response.ok:
         detail = _safe_response_message(response)
         logger.error(
@@ -461,15 +475,21 @@ def _get_ypareo(url, access_token, operation):
 
 
 def _post_ypareo(url, payload, access_token, operation):
+    if operation == "la création de la personne":
+        logger.info("API utilisée pour création personne : %s", url)
+    if operation == "la création du cursus":
+        logger.info("API utilisée pour création cursus : %s", url)
     try:
         response = requests.post(
             url, json=payload, headers=ypareo_headers(access_token), timeout=30
         )
     except requests.RequestException as exc:
         raise YpareoError(f"Erreur réseau pendant {operation} : {exc}") from exc
+    if operation == "la création de la personne":
+        logger.info("Réponse création personne : %s", response.text)
     if operation == "la création du cursus":
         print("YPAREO création cursus - réponse complète :", response.text)
-        logger.info("Réponse complète création cursus : %s", response.text)
+        logger.info("Réponse création cursus : %s", response.text)
     if not response.ok:
         detail = _safe_response_message(response)
         if response.status_code == 401:
@@ -489,70 +509,123 @@ def _post_ypareo(url, payload, access_token, operation):
         ) from exc
 
 
-def _recuperer_id_affectation_module(
-    id_personne, cursus_id, cursus_response, cursus_url, access_token
+def _recuperer_id_inscription_bts_mos(cursus_response):
+    return _extract_id_inscription_bts_mos_premiere_annee(cursus_response)
+
+
+def _extract_numeric_inscription_id(data, public_inscription_guid=None):
+    if isinstance(data, list):
+        for item in data:
+            found = _extract_numeric_inscription_id(item, public_inscription_guid)
+            if found is not None:
+                return found
+        return None
+    if not isinstance(data, dict):
+        if isinstance(data, str):
+            patterns = [r"/module/affectation/(\d+)", r"/inscription/(\d+)"]
+            for pattern in patterns:
+                match = re.search(pattern, data)
+                if match:
+                    return int(match.group(1))
+        return None
+
+    if public_inscription_guid and data.get("id") == public_inscription_guid:
+        for key in (
+            "idInterne",
+            "idInterneInscription",
+            "idInscription",
+            "idAffectation",
+            "idAffectationModule",
+            "id",
+        ):
+            value = data.get(key)
+            if isinstance(value, int) or (isinstance(value, str) and value.isdigit()):
+                return int(value)
+
+    for key in (
+        "idInterneInscription",
+        "idInscriptionInterne",
+        "idAffectation",
+        "idAffectationModule",
+        "idInscription",
+    ):
+        value = data.get(key)
+        if isinstance(value, int) or (isinstance(value, str) and value.isdigit()):
+            return int(value)
+
+    for nested in data.values():
+        found = _extract_numeric_inscription_id(nested, public_inscription_guid)
+        if found is not None:
+            return found
+    return None
+
+
+def rechercher_id_numerique_inscription_bts_mos(
+    id_personne, cursus_id, id_inscription_public_guid, access_token
 ):
-    logger.info(
-        "Tentative extraction id_affectation_module depuis la création du cursus"
-    )
-    id_affectation_module = _extract_id_affectation_module(cursus_response)
-    if id_affectation_module is not None:
-        logger.info(
-            "ID trouvé depuis la création du cursus : %s", id_affectation_module
-        )
-        return id_affectation_module
-    logger.info("ID non trouvé dans la réponse de création du cursus")
+    logger.info("Recherche ID numérique interne")
+    print("YPAREO BTS MOS - Recherche ID numérique interne")
+    if isinstance(id_inscription_public_guid, int) or (
+        isinstance(id_inscription_public_guid, str)
+        and id_inscription_public_guid.isdigit()
+    ):
+        return int(id_inscription_public_guid)
 
-    detail_endpoint = _env("YPAREO_CURSUS_DETAIL_ENDPOINT", required=False)
-    if detail_endpoint:
-        detail_url = (
-            _url(detail_endpoint)
-            .replace("{IdPersonne}", str(id_personne))
+    endpoints = []
+    configured_endpoint = _env(
+        "YPAREO_BUSINESS_INSCRIPTION_DIAGNOSTIC_ENDPOINT", required=False
+    )
+    if configured_endpoint:
+        endpoints.append(configured_endpoint)
+    endpoints.extend(
+        [
+            "/personne/{id_personne}/cursus/{id_cursus}/module/affectation",
+            "/personne/{id_personne}/cursus/{id_cursus}/module",
+            "/personne/{id_personne}/cursus/{id_cursus}",
+        ]
+    )
+
+    for endpoint in endpoints:
+        url = (
+            _business_url(endpoint)
             .replace("{id_personne}", str(id_personne))
-            .replace("{IdCursus}", str(cursus_id))
+            .replace("{IdPersonne}", str(id_personne))
             .replace("{id_cursus}", str(cursus_id))
+            .replace("{IdCursus}", str(cursus_id))
+            .replace("{id_inscription}", str(id_inscription_public_guid or ""))
+            .replace("{IdInscription}", str(id_inscription_public_guid or ""))
         )
-    else:
-        detail_url = f"{cursus_url.rstrip('/')}/{cursus_id}"
-
-    logger.info("URL GET détail cursus appelée : %s", detail_url)
-    print("YPAREO GET détail cursus - URL:", detail_url)
-    detail = _get_ypareo(
-        detail_url,
-        access_token,
-        "la récupération du détail du cursus BTS MOS",
-    )
-    logger.info(
-        "Réponse complète GET détail cursus : %s", _format_ypareo_payload(detail)
-    )
-    print(
-        "YPAREO GET détail cursus - réponse complète :", _format_ypareo_payload(detail)
-    )
-    logger.info("Tentative extraction id_affectation_module depuis le détail du cursus")
-    id_affectation_module = _extract_id_affectation_module(detail)
-    if id_affectation_module is None:
-        logger.error(
-            "ID non trouvé après création et GET détail cursus. Réponse création cursus : %s",
-            _format_ypareo_payload(cursus_response),
+        logger.info("URL business appelée : %s", url)
+        print("YPAREO BTS MOS - URL business appelée:", url)
+        try:
+            response = requests.get(
+                url, headers=ypareo_headers(access_token), timeout=30
+            )
+        except requests.RequestException as exc:
+            logger.warning("Erreur réseau diagnostic business YPAREO : %s", exc)
+            continue
+        logger.info(
+            "Réponse business reçue (%s) : %s", response.status_code, response.text
         )
-        logger.error(
-            "ID non trouvé après création et GET détail cursus. Réponse GET détail cursus : %s",
-            _format_ypareo_payload(detail),
-        )
-        raise YpareoError(
-            "YPAREO a créé le cursus BTS MOS mais l’id_affectation_module est introuvable. "
-            f"Réponse création cursus : {_format_ypareo_payload(cursus_response)} ; "
-            f"Réponse GET détail cursus : {_format_ypareo_payload(detail)}",
-            personne_id=id_personne,
-        )
-    logger.info("ID trouvé depuis le détail du cursus : %s", id_affectation_module)
-    return id_affectation_module
+        print("YPAREO BTS MOS - Réponse business reçue:", response.status_code, response.text)
+        if not response.ok or not response.content:
+            continue
+        try:
+            payload = response.json()
+        except ValueError:
+            payload = response.text
+        found = _extract_numeric_inscription_id(payload, id_inscription_public_guid)
+        if found is not None:
+            logger.info("ID numérique interne trouvé : %s", found)
+            return found
+    logger.warning("ID numérique interne d’inscription introuvable")
+    return None
 
 
-def inscrire_bts_mos_a_action_formation(id_affectation_module, access_token=None):
+def inscrire_bts_mos_a_action_formation(id_inscription_ypareo, access_token=None):
     if access_token is None:
         access_token = get_ypareo_access_token()
-    url = _url(f"/api/inscription/{id_affectation_module}/participation")
+    url = _business_url(f"/inscription/{id_inscription_ypareo}/participation")
     payload = [
         {
             "dateDebut": YPAREO_BTS_MOS_ACTION_FORMATION_DATE_DEBUT,
@@ -570,14 +643,20 @@ def inscrire_bts_mos_a_action_formation(id_affectation_module, access_token=None
     print("YPAREO BTS MOS - Payload PUT participation:", payload)
     print("YPAREO BTS MOS - Status code:", response.status_code)
     print("YPAREO BTS MOS - Réponse YPAREO:", response.text)
-    logger.info("URL appelée pour l’action de formation BTS MOS : %s", url)
+    logger.info("URL PUT participation appelée : %s", url)
     logger.info("Payload envoyé pour l’action de formation BTS MOS : %s", payload)
     logger.info("Status code action de formation BTS MOS : %s", response.status_code)
     logger.info("Réponse YPAREO action de formation BTS MOS : %s", response.text)
 
     if not response.ok:
         logger.error("Réponse YPAREO complète en cas d’erreur : %s", response.text)
-    response.raise_for_status()
+        if response.status_code == 404:
+            raise YpareoError(
+                "Erreur YPAREO participation : endpoint introuvable. Vérifier que l’URL business et l’ID numérique interne sont utilisés, pas le GUID public."
+            )
+        raise YpareoError(
+            f"Erreur YPAREO participation ({response.status_code}) : {_safe_response_message(response)}"
+        )
     return response.json() if response.text else None
 
 
@@ -602,10 +681,16 @@ def creer_cursus_ypareo(id_personne, session_obj, access_token, candidat=None):
             "YPAREO a créé le cursus mais n’a retourné aucun id cursus.",
             personne_id=id_personne,
         )
+    logger.info("ID cursus public GUID : %s", cursus_id)
     result = {"id": cursus_id, "response": data}
     if _is_bts_mos(session_obj):
-        result["id_affectation_module"] = _recuperer_id_affectation_module(
-            id_personne, cursus_id, data, url, access_token
+        id_inscription_guid = _recuperer_id_inscription_bts_mos(data)
+        result["id_inscription_ypareo"] = id_inscription_guid
+        result["id_inscription_public_guid"] = id_inscription_guid
+        result["id_inscription_numerique_interne"] = (
+            rechercher_id_numerique_inscription_bts_mos(
+                id_personne, cursus_id, id_inscription_guid, access_token
+            )
         )
     return result
 
@@ -613,7 +698,7 @@ def creer_cursus_ypareo(id_personne, session_obj, access_token, candidat=None):
 def creer_apprenant_ypareo(candidat, session_obj):
     """Crée la personne puis son cursus et retourne les deux résultats."""
     access_token = get_ypareo_access_token()
-    personne_id = candidat.get("ypareo_id")
+    personne_id = candidat.get("ypareo_id") or candidat.get("ypareo_id_personne")
     personne_data = {}
     if not personne_id:
         logger.info(
@@ -631,6 +716,7 @@ def creer_apprenant_ypareo(candidat, session_obj):
                 "YPAREO a créé la personne mais n’a retourné aucun id personne."
             )
         logger.info("idPersonne créé : %s", personne_id)
+        logger.info("ID personne public GUID : %s", personne_id)
         logger.info("Personne YPAREO créée pour le candidat %s", candidat.get("id", ""))
     if personne_id:
         logger.info("idPersonne créé ou réutilisé : %s", personne_id)
@@ -640,18 +726,41 @@ def creer_apprenant_ypareo(candidat, session_obj):
         exc.personne_id = personne_id
         raise
     logger.info("idCursus créé : %s", cursus["id"])
+    participation_warning = ""
+    participation_response = None
     if _is_bts_mos(session_obj):
         logger.info(
-            "id_affectation_module récupéré : %s", cursus["id_affectation_module"]
+            "ID inscription public GUID : %s", cursus.get("id_inscription_public_guid")
         )
-        inscrire_bts_mos_a_action_formation(
-            cursus["id_affectation_module"], access_token
-        )
+        id_interne = cursus.get("id_inscription_numerique_interne")
+        if id_interne is None:
+            participation_warning = (
+                "Personne et cursus créés dans YPAREO, mais inscription à l’action de formation non effectuée : "
+                "ID numérique interne d’inscription introuvable."
+            )
+            logger.warning(participation_warning)
+        else:
+            logger.info("id_inscription utilisé : %s", id_interne)
+            try:
+                participation_response = inscrire_bts_mos_a_action_formation(
+                    id_interne, access_token
+                )
+            except YpareoError as exc:
+                participation_warning = str(exc)
+                logger.warning(
+                    "Inscription à l’action de formation non effectuée : %s", exc
+                )
     logger.info("Cursus YPAREO créé pour le candidat %s", candidat.get("id", ""))
     return {
         "personne_id": personne_id,
         "personne_response": personne_data,
         "cursus_id": cursus["id"],
         "cursus_response": cursus["response"],
-        "id_affectation_module": cursus.get("id_affectation_module"),
+        "id_inscription_ypareo": cursus.get("id_inscription_ypareo"),
+        "id_inscription_public_guid": cursus.get("id_inscription_public_guid"),
+        "id_inscription_numerique_interne": cursus.get(
+            "id_inscription_numerique_interne"
+        ),
+        "participation_response": participation_response,
+        "participation_warning": participation_warning,
     }
