@@ -146,6 +146,7 @@
 <div class="box"><span class="label">Pays de naissance :</span> {{ row.pays_naissance }}</div>
 <div class="box"><span class="label">Code postal de naissance :</span> {{ row.cp_naissance }}</div>
 <div class="box"><span class="label">Ville de naissance :</span> {{ row.ville_naissance }}</div>
+<div class="box"><span class="label">Nationalité :</span> {{ row.nationalite }}</div>
 
 {# ✅ Affiche responsable légal si mineur OU si au moins un champ est rempli #}
 {% set is_mineur = (row.est_mineur|default(0)|int == 1) %}

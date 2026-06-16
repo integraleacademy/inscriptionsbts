@@ -127,6 +127,22 @@ class YpareoPersonPayloadTests(unittest.TestCase):
 
         self.assertNotIn("adresse", payload)
 
+    def test_birth_place_and_nationality_are_sent_to_ypareo(self):
+        payload = construire_payload_apprenant(
+            {
+                "nom": "Dupont",
+                "date_naissance": "12/05/2001",
+                "ville_naissance": "Nice",
+                "pays_naissance": "France",
+                "nationalite": "Française",
+            }
+        )
+
+        self.assertEqual(payload["dateNaissance"], "2001-05-12")
+        self.assertEqual(payload["communeNaissance"], "Nice")
+        self.assertEqual(payload["paysNaissanceAlpha"], "FR")
+        self.assertEqual(payload["nationaliteAlpha"], "FR")
+
     def test_international_french_phone_is_converted_to_national_format(self):
         payload = construire_payload_apprenant(
             {"nom": "Dupont", "tel": "+33 6 12 34 56 78"}

@@ -170,6 +170,39 @@ def _construire_adresse_ypareo(candidat):
     return nettoyer_payload(adresse)
 
 
+def _normaliser_code_pays(value):
+    """Retourne un code pays ISO alpha-2 pour les champs YPAREO qui l’attendent."""
+    value = str(value or "").strip()
+    if not value:
+        return ""
+    upper = value.upper()
+    aliases = {
+        "FRANCE": "FR",
+        "FRANCAIS": "FR",
+        "FRANÇAIS": "FR",
+        "FRANCAISE": "FR",
+        "FRANÇAISE": "FR",
+        "BELGIQUE": "BE",
+        "BELGE": "BE",
+        "SUISSE": "CH",
+        "ESPAGNE": "ES",
+        "ESPAGNOL": "ES",
+        "ESPAGNOLE": "ES",
+        "ITALIE": "IT",
+        "ITALIEN": "IT",
+        "ITALIENNE": "IT",
+        "ALLEMAGNE": "DE",
+        "ALLEMAND": "DE",
+        "ALLEMANDE": "DE",
+        "PORTUGAL": "PT",
+        "PORTUGAIS": "PT",
+        "PORTUGAISE": "PT",
+    }
+    if re.fullmatch(r"[A-Z]{2}", upper):
+        return upper
+    return aliases.get(upper, value)
+
+
 def _normaliser_date(value):
     value = str(value or "").strip()
     if not value:
@@ -186,6 +219,12 @@ def construire_payload_apprenant(candidat):
     email = _first(candidat, "email")
     telephone = _normaliser_telephone_ypareo(
         _first(candidat, "telephone", "tel", "phone")
+    )
+    pays_naissance = _normaliser_code_pays(
+        _first(candidat, "pays_naissance", "birth_country")
+    )
+    nationalite = _normaliser_code_pays(
+        _first(candidat, "nationalite", "nationalité", "nationality")
     )
     return nettoyer_payload(
         {
@@ -206,6 +245,9 @@ def construire_payload_apprenant(candidat):
             "dateNaissance": _normaliser_date(
                 _first(candidat, "date_naissance", "birth_date")
             ),
+            "paysNaissanceAlpha": pays_naissance,
+            "communeNaissance": _first(candidat, "ville_naissance", "birth_city"),
+            "nationaliteAlpha": nationalite,
         }
     )
 
