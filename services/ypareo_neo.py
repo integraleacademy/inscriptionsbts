@@ -7,6 +7,7 @@ variables d'environnement Render. Ce module ne journalise jamais les jetons.
 import logging
 import os
 import re
+import unicodedata
 from datetime import datetime
 
 import requests
@@ -22,6 +23,11 @@ YPAREO_ADRESSE_KEYS = (
     "ville",
     "paysAlpha",
 )
+
+YPAREO_STATUT_PREMIERE_ANNEE = "Stagiaire formation pro 3 mois"
+YPAREO_ETAT_CURSUS = "Inscrit"
+YPAREO_REFERENT_PEDAGOGIQUE = "Clément VAILLANT"
+
 
 
 class YpareoError(Exception):
@@ -118,6 +124,15 @@ def nettoyer_payload(value):
     if isinstance(value, list):
         return [nettoyer_payload(item) for item in value if item not in (None, "", [], {})]
     return value
+
+
+def _normalize_text(value):
+    value = str(value or "").strip().lower()
+    return "".join(
+        char
+        for char in unicodedata.normalize("NFD", value)
+        if unicodedata.category(char) != "Mn"
+    )
 
 
 def _first(obj, *names):
@@ -264,23 +279,39 @@ def id_formation_ypareo(session_obj):
     return _env(_ypareo_formation_environment_name(session_obj))
 
 
-def construire_payload_cursus(session_obj):
+def _id_situation_avant_apprentissage(candidat=None):
+    bac_type = _normalize_text(_first(candidat or {}, "bac_type", "type_bac"))
+    if "general" in bac_type:
+        return 21
+    if "professionnel" in bac_type or bac_type == "pro":
+        return 31
+
+    situation_id = _env("YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE", required=False)
+    if not situation_id:
+        return None
+    try:
+        return int(situation_id)
+    except ValueError as exc:
+        raise YpareoError(
+            "Variable Render invalide : "
+            "YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE doit contenir un "
+            "identifiant numérique YPAREO, ou rester vide.",
+            503,
+        ) from exc
+
+
+def construire_payload_cursus(session_obj, candidat=None):
     payload = {
         "idFormation": id_formation_ypareo(session_obj),
         "idOrganisme": _env("YPAREO_ID_ORGANISME", required=False),
         "nom": _first(session_obj, "nom", "name", "training_type"),
+        "statutPremiereAnnee": YPAREO_STATUT_PREMIERE_ANNEE,
+        "etat": YPAREO_ETAT_CURSUS,
+        "referentPedagogique": YPAREO_REFERENT_PEDAGOGIQUE,
     }
-    situation_id = _env("YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE", required=False)
-    if situation_id:
-        try:
-            payload["idSituationAvantApprentissage"] = int(situation_id)
-        except ValueError as exc:
-            raise YpareoError(
-                "Variable Render invalide : "
-                "YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE doit contenir un "
-                "identifiant numérique YPAREO, ou rester vide.",
-                503,
-            ) from exc
+    situation_id = _id_situation_avant_apprentissage(candidat)
+    if situation_id is not None:
+        payload["idSituationAvantApprentissage"] = situation_id
     return nettoyer_payload(payload)
 
 
@@ -321,7 +352,7 @@ def _post_ypareo(url, payload, access_token, operation):
         raise YpareoError(f"Réponse YPAREO invalide pendant {operation} (JSON attendu).") from exc
 
 
-def creer_cursus_ypareo(id_personne, session_obj, access_token):
+def creer_cursus_ypareo(id_personne, session_obj, access_token, candidat=None):
     endpoint = _env("YPAREO_CURSUS_ENDPOINT")
     url = _url(endpoint).replace("{IdPersonne}", str(id_personne)).replace(
         "{id_personne}", str(id_personne)
@@ -329,7 +360,7 @@ def creer_cursus_ypareo(id_personne, session_obj, access_token):
     if "{IdPersonne}" not in endpoint and "{id_personne}" not in endpoint:
         url = f"{url.rstrip('/')}/{id_personne}/cursus"
     data = _post_ypareo(
-        url, construire_payload_cursus(session_obj), access_token, "la création du cursus"
+        url, construire_payload_cursus(session_obj, candidat), access_token, "la création du cursus"
     )
     cursus_id = _extract_id(data, "idCursus", "IdCursus", "id", "Id")
     if cursus_id is None:
@@ -360,7 +391,7 @@ def creer_apprenant_ypareo(candidat, session_obj):
             raise YpareoError("YPAREO a créé la personne mais n’a retourné aucun id personne.")
         logger.info("Personne YPAREO créée pour le candidat %s", candidat.get("id", ""))
     try:
-        cursus = creer_cursus_ypareo(personne_id, session_obj, access_token)
+        cursus = creer_cursus_ypareo(personne_id, session_obj, access_token, candidat)
     except YpareoError as exc:
         exc.personne_id = personne_id
         raise
