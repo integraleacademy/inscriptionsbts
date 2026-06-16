@@ -8,6 +8,7 @@ from services.ypareo_neo import (
     construire_payload_cursus,
     creer_apprenant_ypareo,
     _extract_id_inscription_bts_mos_premiere_annee,
+    rechercher_id_numerique_inscription_bts_mos,
     get_ypareo_access_token,
     inscrire_bts_mos_a_action_formation,
 )
@@ -327,7 +328,10 @@ class YpareoCursusPayloadTests(unittest.TestCase):
 class YpareoBtsMosActionFormationTests(unittest.TestCase):
     @patch.dict(
         os.environ,
-        {"YPAREO_API_URL": "https://ypareo.example"},
+        {
+            "YPAREO_API_URL": "https://ypareo.example",
+            "YPAREO_BUSINESS_API_BASE": "https://business.example/api",
+        },
         clear=True,
     )
     @patch("services.ypareo_neo.requests.put")
@@ -340,7 +344,7 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
 
         self.assertEqual(result, {"ok": True})
         put.assert_called_once_with(
-            "https://ypareo.example/api/inscription/123/participation",
+            "https://business.example/api/inscription/123/participation",
             json=[
                 {
                     "dateDebut": "2026-07-27",
@@ -367,13 +371,15 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
             "YPAREO_CURSUS_ENDPOINT": "/api/personne/{IdPersonne}/cursus",
             "YPAREO_ID_FORMATION_BTS_MOS": "formation-mos",
             "YPAREO_ID_ORGANISME": "organisme",
+            "YPAREO_BUSINESS_API_BASE": "https://business.example/api",
         },
         clear=True,
     )
     @patch("services.ypareo_neo.requests.put")
+    @patch("services.ypareo_neo.requests.get")
     @patch("services.ypareo_neo.requests.post")
     def test_bts_mos_creation_attaches_first_year_inscription_to_action_formation(
-        self, post, put
+        self, post, get, put
     ):
         auth_response = Mock(ok=True, status_code=200, content=b"{}")
         auth_response.json.return_value = {"access_token": "access-token"}
@@ -390,6 +396,11 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
             },
         }
         post.side_effect = [auth_response, personne_response, cursus_response]
+        diagnostic_response = Mock(
+            ok=True, status_code=200, content=b"{}", text='{"idAffectation":467}'
+        )
+        diagnostic_response.json.return_value = {"idAffectation": 467}
+        get.return_value = diagnostic_response
         put_response = Mock(ok=True, text="", status_code=204)
         put.return_value = put_response
 
@@ -401,12 +412,62 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
         self.assertEqual(result["personne_id"], 456)
         self.assertEqual(result["cursus_id"], 789)
         self.assertEqual(result["id_inscription_ypareo"], "first-year-id")
+        self.assertEqual(result["id_inscription_numerique_interne"], 467)
         put.assert_called_once()
         self.assertEqual(
             put.call_args.args[0],
-            "https://ypareo.example/api/inscription/first-year-id/participation",
+            "https://business.example/api/inscription/467/participation",
         )
 
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_BUSINESS_API_BASE": "https://business.example/api",
+        },
+        clear=True,
+    )
+    @patch("services.ypareo_neo.requests.get")
+    def test_rechercher_id_numerique_inscription_reads_business_response(self, get):
+        response = Mock(
+            ok=True,
+            status_code=200,
+            content=b"{}",
+            text='{"url":"/personne/1066/cursus/374/module/affectation/467"}',
+        )
+        response.json.return_value = {
+            "url": "/personne/1066/cursus/374/module/affectation/467"
+        }
+        get.return_value = response
+
+        result = rechercher_id_numerique_inscription_bts_mos(
+            1066, 374, "public-guid", "access-token"
+        )
+
+        self.assertEqual(result, 467)
+        get.assert_called_once()
+        self.assertEqual(
+            get.call_args.args[0],
+            "https://business.example/api/personne/1066/cursus/374/module/affectation",
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_API_URL": "https://ypareo.example",
+            "YPAREO_BUSINESS_API_BASE": "https://business.example/api",
+        },
+        clear=True,
+    )
+    @patch("services.ypareo_neo.requests.put")
+    def test_participation_404_has_actionable_message(self, put):
+        response = Mock(ok=False, text="not found", status_code=404)
+        response.json.side_effect = ValueError
+        put.return_value = response
+
+        with self.assertRaisesRegex(YpareoError, "URL business et l’ID numérique interne"):
+            inscrire_bts_mos_a_action_formation(
+                "1aba3d6e-cc9d-4526-b2bc-aafe7010468e", "access-token"
+            )
 
 
 if __name__ == "__main__":
