@@ -1,5 +1,7 @@
 import os
 import unittest
+
+import requests
 from unittest.mock import Mock, patch
 
 from services.ypareo_neo import (
@@ -518,6 +520,23 @@ class YpareoBtsMosActionFormationTests(unittest.TestCase):
             inscrire_bts_mos_a_action_formation(
                 "1aba3d6e-cc9d-4526-b2bc-aafe7010468e", "access-token"
             )
+
+    @patch.dict(
+        os.environ,
+        {
+            "YPAREO_BUSINESS_API_BASE": "https://business.example/api",
+        },
+        clear=True,
+    )
+    @patch("services.ypareo_neo.requests.put")
+    def test_participation_network_error_is_functional_ypareo_error(self, put):
+        put.side_effect = requests.Timeout("timed out")
+
+        with self.assertRaisesRegex(
+            YpareoError,
+            "Erreur réseau pendant le rattachement à l’action de formation BTS MOS",
+        ):
+            inscrire_bts_mos_a_action_formation(467, "access-token")
 
 
 if __name__ == "__main__":
