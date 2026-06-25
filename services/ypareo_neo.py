@@ -492,6 +492,11 @@ def _post_ypareo(url, payload, access_token, operation):
         logger.info("Réponse création cursus : %s", response.text)
     if not response.ok:
         detail = _safe_response_message(response)
+        logger.error(
+            "Réponse YPAREO complète en cas d’erreur (%s): %s",
+            operation,
+            response.text,
+        )
         if response.status_code == 401:
             detail = f"accès refusé ou jeton expiré. {detail}"
         elif response.status_code == 422:
@@ -841,9 +846,14 @@ def inscrire_bts_mos_a_action_formation(id_inscription_ypareo, access_token=None
     url = _business_url(f"/inscription/{id_inscription_ypareo}/participation")
     payload = construire_payload_participation_bts_mos()
 
-    response = requests.put(
-        url, json=payload, headers=ypareo_headers(access_token), timeout=30
-    )
+    try:
+        response = requests.put(
+            url, json=payload, headers=ypareo_headers(access_token), timeout=30
+        )
+    except requests.RequestException as exc:
+        raise YpareoError(
+            f"Erreur réseau pendant le rattachement à l’action de formation BTS MOS : {exc}"
+        ) from exc
 
     print("YPAREO BTS MOS - URL PUT participation:", url)
     print("YPAREO BTS MOS - Payload PUT participation:", payload)

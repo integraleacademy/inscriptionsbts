@@ -1565,6 +1565,12 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
         )
         conn.commit()
         candidat = get_candidat(conn, id_candidat)
+        app.logger.warning(
+            "Échec synchronisation YPAREO candidat %s (HTTP %s) : %s",
+            id_candidat,
+            exc.status_code,
+            message,
+        )
         log_event(candidat, "YPAREO_NEO_ERREUR", {"erreur": message})
         return {"ok": False, "error": message, "candidat": candidat, "status_code": exc.status_code}
     except Exception:
