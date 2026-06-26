@@ -307,6 +307,7 @@
     <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
     <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
     <a href="{{ url_for('admin_export_confirmed_xlsx') }}" class="btn secondary">📊 Export Excel confirmées</a>
+    <a href="{{ url_for('admin_export_filtered_xlsx', **request.args) }}" class="btn secondary">📊 Export Excel filtré</a>
     <a href="/admin/reprendre-plus-tard" class="btn small-btn" style="background:#6c757d;">
   ⏳ Reprendre plus tard
 </a>
@@ -457,32 +458,32 @@
 
     <select name="bts">
       <option value="">BTS (tous)</option>
-      <option value="MOS">MOS</option>
-      <option value="MCO">MCO</option>
-      <option value="PI">PI</option>
-      <option value="CI">CI</option>
-      <option value="NDRC">NDRC</option>
-      <option value="CG">CG</option>
+      <option value="MOS" {% if request.args.get('bts') == 'MOS' %}selected{% endif %}>MOS</option>
+      <option value="MCO" {% if request.args.get('bts') == 'MCO' %}selected{% endif %}>MCO</option>
+      <option value="PI" {% if request.args.get('bts') == 'PI' %}selected{% endif %}>PI</option>
+      <option value="CI" {% if request.args.get('bts') == 'CI' %}selected{% endif %}>CI</option>
+      <option value="NDRC" {% if request.args.get('bts') == 'NDRC' %}selected{% endif %}>NDRC</option>
+      <option value="CG" {% if request.args.get('bts') == 'CG' %}selected{% endif %}>CG</option>
     </select>
 
     <select name="mode">
       <option value="">Mode (tous)</option>
-      <option value="presentiel">Présentiel</option>
-      <option value="distanciel">Distanciel</option>
+      <option value="presentiel" {% if request.args.get('mode') == 'presentiel' %}selected{% endif %}>Présentiel</option>
+      <option value="distanciel" {% if request.args.get('mode') == 'distanciel' %}selected{% endif %}>Distanciel</option>
     </select>
 
     <select name="statut">
       <option value="">Statut (tous)</option>
       {% for key,label,color in statuts %}
-        <option value="{{ key }}">{{ label }}</option>
+        <option value="{{ key }}" {% if request.args.get('statut') == key %}selected{% endif %}>{{ label }}</option>
       {% endfor %}
     </select>
 
     <select name="label">
       <option value="">Étiquette</option>
-      <option value="APS">APS</option>
-      <option value="AUT">AUT OK</option>
-      <option value="CHEQUE">Chèque OK</option>
+      <option value="APS" {% if request.args.get('label') == 'APS' %}selected{% endif %}>APS</option>
+      <option value="AUT" {% if request.args.get('label') == 'AUT' %}selected{% endif %}>AUT OK</option>
+      <option value="CHEQUE" {% if request.args.get('label') == 'CHEQUE' %}selected{% endif %}>Chèque OK</option>
     </select>
 
     <label style="display:flex;align-items:center;gap:4px;">
@@ -499,6 +500,7 @@
   title="Afficher uniquement les inscriptions confirmées sans carte étudiante cochée">
   🎓 Cartes étudiantes à faire
 </button>
+<a class="btn secondary" href="{{ url_for('admin_export_filtered_xlsx', **request.args) }}">📊 Export Excel filtré</a>
 <a class="btn secondary" href="{{ url_for('admin') }}">↻ Réinitialiser</a>
 
 <div id="brevoIndicator"

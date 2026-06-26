@@ -1359,49 +1359,56 @@ def submit():
 
 # ---------------- Admin ----------------
 
-@app.route("/admin")
-def admin():
-    if not require_admin():
-        return redirect(url_for("login"))
-
-    q = request.args.get("q","").strip().lower()
-    flt_bts = request.args.get("bts","")
-    flt_statut = request.args.get("statut","")
-    flt_mode = request.args.get("mode","")
-    flt_label = request.args.get("label","")
-    flt_relance = request.args.get("relances","")
-    flt_carte_manquante = request.args.get("carte_etudiante_manquante", "")
+def _admin_filtered_rows(args):
+    q = args.get("q", "").strip().lower()
+    flt_bts = args.get("bts", "")
+    flt_statut = args.get("statut", "")
+    flt_mode = args.get("mode", "")
+    flt_label = args.get("label", "")
+    flt_relance = args.get("relances", "")
+    flt_carte_manquante = args.get("carte_etudiante_manquante", "")
 
     conn = db()
     cur = conn.cursor()
     cur.execute("SELECT * FROM candidats ORDER BY created_at DESC")
     rows = [dict(r) for r in cur.fetchall()]
 
+    def is_checked(value):
+        return value in (1, "1", True, "true", "True", "on", "yes")
+
     def match(row):
         ok = True
         if q:
-            blob = " ".join([str(row.get(k,'')) for k in ("nom","prenom","email","tel","bts","numero_dossier")]).lower()
+            blob = " ".join([str(row.get(k, "")) for k in ("nom", "prenom", "email", "tel", "bts", "numero_dossier")]).lower()
             ok &= q in blob
         if flt_bts:
-            ok &= row.get("bts","") == flt_bts
+            ok &= row.get("bts", "") == flt_bts
         if flt_statut and not flt_carte_manquante:
-            ok &= row.get("statut","") == flt_statut
+            ok &= row.get("statut", "") == flt_statut
         if flt_mode:
-            ok &= row.get("mode","") == flt_mode
+            ok &= row.get("mode", "") == flt_mode
         if flt_relance:
             ok &= row.get("last_relance") not in (None, "", "null")
         if flt_carte_manquante:
             ok &= row.get("statut", "") == "confirmee"
-            ok &= row.get("label_carte_etudiante") not in (1, "1", True, "true", "True", "on", "yes")
+            ok &= not is_checked(row.get("label_carte_etudiante"))
         if flt_label == "APS":
-            ok &= row.get("label_aps",0) == 1
+            ok &= is_checked(row.get("label_aps", 0))
         if flt_label == "AUT":
-            ok &= row.get("label_aut_ok",0) == 1
+            ok &= is_checked(row.get("label_aut_ok", 0))
         if flt_label == "CHEQUE":
-            ok &= row.get("label_cheque_ok",0) == 1
+            ok &= is_checked(row.get("label_cheque_ok", 0))
         return ok
 
-    rows = [r for r in rows if match(r)]
+    return [r for r in rows if match(r)]
+
+
+@app.route("/admin")
+def admin():
+    if not require_admin():
+        return redirect(url_for("login"))
+
+    rows = _admin_filtered_rows(request.args)
     return render_template("admin.html", title="Administration", rows=rows, statuts=STATUTS)
 
 
@@ -2222,6 +2229,44 @@ def admin_export_csv():
         for r in rows:
             w.writerow(r)
     return buf.getvalue(), 200, {"Content-Type":"text/csv; charset=utf-8", "Content-Disposition":"attachment; filename=export.csv"}
+
+
+@app.route("/admin/export-filtered.xlsx")
+def admin_export_filtered_xlsx():
+    if not require_admin(): abort(403)
+    from io import BytesIO
+    from openpyxl import Workbook
+
+    rows = _admin_filtered_rows(request.args)
+    headers = list(rows[0].keys()) if rows else [
+        "id", "created_at", "numero_dossier", "nom", "prenom", "email", "tel",
+        "bts", "mode", "statut", "last_relance"
+    ]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Export filtré"
+    ws.append(headers)
+
+    for row in rows:
+        ws.append([row.get(header, "") for header in headers])
+
+    for column_cells in ws.columns:
+        max_length = max(len(str(cell.value or "")) for cell in column_cells)
+        ws.column_dimensions[column_cells[0].column_letter].width = min(max(max_length + 2, 12), 45)
+
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+
+    return (
+        out.getvalue(),
+        200,
+        {
+            "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "Content-Disposition": "attachment; filename=export_admin_filtre.xlsx"
+        },
+    )
 
 @app.route("/admin/export.json")
 def admin_export_json():
