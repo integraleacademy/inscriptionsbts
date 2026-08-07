@@ -4369,6 +4369,210 @@ def brevo_frame():
     return send_from_directory('.', 'brevo-frame.html', mimetype='text/html')
 
 
+# =====================================================
+# 🇬🇧 VOYAGE À LONDRES
+# =====================================================
+VOYAGE_DIR = os.path.join(DATA_DIR, "voyage_londres")
+os.makedirs(VOYAGE_DIR, exist_ok=True)
+VOYAGE_CONVENTIONS = ("À faire", "Éditée", "Signée", "Transmise OPCO")
+VOYAGE_CATEGORIES = ("Accord de prise en charge OPCO", "Convention signée", "Passeport", "Billet", "Hébergement", "Autre")
+VOYAGE_EXTENSIONS = {"pdf", "jpg", "jpeg", "png", "doc", "docx"}
+
+def migrate_voyage_londres():
+    """Migration idempotente, également livrée sous migrations/001_voyage_londres.sql."""
+    conn = db()
+    conn.executescript("""
+    CREATE TABLE IF NOT EXISTS voyage_londres_inscriptions (
+      id TEXT PRIMARY KEY, candidat_id TEXT NOT NULL UNIQUE,
+      statut TEXT NOT NULL DEFAULT 'active' CHECK(statut IN ('active','annulee')),
+      convention TEXT NOT NULL DEFAULT 'À faire', opco INTEGER NOT NULL DEFAULT 0,
+      billet INTEGER NOT NULL DEFAULT 0, hebergement INTEGER NOT NULL DEFAULT 0,
+      passeport INTEGER NOT NULL DEFAULT 0, numero_passeport TEXT,
+      passeport_delivrance TEXT, passeport_expiration TEXT,
+      immigration INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL, cancelled_at TEXT,
+      FOREIGN KEY(candidat_id) REFERENCES candidats(id) ON DELETE RESTRICT);
+    CREATE TABLE IF NOT EXISTS voyage_londres_documents (
+      id TEXT PRIMARY KEY, inscription_id TEXT NOT NULL, categorie TEXT NOT NULL,
+      nom_original TEXT NOT NULL, nom_stockage TEXT NOT NULL UNIQUE,
+      mime_type TEXT NOT NULL, taille INTEGER NOT NULL, created_at TEXT NOT NULL,
+      FOREIGN KEY(inscription_id) REFERENCES voyage_londres_inscriptions(id) ON DELETE CASCADE);
+    CREATE INDEX IF NOT EXISTS idx_voyage_statut ON voyage_londres_inscriptions(statut);
+    """)
+    conn.commit(); conn.close()
+
+migrate_voyage_londres()
+
+def _voyage_guard(api=True):
+    if session.get("admin_ok"): return None
+    return (jsonify(ok=False, error="Authentification administrateur requise"), 403) if api else redirect(url_for("login"))
+
+def _csrf_token():
+    if not session.get("voyage_csrf"): session["voyage_csrf"] = uuid.uuid4().hex
+    return session["voyage_csrf"]
+
+def _voyage_csrf():
+    token = request.headers.get("X-CSRF-Token") or request.form.get("csrf_token")
+    return bool(token and token == session.get("voyage_csrf"))
+
+def _voyage_rows(conn):
+    return [dict(r) for r in conn.execute("""SELECT v.*, c.nom, c.prenom, c.email, c.tel,
+      (SELECT COUNT(*) FROM voyage_londres_documents d WHERE d.inscription_id=v.id) document_count
+      FROM voyage_londres_inscriptions v JOIN candidats c ON c.id=v.candidat_id
+      ORDER BY CASE v.statut WHEN 'active' THEN 0 ELSE 1 END, c.nom COLLATE NOCASE, c.prenom COLLATE NOCASE""")]
+
+def _voyage_public_row(row):
+    r = dict(row)
+    number = r.pop("numero_passeport", None) or ""
+    r["passeport_masque"] = ("••••" + number[-4:]) if number else ""
+    return r
+
+@app.route("/admin/voyage-londres")
+def voyage_londres():
+    denied = _voyage_guard(False)
+    if denied: return denied
+    return render_template("voyage_londres.html", title="Gestion du voyage à Londres", csrf_token=_csrf_token())
+
+@app.route("/admin/voyage-londres/api/inscriptions")
+def voyage_londres_list():
+    denied = _voyage_guard()
+    if denied: return denied
+    conn=db(); rows=[_voyage_public_row(r) for r in _voyage_rows(conn)]; conn.close()
+    return jsonify(ok=True, inscriptions=rows)
+
+@app.route("/admin/voyage-londres/api/recherche")
+def voyage_londres_search():
+    denied = _voyage_guard()
+    if denied: return denied
+    q = re.sub(r"[\s\-]+", "", _normalize(request.args.get("q", "")).lower())
+    if not q: return jsonify(ok=True, personnes=[])
+    conn=db(); candidates=[]
+    for row in conn.execute("""SELECT c.id,c.nom,c.prenom,c.email,v.id inscription_id,v.statut
+      FROM candidats c LEFT JOIN voyage_londres_inscriptions v ON v.candidat_id=c.id ORDER BY c.nom LIMIT 500"""):
+        item=dict(row); hay=re.sub(r"[\s\-]+", "", _normalize((item['nom'] or '')+(item['prenom'] or '')).lower())
+        if q in hay: candidates.append(item)
+        if len(candidates) == 20: break
+    conn.close(); return jsonify(ok=True, personnes=candidates)
+
+@app.route("/admin/voyage-londres/api/inscriptions", methods=["POST"])
+def voyage_londres_create():
+    denied=_voyage_guard()
+    if denied:return denied
+    if not _voyage_csrf(): return jsonify(ok=False,error="Jeton CSRF invalide"),400
+    data=request.get_json(silent=True) or {}; cid=str(data.get("candidat_id", ""))
+    conn=db(); person=conn.execute("SELECT id FROM candidats WHERE id=?",(cid,)).fetchone()
+    if not person: conn.close(); return jsonify(ok=False,error="Personne introuvable"),404
+    existing=conn.execute("SELECT * FROM voyage_londres_inscriptions WHERE candidat_id=?",(cid,)).fetchone()
+    now=datetime.utcnow().isoformat()
+    if existing:
+        if existing["statut"] == "active": conn.close(); return jsonify(ok=False,error="Cette personne est déjà inscrite"),409
+        conn.execute("UPDATE voyage_londres_inscriptions SET statut='active',cancelled_at=NULL,updated_at=? WHERE candidat_id=?",(now,cid))
+    else:
+        conn.execute("INSERT INTO voyage_londres_inscriptions(id,candidat_id,created_at,updated_at) VALUES(?,?,?,?)",(uuid.uuid4().hex,cid,now,now))
+    conn.commit(); conn.close(); return jsonify(ok=True)
+
+@app.route("/admin/voyage-londres/api/inscriptions/<iid>", methods=["PATCH", "DELETE"])
+def voyage_londres_change(iid):
+    denied=_voyage_guard()
+    if denied:return denied
+    if not _voyage_csrf(): return jsonify(ok=False,error="Jeton CSRF invalide"),400
+    conn=db(); current=conn.execute("SELECT * FROM voyage_londres_inscriptions WHERE id=?",(iid,)).fetchone()
+    if not current: conn.close(); return jsonify(ok=False,error="Inscription introuvable"),404
+    if request.method == "DELETE":
+        docs=list(conn.execute("SELECT nom_stockage FROM voyage_londres_documents WHERE inscription_id=?",(iid,)))
+        conn.execute("DELETE FROM voyage_londres_documents WHERE inscription_id=?",(iid,)); conn.execute("DELETE FROM voyage_londres_inscriptions WHERE id=?",(iid,)); conn.commit(); conn.close()
+        for doc in docs:
+            try: os.remove(os.path.join(VOYAGE_DIR,doc[0]))
+            except FileNotFoundError: pass
+        return jsonify(ok=True)
+    data=request.get_json(silent=True) or {}; allowed={"convention","opco","billet","hebergement","immigration","statut"}
+    updates={k:v for k,v in data.items() if k in allowed}
+    if "convention" in updates and updates["convention"] not in VOYAGE_CONVENTIONS: conn.close(); return jsonify(ok=False,error="Convention invalide"),400
+    for key in ("opco","billet","hebergement","immigration"):
+        if key in updates and updates[key] not in (0,1,False,True): conn.close(); return jsonify(ok=False,error=f"Valeur {key} invalide"),400
+    if "statut" in updates and updates["statut"] not in ("active","annulee"): conn.close(); return jsonify(ok=False,error="Statut invalide"),400
+    if not updates: conn.close(); return jsonify(ok=False,error="Aucune modification valide"),400
+    now=datetime.utcnow().isoformat(); updates["updated_at"]=now
+    if updates.get("statut")=="annulee": updates["cancelled_at"]=now
+    elif updates.get("statut")=="active": updates["cancelled_at"]=None
+    conn.execute("UPDATE voyage_londres_inscriptions SET "+",".join(f"{k}=?" for k in updates)+" WHERE id=?",(*updates.values(),iid)); conn.commit(); conn.close()
+    return jsonify(ok=True)
+
+@app.route("/admin/voyage-londres/api/inscriptions/<iid>/passeport", methods=["GET", "PATCH"])
+def voyage_londres_passport(iid):
+    denied=_voyage_guard()
+    if denied:return denied
+    if request.method == "GET":
+        conn=db(); row=conn.execute("SELECT passeport,numero_passeport,passeport_delivrance,passeport_expiration FROM voyage_londres_inscriptions WHERE id=?",(iid,)).fetchone(); conn.close()
+        return (jsonify(ok=True,passeport=dict(row)) if row else (jsonify(ok=False,error="Inscription introuvable"),404))
+    if not _voyage_csrf(): return jsonify(ok=False,error="Jeton CSRF invalide"),400
+    d=request.get_json(silent=True) or {}; available=d.get("passeport") in (1,True)
+    number=str(d.get("numero_passeport","")).strip().upper(); issued=d.get("passeport_delivrance") or None; expires=d.get("passeport_expiration") or None
+    if available:
+        if not number or not issued or not expires: return jsonify(ok=False,error="Numéro et dates obligatoires"),400
+        try:
+            if datetime.fromisoformat(expires).date() <= datetime.fromisoformat(issued).date(): raise ValueError()
+        except ValueError: return jsonify(ok=False,error="L'expiration doit être postérieure à la délivrance"),400
+    conn=db(); cur=conn.execute("UPDATE voyage_londres_inscriptions SET passeport=?,numero_passeport=?,passeport_delivrance=?,passeport_expiration=?,updated_at=? WHERE id=?",(int(available),number if available else None,issued if available else None,expires if available else None,datetime.utcnow().isoformat(),iid)); conn.commit(); conn.close()
+    return (jsonify(ok=True) if cur.rowcount else (jsonify(ok=False,error="Inscription introuvable"),404))
+
+def _valid_upload(file):
+    ext=(file.filename.rsplit('.',1)[-1].lower() if '.' in file.filename else '')
+    head=file.stream.read(8); file.stream.seek(0)
+    signatures={"pdf":head.startswith(b"%PDF"),"jpg":head.startswith(b"\xff\xd8\xff"),"jpeg":head.startswith(b"\xff\xd8\xff"),"png":head.startswith(b"\x89PNG"),"doc":head.startswith(b"\xd0\xcf\x11\xe0"),"docx":head.startswith(b"PK")}
+    return ext in VOYAGE_EXTENSIONS and signatures.get(ext,False),ext
+
+@app.route("/admin/voyage-londres/api/inscriptions/<iid>/documents", methods=["GET","POST"])
+def voyage_londres_documents(iid):
+    denied=_voyage_guard()
+    if denied:return denied
+    conn=db()
+    if not conn.execute("SELECT id FROM voyage_londres_inscriptions WHERE id=?",(iid,)).fetchone(): conn.close(); return jsonify(ok=False,error="Inscription introuvable"),404
+    if request.method == "GET":
+        rows=[dict(r) for r in conn.execute("SELECT id,categorie,nom_original,mime_type,taille,created_at FROM voyage_londres_documents WHERE inscription_id=? ORDER BY created_at DESC",(iid,))]; conn.close(); return jsonify(ok=True,documents=rows)
+    if not _voyage_csrf(): conn.close(); return jsonify(ok=False,error="Jeton CSRF invalide"),400
+    category=request.form.get("categorie","")
+    if category not in VOYAGE_CATEGORIES: conn.close(); return jsonify(ok=False,error="Catégorie invalide"),400
+    files=request.files.getlist("documents")
+    if not files: conn.close(); return jsonify(ok=False,error="Aucun document"),400
+    saved=[]
+    for f in files:
+        ok,ext=_valid_upload(f); f.seek(0,2); size=f.tell(); f.seek(0)
+        if not ok or size>15*1024*1024: conn.rollback(); conn.close(); return jsonify(ok=False,error="Format invalide ou fichier supérieur à 15 Mo"),400
+        storage=uuid.uuid4().hex+"."+ext; f.save(os.path.join(VOYAGE_DIR,storage)); saved.append(storage)
+        conn.execute("INSERT INTO voyage_londres_documents VALUES(?,?,?,?,?,?,?,?)",(uuid.uuid4().hex,iid,category,secure_filename(f.filename) or ('document.'+ext),storage,f.mimetype or 'application/octet-stream',size,datetime.utcnow().isoformat()))
+    conn.commit(); conn.close(); return jsonify(ok=True)
+
+@app.route("/admin/voyage-londres/documents/<did>/telecharger")
+def voyage_londres_download(did):
+    denied=_voyage_guard()
+    if denied:return denied
+    conn=db(); doc=conn.execute("SELECT * FROM voyage_londres_documents WHERE id=?",(did,)).fetchone(); conn.close()
+    if not doc: abort(404)
+    return send_file(os.path.join(VOYAGE_DIR,doc["nom_stockage"]),as_attachment=True,download_name=doc["nom_original"])
+
+@app.route("/admin/voyage-londres/documents/<did>",methods=["DELETE"])
+def voyage_londres_delete_document(did):
+    denied=_voyage_guard()
+    if denied:return denied
+    if not _voyage_csrf(): return jsonify(ok=False,error="Jeton CSRF invalide"),400
+    conn=db(); doc=conn.execute("SELECT nom_stockage FROM voyage_londres_documents WHERE id=?",(did,)).fetchone()
+    if not doc: conn.close(); return jsonify(ok=False,error="Document introuvable"),404
+    conn.execute("DELETE FROM voyage_londres_documents WHERE id=?",(did,)); conn.commit(); conn.close()
+    try: os.remove(os.path.join(VOYAGE_DIR,doc[0]))
+    except FileNotFoundError: pass
+    return jsonify(ok=True)
+
+@app.route("/admin/voyage-londres/recapitulatif/<iid>")
+def voyage_londres_recap(iid):
+    denied=_voyage_guard(False)
+    if denied:return denied
+    conn=db(); row=conn.execute("""SELECT v.*,c.nom,c.prenom,c.email,c.tel FROM voyage_londres_inscriptions v JOIN candidats c ON c.id=v.candidat_id WHERE v.id=?""",(iid,)).fetchone()
+    docs=[dict(r) for r in conn.execute("SELECT * FROM voyage_londres_documents WHERE inscription_id=? ORDER BY created_at",(iid,))]; conn.close()
+    if not row: abort(404)
+    return render_template("voyage_londres_recap.html",inscription=dict(row),documents=docs)
+
+
 
 
 
