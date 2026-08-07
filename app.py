@@ -4421,8 +4421,21 @@ def _voyage_rows(conn):
       FROM voyage_londres_inscriptions v JOIN candidats c ON c.id=v.candidat_id
       ORDER BY CASE v.statut WHEN 'active' THEN 0 ELSE 1 END, c.nom COLLATE NOCASE, c.prenom COLLATE NOCASE""")]
 
+def _canonical_voyage_convention(value):
+    """Mappe les libellés historiques de convention vers les quatre statuts affichés."""
+    key = re.sub(r"[^a-z0-9]+", "-", _normalize(str(value or "")).lower()).strip("-")
+    aliases = {
+        "a-faire": "À faire", "a-fair": "À faire", "faire": "À faire",
+        "editee": "Éditée", "edite": "Éditée", "edition": "Éditée",
+        "signee": "Signée", "signe": "Signée",
+        "transmise-opco": "Transmise OPCO", "transmis-opco": "Transmise OPCO",
+        "transmise-a-l-opco": "Transmise OPCO", "envoyee-opco": "Transmise OPCO",
+    }
+    return aliases.get(key, "À faire")
+
 def _voyage_public_row(row):
     r = dict(row)
+    r["convention"] = _canonical_voyage_convention(r.get("convention"))
     number = r.pop("numero_passeport", None) or ""
     r["passeport_masque"] = ("••••" + number[-4:]) if number else ""
     return r
