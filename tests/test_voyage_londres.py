@@ -58,6 +58,16 @@ class VoyageLondresTest(unittest.TestCase):
         self.assertIsNotNone(conn.execute("SELECT id FROM candidats WHERE id='c1'").fetchone())
         conn.close()
 
+    def test_legacy_convention_values_are_exposed_with_a_visible_canonical_label(self):
+        headers = self.login()
+        self.client.post("/admin/voyage-londres/api/inscriptions", json={"candidat_id": "c1"}, headers=headers)
+        conn = application.db()
+        conn.execute("UPDATE voyage_londres_inscriptions SET convention='editee' WHERE candidat_id='c1'")
+        conn.commit()
+        conn.close()
+        row = self.client.get("/admin/voyage-londres/api/inscriptions").get_json()["inscriptions"][0]
+        self.assertEqual(row["convention"], "Éditée")
+
     def test_passport_validation_and_document_lifecycle_and_recap(self):
         headers = self.login()
         self.client.post("/admin/voyage-londres/api/inscriptions", json={"candidat_id": "c1"}, headers=headers)
