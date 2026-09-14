@@ -4589,5 +4589,8 @@ def voyage_londres_recap(iid):
 
 
 
+from gestionstagiaires_api import register_gestionstagiaires_api
+register_gestionstagiaires_api(app, db, UPLOAD_DIR)
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
