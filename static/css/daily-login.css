@@ -46,7 +46,7 @@ body.academy-ui.daily-login-page main#main-content.container{
 .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) label{color:var(--daily-ink)}
 .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:not([type=hidden]){color:var(--daily-ink);background:#fff;border-color:var(--daily-edge);box-shadow:none}
 .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:focus{outline:3px solid var(--daily-soft);outline-offset:2px;border-color:var(--daily-accent)}
-.academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary){background:var(--daily-accent)!important;color:#fff!important;border-color:var(--daily-accent);box-shadow:none}
+.academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary){background:var(--daily-accent)!important;color:#fff!important;border-color:var(--daily-accent)!important;box-shadow:none}
 .academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary):hover{filter:brightness(.91)}
 .academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary):focus-visible{outline:3px solid var(--daily-accent);outline-offset:4px}
 .academy-ui.daily-login-page :is(.access-forgot,.trainer-forgot,.access-help a,.trainer-login-help a){color:var(--daily-accent)}
