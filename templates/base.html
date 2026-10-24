@@ -42,6 +42,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/public-refinement.css') }}?v=4">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-refinement.css') }}?v=4">
   {% if is_student_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-access.css') }}?v=4">{% endif %}
+  {% if request.endpoint == 'candidate_login' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-login.css') }}?v=1">{% endif %}
 </head>
 
 {% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}

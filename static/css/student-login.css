@@ -1,0 +1,115 @@
+/* The student login borrows its illustration and sunny palette from the academy. */
+body.student-login-page {
+  background: radial-gradient(ellipse at 7% 70%, #f2d7bd 0, transparent 48%),
+              radial-gradient(ellipse at 98% 20%, #e8e0ef 0, transparent 44%), #f6f1e9;
+}
+.student-login-page #main-content.container { max-width: 1280px; margin: 38px auto; }
+.student-login-page .access-shell {
+  grid-template-columns: 1.04fr 1fr; border: 1px solid #e5d8c7;
+  border-radius: 30px; box-shadow: 0 22px 65px #6b422413; background: #fffdf8;
+}
+.student-login-page .access-story {
+  display: flex; flex-direction: column; padding: 38px 38px 26px;
+  background: linear-gradient(145deg, #f9dca0 0%, #f5c28f 53%, #ecab92 100%);
+  color: #382b32;
+}
+.student-login-page .access-story .access-kicker { color: #714735; font-size: 9px; }
+.academy-ui.student-login-page #main-content .access-story h1 {
+  color: #352b32; font-size: clamp(42px, 4.2vw, 57px);
+  line-height: 1.02; margin: 22px 0 17px; letter-spacing: -.055em;
+}
+.student-login-page .access-story h1 em { color: #88526f; font-weight: 400; }
+.student-login-page .access-story > p {
+  color: #674b42; font-size: 13px; line-height: 1.75; max-width: 360px; margin: 0 0 25px;
+}
+.student-login-illustration {
+  position: relative; flex: 1; min-height: 320px; margin: 0 -13px 25px;
+  border: 7px solid #fff7e8; border-bottom-width: 57px; border-radius: 21px;
+  background: #fff7e8; box-shadow: 0 17px 30px #94563724;
+  transform: rotate(-2deg); isolation: isolate;
+}
+.student-login-illustration img {
+  display: block; width: 100%; height: 100%; min-height: 0;
+  position: absolute; inset: 0; border-radius: 14px 14px 4px 4px;
+  object-fit: cover; object-position: 43% center;
+}
+.student-login-illustration figcaption {
+  position: absolute; bottom: -45px; left: 12px; right: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  color: #654936; font-size: 12px; font-weight: 650;
+}
+.student-login-illustration figcaption svg { width: 23px; height: 23px; color: #b5793f; }
+.student-login-illustration figcaption em {
+  color: #88526f; font-family: Georgia, serif; font-size: 17px; font-weight: 400;
+}
+.student-login-topics { display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; }
+.student-login-topics > span {
+  display: flex; align-items: center; gap: 6px; color: #674b42;
+  font-size: 9px; font-weight: 650; line-height: 1.5;
+}
+.student-login-topics svg { width: 15px; height: 15px; stroke-width: 1.6; }
+.student-login-page .access-form-panel { padding: 39px 46px 30px; background: #fffdf8; }
+.student-login-page .access-form-panel .access-kicker {
+  color: #90644a; display: flex; align-items: center; gap: 8px; font-size: 9px;
+}
+.student-login-page .access-form-panel .access-kicker::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%; background: #c98462;
+}
+.student-login-page .access-form-panel h2 { font-size: 33px; margin: 17px 0 14px; }
+.student-login-page .access-form-panel > p { color: #796d68; margin-bottom: 23px; }
+.student-login-page .access-form { gap: 17px; }
+.student-login-page .access-form label { color: #51404b; }
+.student-login-page .access-form input:not([type=hidden]) {
+  background: #fff; border-color: #ded3dc; min-height: 49px; border-radius: 12px;
+}
+.student-login-page .access-form input:focus { outline-color: #dbbedb66; border-color: #a1779d; }
+.student-login-page .access-submit {
+  background: #9b5947!important; box-shadow: 0 7px 17px #9b59472b; border-radius: 12px;
+}
+.student-login-page .access-submit:hover { background: #824635!important; }
+.student-login-page .access-submit:focus-visible { outline-color: #bc8c79; }
+.student-login-page .access-forgot { color: #81567c; font-size: 11px; }
+.student-login-page .access-first {
+  margin-top: 21px; background: #f1eaf4; border-color: #dfd1e4; border-left: 3px solid #b59abe;
+  padding: 16px 18px;
+}
+.student-login-page .access-first > b { color: #694c70; }
+.student-login-page .access-first p { color: #77637e; }
+.student-login-page .access-first small { color: #87738d; }
+.student-login-page .access-help {
+  margin-top: 23px; padding-top: 20px; flex-direction: row; align-items: center;
+  justify-content: space-between; flex-wrap: wrap; font-size: 11px; border-color: #eaded5;
+}
+.student-login-page .access-help a { color: #955a44; }
+.student-login-page .access-back { margin-top: 17px; color: #8a776e; }
+@media (max-width: 1050px) and (min-width: 761px) {
+  .student-login-page .access-story { padding: 34px 28px 25px; }
+  .student-login-page .access-form-panel { padding: 36px 30px 29px; }
+  .student-login-topics { gap: 10px; justify-content: center; }
+  .student-login-topics > span { font-size: 8px; }
+}
+@media (max-width: 760px) {
+  .student-login-page #main-content.container { margin: 24px auto; padding: 0 16px; }
+  .student-login-page .access-shell { grid-template-columns: 1fr; border-radius: 24px; }
+  .student-login-page .access-story { padding: 29px 29px 23px; }
+  .academy-ui.student-login-page #main-content .access-story h1 { font-size: 43px; margin: 17px 0 12px; }
+  .student-login-page .access-story h1 br { display: none; }
+  .student-login-page .access-story > p { font-size: 12px; max-width: 440px; margin-bottom: 25px; }
+  .student-login-illustration { flex: none; height: 220px; min-height: 0; margin: 0 0 23px; border-width: 5px; border-bottom-width: 48px; }
+  .student-login-illustration img { min-height: 0; object-position: 43% 44%; }
+  .student-login-illustration figcaption { bottom: -38px; font-size: 11px; }
+  .student-login-illustration figcaption em { font-size: 16px; }
+  .student-login-topics { justify-content: center; gap: 18px; }
+  .student-login-topics > span { font-size: 8px; }
+  .student-login-page .access-form-panel { padding: 30px 28px; }
+  .student-login-page .access-form input:not([type=hidden]) { font-size: 16px; }
+}
+@media (max-width: 420px) {
+  .student-login-page .access-story { padding: 26px 23px 22px; }
+  .academy-ui.student-login-page #main-content .access-story h1 { font-size: 39px; }
+  .student-login-illustration { height: 195px; }
+  .student-login-topics { gap: 10px; }
+  .student-login-topics svg { width: 13px; height: 13px; }
+  .student-login-page .access-form-panel { padding: 29px 24px; }
+  .student-login-page .access-form-panel h2 { font-size: 30px; }
+}

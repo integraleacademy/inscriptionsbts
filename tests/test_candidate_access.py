@@ -89,7 +89,7 @@ def test_login_has_only_surname_and_password_no_email_or_candidature(access):
     assert b'name="email"' not in response.data and b'name="date_naissance"' not in response.data
     assert b'candidature' not in response.data.lower()
     assert 'Espace étudiant'.encode() in response.data
-    assert b'16091993' in response.data
+    assert b'JJMMAAAA' in response.data
 
 
 def test_initial_dob_login_requires_password_setup_before_dossier(access):
