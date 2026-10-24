@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from admission_options import PROFILE_GROUPS
 from place_search import register_place_search
 from candidate_access import register_candidate_access
+from legacy_links import snapshot_legacy_links, verify_legacy_link
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
 from werkzeug.utils import secure_filename
@@ -60,6 +61,7 @@ def run_startup_integrity_checks():
         "admission_options.py",
         "place_search.py",
         "candidate_access.py",
+        "legacy_links.py",
         "templates/candidate_login.html",
         "templates/candidate_verify.html",
         "static/css/public-refinement.css",
@@ -2846,9 +2848,10 @@ def admin_status(cid):
 # ---------------- Confirmation ----------------
 
 def verify_token(query_token, query_sig):
-    if not query_token or not query_sig:
+    import hmac
+    if not query_token or len(query_token) > 512 or not re.fullmatch(r'[0-9a-f]{64}', query_sig or ''):
         return False
-    return sign_token(query_token) == query_sig
+    return hmac.compare_digest(sign_token(query_token), query_sig) or verify_legacy_link(db, query_token, query_sig)
 
 
 @app.route("/confirm-inscription", methods=["GET", "POST"])
@@ -3302,12 +3305,17 @@ def _candidate_photo_response(row):
     row = dict(row)
     directory = os.path.realpath(os.path.join(UPLOAD_DIR, row['id']))
     for stored in parse_list(row.get('fichiers_photo')):
+        if not isinstance(stored, str): continue
         path = os.path.realpath(stored)
+        # Older imports may retain a former disk prefix or only a filename.
+        # Resolve that same filename strictly inside this dossier's directory.
+        if os.path.commonpath([directory, path]) != directory or not os.path.isfile(path):
+            path = os.path.realpath(os.path.join(directory, os.path.basename(stored)))
         if os.path.commonpath([directory, path]) != directory or not os.path.isfile(path):
             continue
         try:
             with Image.open(path) as source:
-                if source.format not in ('JPEG', 'PNG'): continue
+                if source.format not in ('JPEG', 'PNG', 'WEBP', 'GIF', 'BMP', 'TIFF'): continue
                 photo = ImageOps.exif_transpose(source)
                 photo.thumbnail((600, 600))
                 out = BytesIO()
@@ -4343,6 +4351,7 @@ def ensure_campaign_schema():
 
 
 ensure_campaign_schema()
+snapshot_legacy_links(db)
 
 from gestionstagiaires_api import register_gestionstagiaires_api
 register_gestionstagiaires_api(app, db, UPLOAD_DIR)

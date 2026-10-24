@@ -437,3 +437,27 @@ def test_login_code_email_does_not_copy_administration(monkeypatch):
     assert sent[0]['to'] == [{'email': 'candidate@example.test'}]
     utils.send_mail('candidate@example.test', 'Dossier test', '<p>Test</p>')
     assert len(sent[1]['to']) == 2
+
+
+def test_existing_signed_links_survive_session_key_configuration(client, monkeypatch):
+    import hashlib, hmac
+    seed(2026, 'legacy-link')
+    token = 'old-candidate-confirmation-token-long-enough'
+    with application.db() as conn:
+        conn.execute('UPDATE candidats SET token_confirm=?,token_confirm_exp=? WHERE id=?', (token, '2099-01-01T00:00:00', 'legacy-link'))
+    application.snapshot_legacy_links(application.db)
+    old_signature = hmac.new(b'dev-secret', token.encode(), hashlib.sha256).hexdigest()
+    monkeypatch.setenv('SECRET_KEY', 'new-unique-test-session-key')
+    assert application.verify_token(token, old_signature)
+    assert not application.verify_token('new-token-not-in-snapshot-long-enough', old_signature)
+    assert not application.verify_token(token, 'é')
+
+
+def test_old_photo_prefix_is_resolved_inside_own_dossier(client, tmp_path):
+    from PIL import Image
+    seed(2026, 'old-photo')
+    folder = tmp_path / 'uploads' / 'old-photo'; folder.mkdir(parents=True)
+    Image.new('RGB', (30, 40), 'gold').save(folder / 'PhotoIdentite_old-photo.jpg')
+    with application.db() as conn:
+        conn.execute('UPDATE candidats SET fichiers_photo=? WHERE id=?', (json.dumps(['/former/disk/uploads/old-photo/PhotoIdentite_old-photo.jpg']), 'old-photo'))
+    assert client.get('/espace/old-photo/photo').status_code == 200
