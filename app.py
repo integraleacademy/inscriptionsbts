@@ -8,6 +8,8 @@ from candidate_access import register_candidate_access
 from candidate_messages import register_candidate_messages
 from candidate_documents import register_candidate_documents, document_preview_response
 from trainer_access import register_trainer_access
+from daily_login import register_daily_login
+from promotions import register_promotions, ensure_promotions_schema, get_candidate_promotion, list_promotions
 from legacy_links import snapshot_legacy_links, verify_legacy_link
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
@@ -74,6 +76,14 @@ def run_startup_integrity_checks():
         "templates/trainer_dashboard.html",
         "static/css/trainer-space.css",
         "static/js/trainer-space.js",
+        "daily_login.py",
+        "promotions.py",
+        "templates/promotions_admin.html",
+        "static/css/academy-neutral.css",
+        "static/css/daily-login.css",
+        "static/css/promotions.css",
+        "static/js/promotions.js",
+        "static/js/candidate-promotion.js",
         "templates/document_preview.html",
         "legacy_links.py",
         "templates/candidate_login.html",
@@ -91,6 +101,9 @@ def run_startup_integrity_checks():
         "static/logo-integrale.png",
         "static/academy-official-logo.png",
     ]
+    required_files.extend(f"static/admissions/daily/{role}-{day}.webp"
+                          for role in ("student", "trainer")
+                          for day in ("mon", "tue", "wed", "thu", "fri", "sat", "sun"))
     missing = [p for p in required_files if not os.path.exists(p)]
     if not os.path.exists(DATA_DIR):
         missing.append(DATA_DIR + "/ (répertoire)")
@@ -113,7 +126,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "promotions.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post)\(\s*['"]([^'"]+)['"]""")
@@ -946,6 +959,8 @@ register_place_search(app)
 register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
 register_candidate_messages(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event)
 register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
+register_daily_login(app)
+register_promotions(app, db, require_admin)
 register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
 
 
@@ -1547,11 +1562,14 @@ def admin_candidate_sheet(cid):
         return redirect(url_for("login", next=request.full_path))
     with closing(db()) as conn:
         row = get_candidat(conn, cid)
+        if row:
+            current_promotion = get_candidate_promotion(conn, cid)
+            available_promotions = list_promotions(conn, bts=row.get('bts'), rentree_annee=candidate_year(row), active_only=True)
     if not row: abort(404)
     year = candidate_year(row)
     columns = {"qualites": "projet_qualites", "motivation": "projet_motivation", "valeurs": "projet_recherche", "travail": "projet_travail"}
     profile_display = {g["name"]: [dict(g["options"]).get(v, v) for v in (parse_list(row.get(columns[g["name"]])) or [v.strip() for v in (row.get(columns[g["name"]]) or "").split(",") if v.strip()])] for g in PROFILE_GROUPS}
-    return render_template("candidate_sheet.html", candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year)
+    return render_template("candidate_sheet.html", current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year)
 
 
 @app.post("/admin/candidat/<cid>/informations")
@@ -1563,11 +1581,16 @@ def admin_candidate_information(cid):
     normalize_candidate_names(changes)
     if not changes: return jsonify(ok=False, error="Aucune modification à enregistrer."), 400
     with closing(db()) as conn:
+        ensure_promotions_schema(conn)
+        conn.execute('BEGIN IMMEDIATE')
         row = get_candidat(conn, cid)
         if not row: abort(404)
         merged = {**row, **changes}
         if merged.get("bts") not in BTS_LABELS or merged.get("mode") not in ("presentiel", "distanciel"):
             return jsonify(ok=False, error="Vérifiez la formation et son mode de suivi."), 400
+        placement = get_candidate_promotion(conn, cid)
+        if placement and merged.get('bts') != placement['bts']:
+            return jsonify(ok=False, error="Retirez d’abord la promotion de cet étudiant avant de changer son BTS, puis affectez-lui une promotion du nouveau BTS."), 409
         if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", merged.get("email") or "") or not re.fullmatch(r"0[1-9]\d{8}", merged.get("tel") or ""):
             return jsonify(ok=False, error="Vérifiez l’e-mail et le téléphone."), 400
         if {"num_secu", "date_naissance", "sexe"}.intersection(changes) and merged.get("num_secu") and merged["num_secu"] != "123456789123456":
@@ -1667,6 +1690,17 @@ def admin_update_field():
             value = str(value).strip()
 
         conn = db()
+        if field == 'bts':
+            value = value.upper()
+            if value not in BTS_LABELS:
+                conn.close()
+                return jsonify(ok=False, error="Choisissez un BTS valide."), 400
+            ensure_promotions_schema(conn)
+            conn.execute('BEGIN IMMEDIATE')
+            placement = get_candidate_promotion(conn, cid)
+            if placement and value != placement['bts']:
+                conn.close()
+                return jsonify(ok=False, error="Retirez d’abord la promotion de cet étudiant avant de changer son BTS."), 409
         cur = conn.cursor()
         cur.execute(f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
                     (value, datetime.now().isoformat(), cid))
@@ -1965,14 +1999,19 @@ def admin_print(cid):
 @app.route("/admin/delete/<cid>", methods=["POST"])
 def admin_delete(cid):
     if not require_admin(): abort(403)
-    conn = db(); cur = conn.cursor()
+    conn = db()
+    ensure_promotions_schema(conn)
+    cur = conn.cursor()
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
     row = cur.fetchone()
     if row:
         row = dict(row)
+        cur.execute("DELETE FROM student_promotions WHERE candidate_id=?", (cid,))
+        cur.execute("DELETE FROM student_promotion_history WHERE candidate_id=?", (cid,))
         cur.execute("DELETE FROM candidats WHERE id=?", (cid,))
         conn.commit()
         log_event(row, "FICHE_SUPPRIMEE", {})
+    conn.close()
     return jsonify({"ok":True})
 
 @app.route("/admin/export.csv")
@@ -3226,8 +3265,11 @@ def admin_clear_db():
         abort(403)
 
     conn = db()
+    ensure_promotions_schema(conn)
     cur = conn.cursor()
     # Supprimer tous les candidats et logs
+    cur.execute("DELETE FROM student_promotions")
+    cur.execute("DELETE FROM student_promotion_history")
     cur.execute("DELETE FROM candidats")
     cur.execute("DELETE FROM logs")
     conn.commit()

@@ -1,0 +1,431 @@
+/* Shared Academy palette. Daily login themes deliberately keep their own colors. */
+:root {
+  --academy-ink: #292c27;
+  --academy-muted: #66695e;
+  --academy-paper: #f2f0e9;
+  --academy-card: #fffefa;
+  --academy-line: #d8d8cc;
+  --academy-soft: #e9e9df;
+  --academy-olive: #535f3b;
+  --academy-olive-hover: #414b2e;
+  --academy-olive-soft: #e7ebde;
+  --academy-ochre: #846126;
+  --academy-ochre-soft: #f1e8d4;
+  --academy-gold: #ddc183;
+  --academy-success: #306344;
+  --academy-success-soft: #e6eee4;
+  --academy-danger: #9a3d32;
+  --academy-danger-soft: #f7e9e4;
+}
+body.academy-ui {
+  --ink: var(--academy-ink);
+  --navy: var(--academy-ink);
+  --blue: var(--academy-olive);
+  --muted: var(--academy-muted);
+  --line: var(--academy-line);
+  --paper: var(--academy-paper);
+  --gold: var(--academy-gold);
+  --trainer-ink: var(--academy-ink);
+  --trainer-muted: var(--academy-muted);
+  --trainer-purple: var(--academy-olive);
+  --trainer-line: var(--academy-line);
+}
+body.academy-ui:not(.waiting-page):not(.daily-login-page) {
+  color: var(--academy-ink);
+  background: var(--academy-paper);
+}
+.academy-ui :focus-visible { outline-color: var(--academy-ochre); }
+
+/* One sidebar offset for every admin route, including older admin templates.
+   These important declarations replace existing important shell rules. */
+body.academy-ui.workspace-page,
+body.academy-ui.workspace-page.sidebar-collapsed {
+  --academy-sidebar-width: 240px;
+  --sheet-sidebar-width: var(--academy-sidebar-width);
+  --trainer-sidebar-width: var(--academy-sidebar-width);
+  --academy-workspace-gutter: clamp(22px, 2.6vw, 42px);
+  padding-left: 0 !important;
+  min-width: 0;
+}
+body.academy-ui.workspace-page.sidebar-collapsed { --academy-sidebar-width: 78px; }
+body.academy-ui.workspace-page .workspace-sidebar {
+  width: var(--academy-sidebar-width);
+  box-sizing: border-box;
+  background: #292d27;
+  color: #dddcd0;
+}
+body.academy-ui.workspace-page .workspace-topbar {
+  margin: 0 0 0 var(--academy-sidebar-width) !important;
+  width: calc(100% - var(--academy-sidebar-width));
+  max-width: none;
+  box-sizing: border-box;
+  padding-inline: var(--academy-workspace-gutter);
+  color: var(--academy-muted);
+  background: var(--academy-card);
+  border-color: var(--academy-line);
+}
+body.academy-ui.workspace-page main.admin-full#main-content {
+  margin: 0 0 0 var(--academy-sidebar-width) !important;
+  width: calc(100% - var(--academy-sidebar-width)) !important;
+  max-width: none !important;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 30px var(--academy-workspace-gutter) 45px !important;
+}
+body.academy-ui.workspace-page .footer-signature {
+  margin: 0 0 0 var(--academy-sidebar-width);
+  width: calc(100% - var(--academy-sidebar-width));
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 24px var(--academy-workspace-gutter);
+  color: var(--academy-muted);
+}
+.academy-ui.workspace-page .workspace-title,
+.academy-ui.workspace-page .workspace-topbar > a { color: var(--academy-ink); }
+.academy-ui.workspace-page .menu-toggle {
+  background: var(--academy-soft);
+  border-color: var(--academy-line);
+  color: var(--academy-ink);
+}
+.academy-ui.workspace-page .nav-caption { color: #b8bca8; }
+.academy-ui.workspace-page .workspace-sidebar nav a,
+.academy-ui.workspace-page .sidebar-bottom a { color: #dedfd2; }
+.academy-ui.workspace-page .workspace-sidebar nav a:is(:hover, .active) {
+  background: #ffffff0d;
+  color: #fffdf5;
+}
+.academy-ui.workspace-page .workspace-sidebar nav a.active { box-shadow: inset 3px 0 var(--academy-gold); }
+.academy-ui.workspace-page .sidebar-bottom small { color: #b4bba5; }
+.academy-ui.workspace-page .sidebar-bottom p { color: var(--academy-gold); }
+.academy-ui.workspace-page .sidebar-scrim { background: #22261db3; }
+.academy-ui.workspace-page .sidebar-scrim[hidden] { display: none !important; }
+
+@media (min-width: 961px) and (max-width: 1150px) {
+  body.academy-ui.workspace-page { --academy-sidebar-width: 210px; }
+  body.academy-ui.workspace-page.sidebar-collapsed { --academy-sidebar-width: 78px; }
+}
+@media (min-width: 961px) {
+  .academy-ui.workspace-page .sidebar-scrim { display: none; }
+}
+@media (max-width: 960px) {
+  body.academy-ui.workspace-page,
+  body.academy-ui.workspace-page.sidebar-collapsed {
+    --academy-sidebar-width: 0px;
+    --academy-workspace-gutter: 22px;
+  }
+  body.academy-ui.workspace-page .workspace-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 101;
+    height: 66px;
+    padding: 0 var(--academy-workspace-gutter) !important;
+  }
+  body.academy-ui.workspace-page .workspace-sidebar {
+    width: 240px;
+    top: 66px;
+    z-index: 100;
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition: transform .2s ease, visibility .2s ease;
+  }
+  body.academy-ui.workspace-page.sidebar-open .workspace-sidebar {
+    transform: translateX(0);
+    visibility: visible;
+  }
+  .academy-ui.workspace-page .sidebar-scrim { top: 66px; height: calc(100% - 66px); }
+}
+@media (max-width: 580px) {
+  body.academy-ui.workspace-page,
+  body.academy-ui.workspace-page.sidebar-collapsed { --academy-workspace-gutter: 16px; }
+  body.academy-ui.workspace-page main.admin-full#main-content { padding-top: 23px !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  body.academy-ui.workspace-page .workspace-sidebar { transition: none; }
+}
+
+/* Shared admin controls: narrow important overrides for legacy button colors. */
+.academy-ui.workspace-page .btn,
+.academy-ui:not(.daily-login-page) .trainer-button {
+  background: var(--academy-card) !important;
+  border-color: var(--academy-line) !important;
+  color: var(--academy-ink) !important;
+}
+.academy-ui.workspace-page .btn:hover,
+.academy-ui:not(.daily-login-page) .trainer-button:hover {
+  background: var(--academy-soft) !important;
+  color: var(--academy-ink) !important;
+}
+.academy-ui.workspace-page .btn.primary,
+.academy-ui:not(.daily-login-page) .trainer-button.primary {
+  background: var(--academy-olive) !important;
+  border-color: var(--academy-olive) !important;
+  color: #fff !important;
+}
+.academy-ui.workspace-page .btn.primary:hover,
+.academy-ui:not(.daily-login-page) .trainer-button.primary:hover {
+  background: var(--academy-olive-hover) !important;
+  border-color: var(--academy-olive-hover) !important;
+  color: #fff !important;
+}
+.academy-ui.workspace-page .btn.danger {
+  color: var(--academy-danger) !important;
+  background: var(--academy-danger-soft) !important;
+  border-color: #d9afa2 !important;
+}
+.academy-ui.workspace-page .management-dialog .btn.danger {
+  background: var(--academy-danger) !important;
+  color: #fff !important;
+  border-color: var(--academy-danger) !important;
+}
+.academy-ui.workspace-page :is(input, select, textarea) {
+  color: var(--academy-ink);
+  border-color: var(--academy-line);
+  accent-color: var(--academy-olive);
+}
+.academy-ui.workspace-page :is(input, select, textarea):focus {
+  border-color: var(--academy-olive);
+}
+.academy-ui.workspace-page .admin-header .eyebrow { color: var(--academy-muted) !important; }
+.academy-ui.workspace-page :is(.directory-heading h1, .directory-empty h2, .kpi-value, .modal h3) { color: var(--academy-ink); }
+.academy-ui.workspace-page :is(.directory-heading p, .directory-heading .eyebrow, .directory-empty p, .kpi-label, .main-filters label, .directory-results, .directory-more-filters, .advanced-filters summary) { color: var(--academy-muted); }
+.academy-ui.workspace-page :is(.directory-campaign, .campaign-banner) {
+  background: linear-gradient(110deg, #e6e8dd, #f1ecdf);
+  color: var(--academy-ink);
+  border-color: var(--academy-line);
+}
+.academy-ui.workspace-page :is(.directory-campaign span, .campaign-banner b, .directory-results > span:first-child) { color: var(--academy-olive); }
+.academy-ui.workspace-page :is(.directory-metrics > a, .directory-filters, .directory-table-wrap, .kpi-card, .filter-bar, .table-container, .menu-panel, .modal-content) {
+  background: var(--academy-card);
+  border-color: var(--academy-line);
+}
+.academy-ui.workspace-page :is(.directory-metrics > a:hover, .kpi-card:hover) { border-color: #969e84; }
+.academy-ui.workspace-page .directory-metrics strong { color: var(--academy-ink); }
+.academy-ui.workspace-page .directory-metrics span { color: var(--academy-muted); }
+.academy-ui.workspace-page .directory-metrics > a::before { background: var(--academy-olive); }
+.academy-ui.workspace-page .directory-metrics :is(.metric-confirmee, .metric-reconfirmee)::before { background: var(--academy-success); }
+.academy-ui.workspace-page .directory-metrics :is(.metric-annulee, .metric-docs_non_conformes)::before { background: var(--academy-danger); }
+.academy-ui.workspace-page :is(.kpi-icon, .main-filters input, .main-filters select, .directory-more-filters select) { background: var(--academy-soft); }
+.academy-ui.workspace-page :is(.directory-table th, .admin-table th) {
+  background: #eceee5;
+  color: var(--academy-muted);
+}
+.academy-ui.workspace-page :is(.directory-table td, .candidate-link, .directory-table td > b, .admin-table td[data-field=nom]) { color: var(--academy-ink); }
+.academy-ui.workspace-page :is(.candidate-link small, .directory-table td > small, .directory-empty > svg) { color: var(--academy-muted); }
+.academy-ui.workspace-page :is(.directory-table tbody tr:hover, .admin-table tr:hover, .admin-table tr:hover td) { background: #f0f2e9; }
+.academy-ui.workspace-page .directory-table .candidate-avatar { color: var(--academy-olive); background: #e1e5d6; }
+.academy-ui.workspace-page .directory-table tr:nth-child(3n + 2) .candidate-avatar { color: #6a552f; background: #eae2ce; }
+.academy-ui.workspace-page .directory-table tr:nth-child(3n + 3) .candidate-avatar { color: #555a4e; background: #e3e5df; }
+.academy-ui.workspace-page :is(.dossier-tags > span, .open-sheet, .row-labels summary, .row-tools summary) { color: var(--academy-muted); border-color: var(--academy-line); }
+.academy-ui.workspace-page :is(.dossier-tags .new-document, .status-reconf_en_cours, .sheet-status-badge.status-reconf_en_cours) { color: #7a581d; background: var(--academy-ochre-soft); }
+.academy-ui.workspace-page :is(.dossier-status, .sheet-status-badge, .file-state-badge) { background: var(--academy-soft); color: #59614c; }
+.academy-ui.workspace-page :is(.status-validee, .status-confirmee, .status-reconfirmee, .status-rentree, .file-state-badge.conforme),
+.academy-ui.workspace-page .sheet-status-badge:is(.status-validee, .status-confirmee, .status-reconfirmee, .status-rentree) {
+  color: var(--academy-success);
+  background: var(--academy-success-soft);
+}
+.academy-ui.workspace-page :is(.status-annulee, .status-docs_non_conformes, .file-state-badge.non_conforme),
+.academy-ui.workspace-page .sheet-status-badge:is(.status-annulee, .status-docs_non_conformes) {
+  color: var(--academy-danger);
+  background: var(--academy-danger-soft);
+}
+.academy-ui.workspace-page :is(.directory-tools > div, .sheet-actions-menu > div) { border-color: var(--academy-line); box-shadow: 0 15px 40px #292c271c; }
+.academy-ui.workspace-page :is(.directory-tools button, .directory-tools > div a, .sheet-actions-menu button, .sheet-actions-menu > div a, .directory-tools .live-refresh) { color: var(--academy-ink); }
+.academy-ui.workspace-page :is(.directory-tools button:hover, .directory-tools > div a:hover, .sheet-actions-menu button:hover, .sheet-actions-menu > div a:hover, .open-sheet:hover) { background: var(--academy-soft); }
+.academy-ui.workspace-page :is(.management-dialog, .management-dialog input, .management-dialog select, .management-dialog textarea) { color: var(--academy-ink); border-color: var(--academy-line); }
+.academy-ui.workspace-page :is(.management-dialog input, .management-dialog select, .management-dialog textarea) { background: var(--academy-card); }
+.academy-ui.workspace-page .management-dialog h2 { color: var(--academy-ink); }
+.academy-ui.workspace-page .management-dialog #management-dialog-body { color: var(--academy-muted); }
+.academy-ui.workspace-page .management-dialog::backdrop { background: #22261da8; }
+.academy-ui.workspace-page .management-toast { background: var(--academy-olive); }
+.academy-ui.workspace-page .management-toast.error { background: var(--academy-danger); }
+
+/* Candidate sheets: neutral surfaces, restrained course accents, clear status. */
+.academy-ui.candidate-sheet-page .sheet-header {
+  background: linear-gradient(115deg, #fffefa 55%, #eeeee3);
+  border-color: var(--academy-line);
+}
+.academy-ui.candidate-sheet-page .sheet-header::before { background: linear-gradient(90deg, #535f3b 0 35%, #b79650 35% 65%, #777e6a 65%); }
+.academy-ui.candidate-sheet-page :is(.sheet-identity h1, .sheet-card h2, .sheet-section-heading h2, .sheet-card h3) { color: var(--academy-ink); }
+.academy-ui.candidate-sheet-page :is(.sheet-identity .eyebrow, .sheet-contact-line a, .sheet-back, .sheet-overview span, .sheet-field > span, .sheet-section-heading p, .sheet-card > p, .status-helper, .sheet-key-dates dt, .sheet-facts dt, .candidate-history time, .candidate-history p, .communication-grid span) { color: var(--academy-muted); }
+.academy-ui.candidate-sheet-page :is(.sheet-contact-line svg, .sheet-overview svg, .sheet-overview > div:nth-child(2) svg, .sheet-overview > div:nth-child(3) svg) { color: var(--academy-olive); }
+.academy-ui :is(.sheet-course-badge, .trainer-group-tag) {
+  background: var(--academy-soft);
+  color: #505946;
+  border-color: var(--academy-line);
+}
+.academy-ui :is(.sheet-course-badge.tone-mos, .trainer-group-tag.group-mos, .sheet-course-badge.tone-ci, .trainer-group-tag.group-ci) { background: #e5e9dc; color: #4d5d37; border-color: #d2d9c5; }
+.academy-ui :is(.sheet-course-badge.tone-mco, .trainer-group-tag.group-mco, .sheet-course-badge.tone-pi, .trainer-group-tag.group-pi) { background: #eee5d1; color: #755a29; border-color: #e0d3b5; }
+.academy-ui :is(.sheet-course-badge.tone-ndrc, .trainer-group-tag.group-ndrc, .sheet-course-badge.tone-cg, .trainer-group-tag.group-cg) { background: #e5e6df; color: #545b4c; border-color: #d3d6ca; }
+.academy-ui.candidate-sheet-page .sheet-overview > div,
+.academy-ui.candidate-sheet-page .sheet-overview > div:nth-child(3) { background: #ebede3; border-color: #e0e3d7; }
+.academy-ui.candidate-sheet-page :is(.sheet-overview b, .sheet-key-dates dd, .sheet-facts dd, .candidate-answer, .sheet-document b, .sheet-document a) { color: var(--academy-ink); }
+.academy-ui.candidate-sheet-page :is(.sheet-tabs, .sheet-card) { background: var(--academy-card); border-color: var(--academy-line); }
+.academy-ui.candidate-sheet-page .sheet-tabs button { color: var(--academy-muted); }
+.academy-ui.candidate-sheet-page .sheet-tabs button:is(.active, :hover) { background: var(--academy-olive-soft); color: var(--academy-olive); }
+.academy-ui.candidate-sheet-page .sheet-tabs button.active::after { background: var(--academy-olive); }
+.academy-ui.candidate-sheet-page .sheet-card h3 > svg,
+.academy-ui.candidate-sheet-page .sheet-card:nth-child(2n) h3 > svg { background: var(--academy-soft); color: var(--academy-olive); }
+.academy-ui.candidate-sheet-page .sheet-field :is(input, select, textarea) { color: var(--academy-ink); border-color: var(--academy-line); background: #fbfcf7; }
+.academy-ui.candidate-sheet-page .sheet-field :is(input, select):disabled { color: var(--academy-ink); border-color: transparent; background: transparent; }
+.academy-ui.candidate-sheet-page .sheet-card.status-card { background: linear-gradient(140deg, #e3e9d8, #f1f3ea); border-color: #cbd4bd; }
+.academy-ui.candidate-sheet-page .sheet-card-kicker { color: #60704c !important; }
+.academy-ui.candidate-sheet-page .sheet-card-icon { background: #dbe3ce; color: #4f6338; }
+.academy-ui.candidate-sheet-page .note-card { background: #faf5e8; border-color: #dfd1b1; }
+.academy-ui.candidate-sheet-page .note-card .sheet-card-icon { background: #ecdfbf; color: #7f6028; }
+.academy-ui.candidate-sheet-page .sheet-key-dates { background: #f0f0e7; border-color: var(--academy-line); }
+.academy-ui.candidate-sheet-page .profile-pills span { color: #54623f; background: var(--academy-olive-soft); border-color: #d4dac9; }
+.academy-ui.candidate-sheet-page .communication-grid button,
+.academy-ui.candidate-sheet-page .communication-grid button:nth-child(3n) { color: #53613e; background: var(--academy-olive-soft); border-color: #d1dac6; }
+.academy-ui.candidate-sheet-page .communication-grid button:nth-child(2n) { color: #775c2d; background: var(--academy-ochre-soft); border-color: #dfd3b8; }
+.academy-ui.candidate-sheet-page .communication-grid button:hover { border-color: currentColor; }
+.academy-ui.candidate-sheet-page :is(.certificate-grid article, .sheet-document) { border-color: var(--academy-line); background: #f7f8f2; }
+
+/* Message composition keeps channel differences without lilac panels. */
+.academy-ui .sheet-compose-choices > button,
+.academy-ui .sheet-compose-choices > button:nth-child(2) { color: var(--academy-olive); background: var(--academy-olive-soft); border-color: #cfd7bf; }
+.academy-ui .sheet-compose-choices > button:nth-child(2) { background: var(--academy-ochre-soft); color: #775c2d; border-color: #dfd3b8; }
+.academy-ui .sheet-compose-choices > button > span,
+.academy-ui .sheet-compose-choices > button:nth-child(2) > span { background: #ffffff80; }
+.academy-ui .sheet-compose-choices > button small,
+.academy-ui .sheet-compose-choices > button:nth-child(2) small { color: var(--academy-muted); }
+.academy-ui .student-composer { color: var(--academy-ink); border-color: var(--academy-line); box-shadow: 0 35px 110px #252b2555; }
+.academy-ui .student-composer::backdrop { background: #252b2599; }
+.academy-ui .student-composer-head { background: linear-gradient(105deg, #e6ebdd, #fbfcf8); }
+.academy-ui .student-composer[data-channel=sms] .student-composer-head { background: linear-gradient(105deg, #eee4cb, #fbf9f2); }
+.academy-ui .student-composer[data-channel=sms] .composer-heading-icon { background: #e8d9b8; color: #765925; }
+.academy-ui .student-composer :is(.student-composer-head p, .student-composer-head small, .composer-field > span, .composer-field > span > small, .composer-field > small, .composer-attachments > small, .composer-preview-head h3, .composer-preview-head > span, .composer-preview-envelope span, .composer-preview-envelope b, .composer-preview-files, .student-composer-footer > p) { color: var(--academy-muted); }
+.academy-ui .student-composer #student-message-preview-empty :is(h3, p) { color: var(--academy-muted); }
+.academy-ui .student-composer .composer-channel-switch > button { color: var(--academy-muted); }
+
+/* Student space: readable neutral cards, with green/red progress semantics. */
+.academy-ui.candidate-portal-page :is(.candidate-heading h1, .portal-section-title h2, .candidate-details dd, .candidate-journey h2, .portal-return h2, .portal-account h2) { color: var(--academy-ink); }
+.academy-ui.candidate-portal-page :is(.portal-topline, .candidate-heading p:last-child, .candidate-heading .eyebrow, .portal-section-title .eyebrow, .portal-course > span, .portal-course > p, .candidate-details dt, .candidate-details > p:last-child, .candidate-journey .eyebrow, .portal-progress-summary > span, .candidate-journey li p, .portal-return p, .portal-account .eyebrow, .portal-account p:not(.eyebrow), .portal-recovery, .admission-help p, .admission-help .eyebrow, .footer-signature) { color: var(--academy-muted); }
+.academy-ui.candidate-portal-page :is(.candidate-details, .candidate-journey, .portal-account) { background: var(--academy-card); border-color: var(--academy-line); }
+.academy-ui.candidate-portal-page .candidate-message { background: #e6e9de; border-color: #d3d9c5; }
+.academy-ui.candidate-portal-page .candidate-message .portal-section-icon { background: #d8dfca; color: #55643e; }
+.academy-ui.candidate-portal-page :is(.candidate-message .eyebrow, .candidate-message > div > p:last-child) { color: #566247; }
+.academy-ui.candidate-portal-page .candidate-journey li > span { color: #70745e; border-color: #d3d7c7; }
+.academy-ui.candidate-portal-page .candidate-journey li.complete > span { color: var(--academy-success); background: var(--academy-success-soft); border-color: #c9d8c4; }
+.academy-ui.candidate-portal-page .candidate-journey li > small { color: var(--academy-success); }
+.academy-ui.candidate-portal-page .portal-account-actions .button { background: var(--academy-olive); border-color: var(--academy-olive); color: #fff; }
+.academy-ui.candidate-portal-page .portal-account-actions .portal-logout { background: transparent; color: var(--academy-olive); border-color: #aeb89a; }
+
+/* Trainer directory, assignment editor and roster. Authentication is separate. */
+.academy-ui:not(.daily-login-page) :is(.trainer-admin-heading h1, .trainer-directory-toolbar h2, .trainer-person b, .trainer-empty h3, .trainer-dialog h2, .trainer-assignments-head h3, .trainer-dashboard-heading h1, .trainer-roster-heading h2, .trainer-dashboard-help h2) { color: var(--academy-ink); }
+.academy-ui:not(.daily-login-page) :is(.trainer-kicker, .trainer-admin-heading p:not(.trainer-kicker), .trainer-admin-stats p, .trainer-directory-toolbar p, .trainer-person small, .trainer-no-groups, .trainer-invited, .trainer-empty, .trainer-empty p, .trainer-account-form label, .trainer-assignments-head p, .trainer-assignment-row label, .trainer-assignment-help, .trainer-dialog > footer > span, .trainer-dashboard-topline > span, .trainer-dashboard-heading p:not(.trainer-kicker), .trainer-roster-heading p:not(.trainer-kicker), .trainer-roster-filters label, .trainer-study-mode, .trainer-student-contact a, .trainer-student-contact svg, .trainer-student-contact small, .trainer-dashboard-help p) { color: var(--academy-muted); }
+.academy-ui .trainer-admin-stats article { background: #e7ebdd; border-color: #d1dac1; }
+.academy-ui .trainer-admin-stats article > span { background: #d9e1ca; color: #54623d; }
+.academy-ui .trainer-admin-stats b { color: var(--academy-olive); }
+.academy-ui :is(.trainer-directory-card, .trainer-roster-card, .trainer-dialog) { background: var(--academy-card); border-color: var(--academy-line); box-shadow: 0 7px 25px #292c2709; }
+/* Earlier trainer form rules use important; override only those three colors. */
+.academy-ui :is(.trainer-search input, .trainer-account-form input, .trainer-account-form select) { color: var(--academy-ink) !important; background: var(--academy-card) !important; border-color: var(--academy-line) !important; }
+.academy-ui .trainer-table th { background: #eef0e7; color: var(--academy-muted); }
+.academy-ui .trainer-table td { color: #555e49; }
+.academy-ui .trainer-table tbody tr:hover { background: #f0f3e9; }
+.academy-ui :is(.trainer-avatar, .trainer-dashboard-avatar) { background: #e1e6d6; color: #54613e; }
+.academy-ui .trainer-account-state { color: var(--academy-success); background: var(--academy-success-soft); }
+.academy-ui .trainer-account-state.disabled { color: var(--academy-danger); background: var(--academy-danger-soft); }
+.academy-ui .trainer-dialog { color: var(--academy-ink); box-shadow: 0 30px 100px #252b2555; }
+.academy-ui .trainer-dialog::backdrop { background: #252b2599; }
+.academy-ui .trainer-dialog > header { background: #ecefe4; }
+.academy-ui .trainer-dialog-icon { background: #dce4cd; color: #566440; }
+.academy-ui .trainer-dialog-close { border-color: var(--academy-line); color: var(--academy-muted); }
+.academy-ui .trainer-assignment-row { border-color: var(--academy-line); background: #f1f3eb; }
+.academy-ui .trainer-assignment-remove { border-color: #c7cdbd; color: var(--academy-muted); }
+.academy-ui #trainer-assignment-list:empty::before { border-color: var(--academy-line); background: #f6f7f0; color: var(--academy-muted); }
+.academy-ui .trainer-students-count { background: linear-gradient(140deg, #30382a, #4f5c3d); border-color: #4b573b; color: #e1e6d5; }
+.academy-ui .trainer-students-count > span { color: #e1cd9a; border-color: #d3c49340; background: #e1cd9a0d; }
+.academy-ui .trainer-students-count > b,
+.academy-ui .trainer-students-count h2 { color: #fffaf0; }
+.academy-ui .trainer-students-count p { color: #d6ddc7; }
+.academy-ui :is(.trainer-roster-scope, .trainer-roster-filters, .trainer-dashboard-help) { color: var(--academy-muted); background: #e8ecdf; border-color: #d6ddc9; }
+.academy-ui .trainer-roster-filters :is(input, select) { color: var(--academy-ink); background: var(--academy-card); border-color: var(--academy-line); }
+.academy-ui .trainer-dashboard-help > span { background: #dce4cd; color: #54643d; }
+.academy-ui .trainer-confirmed { color: var(--academy-success); background: var(--academy-success-soft); }
+.academy-ui .trainer-feedback.error { color: var(--academy-danger); background: var(--academy-danger-soft); border-color: #e0bbb0; }
+.academy-ui .trainer-feedback.success { color: var(--academy-success); background: var(--academy-success-soft); border-color: #c7d7be; }
+@media (max-width: 760px) {
+  .academy-ui .trainer-table tbody tr { background: var(--academy-card); border-color: var(--academy-line); }
+  .academy-ui .trainer-table td::before { color: var(--academy-muted); }
+}
+
+/* Password / recovery screens share the same neutral Academy language.
+   Daily-themed login pages are excluded so their palette can change as a unit. */
+.academy-ui:not(.daily-login-page) :is(.access-shell, .access-compact, .trainer-login-shell, .trainer-auth-card) {
+  background: var(--academy-card);
+  border-color: var(--academy-line);
+  box-shadow: 0 22px 65px #292c2710;
+}
+.academy-ui:not(.daily-login-page) :is(.access-form-panel, .trainer-login-form) { background: var(--academy-card); }
+.academy-ui:not(.daily-login-page) .trainer-login-story { background: linear-gradient(145deg, #e3e8d6, #d8dfc7 58%, #e9dfc4); }
+.academy-ui:not(.daily-login-page) :is(.trainer-login-story h1, .trainer-login-form h2, .trainer-auth-card h1, .access-compact h1, .access-form-panel h2) { color: var(--academy-ink); }
+.academy-ui:not(.daily-login-page) :is(.trainer-login-story h1 em, .trainer-auth-card h1 em, .access-compact h1 em) { color: var(--academy-ochre); }
+.academy-ui:not(.daily-login-page) :is(.trainer-login-story > p:not(.trainer-kicker), .trainer-story-tags span, .trainer-auth-form label, .trainer-auth-form label > small, .trainer-forgot, .trainer-back, .trainer-auth-card > p:not(.trainer-kicker), .access-form-panel > p, .access-compact > p, .access-form small, .access-back, .access-help small) { color: var(--academy-muted); }
+.academy-ui:not(.daily-login-page) :is(.trainer-auth-form input, .access-form input:not([type=hidden])) { background: var(--academy-card); color: var(--academy-ink); border-color: var(--academy-line); }
+.academy-ui:not(.daily-login-page) :is(.trainer-auth-form input:focus, .access-form input:focus) { border-color: var(--academy-olive); }
+.academy-ui:not(.daily-login-page) :is(.access-submit, .access-submit:hover) { background: var(--academy-olive); color: #fff; box-shadow: 0 7px 17px #414b2e20; }
+.academy-ui:not(.daily-login-page) :is(.trainer-auth-symbol, .access-first) { background: var(--academy-olive-soft); color: var(--academy-olive); border-color: #d0d8c1; }
+.academy-ui:not(.daily-login-page) :is(.access-first > b, .access-first p, .access-first small, .access-forgot) { color: #53613e; }
+
+/* Public application: remove remaining old blue/purple course and search accents. */
+.academy-ui.application-page .training-choice:nth-child(n) .training-icon { color: #56673e; background: #e2e7d5; }
+.academy-ui.application-page .training-choice:nth-child(2n) .training-icon { color: #7d6030; background: #eee3ca; }
+.academy-ui.application-page :is(.place-suggestions, .place-suggestions > [role=option]) { color: var(--academy-ink); border-color: #bdc6ac; }
+.academy-ui.application-page .place-suggestions { box-shadow: 0 14px 30px #292c2724; }
+.academy-ui.application-page .place-suggestions > :is([role=option]:hover, [aria-selected=true]) { background: var(--academy-olive-soft); }
+.academy-ui.application-page :is(.field input::placeholder, .field textarea::placeholder) { color: #7f8274; }
+.academy-ui.application-page :is(.file-state, .photo-guide p, .photo-guide b) { color: var(--academy-olive); }
+
+/* Legacy team login: retain its layout, remove the remaining cool blue copy. */
+.academy-ui.login-page:not(.daily-login-page) .login-intro {
+  background: #292d27;
+  color: #d5d9c9;
+}
+.academy-ui.login-page:not(.daily-login-page) .login-intro .eyebrow,
+.academy-ui.login-page:not(.daily-login-page) .login-intro > span { color: #b7bda7; }
+.academy-ui.login-page:not(.daily-login-page) .login-intro h1 { color: #fffaf0; }
+.academy-ui.login-page:not(.daily-login-page) .login-intro h1 em { color: var(--academy-gold); }
+.academy-ui.login-page:not(.daily-login-page) .field input { color: var(--academy-ink); border-color: var(--academy-line); background: var(--academy-card); }
+.academy-ui.login-page:not(.daily-login-page) .field input:focus { border-color: var(--academy-olive); box-shadow: 0 0 0 3px #535f3b20; }
+.academy-ui.login-page:not(.daily-login-page) .field input::placeholder { color: #7f8274; }
+.academy-ui.login-page:not(.daily-login-page) .text-link { color: var(--academy-olive); }
+
+/* The London module loads its CSS in the body: scope these overrides to the
+   module so they also win when that stylesheet comes after this file. */
+.academy-ui.voyage-londres-page .vl { color: var(--academy-ink); }
+.academy-ui.voyage-londres-page .vl-head {
+  background: linear-gradient(130deg, #292f25, #4d593a 70%, #6b7550);
+  box-shadow: 0 18px 45px #292f2526;
+  color: #fffaf0;
+}
+.academy-ui.voyage-londres-page .vl-head h1 { color: #fffaf0; }
+.academy-ui.voyage-londres-page .vl-head p { color: #dce1ce; }
+.academy-ui.voyage-londres-page .vl-back { color: #f6e8c8; }
+.academy-ui.voyage-londres-page :is(.vl-search, .search-results, .kpi, .table-card, .modal-card) { background: var(--academy-card); border-color: var(--academy-line); }
+.academy-ui.voyage-londres-page :is(.vl-search, .search-results, .table-card) { box-shadow: 0 7px 24px #292c2714; }
+.academy-ui.voyage-londres-page :is(.primary-btn, .small-btn) { background: var(--academy-olive); color: #fff; }
+.academy-ui.voyage-londres-page .small-btn.danger { background: var(--academy-danger); }
+.academy-ui.voyage-londres-page .small-btn.muted { background: #5b6251; }
+.academy-ui.voyage-londres-page .link-btn { color: var(--academy-olive); }
+.academy-ui.voyage-londres-page .kpi:is(:hover, .active) { border-color: #7d8a63; box-shadow: 0 8px 20px #535f3b1c; }
+.academy-ui.voyage-londres-page .kpi.active { background: var(--academy-olive-soft); }
+.academy-ui.voyage-londres-page .kpi strong { color: var(--academy-ink); }
+.academy-ui.voyage-londres-page :is(.kpi span, .search-person small, .doc-row small, .empty) { color: var(--academy-muted); }
+.academy-ui.voyage-londres-page .vl th { background: #eceee5; color: #59614d; }
+.academy-ui.voyage-londres-page :is(.table-tools select, .modal-card input, .modal-card select) { border-color: var(--academy-line); color: var(--academy-ink); }
+.academy-ui.voyage-londres-page .vl-modal { background: #22261daa; }
+.academy-ui.voyage-londres-page #toast { background: var(--academy-ink); }
+.academy-ui.voyage-londres-page #toast.error { background: var(--academy-danger); }
+/* Formality status colors are intentionally retained by the module. */
+
+/* Two older templates encode brand colors inline; keep these exceptions narrow. */
+.academy-ui.parcoursup-page .admin-wrapper > details {
+  background: var(--academy-card) !important;
+  border-color: var(--academy-line) !important;
+}
+.academy-ui.parcoursup-page .admin-wrapper > details > summary { color: var(--academy-olive) !important; }
+.academy-ui.workspace-page #main-content a[href*="/reprendre/"] {
+  background: var(--academy-olive) !important;
+  color: #fff !important;
+}

@@ -15,7 +15,7 @@
     function updateActionButtons() {
       $('trainer-send-access').disabled = busy || dirty || !current?.active;
       $('trainer-toggle-status').disabled = busy || dirty;
-      $('trainer-account-save-note').textContent = dirty && current ? 'Enregistrez vos modifications avant d’utiliser les actions du compte.' : 'Les accès restent limités aux groupes sélectionnés.';
+      $('trainer-account-save-note').textContent = dirty && current ? 'Enregistrez vos modifications avant d’utiliser les actions du compte.' : 'Les accès restent limités aux promotions sélectionnées.';
     }
     function setDirty() { dirty = true; confirmation.hidden = true; confirmedAction = null; updateActionButtons(); }
     function setBusy(value) {
@@ -24,25 +24,31 @@
       dialog.querySelectorAll('button,input,select').forEach(item => { item.disabled = value; });
       updateActionButtons();
     }
+    function promotionLabel(promotion) {
+      const level = promotion.niveau ? (Number(promotion.niveau) === 1 ? '1re année' : '2e année') : 'Niveau à compléter';
+      return promotion.nom + ' · BTS ' + promotion.bts + ' · ' + level + ' · Rentrée ' + promotion.rentree_annee + (!promotion.active ? ' · Archivée' : '');
+    }
     function addAssignment(value = {}, markDirty = true) {
-      const row = document.createElement('div'); row.className = 'trainer-assignment-row';
-      const btsLabel = document.createElement('label'), yearLabel = document.createElement('label');
-      btsLabel.textContent = 'BTS'; yearLabel.textContent = 'Rentrée';
-      const bts = document.createElement('select'), year = document.createElement('select');
-      bts.className = 'trainer-assignment-bts'; year.className = 'trainer-assignment-year';
-      bts.required = year.required = true;
-      bts.add(new Option('Choisir un BTS', ''));
-      for (const code of Object.keys(config.bts)) { const option = new Option('BTS ' + code, code); bts.add(option); }
-      bts.value = value.bts || config.selected_bts || '';
-      for (const item of config.years) year.add(new Option(String(item), String(item)));
-      const selectedYear = String(value.rentree_annee || config.selected_year || new Date().getFullYear());
-      if (![...year.options].some(option => option.value === selectedYear)) year.add(new Option(selectedYear, selectedYear));
-      year.value = selectedYear;
-      btsLabel.append(bts); yearLabel.append(year);
+      const row = document.createElement('div'); row.className = 'trainer-assignment-row trainer-promotion-assignment';
+      const label = document.createElement('label'); label.textContent = 'Promotion';
+      const select = document.createElement('select'); select.className = 'trainer-assignment-promotion'; select.required = true;
+      select.add(new Option('Choisir une promotion', ''));
+      const existing = new Set((current?.assignments || []).map(item => String(item.id)));
+      for (const promotion of config.promotions || []) {
+        if (promotion.active || existing.has(String(promotion.id))) select.add(new Option(promotionLabel(promotion), String(promotion.id)));
+      }
+      select.value = value.id ? String(value.id) : '';
+      label.append(select);
+      const detail = document.createElement('small'); detail.className = 'trainer-assignment-detail';
+      const showDetail = () => {
+        const promotion = (config.promotions || []).find(item => String(item.id) === select.value);
+        detail.textContent = promotion ? promotionLabel(promotion) : 'Choisissez une promotion pour définir le groupe d’étudiants accessible.';
+      };
+      select.addEventListener('change', showDetail); showDetail(); label.append(detail);
       const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'trainer-assignment-remove';
       remove.textContent = '×'; remove.setAttribute('aria-label', 'Retirer cette affectation');
       remove.addEventListener('click', () => { row.remove(); setDirty(); });
-      row.append(btsLabel, yearLabel, remove); assignments.append(row);
+      row.append(label, remove); assignments.append(row);
       if (markDirty) setDirty();
     }
     function openEditor(account, button) {
@@ -60,7 +66,11 @@
         $('trainer-editor-state').className = 'trainer-account-state ' + (account.active ? 'active' : 'disabled');
         $('trainer-toggle-status').textContent = account.active ? 'Désactiver le compte' : 'Réactiver le compte';
         for (const assignment of account.assignments || []) addAssignment(assignment, false);
-      } else if (config.selected_bts) addAssignment({}, false);
+      } else if (config.selected_promotion) {
+        const requested = (config.promotions || []).find(item => String(item.id) === String(config.selected_promotion) && item.active);
+        if (requested) addAssignment(requested, false);
+      }
+      $('trainer-no-promotions').hidden = (config.promotions || []).some(item => item.active);
       updateActionButtons(); dialog.showModal(); form.elements.prenom.focus();
     }
     function closeEditor() { if (!busy) dialog.close(); }
@@ -88,12 +98,12 @@
     form.addEventListener('submit', async event => {
       event.preventDefault(); if (busy || !form.reportValidity()) return;
       report(''); hiddenAssignments.replaceChildren();
-      const pairs = new Set();
+      const selected = new Set();
       for (const row of assignments.children) {
-        const pair = row.querySelector('.trainer-assignment-bts').value + ':' + row.querySelector('.trainer-assignment-year').value;
-        if (pairs.has(pair)) { report('Ce groupe est présent plusieurs fois. Conservez une seule ligne par BTS et rentrée.'); return; }
-        pairs.add(pair);
-        const input = document.createElement('input'); input.type = 'hidden'; input.name = 'assignments'; input.value = pair; hiddenAssignments.append(input);
+        const promotionId = row.querySelector('.trainer-assignment-promotion').value;
+        if (selected.has(promotionId)) { report('Cette promotion est présente plusieurs fois. Conservez une seule ligne par promotion.'); return; }
+        selected.add(promotionId);
+        const input = document.createElement('input'); input.type = 'hidden'; input.name = 'assignments'; input.value = promotionId; hiddenAssignments.append(input);
       }
       form.elements.nom.value = form.elements.nom.value.trim().toLocaleUpperCase('fr');
       form.elements.prenom.value = firstName(form.elements.prenom.value);
@@ -107,7 +117,7 @@
       if (busy || dirty || !current) return;
       report(''); confirmedAction = action; actionOpener = action === 'send-access' ? $('trainer-send-access') : $('trainer-toggle-status');
       const send = action === 'send-access';
-      $('trainer-account-confirmation-text').textContent = send ? (current.activated ? 'Un lien de réinitialisation du mot de passe, valable 30 minutes, sera envoyé à ' + current.email + '. Aucun mot de passe ne sera envoyé en clair.' : 'Un lien d’activation, valable 72 heures, sera envoyé à ' + current.email + ' pour lui permettre de choisir son mot de passe.') : (current.active ? 'Le formateur ne pourra plus accéder à son espace. Son compte et ses affectations seront conservés.' : 'Le formateur pourra à nouveau accéder aux groupes qui lui sont attribués.');
+      $('trainer-account-confirmation-text').textContent = send ? (current.activated ? 'Un lien de réinitialisation du mot de passe, valable 30 minutes, sera envoyé à ' + current.email + '. Aucun mot de passe ne sera envoyé en clair.' : 'Un lien d’activation, valable 72 heures, sera envoyé à ' + current.email + ' pour lui permettre de choisir son mot de passe.') : (current.active ? 'Le formateur ne pourra plus accéder à son espace. Son compte et ses affectations seront conservés.' : 'Le formateur pourra à nouveau accéder aux promotions actives qui lui sont attribuées.');
       $('trainer-action-confirm').textContent = send ? 'Envoyer les accès' : (current.active ? 'Désactiver le compte' : 'Réactiver le compte');
       confirmation.hidden = false;
       $('trainer-action-confirm').focus();
@@ -134,19 +144,30 @@
     try { const message = sessionStorage.getItem('trainer-admin-notice'); if (message) { $('trainer-admin-notice').textContent = message; $('trainer-admin-notice').hidden = false; sessionStorage.removeItem('trainer-admin-notice'); } } catch (_) { /* Storage is optional. */ }
   }
   const rosterRows = [...document.querySelectorAll('[data-student-row]')];
-  const studentSearch = $('trainer-student-search'), bts = $('trainer-student-bts'), year = $('trainer-student-year');
-  if (studentSearch && bts && year) {
+  const studentSearch = $('trainer-student-search'), promotion = $('trainer-student-promotion');
+  if (studentSearch && promotion) {
     function filter() {
       let count = 0; const query = normal(studentSearch.value);
       rosterRows.forEach(row => {
-        row.hidden = !normal(row.dataset.search).includes(query) || (!!bts.value && row.dataset.bts !== bts.value) || (!!year.value && row.dataset.year !== year.value);
+        row.hidden = !normal(row.dataset.search).includes(query) || (!!promotion.value && row.dataset.promotion !== promotion.value);
         if (!row.hidden) count++;
+      });
+      document.querySelectorAll('[data-promotion-roster]').forEach(group => {
+        const visible = [...group.querySelectorAll('[data-student-row]')].filter(row => !row.hidden).length;
+        group.hidden = visible === 0;
+        const result = group.querySelector('[data-promotion-result]');
+        if (result) result.textContent = visible + ' étudiant' + (visible !== 1 ? 's' : '');
       });
       $('trainer-student-result-count').textContent = count + ' étudiant' + (count !== 1 ? 's' : '') + ' affiché' + (count !== 1 ? 's' : '');
       if ($('trainer-student-empty')) $('trainer-student-empty').hidden = count !== 0;
     }
-    studentSearch.addEventListener('input', filter); bts.addEventListener('change', filter); year.addEventListener('change', filter);
-    $('trainer-student-reset').addEventListener('click', () => { studentSearch.value = ''; bts.value = ''; year.value = ''; filter(); });
+    studentSearch.addEventListener('input', filter); promotion.addEventListener('change', filter);
+    $('trainer-student-reset').addEventListener('click', () => { studentSearch.value = ''; promotion.value = ''; filter(); });
+    document.querySelectorAll('[data-focus-promotion]').forEach(button => button.addEventListener('click', () => {
+      studentSearch.value = ''; promotion.value = button.dataset.focusPromotion; filter();
+      $('trainer-roster-title').scrollIntoView({block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+      promotion.focus({preventScroll: true});
+    }));
     filter();
   }
 })();

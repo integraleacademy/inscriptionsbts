@@ -118,6 +118,53 @@ def test_trainer_pages_are_integrated_without_student_or_legacy_scripts(client, 
     assert b'/admin/formateurs?bts=MCO&amp;rentree=2026' in fiche.data
 
 
+def test_explicit_promotion_on_student_sheet_and_course_change_guards(client):
+    seed(2026, 'promotion-student')
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET tel='0600000000' WHERE id='promotion-student'")
+    auth(client)
+    assert client.get('/admin/promotions?bts=MCO&rentree=2026').status_code == 200
+    with client.session_transaction() as state:
+        token = state['_promotion_csrf']
+    created = client.post('/admin/promotions', json=dict(csrf_token=token, nom='BTS MCO · 1re année', bts='MCO', niveau=1, rentree_annee=2026, date_debut='2026-09-07', date_fin='2027-06-30'))
+    assert created.status_code == 201
+    promotion_id = created.json['promotion_id']
+    route = '/admin/candidat/promotion-student/promotion'
+    assert client.post(route, json=dict(promotion_id=promotion_id)).status_code == 400
+    assert client.post(route, json=dict(csrf_token=token, promotion_id=promotion_id)).json['ok']
+    sheet = client.get('/admin/candidat/promotion-student')
+    assert sheet.status_code == 200
+    assert f'value="{promotion_id}" selected' in sheet.text
+    assert f'/admin/formateurs?promotion={promotion_id}' in sheet.text
+    assert '07/09/2026' in sheet.text and '30/06/2027' in sheet.text
+    assert client.post('/admin/candidat/promotion-student/informations', json={'bts':'MOS'}).status_code == 409
+    assert client.post('/admin/update-field', json={'id':'promotion-student','field':'bts','value':'MOS'}).status_code == 409
+    with application.db() as conn:
+        assert conn.execute("SELECT bts FROM candidats WHERE id='promotion-student'").fetchone()[0] == 'MCO'
+    assert client.post(route, json=dict(csrf_token=token, promotion_id='')).json['ok']
+    assert client.post('/admin/candidat/promotion-student/informations', json={'bts':'MOS'}).json['ok']
+    assert client.post(route, json=dict(csrf_token=token, promotion_id=promotion_id)).status_code == 400
+
+
+@pytest.mark.parametrize('clear_all', [False, True])
+def test_candidate_deletion_removes_placement_but_keeps_the_promotion(client, clear_all):
+    from promotions import assign_candidate_promotion
+    seed(2026, 'removed-student')
+    auth(client)
+    client.get('/admin/promotions')
+    with client.session_transaction() as state:
+        token = state['_promotion_csrf']
+    created = client.post('/admin/promotions', json=dict(csrf_token=token, nom='Promotion conservée', bts='MCO', niveau=1, rentree_annee=2026, date_debut='2026-09-07', date_fin='2027-06-30'))
+    promotion_id = created.json['promotion_id']
+    with application.db() as conn:
+        assign_candidate_promotion(conn, 'removed-student', promotion_id)
+    assert client.post('/admin/clear-db' if clear_all else '/admin/delete/removed-student').status_code in (200, 302)
+    with application.db() as conn:
+        assert conn.execute('SELECT COUNT(*) FROM student_promotions').fetchone()[0] == 0
+        assert conn.execute('SELECT COUNT(*) FROM student_promotion_history').fetchone()[0] == 0
+        assert conn.execute('SELECT COUNT(*) FROM promotions WHERE id=?', (promotion_id,)).fetchone()[0] == 1
+
+
 def test_cohort_migration_idempotent_and_isolated_admin(client):
     seed(2026,'old');seed(2027,'new')
     application.ensure_campaign_schema();application.ensure_campaign_schema()

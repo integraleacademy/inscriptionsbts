@@ -18,14 +18,9 @@ from flask import abort, flash, jsonify, redirect, render_template, request, ses
 from markupsafe import escape
 from werkzeug.security import check_password_hash, generate_password_hash
 
-BTS_LABELS = {
-    'MOS': 'BTS Management opérationnel de la sécurité',
-    'MCO': 'BTS Management commercial opérationnel',
-    'NDRC': 'BTS Négociation et digitalisation de la relation client',
-    'PI': 'BTS Professions immobilières',
-    'CI': 'BTS Commerce international',
-    'CG': 'BTS Comptabilité et gestion',
-}
+from promotions import (BTS_LABELS, ensure_promotion_schema, list_promotions,
+                        get_trainer_promotions, replace_trainer_promotions)
+
 SESSION_TTL = 8 * 60 * 60
 ACTIVATION_TTL = 72 * 60 * 60
 RESET_TTL = 30 * 60
@@ -58,6 +53,7 @@ def _schema(conn):
         CREATE INDEX IF NOT EXISTS trainer_access_ip_time
             ON trainer_access_requests(ip_key,created_at);
     ''')
+    ensure_promotion_schema(conn)
 
 
 def _clear_trainer_session():
@@ -76,6 +72,7 @@ def get_authenticated_trainer(app, db_connect):
         return None
     try:
         with closing(db_connect()) as conn:
+            _schema(conn)
             row = conn.execute('SELECT id,nom,prenom,email,active,version,password_hash FROM trainers WHERE id=?', (identity.get('trainer_id'),)).fetchone()
             if not row or not row['active'] or not row['password_hash'] or row['version'] != identity.get('version'):
                 session.pop('_trainer_auth', None)
@@ -135,27 +132,13 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         return value if isinstance(value,dict) or hasattr(value,'getlist') else {}
 
     def assignments_from(data):
-        raw=(data.getlist('assignments') or data.getlist('assignments[]')) if hasattr(data,'getlist') else data.get('assignments',[])
-        if not isinstance(raw,list) or len(raw)>60:
-            raise ValueError('Vérifiez les BTS et les rentrées sélectionnés.')
-        parsed=set()
-        for value in raw:
-            if isinstance(value,dict):
-                bts=value.get('bts','')
-                year=value.get('rentree_annee','')
-            elif isinstance(value,str) and ':' in value:
-                bts,year=value.split(':',1)
-            else:
-                raise ValueError('Chaque affectation doit associer un BTS à une rentrée.')
-            bts=str(bts).strip().upper()
-            try:
-                year=int(year)
-            except (ValueError,TypeError):
-                raise ValueError('La rentrée sélectionnée est incorrecte.')
-            if bts not in BTS_LABELS or not 2000<=year<=datetime.now().year+5:
-                raise ValueError('Le BTS ou la rentrée sélectionnés sont incorrects.')
-            parsed.add((bts,year))
-        return sorted(parsed)
+        if hasattr(data,'getlist'):
+            raw=data.getlist('assignments') or data.getlist('assignments[]') or data.getlist('promotion_ids') or data.getlist('promotion_ids[]')
+        else:
+            raw=data.get('assignments',data.get('promotion_ids',[]))
+        if not isinstance(raw,list) or len(raw)>60 or any(not isinstance(value,str) or not 1<=len(value)<=128 or ':' in value for value in raw):
+            raise ValueError('Sélectionnez les promotions à attribuer à ce formateur.')
+        return sorted(set(raw))
 
     def fields_from(data):
         if any(not isinstance(data.get(key,''),str) for key in ('nom','prenom','email')):
@@ -170,11 +153,10 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         return nom,prenom,email,assignments_from(data)
 
     def get_assignments(conn,trainer_id):
-        return [dict(bts=row['bts'],rentree_annee=row['rentree_annee']) for row in conn.execute('SELECT bts,rentree_annee FROM trainer_assignments WHERE trainer_id=? ORDER BY rentree_annee DESC,bts',(trainer_id,))]
+        return get_trainer_promotions(conn,trainer_id)
 
     def replace_assignments(conn,trainer_id,assignments):
-        conn.execute('DELETE FROM trainer_assignments WHERE trainer_id=?',(trainer_id,))
-        conn.executemany('INSERT INTO trainer_assignments(trainer_id,bts,rentree_annee) VALUES(?,?,?)',[(trainer_id,bts,year) for bts,year in assignments])
+        replace_trainer_promotions(conn,trainer_id,assignments)
 
     def limit(conn,kind,identity,maximum):
         now=time.time()
@@ -208,7 +190,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         link=base+url_for('trainer_accept_token',token=token)
         activation=purpose=='activation'
         heading='Bienvenue dans votre espace formateur.' if activation else 'Un nouveau mot de passe.'
-        intro='Votre compte formateur Intégrale Academy est prêt. Choisissez votre mot de passe pour consulter les étudiants des BTS qui vous sont affectés.' if activation else 'Vous avez demandé à réinitialiser votre mot de passe formateur.'
+        intro='Votre compte formateur Intégrale Academy est prêt. Choisissez votre mot de passe pour consulter les étudiants des promotions qui vous sont affectées.' if activation else 'Vous avez demandé à réinitialiser votre mot de passe formateur.'
         button='Activer mon espace formateur' if activation else 'Choisir mon nouveau mot de passe'
         validity='72 heures' if activation else '30 minutes'
         html=f'''<!doctype html><html lang="fr"><body style="background:#f5f1e8;padding:32px;font-family:Arial,sans-serif;color:#292d29"><div style="max-width:550px;margin:auto;padding:36px;background:#fffefa;border-radius:22px"><p style="font-size:11px;letter-spacing:2px">INTÉGRALE ACADEMY · ESPACE FORMATEUR</p><h1 style="font-size:28px">{heading}</h1><p style="line-height:1.7">{intro}</p><p><a href="{escape(link)}" style="display:inline-block;background:#353d30;color:white;padding:16px 20px;border-radius:10px;text-decoration:none">{button}</a></p><p>Ce lien personnel est valable {validity} et ne peut être utilisé qu’une fois.</p><p style="font-size:12px;color:#777">Si vous n’êtes pas concerné par ce message, ignorez-le ou contactez notre équipe au 04 22 47 07 68.</p></div></body></html>'''
@@ -254,6 +236,8 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                     conn.execute('INSERT INTO trainers(id,nom,prenom,email,created_at,updated_at) VALUES(?,?,?,?,?,?)',(trainer_id,nom,prenom,email,now,now))
                     replace_assignments(conn,trainer_id,assignments)
                     conn.commit()
+            except ValueError as error:
+                return admin_reply(False,str(error),400)
             except sqlite3.IntegrityError:
                 return admin_reply(False,'Cette adresse e-mail est déjà associée à un compte formateur.',409)
             return admin_reply(True,'Compte créé. Vous pouvez maintenant envoyer l’invitation au formateur.',201)
@@ -263,8 +247,9 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
             trainers=[]
             for row in rows:
                 trainer={key:row[key] for key in ('id','nom','prenom','email','created_at','invited_at')}
-                trainer.update(active=bool(row['active']),activated=bool(row['password_hash']),assignments=get_assignments(conn,row['id']))
+                trainer.update(active=bool(row['active']),activated=bool(row['password_hash']),assignments=get_assignments(conn,row['id']),legacy_assignments=[dict(bts=a['bts'],rentree_annee=a['rentree_annee']) for a in conn.execute('SELECT bts,rentree_annee FROM trainer_assignments WHERE trainer_id=?',(row['id'],))])
                 trainers.append(trainer)
+            available_promotions=list_promotions(conn)
         selected_bts=request.args.get('bts','').upper()
         if selected_bts not in BTS_LABELS:
             selected_bts=''
@@ -275,7 +260,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         years=sorted(set([2026,2027,*range(datetime.now().year,datetime.now().year+3),*[a['rentree_annee'] for t in trainers for a in t['assignments']]]))
         if selected_year not in years:
             selected_year=datetime.now().year+1
-        return page('trainer_admin.html',title='Formateurs · Plateforme de gestion des BTS',trainers=trainers,bts_labels=BTS_LABELS,years=years,selected_bts=selected_bts,selected_year=selected_year)
+        return page('trainer_admin.html',title='Formateurs · Plateforme de gestion des BTS',trainers=trainers,promotions=available_promotions,bts_labels=BTS_LABELS,years=years,selected_bts=selected_bts,selected_year=selected_year,selected_promotion=request.args.get('promotion',''))
 
     @app.post('/admin/formateurs/<trainer_id>/update')
     def admin_trainer_update(trainer_id):
@@ -292,7 +277,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 trainer=conn.execute('SELECT * FROM trainers WHERE id=?',(trainer_id,)).fetchone()
                 if not trainer:
                     abort(404)
-                previous=sorted((a['bts'],a['rentree_annee']) for a in get_assignments(conn,trainer_id))
+                previous=sorted(a['id'] for a in get_assignments(conn,trainer_id))
                 changed=(nom,prenom,email,assignments)!=(trainer['nom'],trainer['prenom'],trainer['email'],previous)
                 email_changed=email!=trainer['email']
                 if changed:
@@ -300,6 +285,8 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                     replace_assignments(conn,trainer_id,assignments)
                     conn.execute('UPDATE trainer_access_tokens SET consumed=1 WHERE trainer_id=?',(trainer_id,))
                 conn.commit()
+        except ValueError as error:
+            return admin_reply(False,str(error),400)
         except sqlite3.IntegrityError:
             return admin_reply(False,'Cette adresse e-mail est déjà associée à un compte formateur.',409)
         return admin_reply(True,'Informations enregistrées. Envoyez une nouvelle invitation à la nouvelle adresse e-mail.' if email_changed else 'Informations et affectations enregistrées.')
@@ -450,20 +437,24 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 abort(400)
         with closing(db_connect()) as conn:
             assignments=get_assignments(conn,trainer['id'])
-            # Exact BTS/intake pairs; independent IN lists would leak cross-product cohorts.
-            sql='''SELECT c.nom,c.prenom,a.bts AS bts,c.mode,c.email,c.tel,c.numero_dossier,
-                    c.rentree_annee,c.statut
-                FROM candidats c JOIN trainer_assignments a
-                    ON upper(trim(c.bts))=a.bts AND c.rentree_annee=a.rentree_annee
+            # Promotion IDs are the sole grant. BTS/cohort compatibility is a
+            # second guard against later administrative edits leaving stale placements.
+            sql='''SELECT c.nom,c.prenom,p.bts AS bts,c.mode,c.email,c.tel,c.numero_dossier,
+                    c.rentree_annee,c.statut,p.id AS promotion_id,p.nom AS promotion_name,
+                    p.niveau AS promotion_niveau,p.date_debut AS promotion_date_debut,
+                    p.date_fin AS promotion_date_fin,p.needs_setup AS promotion_needs_setup
+                FROM candidats c JOIN student_promotions s ON s.candidate_id=c.id
+                JOIN promotions p ON p.id=s.promotion_id
+                JOIN trainer_promotions a ON a.promotion_id=p.id
                 JOIN trainers t ON t.id=a.trainer_id
-                WHERE a.trainer_id=? AND t.active=1 AND t.version=?
-                    AND c.statut IN ('confirmee','reconfirmee')'''
-            params=[trainer['id'],session['_trainer_auth']['version']]
-            # Selected filters initialize the client UI; only authorized rows
-            # are projected, so local switching can reveal no other students.
-            sql+=' ORDER BY c.rentree_annee DESC,c.bts,c.nom,c.prenom'
-            students=[dict(row) for row in conn.execute(sql,params)]
-        return page('trainer_dashboard.html',title='Mes étudiants · Espace formateur',trainer=trainer,students=students,assignments=assignments,bts_labels=BTS_LABELS,selected_bts=selected_bts,selected_year=selected_year,total_students=len(students))
+                WHERE a.trainer_id=? AND t.active=1 AND t.version=? AND p.active=1
+                    AND upper(trim(c.bts))=p.bts AND COALESCE(c.rentree_annee,2026)=p.rentree_annee
+                    AND c.statut IN ('confirmee','reconfirmee')
+                ORDER BY p.rentree_annee DESC,p.bts,COALESCE(p.niveau,0),p.nom,c.nom,c.prenom'''
+            students=[dict(row) for row in conn.execute(sql,(trainer['id'],session['_trainer_auth']['version']))]
+        return page('trainer_dashboard.html',title='Mes étudiants · Espace formateur',trainer=trainer,students=students,
+                    assignments=assignments,promotions=assignments,bts_labels=BTS_LABELS,selected_bts=selected_bts,
+                    selected_year=selected_year,selected_promotion=request.args.get('promotion',''),total_students=len(students))
 
     @app.route('/formateur/deconnexion',methods=['GET','POST'])
     def trainer_logout():

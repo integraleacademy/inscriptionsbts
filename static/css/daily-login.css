@@ -1,0 +1,74 @@
+/* Weekly scenes share a quiet, neutral palette. All accents support white text. */
+.daily-tone-olive{--daily-accent:#4d6042;--daily-soft:#dce1ce;--daily-secondary:#edf0e5;--daily-edge:#c3cbb7;--daily-bg:#f0f1e9}
+.daily-tone-ochre{--daily-accent:#80602d;--daily-soft:#e8dcc0;--daily-secondary:#f4eddb;--daily-edge:#d5c7a5;--daily-bg:#f5f1e7}
+.daily-tone-forest{--daily-accent:#375b4d;--daily-soft:#d4e0d8;--daily-secondary:#eaf0e9;--daily-edge:#b8ccbd;--daily-bg:#edf1eb}
+.daily-tone-clay{--daily-accent:#79573d;--daily-soft:#e3d4c4;--daily-secondary:#f1e7dc;--daily-edge:#cebca7;--daily-bg:#f3eee7}
+.daily-tone-graphite{--daily-accent:#454d49;--daily-soft:#d5dbd5;--daily-secondary:#ebeee7;--daily-edge:#bdc6bc;--daily-bg:#eff0eb}
+.daily-tone-moss{--daily-accent:#60603e;--daily-soft:#e0dfc9;--daily-secondary:#efeedf;--daily-edge:#c8c6a7;--daily-bg:#f2f1e8}
+.daily-tone-sepia{--daily-accent:#6a5844;--daily-soft:#e3dbce;--daily-secondary:#f1ece2;--daily-edge:#cfc3b2;--daily-bg:#f4f0e9}
+body.academy-ui.daily-login-page{
+  --daily-ink:#2c332c;--daily-muted:#575c51;--daily-paper:#fffef8;
+  background:var(--daily-bg);color:var(--daily-ink)
+}
+body.academy-ui.daily-login-page main#main-content.container{
+  width:100%;max-width:none;margin:0;padding:32px clamp(18px,3vw,56px);box-sizing:border-box
+}
+.academy-ui.daily-login-page :is(.access-shell,.trainer-login-shell){
+  width:100%;max-width:none;margin:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  background:var(--daily-paper);border:1px solid var(--daily-edge);border-radius:28px;
+  box-shadow:0 22px 60px #2632220d;overflow:hidden
+}
+.academy-ui.daily-login-page :is(.access-story,.trainer-login-story){
+  display:flex;flex-direction:column;min-width:0;padding:clamp(28px,3vw,56px);
+  color:var(--daily-ink);background:linear-gradient(150deg,var(--daily-secondary),var(--daily-soft))
+}
+.academy-ui.daily-login-page #main-content :is(.access-story,.trainer-login-story) h1{
+  color:var(--daily-ink);font-size:clamp(44px,4.2vw,72px);line-height:1.02;letter-spacing:-.045em
+}
+.academy-ui.daily-login-page :is(.access-story,.trainer-login-story) h1 em{color:var(--daily-accent)}
+.academy-ui.daily-login-page :is(.access-story,.trainer-login-story)>p,
+.academy-ui.daily-login-page :is(.access-kicker,.trainer-kicker){color:var(--daily-muted)}
+.academy-ui.daily-login-page .access-story>p{max-width:460px}
+.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual){
+  background:var(--daily-paper);border-color:var(--daily-paper);box-shadow:0 15px 30px #30392b15;
+  margin-top:10px;transform:rotate(-1deg)
+}
+.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) img{object-position:center;object-fit:cover}
+.academy-ui.daily-login-page .student-login-illustration{min-height:310px;margin-bottom:26px}
+.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) figcaption{color:var(--daily-accent);line-height:1.45;text-align:center}
+.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) figcaption svg{color:var(--daily-accent)}
+.academy-ui.daily-login-page :is(.student-login-topics>span,.trainer-story-tags>span){color:var(--daily-muted);background:var(--daily-paper);border-color:var(--daily-edge);border-radius:30px;padding:7px 10px}
+.academy-ui.daily-login-page :is(.access-form-panel,.trainer-login-form){
+  min-width:0;padding:clamp(30px,4vw,68px);background:var(--daily-paper);color:var(--daily-ink)
+}
+.academy-ui.daily-login-page #main-content :is(.access-form-panel,.trainer-login-form) h2{color:var(--daily-ink);font-size:clamp(30px,2.7vw,46px);line-height:1.15}
+.academy-ui.daily-login-page :is(.access-form-panel,.trainer-login-form)>p{color:var(--daily-muted)}
+.academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) label{color:var(--daily-ink)}
+.academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:not([type=hidden]){color:var(--daily-ink);background:#fff;border-color:var(--daily-edge);box-shadow:none}
+.academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:focus{outline:3px solid var(--daily-soft);outline-offset:2px;border-color:var(--daily-accent)}
+.academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary){background:var(--daily-accent)!important;color:#fff!important;border-color:var(--daily-accent);box-shadow:none}
+.academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary):hover{filter:brightness(.91)}
+.academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary):focus-visible{outline:3px solid var(--daily-accent);outline-offset:4px}
+.academy-ui.daily-login-page :is(.access-forgot,.trainer-forgot,.access-help a,.trainer-login-help a){color:var(--daily-accent)}
+.academy-ui.daily-login-page :is(.access-first,.trainer-access-note){background:var(--daily-secondary);border-color:var(--daily-edge);border-left:3px solid var(--daily-accent);color:var(--daily-ink)}
+.academy-ui.daily-login-page :is(.access-first,.trainer-access-note) :is(p,small,b,strong,svg){color:var(--daily-muted)}
+.academy-ui.daily-login-page :is(.access-help,.trainer-login-help){border-color:var(--daily-edge);color:var(--daily-muted)}
+.academy-ui.daily-login-page :is(.access-back,.trainer-back){color:var(--daily-muted)}
+.academy-ui.daily-login-page .access-form-panel .access-kicker::before{background:var(--daily-accent)}
+.academy-ui.daily-login-page .footer-signature{max-width:none;background:transparent;color:var(--daily-muted);padding-inline:clamp(18px,3vw,56px)}
+@media(min-width:1700px){
+  .academy-ui.daily-login-page .student-login-illustration{min-height:430px}
+  .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form){margin-top:34px;gap:24px}
+  .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:not([type=hidden]){min-height:56px}
+}
+@media(max-width:760px){
+  body.academy-ui.daily-login-page main#main-content.container{padding:20px 14px}
+  .academy-ui.daily-login-page :is(.access-shell,.trainer-login-shell){grid-template-columns:1fr;border-radius:22px}
+  .academy-ui.daily-login-page :is(.access-story,.trainer-login-story){padding:27px}
+  .academy-ui.daily-login-page #main-content :is(.access-story,.trainer-login-story) h1{font-size:42px}
+  .academy-ui.daily-login-page :is(.access-form-panel,.trainer-login-form){padding:30px 26px}
+  .academy-ui.daily-login-page .student-login-illustration{min-height:0;height:240px}
+  .academy-ui.daily-login-page .trainer-login-visual img{height:230px}
+  .academy-ui.daily-login-page :is(.student-login-topics,.trainer-story-tags){gap:7px;justify-content:flex-start}
+}
+@media(prefers-reduced-motion:reduce){.academy-ui.daily-login-page *{scroll-behavior:auto!important}}

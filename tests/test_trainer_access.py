@@ -10,6 +10,7 @@ from flask import Flask, session, template_rendered
 from werkzeug.security import check_password_hash
 
 import trainer_access
+import promotions
 
 PASSWORD='Une phrase formateur 2027'
 NEW_PASSWORD='Une nouvelle phrase formateur 2028'
@@ -34,6 +35,7 @@ def access(tmp_path,monkeypatch):
         mails.append(args)
         return False if app.config.get('TRAINER_MAIL_FAIL') else 'mock-message-id'
     trainer_access.register_trainer_access(app,db,mail,lambda:bool(session.get('admin_ok')))
+    promotions.register_promotions(app,db,lambda:bool(session.get('admin_ok')))
     contexts=[]
     def capture(sender,template,context,**extra):
         contexts.append((template.name,context))
@@ -52,9 +54,29 @@ def csrf(client,path='/admin/formateurs'):
         return state['_trainer_csrf']
 
 
+def promotion_ids(access,values):
+    result=[]
+    with access[1]() as conn:
+        trainer_access._schema(conn)
+        for value in values:
+            if ':' not in value:
+                result.append(value)
+                continue
+            bts,year=value.split(':')
+            row=conn.execute('SELECT id FROM promotions WHERE bts=? AND rentree_annee=? ORDER BY created_at LIMIT 1',(bts,int(year))).fetchone()
+            if row:
+                result.append(row[0])
+            else:
+                pid='promotion-'+bts+'-'+year
+                conn.execute('INSERT INTO promotions(id,nom,bts,niveau,rentree_annee,date_debut,date_fin,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',(pid,'BTS '+bts+' 1ère année',bts,1,int(year),year+'-09-01',str(int(year)+1)+'-06-30','now','now'))
+                result.append(pid)
+        conn.commit()
+    return result
+
+
 def create(access,email='teacher@example.test',assignments=None,nom='DUPONT',prenom='Camille'):
     client,db,_,_=access
-    response=client.post('/admin/formateurs',json=dict(csrf_token=csrf(client),nom=nom,prenom=prenom,email=email,assignments=assignments if assignments is not None else ['MCO:2026','MOS:2027']))
+    response=client.post('/admin/formateurs',json=dict(csrf_token=csrf(client),nom=nom,prenom=prenom,email=email,assignments=promotion_ids(access,assignments if assignments is not None else ['MCO:2026','MOS:2027'])))
     assert response.status_code==201,response.data
     with db() as conn:
         return conn.execute('SELECT id FROM trainers WHERE email=?',(email.lower().strip(),)).fetchone()[0]
@@ -62,6 +84,7 @@ def create(access,email='teacher@example.test',assignments=None,nom='DUPONT',pre
 
 def admin_post(access,trainer_id,action,**fields):
     client=access[0]
+    if 'assignments' in fields:fields['assignments']=promotion_ids(access,fields['assignments'])
     return client.post(f'/admin/formateurs/{trainer_id}/{action}',json=dict(csrf_token=csrf(client),**fields))
 
 
@@ -104,6 +127,8 @@ def recover(access,client=None,email='teacher@example.test'):
 def seed(db,cid,bts,year,status='confirmee'):
     with db() as conn:
         conn.execute('INSERT INTO candidats VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',(cid,cid.upper(),'Élève',bts,'presentiel',cid+'@example.test','0600000000',f'{year}-DOS-{cid}',year,status,'PRIVATE-SLUG-'+cid,'PRIVATE-NIR-'+cid,'PRIVATE-DOB-'+cid,'PRIVATE-DOC-'+cid))
+        group=conn.execute('SELECT id FROM promotions WHERE bts=? AND rentree_annee=? ORDER BY created_at LIMIT 1',(bts.strip().upper(),year)).fetchone()
+        if group:conn.execute('INSERT INTO student_promotions(candidate_id,promotion_id,assigned_at) VALUES(?,?,?)',(cid,group[0],'test-explicit-assignment'))
 
 
 def test_create_update_do_not_send_emails_and_normalize_identity(access):
@@ -139,7 +164,7 @@ def test_assignment_validation_and_unassigned_account_allowed(access):
         assert response.status_code==400
     tid=create(access,assignments=[])
     with access[1]() as conn:
-        assert conn.execute('SELECT COUNT(*) FROM trainer_assignments WHERE trainer_id=?',(tid,)).fetchone()[0]==0
+        assert conn.execute('SELECT COUNT(*) FROM trainer_promotions WHERE trainer_id=?',(tid,)).fetchone()[0]==0
 
 
 def test_explicit_invitation_activation_hashes_password_and_token_single_use(access):
@@ -180,7 +205,7 @@ def test_only_exact_assigned_pairs_and_confirmed_statuses_reach_template(access)
     assert response.status_code==200
     context=access[3][-1][1]
     assert {row['nom'] for row in context['students']}=={'ALLOWED','RECONFIRMED'}
-    expected={'nom','prenom','bts','mode','email','tel','numero_dossier','rentree_annee','statut'}
+    expected={'nom','prenom','bts','mode','email','tel','numero_dossier','rentree_annee','statut','promotion_id','promotion_name','promotion_niveau','promotion_date_debut','promotion_date_fin','promotion_needs_setup'}
     assert all(set(row)==expected for row in context['students'])
     for forbidden in [b'PRIVATE-',b'cross-one@example',b'cross-two@example',b'pending@example',b'validated@example',b'reconfirming@example',b'cancelled@example',b'other@example',b'/admin/candidat/',b'/espace/']:
         assert forbidden not in response.data
@@ -335,15 +360,15 @@ def test_default_secret_fails_closed_and_auth_views_have_no_analytics(access):
 
 def test_browser_multipart_create_and_update_preserve_multiple_assignments(access):
     client,db,mails,_=access
-    response=client.post('/admin/formateurs',data=dict(csrf_token=csrf(client),nom='DUPONT',prenom='Camille',email='browser@example.test',assignments=['MCO:2026','MOS:2027']),content_type='multipart/form-data',headers={'Accept':'application/json'})
+    response=client.post('/admin/formateurs',data=dict(csrf_token=csrf(client),nom='DUPONT',prenom='Camille',email='browser@example.test',assignments=promotion_ids(access,['MCO:2026','MOS:2027'])),content_type='multipart/form-data',headers={'Accept':'application/json'})
     assert response.status_code==201,response.data
     with db() as conn:
         tid=conn.execute('SELECT id FROM trainers WHERE email=?',('browser@example.test',)).fetchone()[0]
-        assert {tuple(row) for row in conn.execute('SELECT bts,rentree_annee FROM trainer_assignments WHERE trainer_id=?',(tid,))}=={('MCO',2026),('MOS',2027)}
-    response=client.post('/admin/formateurs/'+tid+'/update',data=dict(csrf_token=csrf(client),nom='DUPONT',prenom='Camille',email='browser@example.test',assignments=['CI:2027','PI:2028']),content_type='multipart/form-data',headers={'Accept':'application/json'})
+        assert {tuple(row) for row in conn.execute('SELECT p.bts,p.rentree_annee FROM trainer_promotions a JOIN promotions p ON p.id=a.promotion_id WHERE a.trainer_id=?',(tid,))}=={('MCO',2026),('MOS',2027)}
+    response=client.post('/admin/formateurs/'+tid+'/update',data=dict(csrf_token=csrf(client),nom='DUPONT',prenom='Camille',email='browser@example.test',assignments=promotion_ids(access,['CI:2027','PI:2028'])),content_type='multipart/form-data',headers={'Accept':'application/json'})
     assert response.status_code==200,response.data
     with db() as conn:
-        assert {tuple(row) for row in conn.execute('SELECT bts,rentree_annee FROM trainer_assignments WHERE trainer_id=?',(tid,))}=={('CI',2027),('PI',2028)}
+        assert {tuple(row) for row in conn.execute('SELECT p.bts,p.rentree_annee FROM trainer_promotions a JOIN promotions p ON p.id=a.promotion_id WHERE a.trainer_id=?',(tid,))}=={('CI',2027),('PI',2028)}
     assert not mails
 
 
