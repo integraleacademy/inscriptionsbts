@@ -32,12 +32,15 @@ LINE = colors.HexColor('#D5DDD5')
 PAPER = colors.HexColor('#F7F7F2')
 OCHRE = colors.HexColor('#AB7D2F')
 OLIVE = colors.HexColor('#5F7662')
+WARNING = colors.HexColor('#B76518')
+HOLIDAY_RED = colors.HexColor('#A53535')
 WHITE = colors.white
 KIND_STYLES = {
     'school': ('École', '#E5EEE5', '#476B53'),
     'company': ('Entreprise', '#F2E5CA', '#87602E'),
     'holiday': ('Vacances', '#EDE8D9', '#776D47'),
-    'closed': ('Fermé / férié', '#E7E9E7', '#687169'),
+    'closed': ('Fermé', '#E7E9E7', '#687169'),
+    'public_holiday': ('Jour férié', '#F7DDDB', '#A53535'),
     'unconfigured': ('Non défini', '#FFFFFF', '#899188'),
 }
 MONTHS = ('janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre')
@@ -145,9 +148,33 @@ def _normalise(promotion, courses, days, start, end):
         item = dict(source)
         day = _date(item['date'])
         if start <= day <= end:
-            item['kind'] = item.get('kind') if item.get('kind') in KIND_STYLES else 'unconfigured'
+            item['kind'] = 'public_holiday' if item.get('public_holiday') is True else item.get('kind') if item.get('kind') in KIND_STYLES else 'unconfigured'
             day_map[day] = item
+    for item in records:
+        warnings = _course_warnings(item)
+        holiday = day_map.get(item['_day'], {})
+        if holiday.get('kind') == 'public_holiday' and not any(warning.get('code') == 'public_holiday' for warning in item.get('warnings') or [] if isinstance(warning, dict)):
+            warnings.append('Jour férié : ' + _clean(holiday.get('label') or 'jour non planifiable') + ' - cours à déplacer.')
+        item['_warning_labels'] = list(dict.fromkeys(warnings))
     return promotion, records, day_map, start, end
+
+
+def _course_warnings(course):
+    labels = []
+    for warning in course.get('warnings') or []:
+        message = warning.get('message') if isinstance(warning, dict) else warning if isinstance(warning, str) else None
+        if message:
+            labels.append(_clean(message))
+    labels.extend(_clean(label) for label in course.get('warning_labels') or [] if isinstance(label, str) and label.strip())
+    if not course.get('room_name') and not any('salle' in label.lower() for label in labels):
+        labels.append('Salle non affectée')
+    if not course.get('trainer_name') and not any('formateur' in label.lower() for label in labels):
+        labels.append('Formateur à préciser')
+    if not (course.get('subject_name') or course.get('title')) and not any('matière' in label.lower() for label in labels):
+        labels.append('Matière à préciser')
+    if course.get('incomplete') and not labels:
+        labels.append('Données du cours à compléter')
+    return list(dict.fromkeys(labels))
 
 
 def _course_text(course, *, full=True, reference=None):
@@ -161,12 +188,18 @@ def _course_text(course, *, full=True, reference=None):
         pieces.append('Salle : ' + escape(_clean(course.get('room_name') or 'à préciser')))
         if course.get('_shared_count'):
             pieces.append('Cours commun - ' + str(course['_shared_count']) + ' promotions')
+        if course.get('_promotion_labels'):
+            pieces.append('Promotion' + ('s' if len(course['_promotion_labels']) > 1 else '') + ' : ' + escape(' / '.join(course['_promotion_labels'])))
+        if course.get('_warning_labels'):
+            pieces.append('<b>Attention : ' + escape(' ; '.join(course['_warning_labels'])) + '</b>')
     if reference:
         pieces.append('<b>Détail ' + str(reference).zfill(2) + '</b>')
     return '<br/>'.join(pieces)
 
 
 def _course_color(course):
+    if course.get('_warning_labels'):
+        return WARNING
     color = str(course.get('color') or '')
     return colors.HexColor(color) if re.fullmatch(r'#[0-9a-fA-F]{6}', color) else OLIVE
 
@@ -202,7 +235,7 @@ def _lanes(records):
 
 def _week_geometry(week, records, day_map, start, end, show_weekends):
     weekend_offsets = [item['_day'].weekday() for item in records]
-    weekend_offsets.extend(day.weekday() for day, info in day_map.items() if week <= day <= week + timedelta(days=6) and info.get('kind') in ('school', 'company'))
+    weekend_offsets.extend(day.weekday() for day, info in day_map.items() if week <= day <= week + timedelta(days=6) and info.get('kind') in ('school', 'company', 'public_holiday'))
     count = 7 if show_weekends or 6 in weekend_offsets else 6 if 5 in weekend_offsets else 5
     begin = min([480] + [item['_start'] // 60 * 60 for item in records])
     finish = max([1080] + [((item['_end'] + 59) // 60) * 60 for item in records])
@@ -223,7 +256,7 @@ def _week_plan(week, records, day_map, start, end, show_weekends):
         for item, lane, total in _lanes(items):
             width = geometry['column'] / total - 4
             height = (item['_end'] - item['_start']) * geometry['scale'] - 3
-            content_width = max(8, width - 10)
+            content_width = max(8, width - (22 if item.get('_warning_labels') else 10))
             paragraph, text_height = _paragraph(_course_text(item), content_width, size=8)
             if text_height > height - 8:
                 paragraph, text_height = _paragraph(_course_text(item), content_width, size=7.3, leading=8.6)
@@ -314,6 +347,21 @@ def _legend(pdf, y=51):
         x += pdfmetrics.stringWidth(label, regular, 7.3)+34
 
 
+def _warning_triangle(pdf, x, y, size=10):
+    """Vector mark keeps the exclamation visible with the built-in PDF fonts."""
+    _, bold = _fonts()
+    path = pdf.beginPath()
+    path.moveTo(x, y)
+    path.lineTo(x+size, y)
+    path.lineTo(x+size/2, y+size*.87)
+    path.close()
+    pdf.setFillColor(WARNING)
+    pdf.drawPath(path, fill=1, stroke=0)
+    pdf.setFillColor(WHITE)
+    pdf.setFont(bold, size*.63)
+    pdf.drawCentredString(x+size/2, y+size*.13, '!')
+
+
 def _footer(pdf, page, total, generated_at):
     regular, _ = _fonts()
     pdf.setFont(regular, 7)
@@ -350,6 +398,8 @@ def _draw_week(pdf, plan, promotion, day_map, start, end, logo_path):
         pdf.drawCentredString(x+column/2, top+6, _date_label(day))
         if in_range and kind != 'unconfigured':
             label = _clean(info.get('label') or KIND_STYLES[kind][0])
+            if kind == 'public_holiday':
+                label += ' - non planifiable'
             # Day labels are shown above the grid in full in a compact paragraph.
             if kind != 'school' or not any(item['_day'] == day for item in plan['records']):
                 paragraph, height = _paragraph(escape(label), column-14, size=8.8, bold=True, color=colors.HexColor(KIND_STYLES[kind][2]))
@@ -383,6 +433,9 @@ def _draw_week(pdf, plan, promotion, day_map, start, end, logo_path):
         pdf.roundRect(x, y, block['width'], max(.5,block['height']), 3, fill=1, stroke=1)
         pdf.setFillColor(color)
         pdf.rect(x, y+1, 2.5, max(.5,block['height']-2), fill=1, stroke=0)
+        if item.get('_warning_labels'):
+            size = min(9, max(5, block['height']-3))
+            _warning_triangle(pdf, x+block['width']-size-2, y+block['height']-size-2, size)
         # An exceptionally short event is represented by a reference in its slot;
         # its complete subject/trainer/room/time remains on the following page.
         if block['text_height'] <= block['height']-2:
@@ -464,7 +517,7 @@ def _draw_annual(pdf, plan, promotion, day_map, records, start, end, logo_path):
             cell_y=y-45-(position//7)*12
             if start<=day<=end:
                 kind=day_map.get(day,{}).get('kind','unconfigured')
-                if day in course_dates:
+                if day in course_dates and kind != 'public_holiday':
                     kind='school'
                 fill=colors.HexColor(KIND_STYLES[kind][1])
                 tone=colors.HexColor(KIND_STYLES[kind][2])
@@ -479,6 +532,38 @@ def _draw_annual(pdf, plan, promotion, day_map, records, start, end, logo_path):
     pdf.setFont(regular,7)
     pdf.setFillColor(MUTED)
     pdf.drawRightString(PAGE_W-MARGIN,52,_hours(sum(item['_duration'] for item in records))+' de cours sur la période')
+
+
+def _holiday_pages(day_map):
+    days = [(day, _clean(info.get('label') or 'Jour férié')) for day, info in sorted(day_map.items()) if info.get('kind') == 'public_holiday']
+    return [dict(kind='public_holidays', days=days[index:index+24]) for index in range(0, len(days), 24)]
+
+
+def _draw_holidays(pdf, plan, promotion, start, end, logo_path):
+    _header(pdf, promotion, 'Jours fériés - non planifiables',
+            f'Du {_date_label(start, True)} au {_date_label(end, True)}', logo_path=logo_path)
+    regular, bold = _fonts()
+    note, height = _paragraph('Ces journées sont bloquées dans le planning. Les cours déjà présents sur ces dates doivent être déplacés.', PAGE_W-2*MARGIN, size=9, color=HOLIDAY_RED)
+    note.drawOn(pdf, MARGIN, PAGE_H-123-height)
+    gap, width = 14, (PAGE_W-2*MARGIN-14)/2
+    rows = max(1, (len(plan['days'])+1)//2)
+    height = min(48, (PAGE_H-153-70)/rows-6)
+    for index, (day, label) in enumerate(plan['days']):
+        column, row = index//rows, index%rows
+        x, top = MARGIN+column*(width+gap), PAGE_H-153-row*(height+6)
+        pdf.setFillColor(colors.HexColor(KIND_STYLES['public_holiday'][1]))
+        pdf.setStrokeColor(colors.HexColor('#E4B9B5'))
+        pdf.roundRect(x, top-height, width, height, 4, fill=1, stroke=1)
+        pdf.setFillColor(HOLIDAY_RED)
+        pdf.setFont(bold, 8.2)
+        if height >= 38:
+            pdf.drawString(x+11, top-14, day.strftime('%d/%m/%Y'))
+            paragraph, text_height = _paragraph(escape(label), width-22, size=10.6, bold=True, color=HOLIDAY_RED)
+            paragraph.drawOn(pdf, x+11, top-23-text_height)
+        else:
+            pdf.drawString(x+9, top-16, day.strftime('%d/%m/%Y'))
+            paragraph, text_height = _paragraph(escape(label), width-97, size=8.8, color=HOLIDAY_RED)
+            paragraph.drawOn(pdf, x+87, top-(height-text_height)/2-text_height)
 
 
 def _budget_minutes(value, *, positive=False):
@@ -622,6 +707,7 @@ def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, 
     else:
         months=_months_between(start,end)
         plans=[{'kind':'annual','months':months[index:index+12]} for index in range(0,len(months),12)]
+        plans.extend(_holiday_pages(day_map))
         if subjects:
             plans.extend(_budget_pages(subjects))
     buffer=BytesIO()
@@ -636,9 +722,49 @@ def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, 
             _draw_details(pdf,plan,promotion,logo_path)
         elif plan['kind']=='budget':
             _draw_budget(pdf,plan,promotion,logo_path)
+        elif plan['kind']=='public_holidays':
+            _draw_holidays(pdf,plan,promotion,start,end,logo_path)
         else:
             _draw_annual(pdf,plan,promotion,day_map,records,start,end,logo_path)
         _footer(pdf,page,len(plans),generated_at)
         pdf.showPage()
     pdf.save()
     return buffer.getvalue()
+
+
+def build_portal_planning_pdf(portal_week, *, generated_at=None):
+    """Export a pre-authorized portal week, without annual budgets or identity data.
+
+    The caller must filter records to the authenticated person before calling.
+    Explicitly selecting printable fields also prevents accidental use of an
+    administrative snapshot's roster, notes, e-mail addresses or subject budgets.
+    """
+    role = portal_week.get('role')
+    if role not in ('trainer', 'student'):
+        raise ValueError('Rôle du planning invalide.')
+    start, end = _date(portal_week['week_start']), _date(portal_week['week_end'])
+    if not 0 <= (end-start).days <= 6:
+        raise ValueError('L’export de l’espace personnel couvre une semaine au maximum.')
+    allowed = ('id', 'date', 'start', 'end', 'title', 'subject_name', 'trainer_name',
+               'room_name', 'is_shared', 'incomplete', 'warnings', 'warning_labels', 'color')
+    records = []
+    for source in portal_week.get('courses') or []:
+        item = {key: source[key] for key in allowed if key in source}
+        item['groups'] = [{key: group[key] for key in ('promotion_id', 'promotion_name', 'subject_name') if key in group}
+                          for group in source.get('groups') or [] if isinstance(group, dict)]
+        if role == 'trainer':
+            names = source.get('promotion_names') or [group.get('promotion_name') for group in item['groups']]
+            item['_promotion_labels'] = list(dict.fromkeys(_clean(name) for name in names if name))
+        records.append(item)
+    days = []
+    for source in portal_week.get('days') or []:
+        item = {key: source[key] for key in ('date', 'kind', 'label', 'public_holiday') if key in source}
+        # Portal display labels contain the weekday/date; day_label carries the
+        # official holiday or alternance label needed in the PDF calendar.
+        item['label'] = source.get('day_label') or source.get('label') or ''
+        days.append(item)
+    heading = portal_week.get('heading') or ('Mon planning' if role == 'student' else 'Planning formateur')
+    if role == 'student' and portal_week.get('promotion_label') and portal_week['promotion_label'] not in heading:
+        heading += ' · ' + portal_week['promotion_label']
+    return build_planning_pdf({'nom': heading}, records, days, start, end, mode='weekly',
+                              generated_at=generated_at, show_weekends=True)

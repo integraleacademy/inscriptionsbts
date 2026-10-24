@@ -1,0 +1,19 @@
+{% from 'ui_icons.html' import icon %}
+{% macro portal_course(course, role='student', show_date=false) -%}
+{% set issues = course.warning_labels|default([]) %}
+{% set incomplete = course.incomplete|default(false) or not course.room_name %}
+{% set live_state = course.live_state|default('') %}
+<article class="portal-course-card{% if incomplete %} is-incomplete{% endif %}" data-portal-course data-date="{{ course.date }}" data-start="{{ course.start }}" data-end="{{ course.end }}"{% if live_state in ['ongoing', 'upcoming'] %} data-live-state="{{ live_state }}"{% endif %}>
+  <div class="portal-course-time"><span>{{ icon('clock') }} <strong>{{ course.start }} <span>–</span> {{ course.end }}</strong></span><span class="portal-course-live" data-course-live{% if live_state not in ['ongoing', 'upcoming'] %} hidden{% endif %}>{% if live_state == 'ongoing' %}En cours{% elif live_state == 'upcoming' %}À venir{% endif %}</span></div>
+  {% if show_date %}<p class="portal-course-date">{{ course.date_label|default(course.date, true) }}</p>{% endif %}
+  <h3>{{ course.display_subject_name|default(course.subject_name, true)|default('Matière à préciser', true) }}</h3>
+  {% if course.title and course.title != course.subject_name %}<p class="portal-course-detail">{{ course.title }}</p>{% endif %}
+  <div class="portal-course-meta">
+    {% if role == 'student' %}<span>{{ icon('person') }} {{ course.trainer_name or 'Formateur à préciser' }}</span>{% endif %}
+    <span>{{ icon('home') }} {{ course.room_name or 'Salle à confirmer' }}</span>
+    {% if role == 'trainer' and course.promotion_names %}<span>{{ icon('book') }} {{ course.promotion_names|join(' · ') }}</span>{% endif %}
+  </div>
+  {% if course.is_shared %}<span class="portal-common-course">Cours commun{% if role == 'trainer' %} · {{ course.promotion_names|length }} promotion{{ 's' if course.promotion_names|length != 1 else '' }}{% endif %}</span>{% endif %}
+  {% if incomplete %}<div class="portal-course-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10.3 3.8 2.1 18a2 2 0 0 0 1.7 3h16.4a2 2 0 0 0 1.7-3L13.7 3.8a2 2 0 0 0-3.4 0Z"/><path d="M12 8v5m0 3v.5"/></svg><span><b>Informations à confirmer</b>{% if issues %}{{ issues|join(' · ') }}{% else %}La salle sera précisée par l’équipe pédagogique.{% endif %}</span></div>{% endif %}
+</article>
+{%- endmacro %}

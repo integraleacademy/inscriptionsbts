@@ -25,9 +25,11 @@ from flask import abort, jsonify, redirect, render_template, request, session, u
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from promotions import ensure_promotion_schema, list_promotions
+from planning_holidays import public_holiday_name
 
 KINDS={'school','company','holiday','closed'}
 MAX_BATCH=500
+COURSE_TEMPLATE_FIELDS=('subject_id','trainer_id','room_id','start','end','title','shared')
 
 
 def _has_table(conn,name):
@@ -135,6 +137,8 @@ def _calendar(conn,promotion_id):
 
 def _day(promotion,day,rules,exceptions):
     key=day.isoformat()
+    holiday=public_holiday_name(day)
+    if holiday:return {'date':key,'kind':'public_holiday','label':holiday,'public_holiday':True,'locked':True}
     if not promotion.get('date_debut') or not promotion.get('date_fin'):return {'date':key,'kind':'unconfigured','label':'Dates de la promotion à compléter'}
     if key<promotion['date_debut'] or key>promotion['date_fin']:return {'date':key,'kind':'closed','label':'Hors des dates de la promotion'}
     exception=next((item for item in exceptions if item['date']==key),None)
@@ -147,35 +151,69 @@ def _day(promotion,day,rules,exceptions):
     return {'date':key,'kind':'unconfigured','label':'Alternance à définir'}
 
 
-def _load_courses(conn,start=None,end=None,promotion_id=None):
+def _load_courses(conn,start=None,end=None,promotion_id=None,trainer_id=None):
     if not _has_table(conn,'trainers'):return []
     has_groups=_has_table(conn,'planning_course_groups')
     sql='''SELECT c.*,s.name AS subject_name,s.color,t.nom AS trainer_nom,t.prenom AS trainer_prenom,
-        r.name AS room_name,p.nom AS promotion_name FROM planning_courses c
-        JOIN planning_subjects s ON s.id=c.subject_id JOIN trainers t ON t.id=c.trainer_id
-        LEFT JOIN planning_rooms r ON r.id=c.room_id JOIN promotions p ON p.id=c.promotion_id WHERE 1=1'''
+        t.active AS trainer_active,r.name AS room_name,r.active AS room_active,p.nom AS promotion_name,
+        p.active AS promotion_active FROM planning_courses c
+        LEFT JOIN planning_subjects s ON s.id=c.subject_id LEFT JOIN trainers t ON t.id=c.trainer_id
+        LEFT JOIN planning_rooms r ON r.id=c.room_id LEFT JOIN promotions p ON p.id=c.promotion_id WHERE 1=1'''
     args=[]
     if start:sql+=' AND c.date>=?';args.append(start)
     if end:sql+=' AND c.date<=?';args.append(end)
+    if trainer_id:sql+=' AND c.trainer_id=?';args.append(trainer_id)
     if promotion_id:
         if has_groups:sql+=' AND (c.promotion_id=? OR EXISTS(SELECT 1 FROM planning_course_groups g WHERE g.course_id=c.id AND g.promotion_id=?))';args.extend((promotion_id,promotion_id))
         else:sql+=' AND c.promotion_id=?';args.append(promotion_id)
     sql+=' ORDER BY c.date,c.start_min,c.id'
-    items=[]
+    items=[];subject_rows={};promotion_rows={};grants={}
+    def subject_info(sid):
+        if sid not in subject_rows:subject_rows[sid]=conn.execute('SELECT name,planned_hours FROM planning_subjects WHERE id=?',(sid,)).fetchone()
+        return subject_rows[sid]
+    def promotion_info(pid):
+        if pid not in promotion_rows:promotion_rows[pid]=conn.execute('SELECT nom,active FROM promotions WHERE id=?',(pid,)).fetchone()
+        return promotion_rows[pid]
     for row in conn.execute(sql,args):
         item=dict(row);item['start']=_clock(item['start_min']);item['end']=_clock(item['end_min'])
         item['duration_minutes']=item['end_min']-item['start_min']
         item['trainer_name']=f"{item.pop('trainer_prenom') or ''} {item.pop('trainer_nom') or ''}".strip()
         groups=[dict(group) for group in conn.execute('''SELECT g.promotion_id,g.subject_id,p.nom AS promotion_name,s.name AS subject_name,s.color
-            FROM planning_course_groups g JOIN promotions p ON p.id=g.promotion_id JOIN planning_subjects s ON s.id=g.subject_id
+            FROM planning_course_groups g LEFT JOIN promotions p ON p.id=g.promotion_id LEFT JOIN planning_subjects s ON s.id=g.subject_id
             WHERE g.course_id=? ORDER BY g.promotion_id''',(item['id'],))] if has_groups else []
-        if not groups:groups=[{key:item[key] for key in ('promotion_id','subject_id','promotion_name','subject_name','color')}]
+        if not any(group['promotion_id']==item['promotion_id'] for group in groups):groups.append({key:item[key] for key in ('promotion_id','subject_id','promotion_name','subject_name','color')})
         groups.sort(key=lambda group:group['promotion_id']!=item['promotion_id'])
         item['groups']=groups;item['promotion_ids']=[group['promotion_id'] for group in groups]
         item['shared']=[dict(promotion_id=group['promotion_id'],subject_id=group['subject_id']) for group in groups if group['promotion_id']!=item['promotion_id']]
         item['is_shared']=len(groups)>1
+        warnings=[]
+        def warn(code,message,promotion_id=None):
+            if not any(value['code']==code and value['message']==message and value.get('promotion_id')==promotion_id for value in warnings):
+                value=dict(code=code,message=message)
+                if promotion_id:value['promotion_id']=promotion_id
+                warnings.append(value)
+        if not item['room_id']:warn('room_missing','Salle non affectée')
+        elif item['room_name'] is None:warn('room_missing','Salle introuvable')
+        elif not item['room_active']:warn('room_inactive','Salle désactivée')
+        if item['trainer_active'] is None or not item['trainer_name']:warn('trainer_missing','Formateur à renseigner')
+        elif not item['trainer_active']:warn('trainer_inactive','Formateur désactivé')
+        for group in groups:
+            subject=subject_info(group['subject_id']);promotion=promotion_info(group['promotion_id'])
+            suffix=' · '+group['promotion_name'] if group.get('promotion_name') else ''
+            if not subject or not subject['name']:warn('subject_missing','Matière à renseigner'+suffix,group['promotion_id'])
+            elif _budget_minutes(subject['planned_hours']) is None:warn('annual_hours_missing','Volume annuel à renseigner : '+subject['name']+suffix,group['promotion_id'])
+            if not promotion:warn('promotion_missing','Promotion introuvable',group['promotion_id'])
+            elif not promotion['active']:warn('promotion_inactive','Promotion archivée : '+promotion['nom'],group['promotion_id'])
+            grant=(item['trainer_id'],group['promotion_id'])
+            if grant not in grants:grants[grant]=bool(conn.execute('SELECT 1 FROM trainer_promotions WHERE trainer_id=? AND promotion_id=?',grant).fetchone())
+            if not grants[grant]:warn('trainer_assignment_missing','Formateur non affecté à la promotion'+suffix,group['promotion_id'])
+        holiday=public_holiday_name(item['date'])
+        if holiday:warn('public_holiday','Cours à déplacer : jour férié ('+holiday+')')
+        item['incomplete']=bool(warnings);item['warnings']=warnings;item['warning_labels']=[value['message'] for value in warnings]
         displayed=next((group for group in groups if group['promotion_id']==promotion_id),groups[0])
-        item['display_subject_name']=displayed['subject_name'];item['display_color']=displayed['color'];item['display_subject_id']=displayed['subject_id']
+        item['display_subject_name']=displayed['subject_name'] or 'Matière à renseigner';item['display_color']=displayed['color'] or '#9a7538';item['display_subject_id']=displayed['subject_id']
+        item['subject_name']=item['subject_name'] or 'Matière à renseigner';item['color']=item['color'] or '#9a7538'
+        item['trainer_name']=item['trainer_name'] or 'Formateur à renseigner';item['promotion_name']=item['promotion_name'] or 'Promotion à renseigner'
         items.append(item)
     return items
 
@@ -333,7 +371,8 @@ def _conflicts(conn,course,exclude_id=None,pool=None,calendar=None,unavailable=N
             found.append(dict(type='outside_promotion',message='Ce cours est en dehors des dates de la promotion.',date=course['date'],promotion_id=group['promotion_id']))
         rules,exceptions=calendar if calendar is not None and group['promotion_id']==course['promotion_id'] else _calendar(conn,group['promotion_id'])
         day_state=_day(promotion,day,rules,exceptions)
-        if day_state['kind']!='school':found.append(dict(type='not_school',message=promotion['nom']+' : ce jour n’est pas défini comme une journée école ('+day_state['label']+').',date=course['date'],promotion_id=group['promotion_id']))
+        if day_state['kind']=='public_holiday':found.append(dict(type='public_holiday',message=day_state['label']+' : aucun cours ne peut être planifié un jour férié.',date=course['date'],promotion_id=group['promotion_id']))
+        elif day_state['kind']!='school':found.append(dict(type='not_school',message=promotion['nom']+' : ce jour n’est pas défini comme une journée école ('+day_state['label']+').',date=course['date'],promotion_id=group['promotion_id']))
     rows=pool if pool is not None else _load_courses(conn,course['date'],course['date'])
     own_promotions={g['promotion_id'] for g in _groups(course)}
     for other in rows:
@@ -353,8 +392,8 @@ def _conflicts(conn,course,exclude_id=None,pool=None,calendar=None,unavailable=N
 
 
 def _course_issues_for_calendar(conn,promotion_id,rules,exceptions):
-    promotion=_promotion(conn,promotion_id)
-    return [dict(type='existing_course',message='Un cours existe sur un jour qui ne serait plus à l’école.',date=c['date'],course_id=c['id'],subject_name=c['subject_name'],start=c['start'],end=c['end']) for c in _load_courses(conn,promotion_id=promotion_id) if _day(promotion,_iso(c['date']),rules,exceptions)['kind']!='school']
+    promotion=_promotion(conn,promotion_id);old_rules,old_exceptions=_calendar(conn,promotion_id)
+    return [dict(type='existing_course',message='Un cours existe sur un jour qui ne serait plus à l’école.',date=c['date'],course_id=c['id'],subject_name=c['subject_name'],start=c['start'],end=c['end']) for c in _load_courses(conn,promotion_id=promotion_id) if _day(promotion,_iso(c['date']),rules,exceptions)['kind']!='school' and _day(promotion,_iso(c['date']),old_rules,old_exceptions)['kind']=='school']
 
 
 def _base_rule_conflicts(rules):
@@ -366,7 +405,7 @@ def _base_rule_conflicts(rules):
             start=max(first['start_date'],second['start_date']);end=min(first['end_date'],second['end_date'])
             if start>end:continue
             overlap=set(first['weekdays'])&set(second['weekdays'])
-            days=[day.isoformat() for day in _dates(_iso(start),_iso(end)) if day.weekday() in overlap]
+            days=[day.isoformat() for day in _dates(_iso(start),_iso(end)) if day.weekday() in overlap and not public_holiday_name(day)]
             if days:issues.append(dict(type='calendar_overlap',message='Ces règles définissent les mêmes jours à la fois à l’école et en entreprise. Modifiez la règle existante ou utilisez une exception.',dates=days[:30],rule_id=second.get('id')))
     return issues
 
@@ -567,6 +606,7 @@ def register_planning(app,db_connect,require_admin):
         def operation(conn,payload):
             promotion=_promotion(conn,payload.get('promotion_id'),True);day=_iso(payload.get('date')).isoformat();kind=payload.get('kind')
             if not promotion['date_debut']<=day<=promotion['date_fin'] or not isinstance(kind,str) or kind not in KINDS:raise PlanningError('Choisissez un jour de la promotion et un type de journée valide.')
+            if public_holiday_name(day):raise PlanningError('Un jour férié est automatiquement bloqué et ne peut pas être modifié.',[dict(type='public_holiday',date=day)],409)
             label=_text(payload.get('label',''),'le libellé',180);rules,exceptions=_calendar(conn,promotion['id'])
             exceptions=[item for item in exceptions if item['date']!=day]+[dict(date=day,kind=kind,label=label)]
             reject(_course_issues_for_calendar(conn,promotion['id'],rules,exceptions))
@@ -596,6 +636,7 @@ def register_planning(app,db_connect,require_admin):
                 day=_iso(item.get('date')).isoformat();kind=item.get('kind')
                 if day in changed:raise PlanningError('Chaque date doit apparaître une seule fois dans la sauvegarde.')
                 if not promotion['date_debut']<=day<=promotion['date_fin'] or not isinstance(kind,str) or kind not in KINDS:raise PlanningError('Chaque journée doit avoir un type valide et rester dans les dates de la promotion.')
+                if public_holiday_name(day):raise PlanningError('Un jour férié est automatiquement bloqué. Retirez-le des journées à colorier.',[dict(type='public_holiday',date=day)],409)
                 changed[day]=dict(date=day,kind=kind,label=_text(item.get('label',''),'le libellé',180))
             rules,exceptions=_calendar(conn,promotion['id'])
             proposed=[item for item in exceptions if item['date'] not in changed]+list(changed.values())
@@ -667,12 +708,31 @@ def register_planning(app,db_connect,require_admin):
 
     def batch_items(conn,payload):
         promotion=_promotion(conn,payload.get('promotion_id'),True);mode=payload.get('mode');items=[]
-        if mode=='repeat':
+        if mode=='dates':
+            chosen=payload.get('dates')
+            if not isinstance(chosen,list) or not 1<=len(chosen)<=MAX_BATCH:raise PlanningError(f'Choisissez entre 1 et {MAX_BATCH} dates.')
+            dates=[_iso(day).isoformat() for day in chosen]
+            if len(set(dates))!=len(dates):raise PlanningError('Chaque jour doit être sélectionné une seule fois.')
+            source_id=payload.get('source_course_id')
+            if source_id is not None:
+                if not isinstance(source_id,str):raise PlanningError('Choisissez un cours à dupliquer.')
+                source=existing_course(conn,source_id,dict(version=payload.get('source_version')),require_version=True)
+                if promotion['id'] not in source['promotion_ids']:raise PlanningError('Ce cours n’appartient pas à cette promotion.')
+                template={key:source[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title','shared')}
+                template.update(_source_course_id=source['id'],_source_version=source['version'])
+            else:
+                template=payload.get('template')
+                if not isinstance(template,dict):raise PlanningError('Choisissez le cours à dupliquer.')
+                template={key:template[key] for key in COURSE_TEMPLATE_FIELDS if key in template}
+                template['promotion_id']=promotion['id']
+            items=[dict(template,date=day) for day in sorted(dates)]
+        elif mode=='repeat':
             start,end=_range(payload.get('start_date'),payload.get('end_date'));weekdays=_weekdays(payload.get('weekdays'))
             interval=payload.get('interval_weeks',1)
             if isinstance(interval,bool) or not isinstance(interval,int) or not 1<=interval<=52:raise PlanningError('L’intervalle doit être compris entre 1 et 52 semaines.')
             template=payload.get('template')
             if not isinstance(template,dict):raise PlanningError('Choisissez le cours à répéter.')
+            template={key:template[key] for key in COURSE_TEMPLATE_FIELDS if key in template}
             anchor=start-timedelta(days=start.weekday())
             for day in _dates(start,end):
                 if day.weekday() in weekdays and ((day-anchor).days//7)%interval==0:items.append(dict(template,promotion_id=promotion['id'],date=day.isoformat()))
@@ -690,7 +750,7 @@ def register_planning(app,db_connect,require_admin):
                 try:target_day=(_iso(item['date'])+offset).isoformat()
                 except OverflowError:raise PlanningError('Les dates de duplication dépassent les limites du calendrier.')
                 items.append({**{key:item[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title','shared')},'date':target_day})
-        else:raise PlanningError('Choisissez une récurrence ou une duplication.')
+        else:raise PlanningError('Choisissez des dates, une récurrence ou une duplication.')
         if not items or len(items)>MAX_BATCH:raise PlanningError(f'Choisissez entre 1 et {MAX_BATCH} occurrences.')
         return items
 
@@ -732,11 +792,20 @@ def register_planning(app,db_connect,require_admin):
             if preview.get('binding')!=hashlib.sha256(csrf().encode()).hexdigest():raise PlanningError('Cet aperçu appartient à une autre session. Générez un nouvel aperçu.',status=409)
             selected=payload.get('selected_keys')
             if not isinstance(selected,list) or not selected or len(selected)>MAX_BATCH or len(set(map(str,selected)))!=len(selected):raise PlanningError('Cochez explicitement les occurrences à programmer.')
-            courses=[];issues=[]
+            courses=[];issues=[];checked_sources={}
             for key in selected:
                 if not isinstance(key,str) or len(key)>4 or not re.fullmatch(r'0|[1-9][0-9]*',key) or int(key)>=len(preview['items']):raise PlanningError('La sélection de cours est invalide.')
                 item=preview['items'][int(key)]
                 try:
+                    if item.get('_source_course_id'):
+                        if not isinstance(item['_source_course_id'],str) or isinstance(item.get('_source_version'),bool) or not isinstance(item.get('_source_version'),int):raise PlanningError('La référence du cours à dupliquer est invalide.')
+                        reference=(item['_source_course_id'],item.get('_source_version'))
+                        if reference not in checked_sources:
+                            try:
+                                existing_course(conn,reference[0],dict(version=reference[1]),require_version=True)
+                                checked_sources[reference]=None
+                            except PlanningError as source_error:checked_sources[reference]=source_error
+                        if checked_sources[reference]:raise checked_sources[reference]
                     course=_course(conn,item);current_issues=_conflicts(conn,course,pool=_load_courses(conn,course['date'],course['date'])+courses,pending=courses)
                     issues.extend(dict(issue,key=key) for issue in current_issues);courses.append(course)
                 except PlanningError as error:issues.append(dict(type='invalid_course',key=key,message=str(error),date=item.get('date')))

@@ -1,0 +1,121 @@
+/* Read-only school schedules. Scoped to the student and trainer portals. */
+.academy-ui .portal-today,
+.academy-ui .portal-planning-app{--pp-ink:#29392f;--pp-muted:#69746a;--pp-line:#dfe4d9;--pp-olive:#59694a;--pp-paper:#fbfcf8;--pp-gold:#b08b44;color:var(--pp-ink);font-family:'DM Sans',sans-serif;min-width:0}
+.academy-ui.portal-planning-page #main-content{max-width:none!important;width:100%!important;margin:0!important;padding:34px clamp(18px,3vw,52px) 45px!important;background:#f3f4ed!important;box-shadow:none!important;border:0!important;border-radius:0!important}
+.academy-ui.portal-planning-page .portal-planning-app{width:100%;max-width:none;margin:0 auto}
+.academy-ui .portal-planning-app *, .academy-ui .portal-today *{box-sizing:border-box}
+.academy-ui .portal-planning-app .ui-icon,.academy-ui .portal-today .ui-icon{width:18px;height:18px;flex:0 0 18px;vertical-align:middle}
+.academy-ui .portal-planning-kicker{margin:0 0 8px!important;font-size:10px!important;font-weight:800!important;letter-spacing:1.6px!important;line-height:1.5!important;color:var(--pp-olive)!important}
+.academy-ui .portal-planning-button,.academy-ui .portal-icon-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #d1daca!important;border-radius:12px!important;padding:11px 15px!important;background:#fff!important;color:#344832!important;font:700 13px/1.4 'DM Sans',sans-serif!important;text-decoration:none!important;white-space:nowrap;cursor:pointer;box-shadow:none!important;transition:background .15s,border-color .15s;min-height:43px;max-width:100%;width:auto;margin:0!important}
+.academy-ui .portal-planning-button:hover,.academy-ui .portal-icon-button:hover{background:#edf2e7!important;border-color:#9eaf92!important;transform:none!important}
+.academy-ui .portal-planning-button.primary{background:#465b3d!important;color:#fff!important;border-color:#465b3d!important}
+.academy-ui .portal-planning-button.primary:hover{background:#344b2c!important}
+.academy-ui .portal-planning-app :is(a,button,input):focus-visible,.academy-ui .portal-today :is(a,button):focus-visible{outline:3px solid #af8a3c!important;outline-offset:3px}
+.academy-ui .portal-planning-back{display:inline-block;color:#56684c!important;font-size:13px;font-weight:700;text-decoration:none;margin-bottom:23px}
+.academy-ui .portal-planning-heading{display:flex;justify-content:space-between;align-items:center;gap:30px;margin:0 0 27px}
+.academy-ui .portal-planning-heading h1{font:800 clamp(36px,4vw,55px)/1.1 'DM Sans',sans-serif!important;letter-spacing:-2px;margin:0 0 13px!important;color:var(--pp-ink)!important}
+.academy-ui .portal-planning-heading h1 em,.academy-ui .portal-today h2 em{font-family:Georgia,'Times New Roman',serif;font-weight:400;color:#617249}
+.academy-ui .portal-planning-heading>div>p:not(.portal-planning-kicker){font-size:14px;line-height:1.6;margin:0;color:var(--pp-muted)}
+.academy-ui .portal-planning-promotion{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;font-weight:700;background:#e7ecdf;color:#536747;padding:8px 12px;border-radius:10px}
+.academy-ui .portal-heading-side{display:flex;align-items:center;gap:14px;flex-shrink:0}
+.academy-ui .portal-week-summary{background:#e7ecde;border:1px solid #d8e0ca;padding:18px 22px;border-radius:17px;display:flex;gap:15px;align-items:center;flex-shrink:0}
+.academy-ui .portal-week-summary>span{width:42px;height:42px;display:grid;place-items:center;background:#d9e3cc;color:#566c42;border-radius:13px}
+.academy-ui .portal-week-summary b{display:block;font-size:24px;letter-spacing:-.8px;line-height:1.2}
+.academy-ui .portal-week-summary small{display:block;font-size:12px;color:#617054;margin-top:5px}
+.academy-ui .portal-planning-calendar{border:1px solid var(--pp-line);background:#fff;border-radius:23px;overflow:hidden;min-width:0}
+.academy-ui .portal-planning-toolbar{display:flex;align-items:center;justify-content:space-between;gap:22px;flex-wrap:wrap;padding:24px;border-bottom:1px solid #e9ede3}
+.academy-ui .portal-week-navigation{display:flex;align-items:center;gap:15px;min-width:0}
+.academy-ui .portal-week-navigation>div{min-width:0}
+.academy-ui .portal-icon-button{padding:5px!important;width:40px;min-width:40px;min-height:40px;font-size:26px!important;line-height:1!important}
+.academy-ui .portal-week-navigation h2{font:750 20px/1.25 'DM Sans',sans-serif!important;letter-spacing:-.5px;color:var(--pp-ink)!important;margin:0!important}
+.academy-ui .portal-week-navigation .portal-planning-kicker{font-size:9px!important;margin-bottom:4px!important}
+.academy-ui .portal-planning-tools{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.academy-ui .portal-date-jump{display:flex;gap:8px;align-items:flex-end;margin:0;padding:0;background:none;border:0;box-shadow:none}
+.academy-ui .portal-date-jump label{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:700;color:#6c7862;margin:0;text-align:left;line-height:1.4}
+.academy-ui .portal-date-jump input{width:154px;min-height:43px;border:1px solid #d1daca!important;border-radius:11px;padding:9px 11px;font:500 13px 'DM Sans',sans-serif;color:var(--pp-ink);background:#fff;margin:0}
+.academy-ui .portal-calendar-caption{padding:15px 24px;display:flex;gap:20px;align-items:center;flex-wrap:wrap;background:#fcfdf9;border-bottom:1px solid #e9ede3}
+.academy-ui .portal-calendar-caption>p{display:flex;gap:7px;align-items:center;font-size:11px;margin:0;color:#6b7864}
+.academy-ui .portal-view-switch{display:flex;padding:3px;gap:2px;border:1px solid #dfe5d6;border-radius:9px;margin-left:auto}
+.academy-ui .portal-view-switch[hidden]{display:none!important}
+.academy-ui .portal-view-switch button{background:transparent;border:0;border-radius:6px;font:700 11px 'DM Sans',sans-serif;padding:6px 11px;color:#6c7863;cursor:pointer;width:auto;margin:0;box-shadow:none}
+.academy-ui .portal-view-switch button[aria-pressed=true]{background:#e7eddf;color:#3e552f}
+.academy-ui .portal-planning-legend{display:flex;gap:14px;font-size:11px;color:#6a7362;margin-left:auto}
+.academy-ui .portal-planning-legend span{display:flex;align-items:center;gap:6px}
+.academy-ui .portal-planning-legend i{display:block;width:9px;height:9px;border-radius:3px;background:#d48b43}
+.academy-ui .portal-planning-legend i.holiday{background:#b54d43}
+.academy-ui .portal-week-scroll{overflow-x:auto;width:100%;max-width:100%;overscroll-behavior-x:contain}
+.academy-ui .portal-week-grid{display:grid;grid-template-columns:repeat(7,minmax(145px,1fr));min-width:1015px;align-items:stretch}
+.academy-ui .portal-planning-day{min-width:0;background:#fff;border-right:1px solid #e5e9df;min-height:390px;padding:0}
+.academy-ui .portal-planning-day:last-child{border-right:0}
+.academy-ui .portal-day-heading{padding:16px 10px 13px;border-bottom:1px solid #e5e9df;min-height:82px;background:#fafbf6}
+.academy-ui .portal-day-heading>div{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.academy-ui .portal-day-heading h3{font:750 13px/1.5 'DM Sans',sans-serif!important;color:#53634a;margin:0!important;letter-spacing:0}
+.academy-ui .portal-day-heading p{font-size:10px;line-height:1.45;color:#78836e;margin:5px 0 0}
+.academy-ui .portal-today-tag{font-size:8px;line-height:1.4;font-weight:800;color:#fff;background:#617449;padding:3px 5px;border-radius:5px}
+.academy-ui .portal-planning-day.is-today{background:#f6f9f0;box-shadow:inset 0 3px #617449}
+.academy-ui .portal-planning-day.is-today .portal-day-heading{background:#edf3e5}
+.academy-ui .portal-planning-day.is-public-holiday{background:#fff4f2;box-shadow:inset 0 3px #b45247}
+.academy-ui .portal-planning-day.is-public-holiday .portal-day-heading{background:#fae5e0;border-bottom-color:#efd0c9}
+.academy-ui .portal-planning-day.is-public-holiday .portal-day-heading :is(h3,p),.academy-ui .portal-planning-day.is-public-holiday .portal-day-empty{color:#923e35}
+.academy-ui .portal-planning-day.day-company{background:#f8f5ee}
+.academy-ui .portal-planning-day.day-holiday,.academy-ui .portal-planning-day.day-closed{background:#f5f5f1}
+.academy-ui .portal-day-courses{display:grid;gap:10px;padding:10px;align-content:start;min-width:0}
+.academy-ui .portal-day-empty{margin:14px 0;font-size:11px;line-height:1.6;color:#7c8575;text-align:center}
+.academy-ui .portal-course-card{border:1px solid #d7e0cb;border-left:4px solid #71835a;background:#eff4e8;border-radius:12px;padding:13px;min-width:0;color:#354a2e;box-shadow:none;position:relative;text-align:left;overflow-wrap:anywhere}
+.academy-ui .portal-course-time{display:flex;align-items:center;gap:7px;justify-content:space-between;flex-wrap:wrap}
+.academy-ui .portal-course-time>span:first-child{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.academy-ui .portal-course-time .ui-icon{width:14px;height:14px;flex-basis:14px}
+.academy-ui .portal-course-time strong{font-size:12px;letter-spacing:-.2px;color:inherit;font-weight:750}
+.academy-ui .portal-course-time strong>span{opacity:.5;padding:0 1px}
+.academy-ui .portal-course-card h3{font:750 13px/1.45 'DM Sans',sans-serif!important;letter-spacing:-.15px!important;color:inherit!important;margin:9px 0!important}
+.academy-ui .portal-course-detail{font-size:11px;line-height:1.5;margin:0 0 9px;color:#68775e}
+.academy-ui .portal-course-meta{display:grid;gap:6px;color:#637159;font-size:11px;line-height:1.4}
+.academy-ui .portal-course-meta>span{display:flex;align-items:flex-start;gap:5px}
+.academy-ui .portal-course-meta .ui-icon{height:13px;width:13px;flex-basis:13px;margin-top:1px}
+.academy-ui .portal-common-course{display:inline-block;font-size:9px;font-weight:700;color:#66764e;border:1px solid #cbd8bd;border-radius:5px;padding:3px 5px;margin-top:10px}
+.academy-ui .portal-course-date{font-size:11px;font-weight:750;color:#6a775c;margin:6px 0 0}
+.academy-ui .portal-course-live{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;border-radius:5px;padding:4px 5px;background:#dbe6cd;color:#52683e;white-space:nowrap}
+.academy-ui .portal-course-card[data-live-state=ongoing]{box-shadow:0 0 0 2px #7b8e62}
+.academy-ui .portal-course-card[data-live-state=ongoing] .portal-course-live{background:#526d3f;color:#fff}
+.academy-ui .portal-course-card.is-incomplete{border-color:#e4b78a;border-left-color:#cb843c;background:#fff2df;color:#795025}
+.academy-ui .portal-course-card.is-incomplete :is(.portal-course-meta,.portal-course-detail,.portal-course-date){color:#8a653c}
+.academy-ui .portal-course-warning{display:flex;align-items:flex-start;gap:7px;padding-top:10px;margin-top:10px;border-top:1px solid #ebcba7;font-size:10px;line-height:1.45;color:#946023}
+.academy-ui .portal-course-warning>svg{width:15px;height:15px;flex:0 0 15px}
+.academy-ui .portal-course-warning b{display:block;font-size:10px;margin-bottom:2px}
+.academy-ui .portal-planning-empty{display:flex;align-items:center;gap:12px;margin:18px 24px;padding:15px 17px;border:1px solid #e4e8db;border-radius:13px;background:#fafbf5;color:#64705b}
+.academy-ui .portal-planning-empty>span{display:grid;place-items:center;background:#e8edde;border-radius:9px;width:35px;height:35px;flex:0 0 35px}
+.academy-ui .portal-planning-empty p{margin:0;font-size:13px;line-height:1.6}
+.academy-ui .portal-planning-footer{display:flex;gap:8px;align-items:flex-start;font-size:11px;line-height:1.6;color:#74806c;margin:18px 4px 0!important}
+.academy-ui .portal-planning-app[data-view=list] .portal-week-grid{min-width:0;grid-template-columns:1fr}
+.academy-ui .portal-planning-app[data-view=list] .portal-planning-day{display:grid;grid-template-columns:175px 1fr;min-height:0;border-right:0;border-bottom:1px solid #e5e9df}
+.academy-ui .portal-planning-app[data-view=list] .portal-day-heading{border-bottom:0;border-right:1px solid #e5e9df;padding:18px;min-height:0}
+.academy-ui .portal-planning-app[data-view=list] .portal-day-courses{grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));padding:14px;gap:12px}
+.academy-ui .portal-planning-app[data-view=list] .portal-day-empty{text-align:left;margin:8px 0}
+/* Today's courses stay prominent above the dossier or student roster. */
+.academy-ui .portal-today{margin:0 0 28px;border:1px solid #dce2d4;border-radius:24px;background:#fff;padding:27px;box-shadow:0 8px 28px #27361e05;overflow:hidden}
+.academy-ui .portal-today-heading{display:flex;gap:22px;align-items:center;justify-content:space-between;margin-bottom:22px}
+.academy-ui .portal-today h2{font:800 clamp(24px,2.4vw,34px)/1.15 'DM Sans',sans-serif!important;letter-spacing:-1px;color:var(--pp-ink)!important;margin:0 0 9px!important}
+.academy-ui .portal-today-date{font-size:12px;font-weight:600;line-height:1.6;margin:0;color:#66705e}
+.academy-ui .portal-today-date>span{font-size:10px;font-weight:400;color:#87917e}
+.academy-ui .portal-today-courses,.academy-ui .portal-next-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:13px}
+.academy-ui .portal-today .portal-course-card{padding:17px 19px}
+.academy-ui .portal-today .portal-course-card h3{font-size:15px!important;margin:12px 0!important}
+.academy-ui .portal-today .portal-course-time strong{font-size:14px}
+.academy-ui .portal-today .portal-course-meta{font-size:12px;gap:8px}
+.academy-ui .portal-today .portal-course-warning{font-size:11px}
+.academy-ui .portal-today-empty{display:flex;align-items:center;gap:16px;border:1px dashed #d7dfca;border-radius:14px;background:#fafbf6;padding:21px}
+.academy-ui .portal-today-symbol{display:grid;place-items:center;flex:0 0 45px;height:45px;border-radius:13px;background:#e9efdf;color:#6d7f55}
+.academy-ui .portal-today-empty h3{font:750 16px/1.4 'DM Sans',sans-serif!important;color:#415336!important;margin:0 0 5px!important;letter-spacing:-.3px!important}
+.academy-ui .portal-today-empty p{font-size:12px;line-height:1.6;color:#77816d;margin:0!important}
+.academy-ui .portal-next-courses{border-top:1px solid #e6ebdf;margin-top:22px;padding-top:19px}
+.academy-ui .portal-next-heading{display:flex;align-items:center;gap:8px;margin-bottom:12px;color:#677954}
+.academy-ui .portal-next-heading h3{font:700 12px/1.4 'DM Sans',sans-serif!important;color:#637351!important;margin:0!important}
+.academy-ui .portal-next-grid .portal-course-card{background:#fcfdf9}
+.academy-ui .portal-next-grid .portal-course-card.is-incomplete{background:#fff5e8}
+.academy-ui .portal-holiday-banner{display:flex;gap:7px;align-items:center;flex-wrap:wrap;background:#fceae6;border:1px solid #edccc5;color:#943f33;font-size:12px;line-height:1.5;border-radius:11px;padding:12px 14px;margin:0 0 15px}
+.academy-ui .portal-today.is-public-holiday{border-top:4px solid #b65748}
+@media(min-width:1600px){.academy-ui .portal-day-heading{padding:18px 15px}.academy-ui .portal-day-courses{padding:14px}.academy-ui .portal-course-card{padding:16px}.academy-ui .portal-course-card h3{font-size:14px!important}.academy-ui .portal-course-meta{font-size:12px}}
+@media(max-width:1100px){.academy-ui .portal-planning-heading{align-items:flex-start}.academy-ui .portal-heading-side{flex-direction:column;align-items:stretch}.academy-ui .portal-week-summary{padding:15px}.academy-ui .portal-planning-toolbar{padding:20px}.academy-ui .portal-week-navigation h2{font-size:18px!important}}
+@media(max-width:760px){.academy-ui.portal-planning-page #main-content{padding:22px 15px 30px!important}.academy-ui .portal-planning-heading{gap:17px;flex-wrap:wrap;margin-bottom:20px}.academy-ui .portal-planning-heading h1{font-size:38px!important}.academy-ui .portal-planning-heading>div>p:not(.portal-planning-kicker){font-size:13px}.academy-ui .portal-heading-side{flex-direction:row;flex-wrap:wrap;align-items:center;width:100%;justify-content:space-between}.academy-ui .portal-week-summary{padding:11px 15px;gap:11px}.academy-ui .portal-week-summary>span{width:33px;height:33px}.academy-ui .portal-week-summary b{font-size:18px}.academy-ui .portal-week-summary small{font-size:10px}.academy-ui .portal-planning-calendar{border-radius:17px}.academy-ui .portal-planning-toolbar{padding:17px;gap:18px}.academy-ui .portal-week-navigation{width:100%;justify-content:space-between;gap:10px}.academy-ui .portal-week-navigation h2{font-size:16px!important}.academy-ui .portal-planning-tools{width:100%;gap:9px}.academy-ui .portal-date-jump{flex:1;justify-content:flex-end;gap:6px}.academy-ui .portal-date-jump input{width:138px;font-size:12px;padding:9px}.academy-ui .portal-planning-button{font-size:12px!important;padding:10px 12px!important}.academy-ui .portal-calendar-caption{padding:12px 17px;gap:10px}.academy-ui .portal-planning-legend{margin-left:0}.academy-ui .portal-view-switch{display:none}.academy-ui .portal-week-grid,.academy-ui .portal-planning-app[data-view=list] .portal-week-grid{min-width:0;grid-template-columns:1fr}.academy-ui .portal-planning-day,.academy-ui .portal-planning-app[data-view=list] .portal-planning-day{display:block;min-height:0;border-right:0;border-bottom:1px solid #e0e7d7}.academy-ui .portal-day-heading,.academy-ui .portal-planning-app[data-view=list] .portal-day-heading{padding:13px 16px;min-height:0;border-right:0;border-bottom:1px solid #e0e7d7;display:flex;justify-content:space-between;align-items:center;gap:10px}.academy-ui .portal-day-heading h3{font-size:14px!important}.academy-ui .portal-day-heading p{margin:0;text-align:right;max-width:58%;font-size:11px}.academy-ui .portal-day-courses,.academy-ui .portal-planning-app[data-view=list] .portal-day-courses{padding:12px 16px;grid-template-columns:1fr;gap:10px}.academy-ui .portal-day-empty,.academy-ui .portal-planning-app[data-view=list] .portal-day-empty{margin:3px 0;text-align:left}.academy-ui .portal-course-card{padding:14px 16px}.academy-ui .portal-course-card h3{font-size:15px!important}.academy-ui .portal-course-meta{font-size:12px}.academy-ui .portal-course-time strong{font-size:13px}.academy-ui .portal-planning-empty{margin:14px 16px;padding:13px}.academy-ui .portal-today{padding:20px 17px;margin-bottom:23px;border-radius:19px}.academy-ui .portal-today-heading{flex-wrap:wrap;gap:15px;margin-bottom:17px}.academy-ui .portal-today h2{font-size:28px!important}.academy-ui .portal-today-heading .portal-planning-button{width:100%}.academy-ui .portal-today-empty{align-items:flex-start;padding:17px 14px;gap:11px}.academy-ui .portal-today-symbol{flex-basis:35px;height:35px}.academy-ui .portal-today-empty h3{font-size:15px!important}.academy-ui .portal-next-grid,.academy-ui .portal-today-courses{grid-template-columns:1fr}}
+@media(max-width:380px){.academy-ui .portal-planning-tools{align-items:stretch}.academy-ui .portal-planning-tools>a{width:100%}.academy-ui .portal-date-jump{justify-content:space-between;width:100%}.academy-ui .portal-date-jump label{flex:1}.academy-ui .portal-date-jump input{width:100%}.academy-ui .portal-planning-legend{gap:10px;font-size:10px}.academy-ui .portal-heading-side{gap:10px}.academy-ui .portal-week-summary{width:100%}}
+@media(prefers-reduced-motion:reduce){.academy-ui .portal-planning-button,.academy-ui .portal-icon-button{transition:none}}

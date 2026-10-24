@@ -4,7 +4,7 @@
   const app = document.querySelector('.planning-app');
   if (!app) return;
   const $ = id => document.getElementById(id), API = '/admin/planning/api';
-  const kinds = {school: 'À l’école', company: 'En entreprise', holiday: 'Vacances', closed: 'Fermé', unconfigured: 'À définir'};
+  const kinds = {school: 'À l’école', company: 'En entreprise', holiday: 'Vacances', closed: 'Fermé', public_holiday: 'Jour férié', unconfigured: 'À définir'};
   const weekdays = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const el = (tag, cls, text) => { const node = document.createElement(tag); if (cls) node.className = cls; if (text !== undefined) node.textContent = String(text); return node; };
   const button = (text, cls, action) => { const node = el('button', cls || 'planning-button', text); node.type = 'button'; if (action) node.addEventListener('click', action); return node; };
@@ -21,7 +21,7 @@
   const normal = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr');
   const courseDuration = course => Number(course.duration_minutes) || minutes(course.end) - minutes(course.start);
   const safeColor = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#66764e';
-  const state = {data: null, year: null, week: monday(today()), view: 'week', subject: '', availability: new Map(), availabilityReady: false, availabilitySeq: 0, loadSeq: 0, dragCourse: null, gridStart: 420, gridEnd: 1260, subjectEdit: null, ruleEdit: null, exceptionEdit: null, courseEdit: null, roomEdit: null, batch: null, busy: false, loading: false, slot: null, slotAnchor: null, slotGesture: null, slotChecks: new Map(), slotCheckSeq: 0, quickBusy: false, quickShared: [], courseShared: [], paintKind: 'school', paintDraft: new Map(), paintRevision: null, paintStale: false, paintBusy: false, paintAnchor: null, paintGesture: null};
+  const state = {data: null, year: null, week: monday(today()), view: 'week', subject: '', availability: new Map(), availabilityReady: false, availabilitySeq: 0, loadSeq: 0, dragCourse: null, gridStart: 420, gridEnd: 1260, subjectEdit: null, ruleEdit: null, exceptionEdit: null, courseEdit: null, roomEdit: null, batch: null, busy: false, loading: false, slot: null, slotAnchor: null, slotGesture: null, slotChecks: new Map(), slotCheckSeq: 0, quickBusy: false, quickShared: [], courseShared: [], paintKind: 'school', paintDraft: new Map(), paintRevision: null, paintStale: false, paintBusy: false, paintAnchor: null, paintGesture: null, paintSkipped: 0};
   const promotionId = () => $('planning-promotion').value;
   const currentSubject = () => state.data?.subjects?.find(subject => String(subject.id) === state.subject);
   function notice(text, failure = false) { const node = $('planning-notice'); node.textContent = text || ''; node.hidden = !text; node.classList.toggle('error', failure); }
@@ -58,6 +58,13 @@
     select.replaceChildren(); if (blank !== null) select.add(new Option(blank, ''));
     for (const item of items || []) select.add(new Option(label(item), String(item.id)));
     select.value = String(selected || '');
+  }
+  const isPublicHoliday = day => day?.kind === 'public_holiday' || day?.public_holiday === true;
+  const knownDay = date => (state.year?.days || []).find(day => day.date === date) || (state.data?.days || []).find(day => day.date === date);
+  function courseWarnings(course) {
+    const warnings = [...(course.warning_labels || []), ...(course.warnings || []).map(item => typeof item === 'string' ? item : item.message)].filter(Boolean);
+    if (!course.room_id && !warnings.some(text => /salle/i.test(text))) warnings.push('Salle à affecter.');
+    return [...new Set(warnings)];
   }
   function courseName(course) { return course.title || course.display_subject_name || course.subject_name || state.data?.subjects?.find(subject => String(subject.id) === String(course.subject_id))?.name || 'Cours'; }
   async function loadState({initial = false} = {}) {
@@ -160,6 +167,7 @@
   }
   function setSlot(date, start, end, check = true) {
     if (state.loading || state.quickBusy || !state.data || minutes(end) <= minutes(start)) return;
+    const day = knownDay(date); if (isPublicHoliday(day)) { notice((day.label || 'Jour férié') + ' : aucun cours ne peut être planifié.', true); return; }
     if (!check && state.slot?.date === date && state.slot.start === start && state.slot.end === end) return;
     state.slot = {promotion_id: promotionId(), date, start, end}; state.subject = ''; state.availabilitySeq++; state.availabilityReady = false; state.slotCheckSeq++; state.slotChecks.clear(); renderSlotSelection(); renderAvailability(); renderSubjects();
     if (check) checkSelectedSlot();
@@ -223,19 +231,19 @@
     const calendar = $('planning-calendar'); calendar.replaceChildren(); calendar.style.setProperty('--calendar-height', (state.gridEnd - state.gridStart) * 1.1 + 'px');
     const head = el('div', 'planning-week-head'); head.append(el('span', 'planning-time-corner', 'Paris'));
     for (let day = 0; day < 7; day++) {
-      const date = addDays(state.week, day), info = dayInfo(date); const header = button('', 'planning-day-heading kind-' + info.kind + (date === today() ? ' is-today' : ''), () => openException(date)); header.append(el('span', '', weekdays[day]), el('b', '', formatDate(date, {day: 'numeric', month: 'short'})), el('small', '', info.label || kinds[info.kind] || 'À définir')); header.setAttribute('aria-label', formatDate(date, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + (info.label || kinds[info.kind]) + '. Modifier cette journée.'); head.append(header);
+      const date = addDays(state.week, day), info = dayInfo(date); const header = button('', 'planning-day-heading kind-' + info.kind + (date === today() ? ' is-today' : ''), () => openException(date)); header.append(el('span', '', weekdays[day]), el('b', '', formatDate(date, {day: 'numeric', month: 'short'})), el('small', '', info.label || kinds[info.kind] || 'À définir')); header.disabled = isPublicHoliday(info); header.setAttribute('aria-label', formatDate(date, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + (info.label || kinds[info.kind]) + (isPublicHoliday(info) ? '. Jour férié verrouillé, aucun cours possible.' : '. Modifier cette journée.')); head.append(header);
     }
     calendar.append(head); const grid = el('div', 'planning-calendar-grid'); const timeAxis = el('div', 'planning-times');
     for (let minute = state.gridStart; minute < state.gridEnd; minute += 60) { const tick = el('span', '', timeString(minute)); tick.style.top = ((minute - state.gridStart) * 1.1) + 'px'; timeAxis.append(tick); } grid.append(timeAxis);
     for (let day = 0; day < 7; day++) {
       const date = addDays(state.week, day), info = dayInfo(date); const column = el('div', 'planning-day-column kind-' + info.kind); column.setAttribute('role', 'group'); column.setAttribute('aria-label', weekdays[day] + ' ' + formatDate(date));
       for (let minute = state.gridStart; minute < state.gridEnd; minute += 30) {
-        const start = timeString(minute); const slot = button('', 'planning-slot' + (minute % 60 === 0 ? ' whole-hour' : ''), event => slotClick(date, start, event)); slot.dataset.date = date; slot.dataset.start = start; slot.style.top = (minute - state.gridStart) * 1.1 + 'px'; slot.style.height = '33px';
-        slot.addEventListener('dragover', event => { if (state.subject) { event.preventDefault(); event.dataTransfer.dropEffect = state.dragCourse ? 'move' : 'copy'; slot.classList.add('drag-over'); } }); slot.addEventListener('dragleave', () => slot.classList.remove('drag-over')); slot.addEventListener('drop', event => { event.preventDefault(); slot.classList.remove('drag-over'); placeAt(date, start); });
+        const start = timeString(minute); const slot = button('', 'planning-slot' + (minute % 60 === 0 ? ' whole-hour' : ''), event => slotClick(date, start, event)); slot.dataset.date = date; slot.dataset.start = start; slot.disabled = isPublicHoliday(info); slot.style.top = (minute - state.gridStart) * 1.1 + 'px'; slot.style.height = '33px';
+        slot.addEventListener('dragover', event => { if (state.subject && !slot.disabled) { event.preventDefault(); event.dataTransfer.dropEffect = state.dragCourse ? 'move' : 'copy'; slot.classList.add('drag-over'); } }); slot.addEventListener('dragleave', () => slot.classList.remove('drag-over')); slot.addEventListener('drop', event => { event.preventDefault(); slot.classList.remove('drag-over'); if (!slot.disabled) placeAt(date, start); });
         slot.addEventListener('pointerdown', event => beginSlot(date, start, event)); slot.addEventListener('pointerenter', () => extendSlot(date, start)); slot.addEventListener('keydown', event => slotKey(date, start, event)); column.append(slot);
       }
       for (const course of courses.filter(item => item.date === date)) {
-        const event = button('', 'planning-event' + (courseDuration(course) <= 45 ? ' is-short' : ''), () => openCourse(course)); event.draggable = true; event.style.top = (minutes(course.start) - state.gridStart) * 1.1 + 'px'; event.style.height = Math.max(30, courseDuration(course) * 1.1 - 3) + 'px'; event.style.setProperty('--subject-color', safeColor(course.display_color || course.color)); event.append(el('small', 'planning-event-time', course.start + ' – ' + course.end), el('b', '', courseName(course)), el('span', '', course.trainer_name || 'Formateur'), el('small', '', course.room_name || 'Sans salle')); if (course.is_shared) event.append(el('small', 'planning-shared-badge', 'Commun · ' + (course.groups || []).length + ' promos')); event.title = [courseName(course),course.start + ' – ' + course.end,course.trainer_name,course.room_name, ...(course.groups || []).map(group => group.promotion_name)].filter(Boolean).join(' · ');
+        const warnings = courseWarnings(course); const event = button('', 'planning-event' + (courseDuration(course) <= 45 ? ' is-short' : '') + (warnings.length ? ' is-incomplete' : ''), () => openCourse(course)); event.draggable = true; event.style.top = (minutes(course.start) - state.gridStart) * 1.1 + 'px'; event.style.height = Math.max(30, courseDuration(course) * 1.1 - 3) + 'px'; event.style.setProperty('--subject-color', safeColor(course.display_color || course.color)); event.append(el('small', 'planning-event-time', course.start + ' – ' + course.end), el('b', '', courseName(course)), el('span', '', course.trainer_name || 'Formateur'), el('small', '', course.room_name || 'Sans salle')); if (warnings.length) { const alert = el('span', 'planning-event-warning', '⚠︎'); alert.setAttribute('aria-hidden', 'true'); event.append(alert); } if (course.is_shared) event.append(el('small', 'planning-shared-badge', 'Commun · ' + (course.groups || []).length + ' promos')); event.title = [courseName(course),course.start + ' – ' + course.end,course.trainer_name,course.room_name, ...(course.groups || []).map(group => group.promotion_name), ...warnings].filter(Boolean).join(' · '); event.setAttribute('aria-label', event.title + (warnings.length ? ' · Cours à compléter.' : ''));
         event.addEventListener('dragstart', drag => { state.dragCourse = course; state.subject = String(course.display_subject_id || course.groups?.find(group => String(group.promotion_id) === promotionId())?.subject_id || course.subject_id); renderSubjects(); loadAvailability(); drag.dataTransfer.setData('text/plain', 'course:' + course.id); drag.dataTransfer.effectAllowed = 'move'; });
         event.addEventListener('dragend', () => { state.dragCourse = null; loadAvailability(); }); column.append(event);
       } grid.append(column);
@@ -247,13 +255,14 @@
       const info = state.availability.get(slot.dataset.date + '|' + slot.dataset.start); const day = dayInfo(slot.dataset.date);
       slot.classList.toggle('is-available', !!subject && state.availabilityReady && !!info?.available); slot.classList.toggle('is-unavailable', !!subject && state.availabilityReady && !info?.available);
       const reason = info?.conflicts?.map(conflict => conflict.message).join(' · ') || (day.kind !== 'school' ? day.label || kinds[day.kind] : 'Durée incompatible avec la plage horaire affichée.');
-      const text = formatDate(slot.dataset.date, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + slot.dataset.start + (subject ? ', ' + (state.availabilityReady ? (info?.available ? 'Disponible pour ' + subject.name : 'Indisponible : ' + reason) : 'Vérification en cours') : ', sélectionner le début d’un créneau ; glisser ou utiliser Maj pour étendre'); slot.title = text; slot.setAttribute('aria-label', text);
+      const text = formatDate(slot.dataset.date, {weekday: 'long', day: 'numeric', month: 'long'}) + ', ' + slot.dataset.start + (isPublicHoliday(day) ? ', jour férié : ' + day.label + ', aucun cours possible' : subject ? ', ' + (state.availabilityReady ? (info?.available ? 'Disponible pour ' + subject.name : 'Indisponible : ' + reason) : 'Vérification en cours') : ', sélectionner le début d’un créneau ; glisser ou utiliser Maj pour étendre'); slot.title = text; slot.setAttribute('aria-label', text);
     });
     if (subject && state.availabilityReady) $('planning-placement-help').textContent = subject.name + ' · ' + (state.dragCourse ? 'Déplacez le cours vers un créneau disponible.' : 'Cliquez ou déposez sur un créneau vert.');
     else if (!subject) $('planning-placement-help').textContent = state.slot ? 'Créneau sélectionné : cliquez sur une matière disponible pour ajouter le cours.' : 'Sélectionnez un créneau, puis cliquez sur une matière disponible.';
   }
   async function placeAt(date, start) {
     if (state.loading || !state.data) return;
+    if (isPublicHoliday(knownDay(date))) { notice('Ce jour férié est verrouillé. Aucun cours ne peut y être planifié.', true); return; }
     if (!state.subject) { notice('Sélectionnez d’abord une matière dans la colonne de gauche.'); $('planning-subject-search').focus(); return; }
     const moving = state.dragCourse, viewedPromotion = promotionId(), subjectId = moving?.subject_id || state.subject, roomId = moving ? (moving.room_id || '') : $('planning-room').value, sequence = state.loadSeq;
     let options; try { options = availabilityOptions(); } catch (failure) { notice(failure.message, true); return; }
@@ -267,12 +276,12 @@
     notice(''); if (moving) openCourse(moving, {date, start, end: slot.end, subject_id: subjectId, room_id: roomId}); else await createInSelectedSlot(subjectId, {promotion_id: promotionId(), date, start, end: slot.end});
   }
   function slotClick(date, start, event) {
-    if (state.slotClickSuppressed || state.loading || state.quickBusy) return;
+    if (state.slotClickSuppressed || state.loading || state.quickBusy || isPublicHoliday(knownDay(date))) return;
     if (event.shiftKey && state.slotAnchor?.date === date) { const first = Math.min(minutes(state.slotAnchor.start), minutes(start)), last = Math.max(minutes(state.slotAnchor.start), minutes(start)) + 30; setSlot(date, timeString(first), timeString(last)); }
     else { state.slotAnchor = {date, start}; setSlot(date, start, timeString(Math.min(state.gridEnd, minutes(start) + Number($('planning-duration').value)))); }
   }
   function beginSlot(date, start, event) {
-    if (event.button !== 0 || state.loading || state.quickBusy) return;
+    if (event.button !== 0 || state.loading || state.quickBusy || isPublicHoliday(knownDay(date))) return;
     event.preventDefault(); event.currentTarget.focus({preventScroll: true}); state.slotClickSuppressed = true;
     if (event.shiftKey && state.slotAnchor?.date === date) { const first = Math.min(minutes(state.slotAnchor.start), minutes(start)), last = Math.max(minutes(state.slotAnchor.start), minutes(start)) + 30; setSlot(date, timeString(first), timeString(last)); return; }
     state.slotAnchor = {date, start}; state.slotGesture = {date, start, moved: false}; setSlot(date, start, timeString(minutes(start) + 30), false);
@@ -289,23 +298,27 @@
   }
   function annualKey(date, event) {
     const shifts = {ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7}; if (!(event.key in shifts)) return;
-    const targetDate = addDays(date, shifts[event.key]), target = $('planning-months').querySelector('[data-paint-date="' + targetDate + '"]'); if (!target || target.disabled) return; event.preventDefault(); target.focus();
-    if (event.shiftKey) { if (!state.paintAnchor) state.paintAnchor = date; applyPaintRange(state.paintAnchor, targetDate); }
+    let targetDate = addDays(date, shifts[event.key]);
+    for (let step = 0; step < 741; step++, targetDate = addDays(targetDate, shifts[event.key])) {
+      const target = $('planning-months').querySelector('[data-paint-date="' + targetDate + '"]'); if (!target) return;
+      if (!target.disabled) { event.preventDefault(); target.focus(); if (event.shiftKey) { if (!state.paintAnchor) state.paintAnchor = date; applyPaintRange(state.paintAnchor, targetDate); } return; }
+    }
   }
   document.addEventListener('pointermove', event => {
-    if (!state.slotGesture && !state.paintGesture) return;
+    if (!state.slotGesture && !state.paintGesture && !state.batch?.dateGesture) return;
     const target = document.elementFromPoint(event.clientX, event.clientY);
+    const batchDay = target?.closest('[data-batch-date]'); if (batchDay && !batchDay.disabled) extendBatchDate(batchDay.dataset.batchDate);
     const cell = target?.closest('[data-paint-date]'); if (cell && !cell.disabled) extendPaint(cell.dataset.paintDate);
     const slot = target?.closest('.planning-slot'); if (slot) extendSlot(slot.dataset.date, slot.dataset.start);
   });
   document.addEventListener('pointerup', () => {
     if (state.slotGesture) { const gesture = state.slotGesture; state.slotGesture = null; if (!gesture.moved) setSlot(gesture.date, gesture.start, timeString(Math.min(state.gridEnd, minutes(gesture.start) + Number($('planning-duration').value)))); else checkSelectedSlot(); }
-    state.paintGesture = null; setTimeout(() => { state.slotClickSuppressed = false; state.paintClickSuppressed = false; }, 0);
+    state.paintGesture = null; if (state.batch) state.batch.dateGesture = null; setTimeout(() => { if (state.batch) state.batch.dateClickSuppressed = false; state.slotClickSuppressed = false; state.paintClickSuppressed = false; }, 0);
   });
-  document.addEventListener('pointercancel', () => { state.slotGesture = null; state.paintGesture = null; state.slotClickSuppressed = false; state.paintClickSuppressed = false; if (state.slot) checkSelectedSlot(); });
+  document.addEventListener('pointercancel', () => { if (state.batch) { state.batch.dateGesture = null; state.batch.dateClickSuppressed = false; } state.slotGesture = null; state.paintGesture = null; state.slotClickSuppressed = false; state.paintClickSuppressed = false; if (state.slot) checkSelectedSlot(); });
   function annualDay(date) { return (state.year?.days || []).find(day => day.date === date); }
   function paintDate(date, kind = state.paintKind) {
-    const original = annualDay(date); if (!original) return;
+    const original = annualDay(date); if (!original || isPublicHoliday(original) || original.locked) return;
     if (state.paintRevision === null) state.paintRevision = state.year?.calendar_revision ?? state.data?.calendar_revision;
     if (original.kind === kind) state.paintDraft.delete(date); else state.paintDraft.set(date, {date, kind, label: kinds[kind]});
   }
@@ -313,7 +326,7 @@
     if (state.loading || state.paintBusy || !state.year) return;
     if (base) state.paintDraft = new Map(base);
     const first = start < end ? start : end, last = start < end ? end : start;
-    let date = first; for (let count = 0; date <= last && count < 741; count++, date = addDays(date, 1)) paintDate(date);
+    state.paintSkipped = 0; let date = first; for (let count = 0; date <= last && count < 741; count++, date = addDays(date, 1)) { if (isPublicHoliday(annualDay(date))) state.paintSkipped++; else paintDate(date); }
     renderPaintDraft();
   }
   function renderPaintDraft() {
@@ -322,21 +335,22 @@
       for (const kind of Object.keys(kinds)) cell.classList.toggle('kind-' + kind, day?.kind === kind);
       cell.classList.toggle('is-painted', !!pending); cell.setAttribute('aria-pressed', String(!!pending));
       cell.title = formatDate(date) + ' · ' + (day?.label || kinds[day?.kind] || 'À définir') + (pending ? ' · Modification non enregistrée (actuellement : ' + (kinds[original?.kind] || 'À définir') + ')' : '');
-      cell.setAttribute('aria-label', cell.title + '. Peindre en ' + kinds[state.paintKind] + '.');
+      cell.setAttribute('aria-label', cell.title + (isPublicHoliday(original) ? '. Jour férié verrouillé.' : '. Peindre en ' + kinds[state.paintKind] + '.'));
     });
+    const skipped = $('planning-paint-locked-status'); skipped.hidden = !state.paintSkipped; skipped.textContent = state.paintSkipped ? state.paintSkipped + ' jour' + (state.paintSkipped > 1 ? 's fériés exclus' : ' férié exclu') + ' de la coloration : ces dates restent verrouillées en rouge.' : '';
     const count = state.paintDraft.size; $('planning-paint-savebar').hidden = count === 0;
     $('planning-paint-count').textContent = count + ' jour' + (count !== 1 ? 's' : '') + ' modifié' + (count !== 1 ? 's' : '');
     if (!state.paintStale) $('planning-paint-status').textContent = state.paintBusy ? 'Enregistrement de tous les jours en cours…' : 'Vos modifications ne sont pas encore enregistrées.';
     $('planning-paint-save').disabled = !count || state.paintBusy || state.paintStale; $('planning-paint-cancel').disabled = state.paintBusy; $('planning-paint-refresh').hidden = !state.paintStale; $('planning-paint-refresh').disabled = state.paintBusy;
     $('planning-period-new').disabled = count > 0; $('planning-exception-open').disabled = count > 0; $('planning-export-open').disabled = count > 0; $('planning-export-open').title = count ? 'Enregistrez ou annulez le brouillon avant d’exporter le calendrier.' : '';
   }
-  function cancelPaint() { state.paintDraft.clear(); state.paintRevision = null; state.paintStale = false; state.paintGesture = null; renderPaintDraft(); }
+  function cancelPaint() { state.paintSkipped = 0; state.paintDraft.clear(); state.paintRevision = null; state.paintStale = false; state.paintGesture = null; renderPaintDraft(); }
   function annualClick(date, event) {
     if (state.loading || state.paintBusy || state.paintClickSuppressed) return;
     if (event.shiftKey && state.paintAnchor) applyPaintRange(state.paintAnchor, date); else { paintDate(date); renderPaintDraft(); state.paintAnchor = date; }
   }
   function beginPaint(date, event) {
-    if (event.button !== 0 || state.loading || state.paintBusy || !annualDay(date)) return;
+    if (event.button !== 0 || state.loading || state.paintBusy || !annualDay(date) || isPublicHoliday(annualDay(date))) return;
     if (event.shiftKey && state.paintAnchor) { event.preventDefault(); applyPaintRange(state.paintAnchor, date); state.paintClickSuppressed = true; return; }
     event.preventDefault(); event.currentTarget.focus({preventScroll: true}); state.paintAnchor = date; state.paintGesture = {anchor: date, base: new Map(state.paintDraft)}; state.paintClickSuppressed = true; applyPaintRange(date, date, state.paintGesture.base);
   }
@@ -344,7 +358,7 @@
   async function savePaint() {
     if (!state.paintDraft.size || state.paintBusy || state.paintStale || state.loading) return;
     const data = {promotion_id: promotionId(), expected_revision: state.paintRevision, days: [...state.paintDraft.values()].sort((a, b) => a.date.localeCompare(b.date))}; state.paintBusy = true; renderPaintDraft();
-    try { await request('/calendar/bulk', {method: 'POST', data}); state.paintDraft.clear(); state.paintRevision = null; state.paintStale = false; notice(data.days.length + ' jour(s) du calendrier enregistrés ensemble.'); await loadState(); }
+    try { await request('/calendar/bulk', {method: 'POST', data}); state.paintDraft.clear(); state.paintSkipped = 0; state.paintRevision = null; state.paintStale = false; notice(data.days.length + ' jour(s) du calendrier enregistrés ensemble.'); await loadState(); }
     catch (failure) { state.paintStale = failure.result?.conflicts?.some(item => item.type === 'calendar_stale') || failure.result?.code === 'calendar_stale' || failure.result?.error === 'calendar_stale'; $('planning-paint-status').textContent = failure.message + (state.paintStale ? ' Rechargez les données pour revoir votre brouillon avant un nouvel enregistrement.' : ' Aucun jour n’a été enregistré. Votre brouillon est conservé.'); notice(failure.message, true); }
     finally { state.paintBusy = false; const failureStatus = $('planning-paint-status').textContent; renderPaintDraft(); if (state.paintDraft.size && failureStatus.includes('Aucun jour')) $('planning-paint-status').textContent = failureStatus; }
   }
@@ -379,7 +393,7 @@
         for (const day of ['L', 'M', 'M', 'J', 'V', 'S', 'D']) days.append(el('span', 'planning-month-weekday', day));
         const offset = (cursor.getDay() + 6) % 7; for (let i = 0; i < offset; i++) days.append(el('span', 'planning-month-blank'));
         const last = new Date(year, month + 1, 0).getDate();
-        for (let day = 1; day <= last; day++) { const date = dateString(new Date(year, month, day, 12)), info = map.get(date); const cell = button(String(day), 'planning-month-day kind-' + (info?.kind || 'closed'), event => annualClick(date, event)); cell.dataset.paintDate = date; cell.addEventListener('pointerdown', event => beginPaint(date, event)); cell.addEventListener('pointerenter', () => extendPaint(date)); cell.addEventListener('keydown', event => annualKey(date, event)); cell.disabled = date < start || date > end; cell.title = formatDate(date) + ' · ' + (info?.label || kinds[info?.kind || 'closed']); cell.setAttribute('aria-label', cell.title + '. Modifier cette journée.'); if ((state.year.courses || []).some(course => course.date === date)) cell.classList.add('has-courses'); days.append(cell); }
+        for (let day = 1; day <= last; day++) { const date = dateString(new Date(year, month, day, 12)), info = map.get(date); const cell = button(String(day), 'planning-month-day kind-' + (info?.kind || 'closed'), event => annualClick(date, event)); cell.dataset.paintDate = date; cell.addEventListener('pointerdown', event => beginPaint(date, event)); cell.addEventListener('pointerenter', () => extendPaint(date)); cell.addEventListener('keydown', event => annualKey(date, event)); cell.disabled = date < start || date > end || isPublicHoliday(info) || !!info?.locked; cell.title = formatDate(date) + ' · ' + (info?.label || kinds[info?.kind || 'closed']); cell.setAttribute('aria-label', cell.title + (isPublicHoliday(info) ? '. Jour férié verrouillé.' : '. Modifier cette journée.')); if ((state.year.courses || []).some(course => course.date === date)) cell.classList.add('has-courses'); days.append(cell); }
         monthNode.append(days); container.append(monthNode);
       } renderRules(); renderPaintDraft(); const range = $('planning-paint-range'); for (const input of range.querySelectorAll('input')) { input.min = start; input.max = end; }
     } catch (failure) { notice(failure.message, true); }
@@ -389,7 +403,7 @@
     for (const rule of state.data.rules || []) { const card = el('article', 'planning-rule kind-' + rule.kind); card.append(el('b', '', rule.label || kinds[rule.kind]), el('span', '', formatDate(rule.start_date) + ' — ' + formatDate(rule.end_date)), el('small', '', (rule.weekdays || []).map(day => weekdays[day]?.slice(0, 3)).join(' · ')), button('Modifier', 'planning-text-button', () => openPeriod(rule))); rules.append(card); }
     if (!rules.children.length) rules.append(el('p', 'planning-muted', 'Aucune période définie.'));
     $('planning-exception-count').textContent = '(' + (state.data.exceptions || []).length + ')'; $('planning-exception-overflow').hidden = (state.data.exceptions || []).length <= 12;
-    for (const exception of (state.data.exceptions || []).slice(0, 12)) { const card = el('article', 'planning-rule kind-' + exception.kind); card.append(el('b', '', exception.label || kinds[exception.kind]), el('span', '', formatDate(exception.date)), button('Modifier', 'planning-text-button', () => openException(exception.date))); exceptions.append(card); }
+    for (const exception of (state.data.exceptions || []).slice(0, 12)) { const day = knownDay(exception.date), locked = isPublicHoliday(day), card = el('article', 'planning-rule kind-' + (locked ? 'public_holiday' : exception.kind)); card.append(el('b', '', locked ? day.label + ' · Férié verrouillé' : exception.label || kinds[exception.kind]), el('span', '', formatDate(exception.date))); if (locked) card.append(el('small', '', 'L’ancienne couleur est ignorée : aucun cours ne peut être placé.')); else card.append(button('Modifier', 'planning-text-button', () => openException(exception.date))); exceptions.append(card); }
     if (!exceptions.children.length) exceptions.append(el('p', 'planning-muted', 'Aucune exception.'));
   }
   const trainerName = trainer => trainer.name || trainer.trainer_name || [trainer.prenom, trainer.nom].filter(Boolean).join(' ');
@@ -420,6 +434,7 @@
     saveForm(form, () => request('/calendar/rules' + (state.ruleEdit ? '/' + encodeURIComponent(state.ruleEdit.id) : ''), {method: state.ruleEdit ? 'PUT' : 'POST', data}), 'Période enregistrée.');
   });
   function openException(date = state.week) {
+    if (isPublicHoliday(knownDay(date))) { notice('Ce jour férié est verrouillé et ne peut pas devenir une journée école.', true); return; }
     if (!state.data || state.loading || state.paintDraft.size) { if (state.paintDraft.size) notice('Enregistrez ou annulez les couleurs du calendrier avant de modifier une exception.'); return; } const exception = (state.data.exceptions || []).find(item => item.date === date), info = (state.year?.days || state.data.days || []).find(item => item.date === date); state.exceptionEdit = exception || null;
     const form = $('planning-exception-form'); form.reset(); dateLimits(form); form.elements.date.value = date; form.elements.date.readOnly = !!exception; form.elements.kind.value = exception?.kind || (info?.kind !== 'unconfigured' ? info?.kind : 'school') || 'school'; form.elements.label.value = exception?.label || ''; $('planning-exception-delete').hidden = !exception; openDialog('planning-exception-dialog', form.elements.kind);
   }
@@ -437,6 +452,7 @@
     renderSharedRows($('planning-course-shared'), state.courseShared, primary, courseSharedChanged);
     populate(form.elements.room_id, state.data.rooms || [], item => item.name + (item.active === false || item.active === 0 ? ' · Inactive' : ''), 'Sans salle attribuée', Object.prototype.hasOwnProperty.call(values, 'room_id') ? (values.room_id || '') : $('planning-room').value);
     form.elements.date.value = values.date || state.week; form.elements.start.value = values.start || '09:00'; form.elements.end_at_midnight.checked = values.end === '24:00'; form.elements.end.value = values.end === '24:00' ? '23:59' : values.end || '11:00'; form.elements.end.disabled = form.elements.end_at_midnight.checked; form.elements.end.required = !form.elements.end_at_midnight.checked; form.elements.title.value = values.title || '';
+    const warning = $('planning-course-warning'), warnings = course ? courseWarnings(course) : []; warning.textContent = warnings.length ? '⚠︎ À compléter : ' + warnings.join(' · ') : ''; warning.hidden = !warnings.length;
     $('planning-course-delete').hidden = !course; $('planning-course-repeat').hidden = !course; $('planning-course-repeat').disabled = false; openDialog('planning-course-dialog', form.elements.subject_id);
   }
   $('planning-course-form').addEventListener('input', () => { $('planning-course-repeat').disabled = true; $('planning-course-repeat').title = 'Enregistrez les modifications du cours avant de le répéter.'; });
@@ -462,27 +478,116 @@
   $('planning-period-delete').addEventListener('click', () => { if (state.ruleEdit) confirmAction('Supprimer cette période ? Les jours concernés retrouveront le rythme des autres règles, ou deviendront non définis. Les cours existants seront vérifiés avant toute modification.', () => request('/calendar/rules/' + encodeURIComponent(state.ruleEdit.id), {method: 'DELETE'}), 'Période supprimée.', 'planning-period-dialog'); });
   $('planning-exception-delete').addEventListener('click', () => { if (state.exceptionEdit) confirmAction('Retirer cette exception ? La journée retrouvera le rythme habituel de la promotion.', () => request('/calendar/exceptions/' + encodeURIComponent(promotionId()) + '/' + encodeURIComponent(state.exceptionEdit.date), {method: 'DELETE'}), 'Exception retirée.', 'planning-exception-dialog'); });
   $('planning-course-delete').addEventListener('click', () => { if (state.courseEdit) confirmAction('Supprimer le cours « ' + courseName(state.courseEdit) + ' » du ' + formatDate(state.courseEdit.date) + ' à ' + state.courseEdit.start + ' ? Cette suppression concerne uniquement ce créneau.', () => request('/courses/' + encodeURIComponent(state.courseEdit.id), {method: 'DELETE', data: {version: state.courseEdit.version}}), 'Cours supprimé.', 'planning-course-dialog'); });
+  function batchDateProblem(date) {
+    const batch = state.batch, info = (batch?.calendar?.days || []).find(day => day.date === date);
+    if (!info) return 'En dehors des dates de la promotion.';
+    if (isPublicHoliday(info)) return (info.label || 'Jour férié') + ' · Jour férié, aucun cours possible.';
+    if (date === batch.course?.date) return 'Le cours existe déjà à cette date.';
+    if (info.kind !== 'school') return (info.label || kinds[info.kind] || 'Journée non définie') + ' · Aucun cours possible.';
+    return '';
+  }
+  function updateBatchDates() {
+    const batch = state.batch; if (!batch) return;
+    const dates = [...batch.dates].sort(); $('planning-batch-date-count').textContent = dates.length + ' jour' + (dates.length !== 1 ? 's' : '') + ' sélectionné' + (dates.length !== 1 ? 's' : '');
+    $('planning-batch-date-selected').textContent = dates.length ? dates.map(date => formatDate(date, {day: 'numeric', month: 'short', year: 'numeric'})).join(' · ') : 'Choisissez les jours de duplication dans le calendrier.';
+    $('planning-batch-date-clear').disabled = !dates.length;
+    $('planning-batch-date-months').querySelectorAll('[data-batch-date]').forEach(cell => { const selected = batch.dates.has(cell.dataset.batchDate); cell.classList.toggle('is-selected', selected); cell.setAttribute('aria-pressed', String(selected)); });
+    $('planning-batch-preview').disabled = batch.mode === 'dates' && (batch.calendarLoading || !batch.calendar || !dates.length);
+  }
+  function setBatchDate(date, selected) {
+    const batch = state.batch; if (!batch || batch.mode !== 'dates' || $('planning-batch-dialog').dataset.busy || batchDateProblem(date)) return;
+    if (selected) batch.dates.add(date); else batch.dates.delete(date);
+    invalidateBatch(); updateBatchDates();
+  }
+  function batchDateClick(date) { if (!state.batch?.dateClickSuppressed) setBatchDate(date, !state.batch.dates.has(date)); }
+  function beginBatchDate(date, event) {
+    if (event.button !== 0 || !state.batch || $('planning-batch-dialog').dataset.busy || batchDateProblem(date)) return;
+    event.preventDefault(); event.currentTarget.focus({preventScroll: true}); state.batch.dateClickSuppressed = true;
+    state.batch.dateGesture = {selected: !state.batch.dates.has(date)}; setBatchDate(date, state.batch.dateGesture.selected);
+  }
+  function extendBatchDate(date) { if (state.batch?.dateGesture) setBatchDate(date, state.batch.dateGesture.selected); }
+  function batchDateKey(date, event) {
+    const shifts = {ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7}; if (!(event.key in shifts)) return;
+    let targetDate = addDays(date, shifts[event.key]);
+    for (let step = 0; step < 741; step++, targetDate = addDays(targetDate, shifts[event.key])) {
+      const target = $('planning-batch-date-months').querySelector('[data-batch-date="' + targetDate + '"]'); if (!target) return;
+      if (!target.disabled) { event.preventDefault(); target.focus(); return; }
+    }
+  }
+  function renderBatchDateCalendar() {
+    const container = $('planning-batch-date-months'), batch = state.batch; container.replaceChildren();
+    $('planning-batch-date-loading').hidden = !batch?.calendarLoading;
+    $('planning-batch-date-retry').hidden = !!batch?.calendar || !!batch?.calendarLoading;
+    if (!batch?.calendar) { updateBatchDates(); return; }
+    const promotion = batch.calendar.promotion, start = promotion.date_debut, end = promotion.date_fin;
+    const map = new Map((batch.calendar.days || []).map(day => [day.date, day])), cursor = parseDate(start); cursor.setDate(1); const lastDate = parseDate(end);
+    for (let index = 0; cursor <= lastDate && index < 36; index++, cursor.setMonth(cursor.getMonth() + 1)) {
+      const year = cursor.getFullYear(), month = cursor.getMonth(), block = el('article', 'planning-batch-month'); block.append(el('h3', '', cursor.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'}))); const grid = el('div', 'planning-month-grid');
+      for (const name of ['L', 'M', 'M', 'J', 'V', 'S', 'D']) grid.append(el('span', 'planning-month-weekday', name));
+      for (let gap = 0; gap < (cursor.getDay() + 6) % 7; gap++) grid.append(el('span', 'planning-month-blank'));
+      for (let day = 1; day <= new Date(year, month + 1, 0).getDate(); day++) {
+        const date = dateString(new Date(year, month, day, 12)), info = map.get(date), reason = batchDateProblem(date), cell = button(String(day), 'planning-batch-day kind-' + (info?.kind || 'closed'), () => batchDateClick(date)); cell.dataset.batchDate = date; cell.disabled = !!reason;
+        cell.title = formatDate(date, {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'}) + ' · ' + (reason || 'Journée école · Choisir pour dupliquer le cours.'); cell.setAttribute('aria-label', cell.title); cell.setAttribute('aria-pressed', String(batch.dates.has(date)));
+        cell.addEventListener('pointerdown', event => beginBatchDate(date, event)); cell.addEventListener('pointerenter', () => extendBatchDate(date)); cell.addEventListener('keydown', event => batchDateKey(date, event)); grid.append(cell);
+      }
+      block.append(grid); container.append(block);
+    }
+    updateBatchDates();
+  }
+  async function loadBatchDateCalendar(batch) {
+    if (!batch?.course || batch.calendarLoading) return;
+    const promotion = catalogPromotions().find(item => String(item.id) === String(batch.course.promotion_id));
+    if (!promotion?.date_debut || !promotion?.date_fin) { formError($('planning-batch-form'), 'Complétez les dates de cette promotion avant de dupliquer le cours.'); return; }
+    batch.calendarLoading = true; renderBatchDateCalendar();
+    try {
+      const calendar = await request('/state?' + new URLSearchParams({promotion_id: batch.course.promotion_id, start: promotion.date_debut, end: promotion.date_fin}));
+      if (state.batch !== batch) return; batch.calendar = calendar;
+    } catch (failure) { if (state.batch === batch) formError($('planning-batch-form'), failure.message); }
+    finally { if (state.batch === batch) { batch.calendarLoading = false; renderBatchDateCalendar(); } }
+  }
+  function setBatchMode(mode) {
+    if (!state.batch || $('planning-batch-dialog').dataset.busy) return;
+    state.batch.mode = state.batch.course ? (mode === 'repeat' ? 'repeat' : 'dates') : 'duplicate';
+    const form = $('planning-batch-form');
+    for (const [field, active] of [['repeat', state.batch.mode === 'repeat'], ['duplicate', state.batch.mode === 'duplicate']]) {
+      const section = $('planning-batch-' + field + '-fields'); section.hidden = !active; section.querySelectorAll('input,select').forEach(input => { input.disabled = !active; });
+    }
+    $('planning-batch-dates-fields').hidden = state.batch.mode !== 'dates'; $('planning-batch-mode-switch').hidden = !state.batch.course;
+    $('planning-batch-mode-dates').setAttribute('aria-pressed', String(state.batch.mode === 'dates')); $('planning-batch-mode-repeat').setAttribute('aria-pressed', String(state.batch.mode === 'repeat'));
+    form.elements.start_date.required = form.elements.end_date.required = state.batch.mode === 'repeat'; form.elements.target_start.required = state.batch.mode === 'duplicate';
+    invalidateBatch(); updateBatchDates();
+  }
   function openBatch(course = null) {
     if (!state.data || state.loading) return; if (!course && !state.data.courses?.length) { notice('Cette semaine ne contient aucun cours à dupliquer.'); return; }
-    state.batch = {mode: course ? 'repeat' : 'duplicate', course, preview: null}; const form = $('planning-batch-form'); form.reset(); dateLimits(form);
-    $('planning-batch-repeat-fields').hidden = !course; $('planning-batch-duplicate-fields').hidden = !!course;
-    $('planning-batch-repeat-fields').querySelectorAll('input,select').forEach(input => { input.disabled = !course; }); $('planning-batch-duplicate-fields').querySelectorAll('input,select').forEach(input => { input.disabled = !!course; });
-    form.elements.start_date.required = form.elements.end_date.required = !!course; form.elements.target_start.required = !course;
-    form.elements.start_date.value = course ? addDays(course.date, 7) : state.week; form.elements.end_date.value = state.data.promotion.date_fin || addDays(state.week, 35); form.elements.target_start.value = addDays(state.week, 7);
+    state.batch = {mode: course ? 'dates' : 'duplicate', course, preview: null, dates: new Set(), calendar: null, calendarLoading: false}; const form = $('planning-batch-form'); form.reset();
+    const promotion = catalogPromotions().find(item => String(item.id) === String(course?.promotion_id || promotionId())) || state.data.promotion;
+    for (const input of form.querySelectorAll('input[type=date]')) { input.min = promotion.date_debut || ''; input.max = promotion.date_fin || ''; }
+    form.elements.start_date.value = course ? addDays(course.date, 7) : state.week; form.elements.end_date.value = promotion.date_fin || addDays(state.week, 35); form.elements.target_start.value = addDays(state.week, 7);
     setWeekdays(form, course ? [(parseDate(course.date).getDay() + 6) % 7] : []);
-    $('planning-batch-source').textContent = course ? courseName(course) + ' · ' + course.start + ' – ' + course.end + ' · ' + (course.trainer_name || 'Formateur affecté') : 'Dupliquer tous les cours du ' + formatDate(state.week) + ' au ' + formatDate(addDays(state.week, 6)) + '. Le décalage conserve les jours et les horaires.';
-    $('planning-batch-results').hidden = true; $('planning-batch-commit').disabled = true; $('planning-batch-skip').checked = false;
-    openDialog('planning-batch-dialog', course ? form.elements.start_date : form.elements.target_start);
+    $('planning-batch-source').textContent = course ? courseName(course) + ' · ' + course.start + ' – ' + course.end + ' · ' + (course.trainer_name || 'Formateur affecté') + ' · ' + (course.room_name || 'Salle à affecter') : 'Dupliquer tous les cours du ' + formatDate(state.week) + ' au ' + formatDate(addDays(state.week, 6)) + '. Le décalage conserve les jours et les horaires.';
+    setBatchMode(state.batch.mode); renderBatchDateCalendar(); openDialog('planning-batch-dialog', course ? $('planning-batch-mode-dates') : form.elements.target_start);
+    if (course) loadBatchDateCalendar(state.batch);
   }
   function invalidateBatch() { if (state.batch) state.batch.preview = null; $('planning-batch-results').hidden = true; $('planning-batch-commit').disabled = true; $('planning-batch-skip').checked = false; }
+  $('planning-batch-mode-dates').addEventListener('click', () => setBatchMode('dates'));
+  $('planning-batch-mode-repeat').addEventListener('click', () => setBatchMode('repeat'));
+  $('planning-batch-date-clear').addEventListener('click', () => { if (state.batch && !$('planning-batch-dialog').dataset.busy) { state.batch.dates.clear(); invalidateBatch(); updateBatchDates(); } });
+  $('planning-batch-date-retry').addEventListener('click', () => loadBatchDateCalendar(state.batch));
   $('planning-batch-form').addEventListener('input', event => { if (!event.target.closest('#planning-batch-results')) invalidateBatch(); });
+  function batchPreviewPayload(form) {
+    const batch = state.batch, data = {promotion_id: batch.course?.promotion_id || promotionId(), mode: batch.mode};
+    if (batch.mode === 'dates') {
+      if (batch.calendarLoading || !batch.calendar || !batch.dates.size) throw Error('Choisissez au moins une journée école dans le calendrier.');
+      Object.assign(data, {dates: [...batch.dates].sort(), source_course_id: batch.course.id, source_version: batch.course.version});
+    } else if (batch.mode === 'repeat') {
+      const course = batch.course; Object.assign(data, {start_date: form.elements.start_date.value, end_date: form.elements.end_date.value, weekdays: selectedWeekdays(form), interval_weeks: Number(form.elements.interval_weeks.value), template: {subject_id: course.subject_id, trainer_id: course.trainer_id, room_id: course.room_id || null, start: course.start, end: course.end, title: course.title || '', shared: course.shared || []}});
+      if (!data.weekdays.length) throw Error('Sélectionnez au moins un jour à répéter.');
+    } else Object.assign(data, {source_start: state.week, source_end: addDays(state.week, 6), target_start: form.elements.target_start.value});
+    return data;
+  }
   $('planning-batch-form').addEventListener('submit', async event => {
     event.preventDefault(); const form = event.currentTarget, dialog = form.closest('dialog'); if (dialog.dataset.busy || !form.reportValidity() || !state.batch) return; formError(form, '');
-    const data = {promotion_id: state.batch.mode === 'repeat' ? state.batch.course.promotion_id : promotionId(), mode: state.batch.mode};
-    if (state.batch.mode === 'repeat') {
-      const course = state.batch.course; Object.assign(data, {start_date: form.elements.start_date.value, end_date: form.elements.end_date.value, weekdays: selectedWeekdays(form), interval_weeks: Number(form.elements.interval_weeks.value), template: {subject_id: course.subject_id, trainer_id: course.trainer_id, room_id: course.room_id || null, start: course.start, end: course.end, title: course.title || '', shared: course.shared || []}});
-      if (!data.weekdays.length) { formError(form, 'Sélectionnez au moins un jour à répéter.'); return; }
-    } else Object.assign(data, {source_start: state.week, source_end: addDays(state.week, 6), target_start: form.elements.target_start.value});
+    let data; try { data = batchPreviewPayload(form); } catch (failure) { formError(form, failure.message); return; }
     busyDialog(dialog, true); invalidateBatch();
     try {
       const preview = await request('/courses/preview', {method: 'POST', data}); state.batch.preview = preview; renderBatchPreview(preview);

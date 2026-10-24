@@ -1,0 +1,24 @@
+{% extends 'base.html' %}
+{% from 'ui_icons.html' import icon %}
+{% from '_portal_course.html' import portal_course %}
+{% block body_class %}portal-planning-page portal-planning-{{ portal_planning.role }}{% endblock %}
+{% block content %}
+{% set schedule = portal_planning %}
+{% set is_teacher = schedule.role == 'trainer' %}
+<div class="portal-planning-app" data-portal-planning data-view="week">
+  <a href="{{ schedule.home_url }}" class="portal-planning-back">← {{ 'Mon espace formateur' if is_teacher else 'Mon espace étudiant' }}</a>
+  <header class="portal-planning-heading"><div><p class="portal-planning-kicker">INTÉGRALE ACADEMY · {{ 'ÉQUIPE PÉDAGOGIQUE' if is_teacher else 'ESPACE ÉTUDIANT' }}</p><h1>Mon <em>planning.</em></h1><p>{{ 'Vos interventions, vos promotions et vos salles, au même endroit.' if is_teacher else 'Tous tes cours, tes horaires et tes salles, au même endroit.' }}</p>{% if schedule.promotion_label %}<span class="portal-planning-promotion">{{ icon('book') }} {{ schedule.promotion_label }}</span>{% endif %}</div><div class="portal-heading-side">{% if schedule.pdf_url %}<a class="portal-planning-button" href="{{ schedule.pdf_url }}" target="_blank" rel="noopener">{{ icon('file') }} Ouvrir le PDF</a>{% endif %}<div class="portal-week-summary"><span>{{ icon('clock') }}</span><div><b>{{ schedule.summary.courses }} cours</b><small>{% set total_minutes = schedule.summary.minutes|int %}{{ total_minutes // 60 }} h{% if total_minutes % 60 %} {{ '%02d'|format(total_minutes % 60) }}{% endif %} cette semaine</small></div></div></div></header>
+  <section class="portal-planning-calendar" aria-labelledby="portal-week-title">
+    <div class="portal-planning-toolbar"><div class="portal-week-navigation"><a class="portal-icon-button" href="{{ schedule.previous_url }}" aria-label="Semaine précédente">‹</a><div><p class="portal-planning-kicker">{{ 'VOTRE SEMAINE' if is_teacher else 'TA SEMAINE' }}</p><h2 id="portal-week-title">{{ schedule.week_label }}</h2></div><a class="portal-icon-button" href="{{ schedule.next_url }}" aria-label="Semaine suivante">›</a></div><div class="portal-planning-tools"><a class="portal-planning-button" href="{{ schedule.today_url }}">Aujourd’hui</a><form method="get" action="{{ schedule.planning_url }}" class="portal-date-jump"><label for="portal-date">Aller à une date<input id="portal-date" type="date" name="date" value="{{ schedule.date_input }}" required></label><button class="portal-planning-button" type="submit">Afficher</button></form></div></div>
+    <div class="portal-calendar-caption"><p>{{ icon('clock') }} Horaires affichés en heure de Paris</p><div class="portal-view-switch" data-portal-view-switch role="group" aria-label="Affichage du planning" hidden><button type="button" data-planning-view="week" aria-pressed="true">Semaine</button><button type="button" data-planning-view="list" aria-pressed="false">Liste</button></div><div class="portal-planning-legend"><span><i class="holiday"></i>Jour férié</span><span><i class="incomplete"></i>À confirmer</span></div></div>
+    {% if schedule.empty_message and not schedule.courses %}<div class="portal-planning-empty" role="status"><span>{{ icon('book') }}</span><p>{{ schedule.empty_message }}</p></div>{% endif %}
+    <div class="portal-week-scroll"><div class="portal-week-grid">
+      {% for day in schedule.days %}<section class="portal-planning-day{% if day.date == schedule.today %} is-today{% endif %}{% if day.public_holiday or day.kind == 'public_holiday' %} is-public-holiday{% endif %} day-{{ day.kind }}" aria-label="{{ day.label }}">
+        <header class="portal-day-heading"><div><h3>{{ day.short_label|default(day.label) }}</h3>{% if day.date == schedule.today %}<span class="portal-today-tag">Aujourd’hui</span>{% endif %}</div>{% if day.day_label %}<p>{{ day.day_label }}</p>{% endif %}</header>
+        <div class="portal-day-courses">{% for course in day.courses %}{{ portal_course(course, schedule.role) }}{% else %}<p class="portal-day-empty">{% if day.public_holiday or day.kind == 'public_holiday' %}Jour férié{% elif day.kind == 'company' %}En entreprise{% elif day.kind == 'holiday' %}Vacances{% elif day.kind == 'closed' %}Pas de cours{% else %}Aucun cours programmé{% endif %}</p>{% endfor %}</div>
+      </section>{% endfor %}
+    </div></div>
+  </section>
+  <p class="portal-planning-footer">{{ icon('shield') }} {{ 'Seuls les cours qui vous sont affectés apparaissent dans ce planning.' if is_teacher else 'Ce planning correspond à la promotion à laquelle tu es affecté.' }} Les modifications de l’équipe pédagogique sont visibles dès l’actualisation de la page.</p>
+</div>
+{% endblock %}

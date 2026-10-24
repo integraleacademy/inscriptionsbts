@@ -15,6 +15,8 @@ function context(sourceCode, values = {}) {
   return ctx;
 }
 const numeric = part('  const minutes =', '  const normal =');
+const holidayHelpers = part('  const isPublicHoliday =', '  function courseName(');
+const holiday = context(holidayHelpers + '\nglobalThis.checkHoliday = isPublicHoliday;', {state: {}}).checkHoliday;
 const budgets = part('  function subjectBudget(', '  const catalogSubjects =');
 const wire = value => JSON.parse(JSON.stringify(value));
 const deferred = () => { let resolve, reject; const promise = new Promise((yes, no) => { resolve = yes; reject = no; }); return {promise, resolve, reject}; };
@@ -62,7 +64,7 @@ async function run() {
   const days = ['2027-02-01', '2027-02-02', '2027-02-03'].map(date => ({date, kind: 'school'}));
   const paintState = {year: {days, calendar_revision: 'revision-a'}, data: {}, paintKind: 'company', paintDraft: new Map(), paintRevision: null};
   let renders = 0;
-  const paint = context(dates + part('  function annualDay(', '  function renderPaintDraft(') + part('  function cancelPaint(', '  function annualClick('), {state: paintState, kinds: {company: 'En entreprise', school: 'À l’école'}, renderPaintDraft: () => renders++});
+  const paint = context(dates + part('  function annualDay(', '  function renderPaintDraft(') + part('  function cancelPaint(', '  function annualClick('), {state: paintState, isPublicHoliday: holiday, kinds: {company: 'En entreprise', school: 'À l’école'}, renderPaintDraft: () => renders++});
   paint.applyPaintRange('2027-02-03', '2027-02-01');
   assert.equal(paintState.paintDraft.size, 3); assert.equal(paintState.paintRevision, 'revision-a');
   paintState.paintKind = 'school'; paint.applyPaintRange('2027-02-02', '2027-02-02');
@@ -123,6 +125,41 @@ async function run() {
   navState.quickBusy = true; nav.navigatePlanning(() => actions++); assert.equal(actions, 1);
   navState.quickBusy = false; nav.navigatePlanning(() => actions++); assert.equal(actions, 2);
   checks += 6;
+  // Locked holidays are never painted, including within a multi-day range.
+  paintState.year = {days: [{date: '2027-05-05', kind: 'school'}, {date: '2027-05-06', kind: 'public_holiday', public_holiday: true, locked: true, label: 'Ascension'}, {date: '2027-05-07', kind: 'school'}], calendar_revision: 4};
+  paintState.paintKind = 'company'; paint.applyPaintRange('2027-05-05', '2027-05-07');
+  assert.equal(paintState.paintDraft.size, 2); assert.equal(paintState.paintDraft.has('2027-05-06'), false); assert.equal(paintState.paintSkipped, 1);
+  paint.paintDate('2027-05-06', 'school'); assert.equal(paintState.paintDraft.has('2027-05-06'), false);
+  paint.cancelPaint(); assert.equal(paintState.paintSkipped, 0); checks += 5;
+
+  const warningHelper = context(holidayHelpers, {state: {}});
+  assert.deepEqual(wire(warningHelper.courseWarnings({room_id: null, warnings: []})), ['Salle à affecter.']);
+  assert.deepEqual(wire(warningHelper.courseWarnings({room_id: 'r1', warnings: [], warning_labels: []})), []);
+  assert.equal(warningHelper.courseWarnings({room_id: null, warning_labels: ['Salle à affecter.'], warnings: [{code: 'room_missing', message: 'Salle à affecter.'}]}).length, 1);
+  assert.ok(warningHelper.courseWarnings({room_id: 'r1', warnings: [{code: 'trainer_missing', message: 'Formateur à affecter.'}]}).includes('Formateur à affecter.')); checks += 4;
+
+  // A manual time selection cannot turn a holiday into an available slot.
+  const lockedSlotState = {data: {}, slot: null}; let slotNotices = [];
+  const lockedSlot = context(numeric + part('  function setSlot(', '  function clearSlot('), {state: lockedSlotState, knownDay: () => ({kind: 'public_holiday', label: 'Ascension'}), isPublicHoliday: holiday, notice: text => slotNotices.push(text), promotionId: () => 'p1'});
+  lockedSlot.setSlot('2027-05-06', '08:00', '12:00'); assert.equal(lockedSlotState.slot, null); assert.match(slotNotices[0], /Ascension/); checks += 2;
+
+  // Explicit duplication keeps the primary course ID/version even when opened from a secondary promotion.
+  const copyCourse = {id: 'course1', version: 7, promotion_id: 'p1', subject_id: 's1', date: '2027-05-05', start: '08:00', end: '12:00', trainer_id: 't1', room_id: null, shared: [{promotion_id: 'p2', subject_id: 's2'}]};
+  const copyState = {week: '2027-05-03', batch: {mode: 'dates', course: copyCourse, dates: new Set(['2027-05-10', '2027-05-07']), calendar: {days: [{date: '2027-05-05', kind: 'school'}, {date: '2027-05-06', kind: 'public_holiday', label: 'Ascension'}, {date: '2027-05-07', kind: 'school'}, {date: '2027-05-08', kind: 'company'}]}}};
+  const copyPayload = context(part('  function batchPreviewPayload(', "  $('planning-batch-form').addEventListener('submit'"), {state: copyState, promotionId: () => 'p2', selectedWeekdays: () => [0], addDays: value => value});
+  const payload = copyPayload.batchPreviewPayload({}); assert.equal(payload.promotion_id, 'p1'); assert.equal(payload.source_course_id, 'course1'); assert.equal(payload.source_version, 7); assert.equal(payload.mode, 'dates'); assert.deepEqual(wire(payload.dates), ['2027-05-07', '2027-05-10']);
+  copyState.batch.calendarLoading = true; assert.throws(() => copyPayload.batchPreviewPayload({}), /Choisissez/); copyState.batch.calendarLoading = false;
+  copyState.batch.dates.clear(); assert.throws(() => copyPayload.batchPreviewPayload({}), /Choisissez/); checks += 7;
+
+  let invalidated = 0, dateRenders = 0; const copyNodes = {dataset: {}};
+  const copyDates = context(part('  function batchDateProblem(', '  function updateBatchDates(') + part('  function setBatchDate(', '  function batchDateKey('), {state: copyState, isPublicHoliday: holiday, kinds: {company: 'En entreprise'}, $: () => copyNodes, invalidateBatch: () => invalidated++, updateBatchDates: () => dateRenders++});
+  assert.match(copyDates.batchDateProblem('2027-05-06'), /Ascension/); assert.match(copyDates.batchDateProblem('2027-05-05'), /existe déjà/); assert.match(copyDates.batchDateProblem('2027-05-08'), /Aucun cours/); assert.equal(copyDates.batchDateProblem('2027-05-07'), '');
+  copyDates.batchDateClick('2027-05-06'); assert.equal(copyState.batch.dates.size, 0);
+  copyDates.batchDateClick('2027-05-07'); assert.equal(copyState.batch.dates.has('2027-05-07'), true); assert.equal(invalidated, 1);
+  copyDates.batchDateClick('2027-05-07'); assert.equal(copyState.batch.dates.size, 0);
+  copyDates.beginBatchDate('2027-05-07', {button: 0, preventDefault() {}, currentTarget: {focus() {}}}); copyDates.batchDateClick('2027-05-07'); assert.equal(copyState.batch.dates.size, 1); copyDates.extendBatchDate('2027-05-06'); assert.equal(copyState.batch.dates.size, 1);
+  copyNodes.dataset.busy = '1'; copyDates.setBatchDate('2027-05-07', false); assert.equal(copyState.batch.dates.size, 1); assert.ok(dateRenders >= 3); checks += 12;
+
   console.log(`PASS: ${checks} independent planning/catalog checks (exact minutes, shared ownership, paint draft/save/cancel/conflict, single creation, stale slot response).`);
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

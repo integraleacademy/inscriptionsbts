@@ -4,13 +4,14 @@ import os, sqlite3, json, uuid, shutil
 from datetime import datetime, timedelta
 from admission_options import PROFILE_GROUPS
 from place_search import register_place_search
-from candidate_access import register_candidate_access
+from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
 from candidate_documents import register_candidate_documents, document_preview_response
 from trainer_access import register_trainer_access
 from daily_login import register_daily_login
 from promotions import register_promotions, ensure_promotions_schema, get_candidate_promotion, list_promotions
 from planning import register_planning
+from planning_portal import register_planning_portal, get_portal_today
 from legacy_links import snapshot_legacy_links, verify_legacy_link
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
@@ -80,6 +81,13 @@ def run_startup_integrity_checks():
         "daily_login.py",
         "promotions.py",
         "planning.py",
+        "planning_holidays.py",
+        "planning_portal.py",
+        "templates/portal_planning.html",
+        "templates/_portal_today.html",
+        "templates/_portal_course.html",
+        "static/css/portal-planning.css",
+        "static/js/portal-planning.js",
         "planning_pdf.py",
         "branded_email.py",
         "templates/planning_admin.html",
@@ -137,7 +145,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "promotions.py", "planning.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "promotions.py", "planning.py", "planning_portal.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
@@ -974,6 +982,7 @@ register_daily_login(app)
 register_promotions(app, db, require_admin)
 register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
 register_planning(app, db, require_admin)
+register_planning_portal(app, db)
 
 
 @app.route("/ouverture.ics")
@@ -3370,15 +3379,27 @@ def espace_candidat(slug):
 
     explication_statut = explications.get(statut, "Le traitement de votre dossier est en cours.")
 
-    return render_template(
+    portal_today = dict(role='student', requires_login=True,
+                        planning_url=url_for('candidate_login'), today_label='')
+    identity = get_authenticated_student(app, db)
+    if identity and identity['candidate_id'] == row['id']:
+        with closing(db()) as planning_conn:
+            portal_today = get_portal_today(planning_conn, 'student', identity['candidate_id'])
+
+    response = app.make_response(render_template(
         "espace_candidat.html",
         title="Mon espace étudiant · Intégrale Academy",
         row=row,
+        portal_today=portal_today,
         statut=statut,
         explication_statut=explication_statut,
         commentaire=commentaire,
         candidate_photo_url=url_for('candidate_photo', slug=slug) if parse_list(row.get('fichiers_photo')) else None
-    )
+    ))
+    response.headers['Cache-Control'] = 'private, no-store'
+    response.headers['Referrer-Policy'] = 'no-referrer'
+    response.vary.add('Cookie')
+    return response
 
 
 def _candidate_photo_response(row):

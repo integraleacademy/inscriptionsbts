@@ -458,3 +458,107 @@ def test_annual_pdf_receives_entire_subject_budget_snapshot(client):
         assert build.call_args.kwargs['mode']=='annual'
         subject=next(item for item in build.call_args.kwargs['subjects'] if item['id']=='s1')
         assert subject['planned_minutes']==1800 and subject['scheduled_minutes']==120
+
+
+def test_national_holidays_follow_official_2026_2027_dates():
+    # https://www.service-public.gouv.fr/particuliers/vosdroits/F2405
+    from planning_holidays import french_public_holidays, public_holiday_name
+    assert len(french_public_holidays(2026)) == 11
+    assert len(french_public_holidays(2027)) == 11
+    assert public_holiday_name('2026-04-06') == 'Lundi de Pâques'
+    assert public_holiday_name('2026-05-14') == 'Ascension'
+    assert public_holiday_name('2026-05-25') == 'Lundi de Pentecôte'
+    assert public_holiday_name('2027-03-29') == 'Lundi de Pâques'
+    assert public_holiday_name('2027-05-06') == 'Ascension'
+    assert public_holiday_name('2027-05-17') == 'Lundi de Pentecôte'
+    assert public_holiday_name('2027-04-01') is None
+
+
+def test_missing_room_is_visible_and_flagged_without_blocking_course_creation(client):
+    setup_school(client)
+    added = add(client, room_id=None)
+    assert added['incomplete'] is True
+    assert added['warnings'] == [{'code': 'room_missing', 'message': 'Salle non affectée'}]
+    assert added['warning_labels'] == ['Salle non affectée']
+    fixed = call(client, '/courses/' + added['id'], {'version': added['version'], 'room_id': 'r2'}, method='PUT')
+    assert fixed.status_code == 200
+    assert fixed.json['course']['incomplete'] is False
+    assert fixed.json['course']['warnings'] == []
+
+
+def test_legacy_orphan_resources_do_not_hide_course_or_free_occupied_slot(client, db):
+    setup_school(client)
+    added = add(client)
+    with db() as conn:
+        conn.execute("DELETE FROM planning_rooms WHERE id='r1'")
+        conn.execute("DELETE FROM planning_subjects WHERE id='s1'")
+        conn.execute("DELETE FROM trainers WHERE id='t1'")
+    state = client.get(BASE + '/state?promotion_id=p1').json
+    stored = next(item for item in state['courses'] if item['id'] == added['id'])
+    assert {'room_missing', 'subject_missing', 'trainer_missing'} <= {item['code'] for item in stored['warnings']}
+    assert stored['display_subject_name'] == 'Matière à renseigner'
+    response = call(client, '/courses', course(sid='s3', trainer_id='t2', room_id='r2'))
+    assert response.status_code == 409 and 'promotion_overlap' in types(response)
+
+
+def test_explicit_date_duplication_sorts_dates_and_preserves_shared_course(client, db):
+    setup_school(client)
+    added = add(client, shared=[{'promotion_id': 'p2', 'subject_id': 's2'}])
+    preview = call(client, '/courses/preview', dict(promotion_id='p2', mode='dates', source_course_id=added['id'], source_version=1, dates=['2027-01-12', '2027-01-06']))
+    assert preview.status_code == 200, preview.json
+    assert [item['course']['date'] for item in preview.json['items']] == ['2027-01-06', '2027-01-12']
+    assert all(item['valid'] and item['course']['shared'] == [{'promotion_id': 'p2', 'subject_id': 's2'}] for item in preview.json['items'])
+    committed = call(client, '/courses/batch', dict(preview_token=preview.json['preview_token'], selected_keys=['0', '1']))
+    assert committed.status_code == 200
+    assert count(db) == 3
+    second = client.get(BASE + '/state?promotion_id=p2').json
+    assert len(second['courses']) == 3
+    assert next(item for item in second['subjects'] if item['id'] == 's2')['scheduled_minutes'] == 360
+
+
+def test_explicit_source_duplication_requires_fresh_version_at_preview_and_commit(client, db):
+    setup_school(client)
+    added = add(client)
+    payload = dict(promotion_id='p1', mode='dates', source_course_id=added['id'], source_version=1, dates=['2027-01-05'])
+    preview = call(client, '/courses/preview', payload)
+    assert preview.status_code == 200
+    assert call(client, '/courses/' + added['id'], {'version': 1, 'title': 'Mis à jour'}, method='PUT').status_code == 200
+    stale = call(client, '/courses/preview', payload)
+    assert stale.status_code == 409 and 'stale' in types(stale)
+    commit = call(client, '/courses/batch', {'preview_token': preview.json['preview_token'], 'selected_keys': ['0']})
+    assert commit.status_code == 409
+    assert count(db) == 1
+
+
+def test_explicit_dates_validate_duplicates_and_have_no_silent_partial_commit(client, db):
+    setup_school(client)
+    payload = dict(promotion_id='p1', mode='dates', dates=['2027-01-05', '2027-01-05'], template={'subject_id':'s1','room_id':'r1','start':'08:00','end':'10:00'})
+    assert call(client, '/courses/preview', payload).status_code == 400
+    payload['dates'] = ['2027-01-05', '2027-01-01']
+    preview = call(client, '/courses/preview', payload)
+    assert preview.status_code == 200
+    assert [item['valid'] for item in preview.json['items']] == [False, True]
+    bad = call(client, '/courses/batch', {'preview_token': preview.json['preview_token'], 'selected_keys':['0','1']})
+    assert bad.status_code == 409 and count(db) == 0
+    good = call(client, '/courses/batch', {'preview_token': preview.json['preview_token'], 'selected_keys':['1']})
+    assert good.status_code == 200 and count(db) == 1
+
+
+def test_template_duplication_does_not_accept_private_source_metadata(client, db):
+    setup_school(client)
+    payload = dict(promotion_id='p1', mode='dates', dates=['2027-01-05'], template={'subject_id':'s1','room_id':'r1','start':'08:00','end':'10:00','_source_course_id':['invalid'],'_source_version':{}})
+    preview = call(client, '/courses/preview', payload)
+    assert preview.status_code == 200
+    result = call(client, '/courses/batch', {'preview_token':preview.json['preview_token'],'selected_keys':['0']})
+    assert result.status_code == 200
+    assert count(db) == 1
+
+
+def test_course_loader_trainer_filter_intersects_promotion_scope(client, db):
+    setup_school(client)
+    first = add(client, shared=[{'promotion_id':'p2','subject_id':'s2'}])
+    second = add(client, sid='s3', date='2027-01-05', room_id='r2')
+    with db() as conn:
+        assert [item['id'] for item in planning._load_courses(conn, trainer_id='t2')] == [second['id']]
+        assert [item['id'] for item in planning._load_courses(conn, promotion_id='p2', trainer_id='t1')] == [first['id']]
+        assert planning._load_courses(conn, promotion_id='p2', trainer_id='t2') == []

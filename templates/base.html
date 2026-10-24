@@ -6,6 +6,8 @@
 {% set is_promotions_admin = request.path.startswith('/admin/promotions') %}
 {% set is_planning_admin = request.path.startswith('/admin/planning') %}
 {% set is_planning_catalog = request.path in ['/admin/matieres', '/admin/salles'] %}
+{% set is_portal_planning = request.endpoint in ['trainer_planning', 'student_planning'] %}
+{% set is_student_portal = request.endpoint in ['espace_candidat', 'student_dashboard', 'student_planning'] %}
 {% macro academy_logo() %}<span class="academy-sigle" aria-hidden="true"><img src="{{ url_for('static', filename='academy-official-logo.png') }}" width="5906" height="1772" alt=""></span><span class="academy-wordmark"><span>INTÉGRALE</span><span>ACADEMY</span></span>{% endmacro %}
 <!DOCTYPE html>
 <html lang="fr">
@@ -52,8 +54,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-neutral.css') }}?v=1">
   {% if is_trainer_admin or is_promotions_admin or request.endpoint in ['trainer_dashboard', 'admin_candidate_sheet'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/promotions.css') }}?v=1">{% endif %}
   {% if daily_login %}<link rel="stylesheet" href="{{ url_for('static', filename='css/daily-login.css') }}?v=2">{% endif %}
-  {% if is_planning_admin or is_trainer_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning.css') }}?v=2">{% endif %}
+  {% if is_planning_admin or is_trainer_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning.css') }}?v=3">{% endif %}
   {% if is_planning_catalog %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-catalog.css') }}?v=1">{% endif %}
+  {% if is_portal_planning or is_student_portal or request.endpoint == 'trainer_dashboard' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/portal-planning.css') }}?v=1">{% endif %}
 </head>
 
 {% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}
@@ -81,7 +84,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <button type="button" class="sidebar-scrim" aria-label="Fermer le menu" hidden></button>
   <header class="workspace-topbar"><button type="button" class="menu-toggle" aria-controls="workspace-sidebar" aria-expanded="true" aria-label="Réduire le menu" title="Réduire le menu">{{ icon('menu') }}</button><span class="workspace-title">Plateforme de gestion des BTS</span><a href="/candidature?preview=1" target="_blank" rel="noopener">Aperçu de l’inscription ↗</a></header>
   {% else %}
-  <header class="admissions-header official-academy-header"><a href="{{ '/formateur' if is_trainer_space else ('/espace/connexion' if is_student_auth else '/') }}" class="academy-brand official-academy-brand" aria-label="Intégrale Academy">{{ academy_logo() }}</a>{% if is_trainer_space %}<span class="student-header-label">ESPACE FORMATEUR</span>{% elif is_student_auth %}<span class="student-header-label">ESPACE ÉTUDIANT</span>{% else %}<a class="header-caption candidate-access-link" href="/espace/connexion">Mon espace étudiant</a>{% endif %}<a href="tel:+33422470768" class="header-contact">Une question ? <b>04 22 47 07 68</b></a></header>
+  <header class="admissions-header official-academy-header"><a href="{{ '/formateur' if is_trainer_space else ('/espace/mon-dossier' if is_student_portal else ('/espace/connexion' if is_student_auth else '/')) }}" class="academy-brand official-academy-brand" aria-label="Intégrale Academy">{{ academy_logo() }}</a>{% if is_trainer_space %}<span class="student-header-label">ESPACE FORMATEUR</span>{% elif is_student_auth or is_student_portal %}<span class="student-header-label">ESPACE ÉTUDIANT</span>{% else %}<a class="header-caption candidate-access-link" href="/espace/connexion">Mon espace étudiant</a>{% endif %}<a href="tel:+33422470768" class="header-contact">Une question ? <b>04 22 47 07 68</b></a></header>
   {% endif %}
 
   <!-- ✅ Contenu principal -->
@@ -101,9 +104,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <footer class="footer-signature"><span>Intégrale Academy · Puget-sur-Argens, Côte d’Azur</span><a href="https://integraleacademy.com" target="_blank" rel="noopener">integraleacademy.com</a>{% if not is_trainer_space and not is_admin %}<a href="/formateur/connexion">Espace formateur</a>{% endif %}<small>Une école Intégrale Group</small></footer>
   <script src="{{ url_for('static', filename='js/workspace-shell.js') }}" defer></script>
   {% if is_planning_admin %}
-    <script src="{{ url_for('static', filename='js/planning.js') }}?v=2" defer></script>
+    <script src="{{ url_for('static', filename='js/planning.js') }}?v=3" defer></script>
   {% elif is_planning_catalog %}
     <script src="{{ url_for('static', filename='js/planning-catalog.js') }}?v=1" defer></script>
+  {% elif is_portal_planning %}
+    <script src="{{ url_for('static', filename='js/portal-planning.js') }}?v=1" defer></script>
   {% elif is_promotions_admin %}
     <script src="{{ url_for('static', filename='js/promotions.js') }}?v=1" defer></script>
   {% elif is_trainer_space or is_trainer_admin %}

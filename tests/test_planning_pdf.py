@@ -6,7 +6,7 @@ from pathlib import Path
 from pypdf import PdfReader
 import pytest
 
-from planning_pdf import build_planning_pdf, PAGE_W, PAGE_H
+from planning_pdf import build_planning_pdf, build_portal_planning_pdf, PAGE_W, PAGE_H
 
 
 PROMOTION = {'id':'fake-promo','nom':'BTS MOS - 1re année 2026-2028','bts':'MOS','niveau':1,'rentree_annee':2026,
@@ -302,3 +302,110 @@ def test_flask_export_for_secondary_promotion_uses_local_subject_and_full_year_b
     with connect() as connection:
         assert connection.execute('SELECT COUNT(*) FROM planning_courses').fetchone()[0] == 2
         assert connection.execute('SELECT COUNT(*) FROM planning_course_groups').fetchone()[0] == 4
+
+
+def test_public_holiday_is_red_blocked_and_named_in_weekly_pdf():
+    day = {'date': '2026-11-11', 'kind': 'public_holiday', 'label': 'Armistice 1918', 'public_holiday': True}
+    reader = pdf(days=[day], start='2026-11-09', end='2026-11-15')
+    text = ' '.join(content(reader).split())
+    assert 'Armistice 1918 - non planifiable' in text
+    assert 'Jour férié' in text
+    operators = reader.pages[0].get_contents().get_data().decode('latin1')
+    assert '.968627 .866667 .858824 rg' in operators
+    assert '.647059 .207843 .207843 rg' in operators
+
+
+def test_annual_holiday_stays_red_even_with_legacy_course_and_lists_exact_name():
+    day = {'date': '2026-11-11', 'kind': 'public_holiday', 'label': 'Armistice 1918'}
+    reader = pdf([course('2026-11-11')], days=[day], start='2026-11-01', end='2026-11-30', mode='annual')
+    assert len(reader.pages) == 2
+    text = ' '.join(content(reader).split())
+    assert 'JOURS FÉRIÉS - NON PLANIFIABLES' in text
+    assert '11/11/2026' in text and 'Armistice 1918' in text
+    assert 'Les cours déjà présents sur ces dates doivent être déplacés.' in text
+    operators = reader.pages[0].get_contents().get_data().decode('latin1')
+    # One red day cell plus the red legend: an existing course must not turn it green.
+    assert operators.count('.968627 .866667 .858824 rg') >= 2
+    assert '3 h de cours sur la période' in text
+
+
+def test_weekend_public_holiday_is_visible_and_legacy_course_is_flagged():
+    day = {'date': '2026-11-01', 'kind': 'public_holiday', 'label': 'Toussaint'}
+    reader = pdf([course('2026-11-01', start='08:00', end='12:00')], days=[day], start='2026-10-26', end='2026-11-01')
+    text = ' '.join(content(reader).split())
+    assert 'Dimanche' in text and 'Toussaint - non planifiable' in text
+    assert 'cours à déplacer' in text
+    assert text.count('Camille Exemple') == 1
+
+
+def test_missing_room_course_is_orange_with_vector_warning_and_reason():
+    reader = pdf([course(start='08:00', end='12:00', room_name=None)])
+    text = ' '.join(content(reader).split())
+    assert 'Attention : Salle non affectée' in text
+    assert '!' in text
+    operators = reader.pages[0].get_contents().get_data().decode('latin1')
+    assert operators.count('.717647 .396078 .094118 rg') >= 2
+    assert '4 h de cours' in text
+
+
+def test_incomplete_shared_course_keeps_all_reasons_in_numbered_detail():
+    warnings = [{'code': 'trainer_inactive', 'message': 'Formateur inactif : réaffectez le cours'},
+                {'code': 'room_inactive', 'message': 'Salle indisponible <à confirmer>'},
+                {'code': 'annual_hours_missing', 'message': 'Volume annuel à définir'}]
+    item = shared_course(incomplete=True, warnings=warnings)
+    item.update(start='09:00', end='09:30')
+    reader = pdf([item])
+    text = ' '.join(content(reader).split())
+    assert len(reader.pages) >= 2
+    for warning in warnings:
+        assert warning['message'] in text
+    assert 'Cours commun - 2 promotions' in text and 'Détail 01' in text
+    assert 'Anglais - métiers de la sécurité' in text
+
+
+def portal_week(role='trainer'):
+    return {'role': role, 'heading': 'Planning de Camille Exemple' if role == 'trainer' else 'Mon planning · BTS MOS',
+            'week_start': '2026-11-09', 'week_end': '2026-11-15',
+            'days': [{'date': '2026-11-11', 'kind': 'public_holiday', 'label': 'Armistice 1918'}],
+            'courses': [course('2026-11-10', start='08:00', end='12:00', subject_name='Anglais local',
+                               promotion_names=['BTS MOS', 'BTS MCO'],
+                               groups=[{'promotion_id': 'one', 'promotion_name': 'BTS MOS', 'subject_name': 'Anglais MOS'},
+                                       {'promotion_id': 'two', 'promotion_name': 'BTS MCO', 'subject_name': 'Anglais MCO'}],
+                               is_shared=True, email='private@example.test', note='PRIVATE_NOTE',
+                               students=[{'nom': 'PRIVATE_STUDENT'}])],
+            'subjects': [{'name': 'PRIVATE_BUDGET', 'planned_hours': 123, 'scheduled_hours': 15}]}
+
+
+@pytest.mark.parametrize('role', ['trainer', 'student'])
+def test_portal_export_is_weekly_scoped_and_never_prints_admin_data(role):
+    reader = PdfReader(BytesIO(build_portal_planning_pdf(portal_week(role), generated_at=EDITED)))
+    text = ' '.join(content(reader).split())
+    assert portal_week(role)['heading'].replace('·', '·') in text
+    assert 'Anglais local' in text and '4 h de cours' in text
+    assert 'Armistice 1918 - non planifiable' in text
+    for private in ['private@example.test', 'PRIVATE_NOTE', 'PRIVATE_STUDENT', 'PRIVATE_BUDGET', 'VOLUMES ANNUELS']:
+        assert private not in text
+    if role == 'trainer':
+        assert 'Promotions : BTS MOS / BTS MCO' in text
+    else:
+        assert 'BTS MCO' not in text
+
+
+def test_portal_export_rejects_unknown_role_or_multiweek_payload():
+    data = portal_week()
+    data['role'] = 'admin'
+    with pytest.raises(ValueError):build_portal_planning_pdf(data)
+    data = portal_week()
+    data['week_end'] = '2026-11-30'
+    with pytest.raises(ValueError):build_portal_planning_pdf(data)
+
+
+def test_portal_export_uses_holiday_label_and_student_promotion_from_real_snapshot_shape():
+    snapshot = portal_week('student')
+    snapshot.update(heading='Mon planning', promotion_label='BTS MOS · 1re année')
+    snapshot['days'][0].update(label='Mercredi 11 novembre 2026', day_label='Armistice 1918')
+    reader = PdfReader(BytesIO(build_portal_planning_pdf(snapshot, generated_at=EDITED)))
+    text = ' '.join(content(reader).split())
+    assert 'Mon planning · BTS MOS · 1re année' in text
+    assert 'Armistice 1918 - non planifiable' in text
+    assert 'Mercredi 11 novembre 2026 - non planifiable' not in text

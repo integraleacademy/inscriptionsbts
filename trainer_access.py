@@ -463,9 +463,11 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                     AND c.statut IN ('confirmee','reconfirmee')
                 ORDER BY p.rentree_annee DESC,p.bts,COALESCE(p.niveau,0),p.nom,c.nom,c.prenom'''
             students=[dict(row) for row in conn.execute(sql,(trainer['id'],session['_trainer_auth']['version']))]
+            from planning_portal import get_portal_today
+            portal_today=get_portal_today(conn,'trainer',trainer['id'])
         return page('trainer_dashboard.html',title='Mes étudiants · Espace formateur',trainer=trainer,students=students,
                     assignments=assignments,promotions=assignments,bts_labels=BTS_LABELS,selected_bts=selected_bts,
-                    selected_year=selected_year,selected_promotion=request.args.get('promotion',''),total_students=len(students))
+                    selected_year=selected_year,selected_promotion=request.args.get('promotion',''),total_students=len(students),portal_today=portal_today)
 
     @app.route('/formateur/deconnexion',methods=['GET','POST'])
     def trainer_logout():
