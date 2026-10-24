@@ -8,7 +8,7 @@
     <h1 id="access-title">Ton espace<br> <em>étudiant.</em></h1>
     <p>Retrouve tes informations, tes documents et le suivi de ton parcours, au même endroit.</p>
     <figure class="student-login-illustration">
-      <img src="{{ url_for('static', filename=daily_login.image if daily_login else 'admissions/student-space-illustration.webp') }}" width="1536" height="1024" alt="{{ daily_login.alt if daily_login else 'Une étudiante travaille sur sa tablette dans une salle de cours lumineuse.' }}" fetchpriority="high">
+      <img src="{{ url_for('static', filename=daily_login.image if daily_login else 'admissions/student-space-illustration.webp') }}?v=3" width="1536" height="1024" alt="{{ daily_login.alt if daily_login else 'Une étudiante travaille sur sa tablette dans une salle de cours lumineuse.' }}" fetchpriority="high">
       <figcaption>{{ icon('spark') }} <span>{{ daily_login.caption if daily_login else 'L’école, toujours avec toi.' }}</span></figcaption>
     </figure>
     <div class="student-login-topics" aria-label="Ton espace étudiant"><span>{{ icon('person') }} Tes informations</span><span>{{ icon('file') }} Tes documents</span><span>{{ icon('book') }} Ton parcours</span></div>

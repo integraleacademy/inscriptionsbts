@@ -257,6 +257,10 @@ def register_promotions(app,db_connect,require_admin):
             previous=conn.execute('SELECT * FROM promotions WHERE id=?',(promotion_id,)).fetchone()
             if not previous:abort(404)
             nom,bts,level,year,beginning,end=values
+            from planning import validate_promotion_change
+            planning_conflicts=validate_promotion_change(conn,promotion_id,dict(date_debut=beginning,date_fin=end))
+            if planning_conflicts:
+                return response(False,'Ces dates rendraient le planning incohérent. Ajustez d’abord les cours et les périodes concernés.',409,conflicts=planning_conflicts)
             mismatch=conn.execute('''SELECT 1 FROM student_promotions s JOIN candidats c ON c.id=s.candidate_id
                 WHERE s.promotion_id=? AND (upper(trim(COALESCE(c.bts,'')))<>? OR COALESCE(c.rentree_annee,2026)<>?) LIMIT 1''',(promotion_id,bts,year)).fetchone()
             if mismatch:return response(False,'Cette promotion contient des étudiants d’un autre BTS ou d’une autre rentrée. Réaffectez-les avant de modifier ces informations.',409)

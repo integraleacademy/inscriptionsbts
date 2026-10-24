@@ -22,7 +22,7 @@
       busy = value;
       dialog.setAttribute('aria-busy', String(value));
       dialog.querySelectorAll('button,input,select').forEach(item => { item.disabled = value; });
-      updateActionButtons();
+      updateActionButtons(); updateUnavailabilityTimeControls();
     }
     function promotionLabel(promotion) {
       const level = promotion.niveau ? (Number(promotion.niveau) === 1 ? '1re année' : '2e année') : 'Niveau à compléter';
@@ -71,7 +71,7 @@
         if (requested) addAssignment(requested, false);
       }
       $('trainer-no-promotions').hidden = (config.promotions || []).some(item => item.active);
-      updateActionButtons(); dialog.showModal(); form.elements.prenom.focus();
+      updateActionButtons(); dialog.showModal(); form.elements.prenom.focus(); loadUnavailability(account?.id, true);
     }
     function closeEditor() { if (!busy) dialog.close(); }
     function reloadWithNotice(message) {
@@ -133,6 +133,62 @@
       try { const result = await post('/admin/formateurs/' + encodeURIComponent(current.id) + '/' + action, data); reloadWithNotice(result.message || 'Action effectuée.'); }
       catch (failure) { report(failure.message); confirmation.hidden = true; confirmedAction = null; }
       finally { setBusy(false); }
+    });
+    let unavailabilitySequence = 0, pendingUnavailability = null, unavailabilityDeleteOpener = null;
+    const unavailabilityForm = $('trainer-unavailability-form');
+    const readableDate = value => new Date(value + 'T12:00:00').toLocaleDateString('fr-FR', {day: 'numeric', month: 'short', year: 'numeric'});
+    function unavailableFeedback(message, failure = false) {
+      const feedback = $('trainer-unavailability-feedback'); feedback.textContent = message || ''; feedback.hidden = !message; feedback.className = 'trainer-feedback ' + (failure ? 'error' : 'success');
+    }
+    function updateUnavailabilityTimeControls() {
+      if (!unavailabilityForm) return; const allDay = unavailabilityForm.elements.all_day.checked;
+      $('trainer-unavailability-times').hidden = allDay;
+      for (const field of ['time_start', 'time_end']) { unavailabilityForm.elements[field].disabled = busy || allDay; unavailabilityForm.elements[field].required = !allDay; }
+    }
+    async function unavailabilityRequest(path, method = 'GET', data = {}) {
+      const response = await fetch(path, {method, credentials: 'same-origin', headers: {Accept: 'application/json', ...(method !== 'GET' ? {'Content-Type': 'application/json', 'X-CSRF-Token': directory.dataset.planningCsrf} : {})}, ...(method !== 'GET' ? {body: JSON.stringify(data)} : {})});
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || result.ok === false) throw Error([result.message || result.error || 'L’action n’a pas abouti.', ...(result.conflicts || []).map(item => (item.date ? readableDate(item.date) + ' : ' : '') + item.message)].join('\n'));
+      return result;
+    }
+    async function loadUnavailability(trainerId, reset = false) {
+      const sequence = ++unavailabilitySequence, section = $('trainer-unavailability'); section.hidden = !trainerId || !directory.dataset.planningCsrf;
+      pendingUnavailability = null; $('trainer-unavailability-confirm').hidden = true;
+      if (!trainerId || !directory.dataset.planningCsrf) return;
+      if (reset) { unavailabilityForm.reset(); unavailableFeedback(''); const date = new Intl.DateTimeFormat('sv-SE', {timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date()); unavailabilityForm.elements.start_date.value = date; unavailabilityForm.elements.end_date.value = date; updateUnavailabilityTimeControls(); }
+      const container = $('trainer-unavailability-items'); container.replaceChildren(); const loading = document.createElement('p'); loading.textContent = 'Chargement des indisponibilités…'; container.append(loading);
+      try {
+        const result = await unavailabilityRequest('/admin/formateurs/' + encodeURIComponent(trainerId) + '/indisponibilites');
+        if (sequence !== unavailabilitySequence || String(current?.id) !== String(trainerId)) return;
+        container.replaceChildren();
+        for (const block of result.items || []) {
+          const item = document.createElement('article'); item.className = 'trainer-unavailability-item'; const details = document.createElement('div'), title = document.createElement('b'), dates = document.createElement('span'), times = document.createElement('small');
+          title.textContent = block.reason; dates.textContent = readableDate(block.start_date) + ' — ' + readableDate(block.end_date); times.textContent = (block.weekdays || [0, 1, 2, 3, 4, 5, 6]).map(day => ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][day]).join(' · ') + ' · ' + (block.times?.length ? block.times.map(slot => slot.start + '–' + slot.end).join(', ') : 'Toute la journée'); details.append(title, dates, times);
+          const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'trainer-button'; remove.textContent = 'Retirer'; remove.setAttribute('aria-label', 'Retirer l’indisponibilité ' + block.reason); remove.addEventListener('click', () => { if (busy) return; pendingUnavailability = block; unavailabilityDeleteOpener = remove; $('trainer-unavailability-confirm-text').textContent = 'Retirer l’indisponibilité « ' + block.reason + ' » du ' + readableDate(block.start_date) + ' au ' + readableDate(block.end_date) + ' ? Ces créneaux redeviendront disponibles s’ils ne sont pas occupés par un cours.'; $('trainer-unavailability-confirm').hidden = false; $('trainer-unavailability-delete').focus(); }); item.append(details, remove); container.append(item);
+        }
+        if (!container.children.length) { const empty = document.createElement('p'); empty.textContent = 'Aucune indisponibilité enregistrée.'; container.append(empty); }
+        return true;
+      } catch (failure) { if (sequence === unavailabilitySequence) { container.replaceChildren(); unavailableFeedback(failure.message, true); } return false; }
+    }
+    unavailabilityForm?.elements.all_day.addEventListener('change', updateUnavailabilityTimeControls);
+    unavailabilityForm?.addEventListener('submit', async event => {
+      event.preventDefault(); if (busy || !current || !unavailabilityForm.reportValidity()) return;
+      const trainerId = current.id, form = unavailabilityForm, weekdays = [...form.querySelectorAll('input[name=weekdays]:checked')].map(input => Number(input.value));
+      if (!weekdays.length) { unavailableFeedback('Sélectionnez au moins un jour de la semaine.', true); return; }
+      if (form.elements.start_date.value > form.elements.end_date.value) { unavailableFeedback('La date de fin doit suivre la date de début.', true); return; }
+      const times = form.elements.all_day.checked ? [] : [{start: form.elements.time_start.value, end: form.elements.time_end.value}];
+      if (times.length && times[0].start >= times[0].end) { unavailableFeedback('L’heure de fin doit suivre l’heure de début.', true); return; }
+      const data = {start_date: form.elements.start_date.value, end_date: form.elements.end_date.value, weekdays, times, reason: form.elements.reason.value.trim()}; unavailableFeedback(''); setBusy(true);
+      try { const result = await unavailabilityRequest('/admin/formateurs/' + encodeURIComponent(trainerId) + '/indisponibilites', 'POST', data); const refreshed = await loadUnavailability(trainerId); unavailableFeedback((result.message || 'Indisponibilité enregistrée.') + (refreshed ? '' : ' La liste n’a pas pu être actualisée. Rouvrez la fiche pour vérifier.'), !refreshed); }
+      catch (failure) { unavailableFeedback(failure.message, true); }
+      finally { setBusy(false); }
+    });
+    $('trainer-unavailability-cancel')?.addEventListener('click', () => { pendingUnavailability = null; $('trainer-unavailability-confirm').hidden = true; unavailabilityDeleteOpener?.focus(); });
+    $('trainer-unavailability-delete')?.addEventListener('click', async () => {
+      if (busy || !current || !pendingUnavailability) return; const trainerId = current.id, blockId = pendingUnavailability.id; setBusy(true); unavailableFeedback('');
+      try { await unavailabilityRequest('/admin/formateurs/' + encodeURIComponent(trainerId) + '/indisponibilites/' + encodeURIComponent(blockId), 'DELETE'); const refreshed = await loadUnavailability(trainerId); unavailableFeedback('Indisponibilité retirée.' + (refreshed ? '' : ' La liste n’a pas pu être actualisée. Rouvrez la fiche pour vérifier.'), !refreshed); }
+      catch (failure) { unavailableFeedback(failure.message, true); }
+      finally { setBusy(false); $('trainer-unavailability-confirm').hidden = true; pendingUnavailability = null; $('trainer-unavailability-save').focus(); }
     });
     const search = $('trainer-search'), rows = [...document.querySelectorAll('[data-trainer-row]')];
     search?.addEventListener('input', () => {

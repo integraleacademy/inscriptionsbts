@@ -4,6 +4,7 @@
 {% set is_trainer_space = request.path.startswith('/formateur') %}
 {% set is_trainer_admin = request.path.startswith('/admin/formateurs') %}
 {% set is_promotions_admin = request.path.startswith('/admin/promotions') %}
+{% set is_planning_admin = request.path.startswith('/admin/planning') %}
 {% macro academy_logo() %}<span class="academy-sigle" aria-hidden="true"><img src="{{ url_for('static', filename='academy-official-logo.png') }}" width="5906" height="1772" alt=""></span><span class="academy-wordmark"><span>INTÉGRALE</span><span>ACADEMY</span></span>{% endmacro %}
 <!DOCTYPE html>
 <html lang="fr">
@@ -14,7 +15,7 @@
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='faviconbts.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
-  {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin %}
+  {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin %}
   <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -50,13 +51,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-neutral.css') }}?v=1">
   {% if is_trainer_admin or is_promotions_admin or request.endpoint in ['trainer_dashboard', 'admin_candidate_sheet'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/promotions.css') }}?v=1">{% endif %}
   {% if daily_login %}<link rel="stylesheet" href="{{ url_for('static', filename='css/daily-login.css') }}?v=2">{% endif %}
+  {% if is_planning_admin or is_trainer_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning.css') }}?v=1">{% endif %}
 </head>
 
 {% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}
 <body class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
 
-    {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin %}
+    {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin %}
     <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PKTXJCXF"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -68,7 +70,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <a href="/admin" class="workspace-brand official-academy-brand" title="Plateforme de gestion des BTS">{{ academy_logo() }}</a>
     <span class="nav-caption">VOTRE ESPACE ÉQUIPE</span>
     <nav aria-label="Navigation administration">
-      {% for href,label,symbol in [('/admin','Candidatures','grid'),('/admin/promotions','Promotions','briefcase'),('/admin/formateurs','Formateurs','book'),('/admin/reprendre-plus-tard','Dossiers à reprendre','clock'),('/parcoursup','Parcoursup','arrow'),('/admin/pole-alternance','Pôle Alternance','briefcase'),('/admin/voyage-londres','Voyage à Londres','globe')] %}
+      {% for href,label,symbol in [('/admin','Candidatures','grid'),('/admin/promotions','Promotions','briefcase'),('/admin/planning','Plannings','clock'),('/admin/formateurs','Formateurs','book'),('/admin/reprendre-plus-tard','Dossiers à reprendre','clock'),('/parcoursup','Parcoursup','arrow'),('/admin/pole-alternance','Pôle Alternance','briefcase'),('/admin/voyage-londres','Voyage à Londres','globe')] %}
       <a href="{{ href }}" title="{{ label }}" class="{% if request.path == href or (href == '/admin' and request.path.startswith('/admin/candidat/')) %}active{% endif %}">{{ icon(symbol) }}<span class="nav-text">{{ label }}</span></a>
       {% endfor %}
     </nav>
@@ -96,10 +98,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   <footer class="footer-signature"><span>Intégrale Academy · Puget-sur-Argens, Côte d’Azur</span><a href="https://integraleacademy.com" target="_blank" rel="noopener">integraleacademy.com</a>{% if not is_trainer_space and not is_admin %}<a href="/formateur/connexion">Espace formateur</a>{% endif %}<small>Une école Intégrale Group</small></footer>
   <script src="{{ url_for('static', filename='js/workspace-shell.js') }}" defer></script>
-  {% if is_promotions_admin %}
+  {% if is_planning_admin %}
+    <script src="{{ url_for('static', filename='js/planning.js') }}?v=1" defer></script>
+  {% elif is_promotions_admin %}
     <script src="{{ url_for('static', filename='js/promotions.js') }}?v=1" defer></script>
   {% elif is_trainer_space or is_trainer_admin %}
-    <script src="{{ url_for('static', filename='js/trainer-space.js') }}?v=2" defer></script>
+    <script src="{{ url_for('static', filename='js/trainer-space.js') }}?v=3" defer></script>
   {% elif request.endpoint in ['admin', 'admin_candidate_sheet'] %}
     <script src="{{ url_for('static', filename='js/bts-management.js') }}?v=3" defer></script>
   {% elif 'admin' in request.path or 'parcoursup' in request.path %}

@@ -14,7 +14,7 @@ import time
 import unicodedata
 
 from flask import abort, redirect, render_template, request, session, url_for
-from markupsafe import escape
+from branded_email import render_branded_email
 from werkzeug.security import check_password_hash, generate_password_hash
 
 SESSION_TTL = 8 * 60 * 60
@@ -321,7 +321,14 @@ def register_candidate_access(app, db_connect, send_mail):
                 address,token,token_hash=matched
                 base=os.getenv('BASE_URL','https://inscriptionsbts.onrender.com').rstrip('/')
                 link=base+url_for('student_reset_password',token=token)
-                html=f'''<!doctype html><html lang="fr"><body style="background:#f6f2e9;padding:32px;font-family:Arial,sans-serif;color:#292d29"><div style="max-width:520px;margin:auto;background:#fffefa;border-radius:20px;padding:36px"><p style="letter-spacing:2px;font-size:12px">INTÉGRALE ACADEMY · ESPACE ÉTUDIANT</p><h1>Un nouveau mot de passe.</h1><p>Tu as demandé à réinitialiser ton mot de passe.</p><p><a href="{escape(link)}" style="display:inline-block;background:#353d30;color:white;padding:16px 20px;border-radius:10px;text-decoration:none">Choisir mon nouveau mot de passe</a></p><p>Ce lien personnel est valable 30 minutes et ne peut être utilisé qu’une fois.</p><p style="font-size:13px;color:#777">Si tu n’es pas à l’origine de cette demande, ignore ce message : ton mot de passe reste inchangé.</p></div></body></html>'''
+                html=render_branded_email(
+                    'Un nouveau mot de passe.',
+                    '<p>Tu as demandé à réinitialiser ton mot de passe.</p>',
+                    eyebrow='INTÉGRALE ACADEMY · ESPACE ÉTUDIANT',
+                    accent_title='Reprenons le fil.',
+                    preview_text='Retrouve l’accès à ton espace étudiant Intégrale Academy.',
+                    action_url=link, action_label='Choisir mon nouveau mot de passe',
+                    security_note='Ce lien personnel est valable 30 minutes et ne peut être utilisé qu’une fois. Si tu n’es pas à l’origine de cette demande, ignore ce message : ton mot de passe reste inchangé.')
                 try:
                     delivered=send_mail(address,'Réinitialiser ton mot de passe · Espace étudiant',html)
                 except Exception:

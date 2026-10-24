@@ -10,6 +10,7 @@ from candidate_documents import register_candidate_documents, document_preview_r
 from trainer_access import register_trainer_access
 from daily_login import register_daily_login
 from promotions import register_promotions, ensure_promotions_schema, get_candidate_promotion, list_promotions
+from planning import register_planning
 from legacy_links import snapshot_legacy_links, verify_legacy_link
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
@@ -78,6 +79,12 @@ def run_startup_integrity_checks():
         "static/js/trainer-space.js",
         "daily_login.py",
         "promotions.py",
+        "planning.py",
+        "planning_pdf.py",
+        "branded_email.py",
+        "templates/planning_admin.html",
+        "static/css/planning.css",
+        "static/js/planning.js",
         "templates/promotions_admin.html",
         "static/css/academy-neutral.css",
         "static/css/daily-login.css",
@@ -126,10 +133,10 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "promotions.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "promotions.py", "planning.py"]:
         py_sources[p] = _read(p)
 
-    route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post)\(\s*['"]([^'"]+)['"]""")
+    route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
     defined_routes = set()
     for name, src in py_sources.items():
         if not src: continue
@@ -962,6 +969,7 @@ register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
 register_daily_login(app)
 register_promotions(app, db, require_admin)
 register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
+register_planning(app, db, require_admin)
 
 
 @app.route("/ouverture.ics")

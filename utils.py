@@ -9,6 +9,7 @@ import requests
 import sib_api_v3_sdk
 import base64
 from sib_api_v3_sdk.rest import ApiException
+from branded_email import brand_existing_email, email_plain_text
 
 
 # =====================================================
@@ -26,6 +27,7 @@ def send_mail(to, subject, html, attachments=None, *, copy_admin=True):
     Envoie un e-mail via l’API Brevo
     → + copie automatique à gestion@integraleacademy.com
     """
+    html = brand_existing_email(subject, html)
     api_key = BREVO_KEY
     sender_email = MAIL_FROM
 
@@ -50,6 +52,7 @@ def send_mail(to, subject, html, attachments=None, *, copy_admin=True):
         "to": to_list,
         "subject": subject,
         "htmlContent": html,
+        "textContent": email_plain_text(html),
         "tags": ["parcoursup"],
     }
 
@@ -174,12 +177,14 @@ def send_mail_gmail(to, subject, html):
         mail_from = os.getenv("MAIL_FROM")
         mail_pass = os.getenv("MAIL_PASS")
 
-        msg = MIMEMultipart()
+        html = brand_existing_email(subject, html)
+        msg = MIMEMultipart("alternative")
         msg["From"] = mail_from
         msg["To"] = to
         msg["Subject"] = subject
 
-        msg.attach(MIMEText(html, "html"))
+        msg.attach(MIMEText(email_plain_text(html), "plain", "utf-8"))
+        msg.attach(MIMEText(html, "html", "utf-8"))
 
         server = smtplib.SMTP("smtp.gmail.com", 587)
         server.starttls()

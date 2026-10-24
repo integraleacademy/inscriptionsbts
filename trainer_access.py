@@ -15,7 +15,7 @@ import sqlite3
 import time
 
 from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
-from markupsafe import escape
+from branded_email import render_branded_email
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from promotions import (BTS_LABELS, ensure_promotion_schema, list_promotions,
@@ -193,7 +193,14 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         intro='Votre compte formateur Intégrale Academy est prêt. Choisissez votre mot de passe pour consulter les étudiants des promotions qui vous sont affectées.' if activation else 'Vous avez demandé à réinitialiser votre mot de passe formateur.'
         button='Activer mon espace formateur' if activation else 'Choisir mon nouveau mot de passe'
         validity='72 heures' if activation else '30 minutes'
-        html=f'''<!doctype html><html lang="fr"><body style="background:#f5f1e8;padding:32px;font-family:Arial,sans-serif;color:#292d29"><div style="max-width:550px;margin:auto;padding:36px;background:#fffefa;border-radius:22px"><p style="font-size:11px;letter-spacing:2px">INTÉGRALE ACADEMY · ESPACE FORMATEUR</p><h1 style="font-size:28px">{heading}</h1><p style="line-height:1.7">{intro}</p><p><a href="{escape(link)}" style="display:inline-block;background:#353d30;color:white;padding:16px 20px;border-radius:10px;text-decoration:none">{button}</a></p><p>Ce lien personnel est valable {validity} et ne peut être utilisé qu’une fois.</p><p style="font-size:12px;color:#777">Si vous n’êtes pas concerné par ce message, ignorez-le ou contactez notre équipe au 04 22 47 07 68.</p></div></body></html>'''
+        html=render_branded_email(
+            heading,
+            '<p>' + intro + '</p>',
+            eyebrow='INTÉGRALE ACADEMY · ESPACE FORMATEUR',
+            accent_title='À vous de jouer.' if activation else 'Reprenons le fil.',
+            preview_text='Votre accès personnel à Intégrale Academy est prêt.' if activation else 'Choisissez un nouveau mot de passe pour votre espace formateur.',
+            action_url=link, action_label=button,
+            security_note=f'Ce lien personnel est valable {validity} et ne peut être utilisé qu’une fois. Si vous n’êtes pas concerné par ce message, ignorez-le ou contactez notre équipe au 04 22 47 07 68.')
         try:
             sent=send_mail(email, 'Activez votre espace formateur · Intégrale Academy' if activation else 'Réinitialisation du mot de passe formateur · Intégrale Academy',html)
         except Exception:
@@ -278,6 +285,10 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 if not trainer:
                     abort(404)
                 previous=sorted(a['id'] for a in get_assignments(conn,trainer_id))
+                from planning import validate_trainer_promotions_change
+                planning_conflicts=validate_trainer_promotions_change(conn,trainer_id,assignments)
+                if planning_conflicts:
+                    return admin_reply(False,'Cette affectation est encore utilisée dans le planning. Réattribuez d’abord les matières et les cours concernés avant de retirer la promotion.',409)
                 changed=(nom,prenom,email,assignments)!=(trainer['nom'],trainer['prenom'],trainer['email'],previous)
                 email_changed=email!=trainer['email']
                 if changed:

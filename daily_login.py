@@ -9,22 +9,22 @@ DAYS = ('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun')
 TONES = ('olive', 'ochre', 'forest', 'clay', 'graphite', 'moss', 'sepia')
 SCENES = {
     'student': (
-        ('Un étudiant prépare ses cours sur un ordinateur dans la médiathèque.', 'Chaque semaine, un nouveau départ.'),
-        ('Deux étudiants révisent ensemble autour d’une table sur le campus.', 'Avancer ensemble.'),
-        ('Une étudiante présente son projet à un petit groupe.', 'Tes idées prennent forme.'),
-        ('Un étudiant suit un cours en ligne et prend des notes chez lui.', 'Ton campus, où que tu sois.'),
-        ('Des étudiants travaillent ensemble sur un projet.', 'Construire, apprendre, partager.'),
-        ('Une étudiante lit et prend des notes à la bibliothèque.', 'Un peu de curiosité, beaucoup de possibilités.'),
-        ('Un étudiant prépare sa semaine avec une tablette et un agenda.', 'La suite commence avec toi.'),
+        ('Une étudiante prépare ses cours dans son carnet, sur un campus lumineux.', 'Chaque semaine, un nouveau départ.'),
+        ('Un étudiant travaille sur son ordinateur dans une salle de cours.', 'Tes idées prennent forme.'),
+        ('Deux étudiants préparent un projet avec un carnet et un ordinateur.', 'Avancer ensemble.'),
+        ('Une étudiante présente son travail devant un tableau.', 'Prendre la parole, partager ses idées.'),
+        ('Un étudiant suit un cours en ligne avec un casque.', 'Ton campus, où que tu sois.'),
+        ('Une étudiante révise avec ses fiches de cours.', 'Un peu de curiosité, beaucoup de possibilités.'),
+        ('Trois étudiants construisent un projet autour d’un tableau.', 'Construire, apprendre, partager.'),
     ),
     'trainer': (
         ('Un formateur anime un cours devant un groupe d’étudiants.', 'Transmettre et donner envie.'),
         ('Une formatrice prépare ses supports pédagogiques à son bureau.', 'Préparer les réussites de demain.'),
-        ('Un formateur accompagne un étudiant dans son projet.', 'Un accompagnement qui fait la différence.'),
+        ('Un formateur accompagne une étudiante dans son projet.', 'Un accompagnement qui fait la différence.'),
         ('Une formatrice anime un cours en visioconférence.', 'Garder le lien, à chaque cours.'),
-        ('Deux formateurs préparent ensemble leurs prochaines séances.', 'Partager les idées, enrichir les parcours.'),
-        ('Un formateur corrige des travaux et prépare ses retours.', 'Faire progresser chaque étudiant.'),
-        ('Une formatrice organise sa semaine de cours.', 'Une nouvelle semaine à transmettre.'),
+        ('Trois formateurs préparent ensemble leurs prochaines séances.', 'Partager les idées, enrichir les parcours.'),
+        ('Une formatrice corrige des travaux et prépare ses retours.', 'Faire progresser chaque étudiant.'),
+        ('Un formateur organise sa semaine de cours.', 'Une nouvelle semaine à transmettre.'),
     ),
 }
 

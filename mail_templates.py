@@ -6,6 +6,7 @@ import os
 from campaign import ADMISSION_YEAR, candidate_year
 import unicodedata
 from flask import render_template_string
+from branded_email import style_email_content
 
 BASE_TEMPLATE_PATH = os.path.join("templates", "email_base.html")
 
@@ -1173,7 +1174,7 @@ def mail_html(template_name, **kwargs):
     return render_template_string(
         base_html,
         email_title=tpl["title"],
-        email_content=tpl["content"],
+        email_content=style_email_content(tpl["content"]),
         logo_url=logo_url
     )
 # 👈 ICI on ferme correctement mail_html()

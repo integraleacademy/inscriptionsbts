@@ -72,10 +72,10 @@ def test_preview_never_sends_and_html_is_escaped(messaging):
     assert response.json['recipient'] == 'student@example.test'
     assert '<script>' not in response.json['html']
     assert '&lt;script&gt;' in response.json['html']
-    assert 'background:#242723' in response.json['html']
+    assert 'background:#202a26' in response.json['html']
     assert 'width="240"' in response.json['html']
-    assert 'width:240px!important' in response.json['html']
-    assert 'style="color:#ffffff;' in response.json['html']
+    assert 'width:240px;' in response.json['html']
+    assert 'color:#ffffff;' in response.json['html']
     assert response.headers['Cache-Control'] == 'no-store'
 
 
