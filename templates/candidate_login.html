@@ -2,16 +2,17 @@
 {% block body_class %}candidate-access-page{% endblock %}
 {% block content %}
 <section class="access-shell" aria-labelledby="access-title">
-  <aside class="access-story"><span class="access-kicker">TON ESPACE · TON AVENIR</span><div class="access-art" aria-hidden="true"><span class="access-orbit"></span><span class="access-monogram">IA</span><span class="access-star">✦</span><span class="access-pill">Le prochain chapitre<br><b>commence avec toi.</b></span></div><h1 id="access-title">Ton dossier.<br><em>Toujours à portée<br>de main.</em></h1><p>Suis ta candidature, retrouve tes documents et prépare ton arrivée à Intégrale Academy.</p><span class="access-note">ESPACE PERSONNEL · ACCÈS SÉCURISÉ</span></aside>
-  <div class="access-form-panel"><span class="access-kicker">HEUREUX DE TE RETROUVER</span><h2>On reprend<br>là où on en était ?</h2><p>Renseigne les informations utilisées lors de ta candidature. Tu recevras un code par e-mail pour accéder à ton dossier.</p>
+  <aside class="access-story"><span class="access-kicker">INTÉGRALE ACADEMY</span><div class="access-art" aria-hidden="true"><span class="access-orbit"></span><span class="access-monogram">IA</span><span class="access-star">✦</span><span class="access-pill">Tes projets.<br><b>Ton avenir.</b></span></div><h1 id="access-title">Ton espace<br><em>étudiant.</em></h1><p>Retrouve tes informations, tes documents et le suivi de ton parcours, au même endroit.</p><span class="access-note">TON PARCOURS · À PORTÉE DE MAIN</span></aside>
+  <div class="access-form-panel"><span class="access-kicker">HEUREUX DE TE RETROUVER</span><h2>Bienvenue<br>dans ton espace.</h2><p>Connecte-toi avec ton nom de famille et ton mot de passe.</p>
+  {% if reset_done %}<div class="access-success" role="status">Ton mot de passe a été modifié. Tu peux maintenant te connecter.</div>{% endif %}
   {% if error %}<div class="access-error" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="{{ url_for('candidate_login') }}" class="access-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label for="access-name">Nom de famille<input id="access-name" name="nom" value="{{ values.nom }}" maxlength="100" autocomplete="family-name" placeholder="DUPONT" required></label>
-    <label for="access-birth">Date de naissance<input id="access-birth" name="date_naissance" value="{{ values.date_naissance }}" type="date" autocomplete="bday" required></label>
-    <label for="access-email">Adresse e-mail de la candidature<input id="access-email" name="email" value="{{ values.email }}" type="email" maxlength="254" autocomplete="email" placeholder="toi@exemple.fr" required></label>
-    <button type="submit" class="access-submit">Recevoir mon code de connexion</button>
-  </form>
-  <div class="access-help"><span>Besoin d’un coup de main ?</span><a href="tel:+33422470768">04 22 47 07 68</a><small>Plus d’accès à ton adresse e-mail ? Notre équipe t’accompagne.</small></div><a href="/" class="access-back">Revenir à l’accueil</a></div>
+    <label for="access-name">Nom de famille<input id="access-name" name="nom" value="{{ surname }}" maxlength="100" autocomplete="username" placeholder="DUPONT" required></label>
+    <label for="access-password">Mot de passe<input id="access-password" name="password" type="password" maxlength="128" autocomplete="current-password" placeholder="Ton mot de passe" required></label>
+    <button type="submit" class="access-submit">Me connecter</button>
+  </form><a href="{{ url_for('student_forgot_password') }}" class="access-forgot">Mot de passe oublié ?</a>
+  <div class="access-first"><b>Première connexion ?</b><p>Ton mot de passe initial est ta date de naissance, au format <strong>JJMMAAAA</strong>, sans espaces ni séparateurs.<br>Exemple : 16/09/1993 devient <strong>16091993</strong>.</p><small>Tu choisiras ensuite ton mot de passe personnel.</small></div>
+  <div class="access-help"><span>Besoin d’un coup de main ?</span><a href="tel:+33422470768">04 22 47 07 68</a></div><a href="/" class="access-back">Revenir à l’accueil</a></div>
 </section>
 {% endblock %}

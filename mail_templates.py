@@ -105,7 +105,7 @@ def mail_html(template_name, **kwargs):
         </p>
 
         <p style="text-align:center;margin-top:0;">
-            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
+            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace étudiant</a>
         </p>
     """
         +
@@ -284,7 +284,7 @@ def mail_html(template_name, **kwargs):
         </p>
 
         <p style="text-align:center;margin-top:0;">
-            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
+            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace étudiant</a>
         </p>
     """
     +
@@ -446,7 +446,7 @@ def mail_html(template_name, **kwargs):
 </p>
 
 <p style="text-align:center;margin-top:0;">
-    <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
+    <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace étudiant</a>
 </p>
     """
     +
@@ -908,7 +908,7 @@ def mail_html(template_name, **kwargs):
         </p>
 
         <p style="text-align:center;margin-top:0;">
-            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace candidat</a>
+            <a href="{lien_espace}" class="btn">🔑 Ouvrir mon espace étudiant</a>
         </p>
     """
     +

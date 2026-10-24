@@ -51,7 +51,7 @@
       }
       document.body.classList.remove('application-sending');
       eyebrow.textContent = preview ? 'APERÇU · AUCUN DOSSIER ENVOYÉ' : 'CANDIDATURE TRANSMISE';
-      next.textContent = preview ? 'Revenir au formulaire' : 'Découvrir mon espace candidat';
+      next.textContent = preview ? 'Revenir au formulaire' : 'Découvrir mon espace étudiant';
       next.href = destination || '#';
       if (!dialog.open) dialog.showModal();
       document.getElementById('celebration-title').focus({preventScroll:true});

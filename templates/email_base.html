@@ -110,9 +110,9 @@
   <div class="wrapper">
     <div class="container">
 
-      <div class="header">
-        <img src="{{ logo_url }}" alt="Intégrale Academy" width="80" style="display:block;margin:0 auto 6px auto;border:none;">
-        <h2>{{ email_title }}</h2>
+      <div class="header"{% if official_brand %} style="background:#242723;border-bottom:1px solid #3e443b;padding:28px 20px 24px;"{% endif %}>
+        <img src="{{ logo_url }}" alt="Intégrale Academy" width="{{ 240 if official_brand else 80 }}" style="display:block;margin:0 auto 6px auto;border:none;{% if official_brand %}width:240px!important;max-width:100%;height:auto;{% endif %}">
+        <h2{% if official_brand %} style="color:#ffffff;margin:20px 0 0;font-size:19px;"{% endif %}>{{ email_title }}</h2>
       </div>
 
       <!-- 🟡 Contenu principal du mail (dynamique) -->

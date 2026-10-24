@@ -1,14 +1,3 @@
 {% extends 'base.html' %}
 {% block body_class %}candidate-access-page{% endblock %}
-{% block content %}
-<section class="access-shell" aria-labelledby="access-title">
-  <aside class="access-story"><span class="access-kicker">PLUS QU’UNE ÉTAPE</span><div class="access-art" aria-hidden="true"><span class="access-orbit"></span><span class="access-monogram">IA</span><span class="access-star">✦</span><span class="access-pill">Ton projet.<br><b>Un accès rien qu’à toi.</b></span></div><h1 id="access-title">Un petit code.<br><em>Et te voilà<br>chez toi.</em></h1><p>Ton dossier contient des informations personnelles. Ce code permet de vérifier que c’est bien toi.</p><span class="access-note">CODE À USAGE UNIQUE · VALABLE 10 MINUTES</span></aside>
-  <div class="access-form-panel"><span class="access-kicker">REGARDE TES E-MAILS</span><h2>Ta candidature<br>t’attend.</h2><p>Si les informations correspondent à un dossier, un code vient d’être envoyé à l’adresse e-mail renseignée. Pense aussi à vérifier tes courriers indésirables.</p>
-  {% if error %}<div class="access-error" role="alert">{{ error }}</div>{% endif %}
-  <form method="post" action="{{ url_for('candidate_verify') }}" class="access-form">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label for="access-code">Code à 6 chiffres<input id="access-code" class="access-code" name="code" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" required autofocus></label>
-    <button type="submit" class="access-submit">Accéder à mon dossier</button>
-  </form><div class="access-help"><span>Tu n’as pas reçu de code ?</span><small>Vérifie les informations saisies ou patiente quelques minutes avant une nouvelle demande.</small><a href="{{ url_for('candidate_login') }}">Vérifier mes informations / demander un code</a></div><a href="tel:+33422470768" class="access-back">Contacter l’équipe · 04 22 47 07 68</a></div>
-</section>
-{% endblock %}
+{% block content %}<section class="access-compact"><span class="access-kicker">ESPACE ÉTUDIANT</span><h1>Bienvenue dans ton espace.</h1><p>Connecte-toi avec ton nom et ton mot de passe.</p><a class="access-submit" href="{{ url_for('candidate_login') }}">Me connecter</a></section>{% endblock %}

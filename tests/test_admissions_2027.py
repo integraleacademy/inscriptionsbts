@@ -487,3 +487,52 @@ def test_jpeg_filename_containing_mpo_photo_is_supported(client, tmp_path):
         conn.execute('UPDATE candidats SET fichiers_photo=? WHERE id=?', (json.dumps([str(photo)]), 'mpo-owner'))
     response = client.get('/espace/mpo-owner/photo')
     assert response.status_code == 200 and response.mimetype == 'image/jpeg'
+
+
+def test_student_portal_labels_and_password_links(client):
+    seed(2027, 'student-preview')
+    page = client.get('/espace/student-preview')
+    assert page.status_code == 200
+    assert 'ESPACE ÉTUDIANT' in page.text
+    assert '/espace/mot-de-passe-oublie' in page.text
+    assert 'espace candidat' not in page.text.lower()
+    assert 'googletagmanager.com' not in page.text
+    assert 'cdn.brevo.com' not in page.text
+
+
+def test_admin_print_opens_inline_and_missing_person_is_404(client):
+    seed(2026, 'print-inline')
+    assert client.get('/admin/print/print-inline').status_code == 403
+    auth(client)
+    response = client.get('/admin/print/print-inline')
+    assert response.status_code == 200
+    assert response.mimetype == 'application/pdf'
+    assert response.headers['Content-Disposition'].startswith('inline;')
+    assert response.headers['Cache-Control'] == 'private, no-store'
+    assert client.get('/admin/print/no-such-person').status_code == 404
+
+
+def test_certificate_readable_preview_keeps_original_available(client):
+    seed(2027, 'certificate-preview')
+    auth(client)
+    for route in ['generate_certificat', 'generate_certificat_presentiel']:
+        response = client.get(f'/admin/{route}/certificate-preview?preview=1')
+        assert response.status_code == 200
+        assert response.mimetype == 'text/html'
+        assert '2027' in response.text and '2029' in response.text
+        assert 'Télécharger l’original' in response.text
+        assert 'attachment' not in response.headers.get('Content-Disposition', '')
+
+
+def test_old_upload_links_require_admin_and_forward_private_viewer(client, tmp_path):
+    seed(2026, 'legacy-link')
+    folder = tmp_path / 'uploads' / 'legacy-link'
+    folder.mkdir(parents=True)
+    (folder / 'proof.pdf').write_bytes(b'%PDF-1.4\n%%EOF')
+    assert client.get('/uploads/proof.pdf').status_code == 403
+    auth(client)
+    response = client.get('/uploads/proof.pdf')
+    assert response.status_code == 302
+    assert response.location == '/admin/candidat/legacy-link/document/proof.pdf'
+    response = client.get(response.location)
+    assert response.headers['Content-Disposition'].startswith('inline;')

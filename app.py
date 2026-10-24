@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from admission_options import PROFILE_GROUPS
 from place_search import register_place_search
 from candidate_access import register_candidate_access
+from candidate_messages import register_candidate_messages
+from candidate_documents import register_candidate_documents, document_preview_response
 from legacy_links import snapshot_legacy_links, verify_legacy_link
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
@@ -61,9 +63,15 @@ def run_startup_integrity_checks():
         "admission_options.py",
         "place_search.py",
         "candidate_access.py",
+        "candidate_messages.py",
+        "candidate_documents.py",
+        "templates/document_preview.html",
         "legacy_links.py",
         "templates/candidate_login.html",
         "templates/candidate_verify.html",
+        "templates/student_password.html",
+        "templates/student_forgot_password.html",
+        "templates/student_reset_password.html",
         "static/css/public-refinement.css",
         "static/css/candidate-refinement.css",
         "static/css/candidate-access.css",
@@ -72,6 +80,7 @@ def run_startup_integrity_checks():
         "static/admissions/countries-fr.json",
         "static/css/styles.css",
         "static/logo-integrale.png",
+        "static/academy-official-logo.png",
     ]
     missing = [p for p in required_files if not os.path.exists(p)]
     if not os.path.exists(DATA_DIR):
@@ -95,7 +104,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post)\(\s*['"]([^'"]+)['"]""")
@@ -926,6 +935,8 @@ def candidature():
 
 register_place_search(app)
 register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
+register_candidate_messages(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event)
+register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
 
 
 @app.route("/ouverture.ics")
@@ -1927,17 +1938,19 @@ def admin_update_status():
 def admin_print(cid):
     if not require_admin(): abort(403)
     from weasyprint import HTML
-    conn = db(); cur = conn.cursor()
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    row = dict(cur.fetchone())
+    from io import BytesIO
+    with closing(db()) as conn:
+        result = conn.execute("SELECT * FROM candidats WHERE id=?", (cid,)).fetchone()
+    if not result: abort(404)
+    row = dict(result)
     html = render_template("pdf_fiche.html", row=row, now=datetime.now())
     pdf = HTML(string=html, base_url=url_for('index', _external=True)).write_pdf()
     fname = f"fiche_{row.get('numero_dossier','')}.pdf"
-    path = os.path.join(DATA_DIR, fname)
-    with open(path, "wb") as f:
-        f.write(pdf)
     log_event(row, "PDF_GENERE", {"file": fname})
-    return send_file(path, mimetype="application/pdf", as_attachment=True, download_name=fname)
+    response = send_file(BytesIO(pdf), mimetype="application/pdf", as_attachment=False, download_name=fname)
+    response.headers['Cache-Control'] = 'private, no-store'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
 
 @app.route("/admin/delete/<cid>", methods=["POST"])
 def admin_delete(cid):
@@ -2134,6 +2147,8 @@ def admin_generate_certificat(id):
     })
 
     print(f"✅ Certificat généré pour {full_name}")
+    if request.args.get('preview') == '1':
+        return document_preview_response(output_docx, title="Certificat de scolarité · À distance", download_url=url_for('admin_generate_certificat', id=id))
     return send_file(output_docx, as_attachment=True)
 
 
@@ -2195,6 +2210,8 @@ def admin_generate_certificat_presentiel(id):
     })
 
     print(f"✅ Certificat présentiel généré pour {full_name}")
+    if request.args.get('preview') == '1':
+        return document_preview_response(output_docx, title="Certificat de scolarité · Présentiel", download_url=url_for('admin_generate_certificat_presentiel', id=id))
     return send_file(output_docx, as_attachment=True)
 
 
@@ -2415,6 +2432,8 @@ def admin_files(cid):
     existing = {os.path.basename(f["path"]) for f in unique_files if os.path.exists(f["path"])}
     verif = {k: v for k, v in verif.items() if k in existing}
 
+    for item in unique_files:
+        item['url'] = url_for('admin_candidate_document', cid=cid, filename=item['filename'])
     return jsonify(unique_files)
 
 
@@ -3134,21 +3153,21 @@ def data_json():
 # =====================================================
 @app.route("/uploads/<path:filename>")
 def preview_upload(filename):
-    # 🧩 Normalisation du nom
+    # Keep historical admin links working through the same private viewer.
+    if not require_admin():
+        abort(403)
     filename = os.path.basename(filename)
-
-    # 🧩 Chemin direct (compatibilité)
-    direct_path = os.path.join(UPLOAD_DIR, filename)
-    if os.path.exists(direct_path):
-        return send_file(direct_path)
-
-    # 🔎 Recherche dans les sous-dossiers candidats
-    for cid in os.listdir(UPLOAD_DIR):
-        sub_path = os.path.join(UPLOAD_DIR, cid, filename)
-        if os.path.exists(sub_path):
-            return send_file(sub_path)
-
-    print(f"⚠️ Fichier introuvable : {filename}")
+    if not filename or filename in ('.', '..') or '\\' in filename:
+        abort(404)
+    with closing(db()) as conn:
+        rows = [dict(row) for row in conn.execute('SELECT * FROM candidats')]
+    for row in rows:
+        path = os.path.join(UPLOAD_DIR, row['id'], filename)
+        listed = any(filename == os.path.basename(stored)
+                     for field, _ in DOC_FIELDS.values()
+                     for stored in parse_list(row.get(field)) if isinstance(stored, str))
+        if os.path.isfile(path) or listed:
+            return redirect(url_for('admin_candidate_document', cid=row['id'], filename=filename))
     abort(404)
 
 
@@ -3289,6 +3308,7 @@ def espace_candidat(slug):
 
     return render_template(
         "espace_candidat.html",
+        title="Mon espace étudiant · Intégrale Academy",
         row=row,
         statut=statut,
         explication_statut=explication_statut,
