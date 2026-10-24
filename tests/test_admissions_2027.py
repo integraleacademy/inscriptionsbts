@@ -270,6 +270,39 @@ def test_aps_2027_does_not_promise_unconfirmed_dates_or_prices(client):
         assert '950' not in html and 'QONTO' not in html
 
 
+def test_application_retains_training_guidance_and_next_steps(client, monkeypatch):
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: True)
+    response = client.get('/candidature')
+    assert response.status_code == 200
+    html = response.text
+    expected = {
+        'MOS': ('41000', 'responsables d’équipes de sécurité privée'),
+        'MCO': ('38362', 'management d’équipe dans tous les secteurs'),
+        'NDRC': ('38368', 'la relation client, la vente et le marketing digital'),
+        'PI': ('38380', 'conseillers immobiliers pour agences et syndics'),
+        'CI': ('41759', 'import-export, prospection, négociation'),
+        'CG': ('39159', 'la gestion comptable, du contrôle et de la finance'),
+    }
+    for code, (rncp, description) in expected.items():
+        panel = html.split(f'data-training-info="{code}"', 1)[1].split('</article>', 1)[0]
+        assert description in panel
+        assert f'/recherche/rncp/{rncp}/' in panel
+        assert '2 ans' in panel and 'Bac +2 · Niveau 5' in panel
+        assert 'Examen officiel' in panel
+    for phrase in ('ZOOM', 'emploi du temps fixe', 'évaluations et devoirs',
+                   'académie de Nice', 'académie de Paris', 'CNAPS',
+                   'autorisation préalable', 'Pôle Alternance',
+                   '0 € pour l’apprenti', 'Aucun frais d’inscription',
+                   'rémunéré selon ton âge', 'accusé de réception',
+                   'numéro de dossier', 'Je confirme mon inscription'):
+        assert phrase in html
+    assert '8 juillet' not in html and '12 août 2026' not in html
+    assert '15 décembre 2026' not in html and '950' not in html
+    assert 'Sessions et tarif apprenti 2027' in html
+    auth(client)
+    assert 'data-training-info="CG"' in client.get('/candidature?preview=1').text
+
+
 def test_certificate_placeholders_split_across_runs():
     from docx import Document
     from certificates import personalize_certificate

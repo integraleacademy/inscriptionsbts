@@ -12,7 +12,9 @@
   const preview = form.dataset.preview === 'true';
   const enforce = () => !preview || !!document.getElementById('preview-validation')?.checked;
   let index = 0, furthest = 0, submitting = false;
-  const value = name => new FormData(form).get(name) || '';
+  // Read checked values even while a conditional field is disabled so returning
+  // to MOS restores its dependent panels in the same change event.
+  const value = name => form.elements.namedItem(name)?.value || '';
   const showMessage = (message, failure = true) => { const el = failure ? error : notice; el.textContent = message; el.hidden = false; };
   function formatName(input) {
     if (!['nom', 'prenom', 'resp_nom', 'resp_prenom'].includes(input.name)) return;
@@ -26,9 +28,14 @@
     const today = new Date();
     const parts = birth.split('-').map(Number);
     const age = today.getFullYear() - parts[0] - ((today.getMonth() + 1 < parts[1] || (today.getMonth() + 1 === parts[1] && today.getDate() < parts[2])) ? 1 : 0);
-    const mos = value('bts') === 'MOS';
+    const selectedBts = value('bts');
+    const formationInfo = document.getElementById('formation-info');
+    const trainingPanels = [...form.querySelectorAll('[data-training-info]')];
+    trainingPanels.forEach(panel => { panel.hidden = panel.dataset.trainingInfo !== selectedBts; });
+    formationInfo.hidden = !trainingPanels.some(panel => !panel.hidden);
+    const mos = selectedBts === 'MOS';
     const aps = mos && value('mos_parcours') === 'autre';
-    const conditions = {mos, aps, 'aps-no': aps && value('aps_souhaitee') === 'non', minor: !!birth && age < 18, 'bac-other': value('bac_type') === 'Autre', idf: value('cherche_idf') === 'oui'};
+    const conditions = {mos, aps, 'aps-yes': aps && value('aps_souhaitee') === 'oui', 'aps-no': aps && value('aps_souhaitee') === 'non', minor: !!birth && age < 18, 'bac-other': value('bac_type') === 'Autre', idf: value('cherche_idf') === 'oui'};
     form.querySelectorAll('[data-condition]').forEach(block => { block.hidden = !conditions[block.dataset.condition]; });
     form.querySelectorAll('[data-condition] input, [data-condition] textarea, [data-condition] select').forEach(input => { input.disabled = !!input.closest('[data-condition][hidden]'); });
   }
@@ -113,7 +120,7 @@
   previous.addEventListener('click', () => show(index-1));
   next.addEventListener('click', () => { if (validate(index)) show(index+1); });
   nav.forEach((button,i) => button.addEventListener('click', () => { if(preview || i<=index || validate(index)) show(i); }));
-  form.addEventListener('change', event=>{conditional();if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
+  form.addEventListener('change', event=>{conditional();if(event.target.name==='mode')document.getElementById('infosDistanciel').open=value('mode')==='distanciel';if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
   form.addEventListener('input', event => {
     const input = event.target; input.setCustomValidity?.(''); input.classList.remove('invalid'); input.removeAttribute('aria-invalid');
     if (input.type === 'tel') input.value = input.value.replace(/\D/g,'');
@@ -143,6 +150,6 @@
   });
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
-  normalizeNames();conditional();show(0,false);nirFeedback();
+  normalizeNames();conditional();document.getElementById('infosDistanciel').open=value('mode')==='distanciel';show(0,false);nirFeedback();
   if(saved)showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false);
 })();

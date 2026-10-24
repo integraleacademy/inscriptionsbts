@@ -1,0 +1,94 @@
+{# Content restored from the pre-redesign application (c7de1078).
+   RNCP references checked against France compétences on 24 October 2026.
+   Do not reuse the expired 2026 APS sessions or an unconfirmed 2027 price. #}
+{% macro training_details() %}
+{% set programmes = [
+  ('MOS', 'Management opérationnel de la sécurité', '41000', 'Ce BTS forme les futurs responsables d’équipes de sécurité privée : surveillance, prévention, sûreté et incendie. Il peut aussi s’inscrire dans un projet vers la gendarmerie, la police, les pompiers ou les armées, selon leurs conditions de recrutement.'),
+  ('MCO', 'Management commercial opérationnel', '38362', 'Ce BTS prépare aux métiers du commerce, de la gestion et du management d’équipe dans tous les secteurs d’activité.'),
+  ('NDRC', 'Négociation et digitalisation de la relation client', '38368', 'Formation orientée sur la relation client, la vente et le marketing digital. Idéale pour les profils commerciaux modernes.'),
+  ('PI', 'Professions immobilières', '38380', 'Ce BTS forme les futurs négociateurs, gestionnaires et conseillers immobiliers pour agences et syndics.'),
+  ('CI', 'Commerce international', '41759', 'Ce BTS ouvre à des carrières à l’international : import-export, prospection, négociation et logistique internationale.'),
+  ('CG', 'Comptabilité et gestion', '39159', 'Ce BTS prépare aux métiers de la gestion comptable, du contrôle et de la finance d’entreprise.')
+] %}
+<div id="formation-info" class="training-information" role="region" aria-label="Informations sur le BTS choisi" aria-live="polite" aria-atomic="true" hidden>
+  {% for code, title, rncp, description in programmes %}
+  <article data-training-info="{{ code }}" hidden>
+    <p class="eyebrow">TA FORMATION EN QUELQUES MOTS</p>
+    <h3>BTS {{ code }} · {{ title }}</h3>
+    <p>{{ description }}</p>
+    <dl class="training-facts">
+      <div><dt>Durée</dt><dd>2 ans</dd></div>
+      <div><dt>Diplôme officiel</dt><dd>BTS · Bac +2 · Niveau 5</dd></div>
+      <div><dt>Certification</dt><dd><a href="https://www.francecompetences.fr/recherche/rncp/{{ rncp }}/" target="_blank" rel="noopener">RNCP n°{{ rncp }} ↗</a></dd></div>
+    </dl>
+    <p class="training-exam">Examen officiel organisé par l’Éducation nationale, en fin de deuxième année.</p>
+    {% if code == 'PI' %}<p class="field-hint">La fiche RNCP actuellement publiée arrive à échéance le 31 décembre 2026. La référence applicable à la rentrée 2027 sera confirmée par l’école.</p>{% endif %}
+  </article>
+  {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro study_modes() %}
+<h3>Et pour suivre les cours ?</h3>
+<p class="study-mode-intro">Le même diplôme, la même exigence, deux façons de suivre ton parcours.</p>
+<div class="mode-choices">
+  <label class="choice"><input type="radio" name="mode" value="presentiel" required><span><b>À l’école</b><small>Dans les locaux d’Intégrale Academy à Puget-sur-Argens (Var · Côte d’Azur), avec un accompagnement sur mesure et une immersion connectée aux réalités du métier.</small></span></label>
+  <label class="choice"><input type="radio" name="mode" value="distanciel" required><span><b>100 % en ligne</b><small>En visioconférence ZOOM en direct : même emploi du temps, mêmes enseignants, même accompagnement et même qualité pédagogique qu’en présentiel.</small></span></label>
+</div>
+<details id="infosDistanciel" class="application-information-details">
+  <summary>Comment se déroule la formation à distance ?</summary>
+  <div>
+    <h4>L’école, 100 % en ligne et en direct</h4>
+    <p>Tu suis un emploi du temps fixe et tu te connectes aux horaires prévus, pendant les deux années de formation. Les cours se déroulent en visioconférence ZOOM avec des formateurs expérimentés, en même temps que ceux des étudiants présents à l’école.</p>
+    <p>Tu interagis en temps réel avec les formateurs et les autres étudiants. Il ne s’agit pas d’une plateforme e-learning : les cours ont lieu en direct, comme dans une classe.</p>
+    <p>Tu n’as pas de déplacement à prévoir pour les cours. Les évaluations et devoirs sont déposés sur l’espace étudiant, puis corrigés par les enseignants.</p>
+    <h4>L’entreprise, en présentiel</h4>
+    <p>Les périodes d’alternance se déroulent en présentiel dans ton entreprise d’accueil.</p>
+    <h4>L’examen final, en présentiel</h4>
+    <p>En fin de deuxième année, tu passes l’examen dans un lycée public de l’académie de Nice ou de l’académie de Paris, au choix.</p>
+  </div>
+</details>
+<p class="information-note">Quel que soit le format choisi, <strong>l’examen final se déroule en présentiel en fin de deuxième année</strong>, au sein de l’académie de Nice ou de l’académie de Paris.</p>
+{% endmacro %}
+
+{% macro mos_guidance() %}
+<div class="mos-guidance">
+  <h4>La carte professionnelle CNAPS</h4>
+  <p>Pour exercer en sécurité privée pendant ton alternance, une <strong>carte professionnelle « agent de sécurité privée » délivrée par le CNAPS</strong> est nécessaire. Ton entreprise d’accueil te la demandera.</p>
+  <p>Le bac pro Métiers de la sécurité permet d’en demander la délivrance. Si tu prépares ce bac, la démarche s’effectue après son obtention. Si tu possèdes déjà une carte professionnelle valide, notre équipe vérifiera ta situation avec toi.</p>
+  <a class="text-link" href="https://www.canva.com/design/DAFyt9PCLzk/crHFPARJiocR1wDYdodMJw/view" target="_blank" rel="noopener">Consulter les informations sur le CNAPS ↗</a>
+</div>
+{% endmacro %}
+
+{% macro aps_guidance() %}
+<div class="application-information-card" data-condition="aps-yes" hidden>
+  <h4>Ta formation complémentaire APS</h4>
+  <p>Tu souhaites suivre la formation <strong>Agent de prévention et de sécurité (APS)</strong>. Un e-mail t’expliquera la procédure de demande d’autorisation préalable d’entrée en formation auprès du CNAPS.</p>
+  <p><strong>Sessions et tarif apprenti 2027 :</strong> l’équipe te confirmera le calendrier, le tarif et les modalités de paiement avant ton inscription à la formation APS. Le mandat de prélèvement sera ensuite adressé par e-mail, selon les conditions confirmées avec toi.</p>
+  <p>La formation APS est distincte du BTS financé dans le cadre de ton contrat d’apprentissage.</p>
+</div>
+{% endmacro %}
+
+{% macro funding_information() %}
+<div class="application-information-card funding-information">
+  <p class="eyebrow">TON BTS EN APPRENTISSAGE</p>
+  <h3>100 % pris en charge · 0 € pour l’apprenti</h3>
+  <ul>
+    <li>Aucun frais d’inscription ni de scolarité pour ton BTS.</li>
+    <li>Formation intégralement financée dans le cadre du contrat d’apprentissage.</li>
+    <li>Tu es rémunéré selon ton âge et ta situation.</li>
+    <li>Tu prépares un diplôme d’État.</li>
+  </ul>
+</div>
+{% endmacro %}
+
+{% macro next_steps() %}
+<div class="application-information-card application-next-steps">
+  <h3>Et après l’envoi de ton dossier ?</h3>
+  <ol>
+    <li>Tu reçois un accusé de réception avec ton numéro de dossier.</li>
+    <li>Notre commission étudie ta candidature. La réponse t’est adressée par e-mail et par SMS.</li>
+    <li>Si ta demande d’admission est validée, tu confirmes ton inscription en cliquant sur <strong>« Je confirme mon inscription »</strong> dans le message reçu.</li>
+  </ol>
+</div>
+{% endmacro %}

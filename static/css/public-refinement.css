@@ -90,3 +90,58 @@ body.application-page{background:#f2eee5}.application-page .admissions-header{ba
 @media(max-width:1100px){.academy-ui .official-academy-header .academy-wordmark{font-size:17px;letter-spacing:.8px}.academy-ui .admissions-header.official-academy-header{gap:15px}.academy-ui .official-academy-header .academy-sigle{height:65px;width:68.25px}}
 @media(max-width:760px){.academy-ui .admissions-header.official-academy-header{display:grid;grid-template-columns:1fr auto;min-height:105px;padding:15px 22px;gap:10px}.academy-ui .official-academy-header .official-academy-brand{gap:9px}.academy-ui .official-academy-header .academy-sigle{height:53px;width:55.65px}.academy-ui .official-academy-header .academy-wordmark{font-size:13px;letter-spacing:.5px;gap:.3em}.academy-ui .official-academy-header .header-contact{grid-column:1/-1;display:block;text-align:center;font-size:9px}.academy-ui .official-academy-header .header-contact b{display:inline;margin-left:5px;font-size:10px}.academy-ui .official-academy-header .candidate-access-link{padding:8px 10px;font-size:9px}.student-header-label{font-size:8px;letter-spacing:1.2px}}
 @media(max-width:520px){.academy-ui .admissions-header.official-academy-header{padding:13px 18px;grid-template-columns:1fr;justify-items:center;gap:12px}.academy-ui .official-academy-header .academy-sigle{height:55px;width:57.75px}.academy-ui .official-academy-header .academy-wordmark{font-size:16px;letter-spacing:.8px}.academy-ui .official-academy-header .candidate-access-link{position:static;font-size:10px;padding:8px 15px}.academy-ui.student-auth-page .official-academy-header{grid-template-columns:1fr auto;justify-items:start;padding:16px 18px}.academy-ui.student-auth-page .official-academy-header .academy-sigle{height:43px;width:45.15px}.academy-ui.student-auth-page .official-academy-header .academy-wordmark{font-size:11px;letter-spacing:.4px}.academy-ui.student-auth-page .official-academy-header .header-contact{justify-self:center}.student-header-label{font-size:7px;letter-spacing:1px;align-self:center;justify-self:end}}
+/* Original application information, integrated into the current ivory/olive layout. */
+.application-page .training-information,
+.application-page .application-information-card,
+.application-page .application-information-details {
+  margin: 22px 0;
+  padding: 22px;
+  border: 1px solid #d5dcc5;
+  border-radius: 16px;
+  background: #f9faf4;
+  color: #3a412e;
+  font-size: 13px;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+.application-page .training-information { border-left: 4px solid #889765; }
+.application-page .training-information h3,
+.application-page .application-information-card h3,
+.application-page .application-information-card h4 { margin: 0 0 12px; }
+.application-page .training-information .eyebrow { margin: 0 0 9px; font-size: 9px; }
+.application-page .training-information p:last-child,
+.application-page .application-information-card p:last-child { margin-bottom: 0; }
+.application-page .training-facts { display: grid; grid-template-columns: .65fr 1.4fr 1fr; gap: 14px; margin: 22px 0 18px; }
+.application-page .training-facts dt { font-size: 10px; color: #6c725e; margin-bottom: 4px; }
+.application-page .training-facts dd { margin: 0; font-size: 12px; font-weight: 700; }
+.application-page .training-information a,
+.application-page .mos-guidance a { color: #4f622d; text-decoration: underline; text-underline-offset: 3px; }
+.application-page .training-exam { border-top: 1px solid #dce2d0; padding-top: 14px; font-size: 12px; }
+.application-page .study-mode-intro { font-size: 12px; line-height: 1.7; color: #6c725e; }
+.application-page .mode-choices .choice { align-items: flex-start; }
+.application-page .mode-choices small { margin-top: 7px; line-height: 1.75; }
+.application-page .application-information-details { padding: 0; background: #fffdf7; }
+.application-page .application-information-details summary { cursor: pointer; padding: 18px 22px; font-weight: 700; }
+.application-page .application-information-details summary:focus-visible { outline: 3px solid #889765; outline-offset: 3px; border-radius: 16px; }
+.application-page .application-information-details > div { padding: 0 22px 22px; }
+.application-page .application-information-details h4 { margin: 18px 0 8px; font-size: 13px; }
+.application-page .mos-guidance { font-size: 12px; line-height: 1.8; margin-bottom: 20px; }
+.application-page .mos-guidance h4 { font-size: 13px; margin: 0 0 10px; }
+.application-page .application-partner-logo { display: block; max-width: 150px; height: 54px; object-fit: contain; margin: 0 0 14px; }
+.application-page .application-information-card ul,
+.application-page .application-information-card ol { padding-left: 21px; margin-bottom: 0; }
+.application-page .application-information-card li + li { margin-top: 9px; }
+.application-page .funding-information { background: #edf0e4; }
+@media (max-width: 650px) {
+  .application-page .training-information,
+  .application-page .application-information-card { padding: 18px; font-size: 12px; }
+  .application-page .training-facts { grid-template-columns: 1fr; gap: 12px; margin: 18px 0; }
+  .application-page .training-facts > div { display: flex; justify-content: space-between; gap: 12px; }
+  .application-page .training-facts dd { text-align: right; }
+  .application-page .application-information-details summary { padding: 16px 18px; font-size: 12px; }
+  .application-page .application-information-details > div { padding: 0 18px 18px; font-size: 12px; }
+}
+
+.application-page .application-process .application-information-card { padding: 0; margin: 0; border: 0; background: transparent; }
+.application-page .application-process h3 { font-size: 14px; }
+.application-page .aside-help .application-support-link { font-size: 11px; margin-top: 14px; text-decoration: underline; text-underline-offset: 3px; }
