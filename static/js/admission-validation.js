@@ -8,7 +8,7 @@
     if (n === '123456789123456') return {ok:true, message:'Numéro accepté selon le cas particulier prévu.'};
     if (!/^\d{5}(?:\d{2}|2[AB])\d{8}$/.test(n)) return {ok:false, message:'15 caractères attendus ; 2A et 2B sont acceptés pour la Corse.'};
     const calculation = n.replace('2A','19').replace('2B','18');
-    if (Number(97n - BigInt(calculation.slice(0,13)) % 97n) !== Number(calculation.slice(13))) return {ok:false, message:'La clé de contrôle est incorrecte. Vérifie les deux derniers chiffres.'};
+    if (Number(97n - BigInt(calculation.slice(0,13)) % 97n) !== Number(calculation.slice(13))) return {ok:false, message:'Le numéro et sa clé de contrôle ne correspondent pas. Vérifie les 15 caractères sur ton attestation de droits : l’erreur peut se trouver n’importe où dans le numéro, pas seulement dans les deux derniers chiffres.'};
     if (birth) {
       const [year, month] = birth.split('-');
       if (calculation.slice(1,3) !== year.slice(-2)) return {ok:false, message:'L’année du numéro ne correspond pas à ta date de naissance.'};

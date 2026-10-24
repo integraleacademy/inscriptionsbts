@@ -383,3 +383,57 @@ def test_status_notification_is_preserved_without_duplicate_send(client,monkeypa
     assert len(mail)==1 and len(sms)==1
     assert 'septembre 2027' in mail[0][2]
     assert client.get('/admin/logs/notification-test').json
+
+
+def test_identity_names_normalized_before_storage_and_draft(client, monkeypatch):
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: True)
+    p = payload(); p['nom'] = "  d’arc  "; p['prenom'] = "  élISE  marie-clAIRE "
+    response = client.post('/submit', data=p, headers={'Accept': 'application/json'})
+    assert response.status_code == 200
+    with application.db() as conn:
+        row = conn.execute('SELECT nom,prenom FROM candidats').fetchone()
+    assert tuple(row) == ('D’ARC', 'Élise Marie-Claire')
+    assert application.normalize_candidate_names({'resp_nom': ' martin ', 'resp_prenom': 'jean-luc'}) == {'resp_nom': 'MARTIN', 'resp_prenom': 'Jean-Luc'}
+
+
+def test_nir_wrong_body_with_original_key_does_not_blame_only_key():
+    valid, _ = application.validate_nir('208017512345646', '2008-01-01', 'Femme')
+    assert valid
+    ok, message = application.validate_nir('208017512345746', '2008-01-01', 'Femme')
+    assert not ok
+    assert '15 caractères' in message and 'n’importe où' in message
+
+
+def test_candidate_photo_is_scoped_and_private(client, tmp_path):
+    from PIL import Image
+    seed(2027, 'photo-owner'); seed(2027, 'another-person')
+    folder = tmp_path / 'uploads' / 'photo-owner'; folder.mkdir(parents=True)
+    path = folder / 'identity.png'; Image.new('RGB', (800, 900), 'gold').save(path)
+    with application.db() as conn:
+        conn.execute('UPDATE candidats SET fichiers_photo=? WHERE id=?', (json.dumps([str(path)]), 'photo-owner'))
+        conn.execute('UPDATE candidats SET fichiers_photo=? WHERE id=?', (json.dumps([str(path)]), 'another-person'))
+    assert client.get('/admin/candidat/photo-owner/photo').status_code == 403
+    assert client.get('/espace/unknown/photo').status_code == 404
+    assert client.get('/espace/another-person/photo').status_code == 404
+    response = client.get('/espace/photo-owner/photo')
+    assert response.status_code == 200 and response.mimetype == 'image/jpeg'
+    assert response.headers['Cache-Control'] == 'private, no-store'
+    with Image.open(io.BytesIO(response.data)) as image:
+        assert max(image.size) <= 600
+    auth(client)
+    assert client.get('/admin/candidat/photo-owner/photo').status_code == 200
+
+
+def test_login_code_email_does_not_copy_administration(monkeypatch):
+    import utils
+    sent = []
+    class Response:
+        ok = True
+        text = '{"messageId":"test-only"}'
+        def json(self): return {'messageId': 'test-only'}
+    monkeypatch.setattr(utils, 'BREVO_KEY', 'test-only')
+    monkeypatch.setattr(utils.requests, 'post', lambda *a, **kw: (sent.append(kw['json']) or Response()))
+    utils.send_mail('candidate@example.test', 'Code test', '<p>Test</p>', copy_admin=False)
+    assert sent[0]['to'] == [{'email': 'candidate@example.test'}]
+    utils.send_mail('candidate@example.test', 'Dossier test', '<p>Test</p>')
+    assert len(sent[1]['to']) == 2

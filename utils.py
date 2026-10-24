@@ -21,7 +21,7 @@ BREVO_KEY = os.getenv("BREVO_API_KEY")
 # =====================================================
 # ✉️ Envoi d’e-mail via Brevo API (avec suivi)
 # =====================================================
-def send_mail(to, subject, html, attachments=None):
+def send_mail(to, subject, html, attachments=None, *, copy_admin=True):
     """
     Envoie un e-mail via l’API Brevo
     → + copie automatique à gestion@integraleacademy.com
@@ -35,7 +35,8 @@ def send_mail(to, subject, html, attachments=None):
 
     # 📩 DESTINATAIRES = candidat + copie admin
     to_list = [{"email": to}]
-    to_list.append({"email": "gestion@integraleacademy.com"})  # 👈 COPIE AUTOMATIQUE
+    if copy_admin:
+        to_list.append({"email": "gestion@integraleacademy.com"})
 
     url = "https://api.brevo.com/v3/smtp/email"
     headers = {

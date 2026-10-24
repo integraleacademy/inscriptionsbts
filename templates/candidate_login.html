@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block body_class %}candidate-access-page{% endblock %}
+{% block content %}
+<section class="access-shell" aria-labelledby="access-title">
+  <aside class="access-story"><span class="access-kicker">TON ESPACE · TON AVENIR</span><div class="access-art" aria-hidden="true"><span class="access-orbit"></span><span class="access-monogram">IA</span><span class="access-star">✦</span><span class="access-pill">Le prochain chapitre<br><b>commence avec toi.</b></span></div><h1 id="access-title">Ton dossier.<br><em>Toujours à portée<br>de main.</em></h1><p>Suis ta candidature, retrouve tes documents et prépare ton arrivée à Intégrale Academy.</p><span class="access-note">ESPACE PERSONNEL · ACCÈS SÉCURISÉ</span></aside>
+  <div class="access-form-panel"><span class="access-kicker">HEUREUX DE TE RETROUVER</span><h2>On reprend<br>là où on en était ?</h2><p>Renseigne les informations utilisées lors de ta candidature. Tu recevras un code par e-mail pour accéder à ton dossier.</p>
+  {% if error %}<div class="access-error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ url_for('candidate_login') }}" class="access-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label for="access-name">Nom de famille<input id="access-name" name="nom" value="{{ values.nom }}" maxlength="100" autocomplete="family-name" placeholder="DUPONT" required></label>
+    <label for="access-birth">Date de naissance<input id="access-birth" name="date_naissance" value="{{ values.date_naissance }}" type="date" autocomplete="bday" required></label>
+    <label for="access-email">Adresse e-mail de la candidature<input id="access-email" name="email" value="{{ values.email }}" type="email" maxlength="254" autocomplete="email" placeholder="toi@exemple.fr" required></label>
+    <button type="submit" class="access-submit">Recevoir mon code de connexion</button>
+  </form>
+  <div class="access-help"><span>Besoin d’un coup de main ?</span><a href="tel:+33422470768">04 22 47 07 68</a><small>Plus d’accès à ton adresse e-mail ? Notre équipe t’accompagne.</small></div><a href="/" class="access-back">Revenir à l’accueil</a></div>
+</section>
+{% endblock %}

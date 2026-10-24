@@ -14,6 +14,13 @@
   let index = 0, furthest = 0, submitting = false;
   const value = name => new FormData(form).get(name) || '';
   const showMessage = (message, failure = true) => { const el = failure ? error : notice; el.textContent = message; el.hidden = false; };
+  function formatName(input) {
+    if (!['nom', 'prenom', 'resp_nom', 'resp_prenom'].includes(input.name)) return;
+    const clean = input.value.trim().replace(/\s+/g, ' ');
+    input.value = ['nom', 'resp_nom'].includes(input.name) ? clean.toLocaleUpperCase('fr') : clean.toLocaleLowerCase('fr').replace(/(^|[\s’'\-])(\p{L})/gu, (_, separator, letter) => separator + letter.toLocaleUpperCase('fr'));
+  }
+  function normalizeNames() { [...form.elements].forEach(formatName); }
+  form.addEventListener('focusout', event => formatName(event.target));
   function conditional() {
     const birth = value('date_naissance');
     const today = new Date();
@@ -26,6 +33,7 @@
     form.querySelectorAll('[data-condition] input, [data-condition] textarea, [data-condition] select').forEach(input => { input.disabled = !!input.closest('[data-condition][hidden]'); });
   }
   function validate(step) {
+    normalizeNames();
     conditional();
     if (!enforce()) return true;
     const fields = [...steps[step].querySelectorAll('input,select,textarea')].filter(x => !x.disabled);
@@ -89,7 +97,7 @@
     document.querySelectorAll('[data-journey-icon]').forEach((el,i)=>el.hidden=i!==index);
     const captions=['Un projet. Une direction. Et si la suite commençait ici ?','Derrière chaque dossier, il y a une personnalité. Faisons connaissance.','Garder le lien, pour avancer ensemble jusqu’à la rentrée.','Là où tu en es aujourd’hui. Là où tu aimerais aller demain.','Ce qui t’anime compte autant que ce que tu sais déjà.','Les dernières pièces, pour donner vie à ton inscription.','Tout est là. Ton prochain chapitre peut commencer.'];
     document.getElementById('journey-caption').textContent=captions[index];
-    document.getElementById('journey-sticker').textContent=['LE DÉBUT DE LA SUITE ↗','ENCHANTÉS DE TE CONNAÎTRE','ON GARDE LE CONTACT','UN PARCOURS QUI T’APPARTIENT','TA DIFFÉRENCE COMPTE','PRESQUE AU BOUT','À TOI DE JOUER ↗'][index];
+    document.getElementById('journey-sticker').textContent=['LE DÉBUT DE LA SUITE','ENCHANTÉS DE TE CONNAÎTRE','ON GARDE LE CONTACT','UN PARCOURS QUI T’APPARTIENT','TA DIFFÉRENCE COMPTE','PRESQUE AU BOUT','À TOI DE JOUER'][index];
     const current=steps[index];current.classList.remove('step-enter');void current.offsetWidth;current.classList.add('step-enter');
     furthest = Math.max(furthest,index); error.hidden = true; notice.hidden = true;
     steps.forEach((section,i) => { section.hidden = i !== index; });
@@ -120,6 +128,7 @@
     if(form.dataset.preview==='true') return;
     const email = form.elements.email;
     if(!email.value || !email.checkValidity()) { show(2); email.focus(); showMessage('Indique ton e-mail pour recevoir un lien de reprise.'); return; }
+    normalizeNames();
     save.disabled=true; save.textContent='Enregistrement…';
     const full_form={}; new FormData(form).forEach((val,key) => { if(val instanceof File) return; if(key.endsWith('[]')) (full_form[key] ||= []).push(val); else full_form[key]=val; });
     try { const res=await fetch('/save_draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({full_form})}); const data=await res.json(); if(!res.ok || !data.success) throw new Error(data.error || 'Impossible d’enregistrer le dossier.'); showMessage('Ton brouillon est enregistré. Un lien de reprise a été envoyé à ton adresse e-mail. Pense à sélectionner à nouveau tes fichiers lors de la reprise.',false); }
@@ -129,11 +138,11 @@
     event.preventDefault(); if(submitting || form.dataset.preview==='true') return;
     for(let i=0;i<steps.length;i++){if(!validate(i)){show(i);validate(i);return;}}
     submitting=true;document.body.classList.add('application-sending');send.disabled=true;save.disabled=true;previous.disabled=true;send.textContent='Envoi de ta candidature…';form.setAttribute('aria-busy','true');
-    try{const res=await fetch(form.action,{method:'POST',headers:{Accept:'application/json'},body:new FormData(form)}); const type=res.headers.get('content-type') || ''; if(!type.includes('application/json')) throw new Error('L’envoi n’a pas pu être confirmé. Réessaie ou contacte notre équipe.'); const data=await res.json();if(!res.ok || !data.ok)throw new Error(data.error || 'Impossible de transmettre ta candidature.');window.location.assign(data.redirect);}
-    catch(err){showMessage(err.message);document.body.classList.remove('application-sending');submitting=false;send.disabled=false;save.disabled=false;previous.disabled=false;send.textContent='Envoyer ma candidature ↗';form.removeAttribute('aria-busy');}
+    try{const res=await fetch(form.action,{method:'POST',headers:{Accept:'application/json'},body:new FormData(form)}); const type=res.headers.get('content-type') || ''; if(!type.includes('application/json')) throw new Error('L’envoi n’a pas pu être confirmé. Réessaie ou contacte notre équipe.'); const data=await res.json();if(!res.ok || !data.ok)throw new Error(data.error || 'Impossible de transmettre ta candidature.');document.body.classList.remove('application-sending'); if(window.BTSAdmissionCelebration) await window.BTSAdmissionCelebration.show(data.redirect); else window.location.assign(data.redirect);}
+    catch(err){showMessage(err.message);document.body.classList.remove('application-sending');submitting=false;send.disabled=false;save.disabled=false;previous.disabled=false;send.textContent='Envoyer ma candidature';form.removeAttribute('aria-busy');}
   });
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
-  conditional();show(0,false);nirFeedback();
+  normalizeNames();conditional();show(0,false);nirFeedback();
   if(saved)showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false);
 })();

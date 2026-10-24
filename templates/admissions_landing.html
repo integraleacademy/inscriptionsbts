@@ -13,9 +13,9 @@
   <div class="waiting-countdown" role="timer" aria-label="Temps restant avant l’ouverture des inscriptions">
     {% for key,label in [('days','jours'),('hours','heures'),('minutes','minutes'),('seconds','secondes')] %}<div><strong id="count-{{ key }}">--</strong><span>{{ label }}</span></div>{% if not loop.last %}<b aria-hidden="true">:</b>{% endif %}{% endfor %}
   </div>
-  <a class="calendar-reminder" href="{{ url_for('opening_calendar') }}">{{ icon('clock') }} Ajouter la date à mon calendrier <span>↗</span></a>
+  <a class="calendar-reminder" href="{{ url_for('opening_calendar') }}">{{ icon('clock') }} Ajouter la date à mon calendrier</a>
   <noscript><p>Rendez-vous le 1er décembre 2026 à 10 h, heure de Paris.</p></noscript>
-  {% elif admission_open %}<a class="button button-gold" href="{{ url_for('candidature') }}">Commencer mon inscription {{ icon('arrow') }}</a>{% endif %}
+  {% elif admission_open %}<a class="button button-gold" href="{{ url_for('candidature') }}">Commencer mon inscription</a>{% endif %}
 </section>
 <script src="{{ url_for('static', filename='js/countdown.js') }}" defer></script>
 {% endblock %}

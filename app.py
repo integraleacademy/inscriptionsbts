@@ -4,6 +4,7 @@ import os, sqlite3, json, uuid, shutil
 from datetime import datetime, timedelta
 from admission_options import PROFILE_GROUPS
 from place_search import register_place_search
+from candidate_access import register_candidate_access
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
 from werkzeug.utils import secure_filename
@@ -58,6 +59,14 @@ def run_startup_integrity_checks():
         "templates/candidate_sheet.html",
         "admission_options.py",
         "place_search.py",
+        "candidate_access.py",
+        "templates/candidate_login.html",
+        "templates/candidate_verify.html",
+        "static/css/public-refinement.css",
+        "static/css/candidate-refinement.css",
+        "static/css/candidate-access.css",
+        "static/js/admission-celebration.js",
+        "static/js/candidate-refinement.js",
         "static/admissions/countries-fr.json",
         "static/css/styles.css",
         "static/logo-integrale.png",
@@ -84,7 +93,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post)\(\s*['"]([^'"]+)['"]""")
@@ -424,6 +433,14 @@ def normalize_nir(nir: str) -> str:
         return ""
     return nir.strip().upper().replace(" ", "")
 
+def normalize_candidate_names(values):
+    """Persist the same readable identity formatting as the application form."""
+    for key in ("nom", "prenom", "resp_nom", "resp_prenom"):
+        if key in values:
+            clean = " ".join(str(values.get(key) or "").split())
+            values[key] = clean.upper() if key.endswith("nom") and not key.endswith("prenom") else clean.title()
+    return values
+
 def validate_nir(nir_raw, date_naissance_str, sexe_str):
     """Valide le NIR (clé + cohérence date + sexe). 
     Conserve 2A/2B dans la valeur stockée, mais effectue la vérification avec conversion temporaire."""
@@ -446,7 +463,7 @@ def validate_nir(nir_raw, date_naissance_str, sexe_str):
         corps, cle = digits[:13], int(digits[13:15])
         calc = 97 - (int(corps) % 97)
         if calc != cle:
-            return False, "Clé de contrôle du NIR incorrecte."
+            return False, "Le numéro et sa clé de contrôle ne correspondent pas. Vérifiez les 15 caractères sur votre attestation de droits : l’erreur peut se trouver n’importe où dans le numéro, pas seulement dans les deux derniers chiffres."
     except Exception:
         return False, "Format du NIR invalide."
 
@@ -906,6 +923,7 @@ def candidature():
 
 
 register_place_search(app)
+register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
 
 
 @app.route("/ouverture.ics")
@@ -975,6 +993,7 @@ def save_draft():
             return jsonify(success=False, error="Indiquez une adresse e-mail valide pour recevoir votre lien de reprise."), 400
         if str(full_form.get("admin_preview", "")) == "1":
             return jsonify(success=False, error="Cet aperçu ne permet pas d’enregistrer un brouillon."), 403
+        normalize_candidate_names(full_form)
         full_form["rentree_annee"] = ADMISSION_YEAR
 
         # 🔑 Id unique du brouillon (token)
@@ -1139,7 +1158,7 @@ def submit():
         return jsonify(ok=False, error="Cet aperçu ne permet pas de déposer un dossier."), 403
     if not admissions_available():
         return jsonify(ok=False, error=f"Les inscriptions ouvriront le {OPENING_LABEL}."), 403
-    form = request.form
+    form = normalize_candidate_names(request.form.copy())
     error = validate_application(form, request.files)
     if error:
         return jsonify(ok=False, error=error), 400
@@ -1509,7 +1528,7 @@ def admin_candidate_sheet(cid):
     year = candidate_year(row)
     columns = {"qualites": "projet_qualites", "motivation": "projet_motivation", "valeurs": "projet_recherche", "travail": "projet_travail"}
     profile_display = {g["name"]: [dict(g["options"]).get(v, v) for v in (parse_list(row.get(columns[g["name"]])) or [v.strip() for v in (row.get(columns[g["name"]]) or "").split(",") if v.strip()])] for g in PROFILE_GROUPS}
-    return render_template("candidate_sheet.html", profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year)
+    return render_template("candidate_sheet.html", candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year)
 
 
 @app.post("/admin/candidat/<cid>/informations")
@@ -1518,6 +1537,7 @@ def admin_candidate_information(cid):
     data = request.get_json(silent=True) or {}
     fields = {"nom", "prenom", "email", "tel", "bts", "mode", "adresse", "cp", "ville", "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "num_secu", "resp_nom", "resp_prenom", "resp_email", "resp_tel", "baccalaureat", "bac_type", "bac_autre", "entreprise_trouvee", "recherches_commencees", "cherche_idf", "souhaite_accompagnement"}
     changes = {key: str(value or "").strip() for key, value in data.items() if key in fields}
+    normalize_candidate_names(changes)
     if not changes: return jsonify(ok=False, error="Aucune modification à enregistrer."), 400
     with closing(db()) as conn:
         row = get_candidat(conn, cid)
@@ -3269,8 +3289,52 @@ def espace_candidat(slug):
         row=row,
         statut=statut,
         explication_statut=explication_statut,
-        commentaire=commentaire
+        commentaire=commentaire,
+        candidate_photo_url=url_for('candidate_photo', slug=slug) if parse_list(row.get('fichiers_photo')) else None
     )
+
+
+def _candidate_photo_response(row):
+    """Only the requested dossier's image, resized and stripped of EXIF metadata."""
+    from io import BytesIO
+    from PIL import Image, ImageOps, UnidentifiedImageError
+    if not row: abort(404)
+    row = dict(row)
+    directory = os.path.realpath(os.path.join(UPLOAD_DIR, row['id']))
+    for stored in parse_list(row.get('fichiers_photo')):
+        path = os.path.realpath(stored)
+        if os.path.commonpath([directory, path]) != directory or not os.path.isfile(path):
+            continue
+        try:
+            with Image.open(path) as source:
+                if source.format not in ('JPEG', 'PNG'): continue
+                photo = ImageOps.exif_transpose(source)
+                photo.thumbnail((600, 600))
+                out = BytesIO()
+                photo.convert('RGB').save(out, format='JPEG', quality=88)
+            out.seek(0)
+            response = send_file(out, mimetype='image/jpeg')
+            response.headers['Cache-Control'] = 'private, no-store'
+            response.headers['X-Content-Type-Options'] = 'nosniff'
+            return response
+        except (OSError, ValueError, UnidentifiedImageError, Image.DecompressionBombError):
+            continue
+    abort(404)
+
+
+@app.get('/admin/candidat/<cid>/photo')
+def admin_candidate_photo(cid):
+    if not require_admin(): abort(403)
+    with closing(db()) as conn:
+        row = get_candidat(conn, cid)
+    return _candidate_photo_response(row)
+
+
+@app.get('/espace/<slug>/photo')
+def candidate_photo(slug):
+    with closing(db()) as conn:
+        row = conn.execute('SELECT * FROM candidats WHERE slug_public=?', (slug,)).fetchone()
+    return _candidate_photo_response(row)
 
 
 
