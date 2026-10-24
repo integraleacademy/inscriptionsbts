@@ -12,7 +12,7 @@
     <label for="access-password">Mot de passe<input id="access-password" name="password" type="password" maxlength="128" autocomplete="current-password" placeholder="Ton mot de passe" required></label>
     <button type="submit" class="access-submit">Me connecter</button>
   </form><a href="{{ url_for('student_forgot_password') }}" class="access-forgot">Mot de passe oublié ?</a>
-  <div class="access-first"><b>Première connexion ?</b><p>Ton mot de passe initial est ta date de naissance, au format <strong>JJMMAAAA</strong>, sans espaces ni séparateurs.<br>Exemple : 16/09/1993 devient <strong>16091993</strong>.</p><small>Tu choisiras ensuite ton mot de passe personnel.</small></div>
+  <div class="access-first"><b>Première connexion ?</b><p>Ton mot de passe initial est ta date de naissance, au format <strong>JJMMAAAA</strong>, sans espaces ni séparateurs.<br>Exemple : 02/01/2000 devient <strong>02012000</strong>.</p><small>Tu choisiras ensuite ton mot de passe personnel.</small></div>
   <div class="access-help"><span>Besoin d’un coup de main ?</span><a href="tel:+33422470768">04 22 47 07 68</a></div><a href="/" class="access-back">Revenir à l’accueil</a></div>
 </section>
 {% endblock %}
