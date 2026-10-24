@@ -100,7 +100,11 @@ def test_trainer_pages_are_integrated_without_student_or_legacy_scripts(client, 
     assert b'trainer-space.css' in login.data
     for forbidden in (b'googletagmanager.com', b'cdn.brevo.com', b'js/main_front.js', b'js/main_admin.js'):
         assert forbidden not in login.data
-    assert client.get('/admin/formateurs').status_code in (302, 403)
+    unsigned = client.get('/admin/formateurs?bts=MCO&rentree=2026')
+    assert unsigned.status_code == 302
+    assert unsigned.headers['Location'].startswith('/login?next=')
+    assert 'formateurs' in unsigned.headers['Location']
+    assert client.post('/admin/formateurs',json={}).status_code == 403
     auth(client)
     management = client.get('/admin/formateurs?bts=MCO&rentree=2026')
     assert management.status_code == 200

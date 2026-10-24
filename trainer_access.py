@@ -237,6 +237,8 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
 
     @app.route('/admin/formateurs',methods=['GET','POST'])
     def admin_trainers():
+        if request.method=='GET' and not require_admin() and 'login' in app.view_functions:
+            return go('login',next=request.full_path.rstrip('?'))
         admin_guard()
         if request.method=='POST':
             check_csrf()
