@@ -7,6 +7,7 @@ No database, network access, or writes are performed by this module.
 from calendar import monthrange
 from collections import defaultdict
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
@@ -109,15 +110,33 @@ def _normalise(promotion, courses, days, start, end):
     end = _date(end or promotion.get('date_fin'))
     if end < start or (end - start).days > 1095:
         raise ValueError('La période d’export doit être comprise entre un jour et trois ans.')
-    records = []
+    records, seen = [], set()
+    promotion_id = str(promotion.get('id') or '')
     for source in courses or []:
         item = dict(source)
+        groups = [dict(group) for group in (item.get('groups') or []) if isinstance(group, dict)]
+        participants = {str(value) for value in (item.get('promotion_ids') or []) if value}
+        participants.update(str(group.get('promotion_id')) for group in groups if group.get('promotion_id'))
+        if participants and promotion_id and promotion_id not in participants:
+            continue
+        local_group = next((group for group in groups if str(group.get('promotion_id')) == promotion_id), {})
+        item['subject_name'] = local_group.get('subject_name') or item.get('display_subject_name') or item.get('subject_name')
+        item['subject_id'] = local_group.get('subject_id') or item.get('subject_id')
+        item['color'] = local_group.get('color') or item.get('display_color') or item.get('color')
+        item['_shared_count'] = len(participants) if len(participants) > 1 else (2 if item.get('is_shared') or item.get('shared') else 0)
         day = _date(item['date'])
         if not start <= day <= end:
             continue
         begin, finish = _minutes(item['start']), _minutes(item['end'])
         if not 0 <= begin < finish <= 1440:
             raise ValueError('Le cours doit se terminer après son début, le même jour.')
+        # A physical session can occur once in a joined snapshot for each member
+        # promotion. Count its duration once for the promotion being exported.
+        identity = (str(item['id']), day, begin, finish) if item.get('id') else None
+        if identity is not None and identity in seen:
+            continue
+        if identity is not None:
+            seen.add(identity)
         item.update(_day=day, _start=begin, _end=finish, _duration=finish - begin)
         records.append(item)
     records.sort(key=lambda item: (item['_day'], item['_start'], item['_end'], str(item.get('id', ''))))
@@ -140,6 +159,8 @@ def _course_text(course, *, full=True, reference=None):
     if full:
         pieces.append(escape(_clean(course.get('trainer_name') or 'Formateur à préciser')))
         pieces.append('Salle : ' + escape(_clean(course.get('room_name') or 'à préciser')))
+        if course.get('_shared_count'):
+            pieces.append('Cours commun - ' + str(course['_shared_count']) + ' promotions')
     if reference:
         pieces.append('<b>Détail ' + str(reference).zfill(2) + '</b>')
     return '<br/>'.join(pieces)
@@ -460,12 +481,127 @@ def _draw_annual(pdf, plan, promotion, day_map, records, start, end, logo_path):
     pdf.drawRightString(PAGE_W-MARGIN,52,_hours(sum(item['_duration'] for item in records))+' de cours sur la période')
 
 
-def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, mode='weekly', *, show_weekends=False, generated_at=None, logo_path=None):
+def _budget_minutes(value, *, positive=False):
+    """Hours from SQLite/API to whole minutes; missing values remain unknown."""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    if not number.is_finite() or number < 0 or (positive and number == 0):
+        return None
+    return int((number * 60).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+
+
+def _budget_pages(subjects):
+    rows, seen = [], set()
+    for source in subjects:
+        item = dict(source)
+        identity = item.get('id')
+        if identity and identity in seen:
+            continue
+        if identity:
+            seen.add(identity)
+        planned = _budget_minutes(item.get('planned_hours'), positive=True)
+        if item.get('budget_configured') is False:
+            planned = None
+        scheduled = _budget_minutes(item.get('scheduled_hours'))
+        subject = escape(_clean(item.get('name') or item.get('subject_name') or 'Matière'))
+        trainer = escape(_clean(item.get('trainer_name') or 'Formateur à préciser'))
+        paragraph, text_height = _paragraph('<b>' + subject + '</b><br/>' + trainer, 331, size=8.5, leading=10.6)
+        if planned is None:
+            status, tone = 'Volume à définir', OCHRE
+        elif scheduled is None:
+            status, tone = 'Planification non disponible', MUTED
+        elif scheduled > planned:
+            status, tone = '-' + _hours(scheduled-planned) + ' (dépassement)', colors.HexColor('#9B4E36')
+        elif scheduled == planned:
+            status, tone = 'Objectif atteint', OLIVE
+        else:
+            status, tone = 'À programmer : ' + _hours(planned-scheduled), MUTED
+        status_paragraph, status_height = _paragraph(escape(status), 147, size=8.2, color=tone)
+        rows.append(dict(paragraph=paragraph, text_height=text_height, planned=planned, scheduled=scheduled,
+                         status=status_paragraph, status_height=status_height, height=max(36,text_height+15,status_height+15)))
+    summary = dict(planned=sum(row['planned'] or 0 for row in rows),
+                   scheduled=sum(row['scheduled'] or 0 for row in rows),
+                   missing=sum(row['planned'] is None for row in rows),
+                   unknown=sum(row['scheduled'] is None for row in rows), count=len(rows),
+                   pending=sum(max(0,row['planned']-row['scheduled']) for row in rows if row['planned'] is not None and row['scheduled'] is not None),
+                   over=sum(row['scheduled']>row['planned'] for row in rows if row['planned'] is not None and row['scheduled'] is not None))
+    # Keep all subject names and teacher names; longer rows move to a new page.
+    plans, current, used = [], [], 0
+    limit = PAGE_H-219-72
+    for row in rows:
+        if row['height'] > limit:
+            raise ValueError('Le libellé de cette matière est trop long pour être exporté.')
+        if current and used+row['height'] > limit:
+            plans.append(dict(kind='budget', rows=current, summary=summary))
+            current, used = [], 0
+        current.append(row)
+        used += row['height']
+    if current:
+        plans.append(dict(kind='budget', rows=current, summary=summary))
+    return plans
+
+
+def _draw_budget(pdf, plan, promotion, logo_path):
+    _header(pdf, promotion, 'Volumes annuels par matière',
+            'Heures planifiées sur l’ensemble de la promotion, indépendamment de la période du calendrier.', logo_path=logo_path)
+    regular, bold = _fonts()
+    summary = plan['summary']
+    gap, card_width = 12, (PAGE_W-MARGIN*2-24)/3
+    pending = summary['pending']
+    cards = [
+        ('OBJECTIF ANNUEL', _hours(summary['planned']), f"{summary['missing']} volume(s) à définir" if summary['missing'] else f"{summary['count']} matière(s) renseignée(s)"),
+        ('HEURES PLANIFIÉES', _hours(summary['scheduled']), 'Données incomplètes' if summary['unknown'] else 'Une séance commune comptée une fois par matière'),
+        ('RESTE À PROGRAMMER', 'À compléter' if summary['missing'] or summary['unknown'] else _hours(pending), f"{summary['over']} dépassement(s) à vérifier" if summary['over'] else 'Consulter le solde de chaque matière ci-dessous'),
+    ]
+    top = PAGE_H-121
+    for index, (label, number, detail) in enumerate(cards):
+        x = MARGIN+index*(card_width+gap)
+        pdf.setFillColor(PAPER if index != 0 else colors.HexColor('#F5ECD9'))
+        pdf.setStrokeColor(LINE)
+        pdf.roundRect(x,top-58,card_width,58,5,fill=1,stroke=1)
+        pdf.setFillColor(MUTED);pdf.setFont(bold,6.9);pdf.drawString(x+11,top-14,label)
+        pdf.setFillColor(INK);pdf.setFont(bold,14);pdf.drawString(x+11,top-33,number)
+        paragraph,height=_paragraph(escape(detail),card_width-22,size=6.5,leading=8)
+        paragraph.drawOn(pdf,x+11,top-42-height)
+    widths = [347,109,109,PAGE_W-MARGIN*2-565]
+    columns = [MARGIN]
+    for width in widths:
+        columns.append(columns[-1]+width)
+    y=PAGE_H-196
+    pdf.setFillColor(INK)
+    pdf.roundRect(MARGIN,y-23,PAGE_W-MARGIN*2,23,4,fill=1,stroke=0)
+    pdf.setFillColor(WHITE);pdf.setFont(bold,7.8)
+    for index,label in enumerate(('Matière / formateur','Objectif annuel','Planifié','Solde')):
+        pdf.drawString(columns[index]+8,y-15,label)
+    y-=23
+    for index,row in enumerate(plan['rows']):
+        height=row['height']
+        pdf.setFillColor(WHITE if index%2 else colors.HexColor('#F7F8F4'))
+        pdf.rect(MARGIN,y-height,PAGE_W-MARGIN*2,height,fill=1,stroke=0)
+        pdf.setStrokeColor(LINE);pdf.setLineWidth(.5)
+        pdf.line(MARGIN,y-height,PAGE_W-MARGIN,y-height)
+        row['paragraph'].drawOn(pdf,MARGIN+8,y-7-row['text_height'])
+        pdf.setFont(bold,8.8);pdf.setFillColor(INK)
+        pdf.drawString(columns[1]+8,y-17,_hours(row['planned']) if row['planned'] is not None else 'À définir')
+        pdf.drawString(columns[2]+8,y-17,_hours(row['scheduled']) if row['scheduled'] is not None else 'Non disponible')
+        row['status'].drawOn(pdf,columns[3]+8,y-7-row['status_height'])
+        y-=height
+    pdf.setFont(regular,7)
+    pdf.setFillColor(MUTED)
+    pdf.drawString(MARGIN,50,'Les heures communes sont attribuées à chacune des matières participantes, sans doubler la durée de la séance.')
+
+
+def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, mode='weekly', *, show_weekends=False, generated_at=None, logo_path=None, subjects=None):
     """Return A4-landscape PDF bytes for an inclusive weekly or annual period.
 
     Short slots never cause ellipses or hidden text: their complete metadata is
     placed on numbered detail pages. Unconfigured dates stay visibly distinct
-    from company, school, holiday, and closed days.
+    from company, school, holiday, and closed days. Annual mode can append subject
+    budgets: scheduled_hours must cover the full promotion, not the export range.
     """
     promotion, records, day_map, start, end = _normalise(promotion, events, days, date_start, date_end)
     if mode not in ('weekly','annual','year','alternance'):
@@ -486,6 +622,8 @@ def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, 
     else:
         months=_months_between(start,end)
         plans=[{'kind':'annual','months':months[index:index+12]} for index in range(0,len(months),12)]
+        if subjects:
+            plans.extend(_budget_pages(subjects))
     buffer=BytesIO()
     pdf=canvas.Canvas(buffer,pagesize=(PAGE_W,PAGE_H),pageCompression=1)
     pdf.setTitle(_clean(promotion.get('nom') or 'Planning')+' - '+('Calendrier d’alternance' if mode!='weekly' else 'Planning de formation'))
@@ -496,6 +634,8 @@ def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, 
             _draw_week(pdf,plan,promotion,day_map,start,end,logo_path)
         elif plan['kind']=='details':
             _draw_details(pdf,plan,promotion,logo_path)
+        elif plan['kind']=='budget':
+            _draw_budget(pdf,plan,promotion,logo_path)
         else:
             _draw_annual(pdf,plan,promotion,day_map,records,start,end,logo_path)
         _footer(pdf,page,len(plans),generated_at)

@@ -87,6 +87,21 @@ def test_non_admin_roles_cannot_read_admin_planning_or_private_pdf(connected):
     with client.session_transaction() as state:
         state.pop('admin_ok')
         state['_trainer_auth'] = {'trainer_id': 'trainer'}
-    for url in ('/admin/planning', '/admin/planning/api/state?promotion_id=demo',
+    for url in ('/admin/planning', '/admin/matieres', '/admin/salles', '/admin/planning/api/catalog', '/admin/planning/api/state?promotion_id=demo',
                 '/admin/planning/export.pdf?promotion_id=demo&start=2027-01-04&end=2027-01-10'):
         assert client.get(url).status_code == 403
+
+
+def test_planning_catalog_pages_share_admin_navigation_and_secure_assets(connected):
+    client, _, _, _ = connected
+    for path in ('/admin/matieres', '/admin/salles'):
+        page = client.get(path)
+        assert page.status_code == 200
+        assert 'js/planning-catalog.js' in page.text
+        assert 'css/planning-catalog.css' in page.text
+        assert 'js/main_admin.js' not in page.text
+        assert 'googletagmanager.com' not in page.text
+        assert '/static/logo-integrale.png?v=2' in page.text
+        assert 'href="/admin/matieres"' in page.text
+        assert 'href="/admin/salles"' in page.text
+        assert page.headers['Cache-Control'] == 'no-store'

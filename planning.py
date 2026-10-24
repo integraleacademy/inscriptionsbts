@@ -2,14 +2,21 @@
 
 Every mutation acquires a SQLite write transaction before validation. Batch
 previews do not persist data; commits recheck the selected occurrences together.
+
+The original course row is one physical reservation. ``shared`` contains only
+additional promotion/subject pairs; ``groups`` in responses includes its primary
+pair as well. Legacy rows are backfilled once, without inventing annual budgets.
+Every participating subject receives the full duration, checked in integer
+minutes against its annual target. Calendar painting is one transaction guarded
+by the snapshot's ``calendar_revision`` sent as ``expected_revision``.
 """
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation, localcontext
 import hashlib
 import hmac
 import json
 from io import BytesIO
-import math
 import re
 import secrets
 import sqlite3
@@ -42,12 +49,21 @@ def ensure_planning_schema(conn):
             '''CREATE TABLE IF NOT EXISTS planning_courses(id TEXT PRIMARY KEY,promotion_id TEXT NOT NULL,subject_id TEXT NOT NULL,
                 trainer_id TEXT NOT NULL,room_id TEXT,date TEXT NOT NULL,start_min INTEGER NOT NULL,end_min INTEGER NOT NULL,
                 title TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL,updated_at TEXT NOT NULL)''',
+            '''CREATE TABLE IF NOT EXISTS planning_course_groups(course_id TEXT NOT NULL,promotion_id TEXT NOT NULL,
+                subject_id TEXT NOT NULL,PRIMARY KEY(course_id,promotion_id))''',
+            '''CREATE TABLE IF NOT EXISTS planning_migrations(name TEXT PRIMARY KEY)''',
+            '''CREATE TABLE IF NOT EXISTS planning_calendar_versions(promotion_id TEXT PRIMARY KEY,version INTEGER NOT NULL DEFAULT 0)''',
             '''CREATE TABLE IF NOT EXISTS planning_trainer_unavailability(id TEXT PRIMARY KEY,trainer_id TEXT NOT NULL,
                 start_date TEXT NOT NULL,end_date TEXT NOT NULL,weekdays TEXT NOT NULL,times TEXT NOT NULL,reason TEXT NOT NULL)''',
             'CREATE INDEX IF NOT EXISTS planning_courses_date ON planning_courses(date,start_min,end_min)',
             'CREATE INDEX IF NOT EXISTS planning_courses_promotion ON planning_courses(promotion_id,date)',
+            'CREATE INDEX IF NOT EXISTS planning_groups_subject ON planning_course_groups(subject_id,course_id)',
+            'CREATE INDEX IF NOT EXISTS planning_groups_promotion ON planning_course_groups(promotion_id,course_id)',
             'CREATE INDEX IF NOT EXISTS planning_unavailable_trainer ON planning_trainer_unavailability(trainer_id,start_date,end_date)',
         ):conn.execute(sql)
+        if not conn.execute('SELECT 1 FROM planning_migrations WHERE name=?',('shared_courses_v1',)).fetchone():
+            conn.execute('INSERT OR IGNORE INTO planning_course_groups(course_id,promotion_id,subject_id) SELECT id,promotion_id,subject_id FROM planning_courses')
+            conn.execute('INSERT INTO planning_migrations(name) VALUES(?)',('shared_courses_v1',))
         conn.execute('RELEASE SAVEPOINT planning_schema')
     except Exception:
         conn.execute('ROLLBACK TO SAVEPOINT planning_schema');conn.execute('RELEASE SAVEPOINT planning_schema');raise
@@ -133,6 +149,7 @@ def _day(promotion,day,rules,exceptions):
 
 def _load_courses(conn,start=None,end=None,promotion_id=None):
     if not _has_table(conn,'trainers'):return []
+    has_groups=_has_table(conn,'planning_course_groups')
     sql='''SELECT c.*,s.name AS subject_name,s.color,t.nom AS trainer_nom,t.prenom AS trainer_prenom,
         r.name AS room_name,p.nom AS promotion_name FROM planning_courses c
         JOIN planning_subjects s ON s.id=c.subject_id JOIN trainers t ON t.id=c.trainer_id
@@ -140,15 +157,87 @@ def _load_courses(conn,start=None,end=None,promotion_id=None):
     args=[]
     if start:sql+=' AND c.date>=?';args.append(start)
     if end:sql+=' AND c.date<=?';args.append(end)
-    if promotion_id:sql+=' AND c.promotion_id=?';args.append(promotion_id)
+    if promotion_id:
+        if has_groups:sql+=' AND (c.promotion_id=? OR EXISTS(SELECT 1 FROM planning_course_groups g WHERE g.course_id=c.id AND g.promotion_id=?))';args.extend((promotion_id,promotion_id))
+        else:sql+=' AND c.promotion_id=?';args.append(promotion_id)
     sql+=' ORDER BY c.date,c.start_min,c.id'
     items=[]
     for row in conn.execute(sql,args):
         item=dict(row);item['start']=_clock(item['start_min']);item['end']=_clock(item['end_min'])
         item['duration_minutes']=item['end_min']-item['start_min']
         item['trainer_name']=f"{item.pop('trainer_prenom') or ''} {item.pop('trainer_nom') or ''}".strip()
+        groups=[dict(group) for group in conn.execute('''SELECT g.promotion_id,g.subject_id,p.nom AS promotion_name,s.name AS subject_name,s.color
+            FROM planning_course_groups g JOIN promotions p ON p.id=g.promotion_id JOIN planning_subjects s ON s.id=g.subject_id
+            WHERE g.course_id=? ORDER BY g.promotion_id''',(item['id'],))] if has_groups else []
+        if not groups:groups=[{key:item[key] for key in ('promotion_id','subject_id','promotion_name','subject_name','color')}]
+        groups.sort(key=lambda group:group['promotion_id']!=item['promotion_id'])
+        item['groups']=groups;item['promotion_ids']=[group['promotion_id'] for group in groups]
+        item['shared']=[dict(promotion_id=group['promotion_id'],subject_id=group['subject_id']) for group in groups if group['promotion_id']!=item['promotion_id']]
+        item['is_shared']=len(groups)>1
+        displayed=next((group for group in groups if group['promotion_id']==promotion_id),groups[0])
+        item['display_subject_name']=displayed['subject_name'];item['display_color']=displayed['color'];item['display_subject_id']=displayed['subject_id']
         items.append(item)
     return items
+
+
+def _subject_minutes(conn,subject_id,exclude_id=None):
+    return conn.execute('''SELECT COALESCE(SUM(c.end_min-c.start_min),0) FROM planning_courses c
+        WHERE (? IS NULL OR c.id!=?) AND (c.subject_id=? OR EXISTS(
+            SELECT 1 FROM planning_course_groups g WHERE g.course_id=c.id AND g.subject_id=?))''',
+        (exclude_id,exclude_id,subject_id,subject_id)).fetchone()[0]
+
+
+def _budget_minutes(hours):
+    if hours is None:return None
+    try:
+        value=Decimal(str(hours))*60
+        return int(value) if value.is_finite() and value>0 else None
+    except (InvalidOperation,ValueError,TypeError,OverflowError):return None
+
+
+def _annual_hours(value):
+    if value is None or isinstance(value,bool) or value=='':raise PlanningError('Renseignez le volume horaire annuel de cette matière.')
+    raw=str(value)
+    if len(raw)>80:raise PlanningError('Le volume horaire annuel est invalide.')
+    try:hours=Decimal(raw)
+    except (InvalidOperation,ValueError,TypeError):raise PlanningError('Le volume horaire annuel est invalide.')
+    if not hours.is_finite() or not 0<hours<=5000:raise PlanningError('Le volume horaire annuel doit être supérieur à 0 et ne pas dépasser 5 000 heures.')
+    with localcontext() as context:
+        context.prec=100
+        minutes=hours*60
+    if not minutes.is_finite() or minutes<1 or minutes!=minutes.to_integral_value():raise PlanningError('Le volume annuel doit correspondre à un nombre entier de minutes (par exemple 1,1 h = 66 minutes).')
+    return float(hours)
+
+
+def _subjects(conn,promotion_id=None):
+    if not _has_table(conn,'trainers'):return []
+    sql='''SELECT s.*,t.nom,t.prenom,p.nom AS promotion_name FROM planning_subjects s
+        JOIN trainers t ON t.id=s.trainer_id JOIN promotions p ON p.id=s.promotion_id'''
+    args=[]
+    if promotion_id:sql+=' WHERE s.promotion_id=?';args.append(promotion_id)
+    items=[]
+    for row in conn.execute(sql+' ORDER BY p.nom,s.name',args):
+        item=dict(row);item['trainer_name']=f"{item.pop('prenom') or ''} {item.pop('nom') or ''}".strip()
+        item['scheduled_minutes']=_subject_minutes(conn,item['id']);item['scheduled_hours']=item['scheduled_minutes']/60
+        item['planned_minutes']=_budget_minutes(item['planned_hours']);item['budget_configured']=item['planned_minutes'] is not None
+        item['remaining_minutes']=max(0,item['planned_minutes']-item['scheduled_minutes']) if item['budget_configured'] else None
+        item['remaining_hours']=item['remaining_minutes']/60 if item['budget_configured'] else None
+        items.append(item)
+    return items
+
+
+def get_planning_catalog(conn):
+    ensure_planning_schema(conn);trainers=[]
+    if _has_table(conn,'trainers'):
+        for row in conn.execute('SELECT id,nom,prenom,email,active FROM trainers WHERE active=1 ORDER BY nom,prenom'):
+            item=dict(row);item['promotion_ids']=[grant[0] for grant in conn.execute('SELECT promotion_id FROM trainer_promotions WHERE trainer_id=?',(item['id'],))];trainers.append(item)
+    return dict(promotions=list_promotions(conn),subjects=_subjects(conn),trainers=trainers,
+                rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms ORDER BY name')])
+
+
+def _calendar_version(conn,promotion_id):
+    row=conn.execute('SELECT version FROM planning_calendar_versions WHERE promotion_id=?',(promotion_id,)).fetchone()
+    return row[0] if row else 0
 
 
 def get_planning_snapshot(conn,promotion_id,start=None,end=None):
@@ -159,15 +248,13 @@ def get_planning_snapshot(conn,promotion_id,start=None,end=None):
     rules,exceptions=_calendar(conn,promotion_id)
     days=[_day(promotion,day,rules,exceptions) for day in _dates(beginning,ending)] if beginning else []
     courses=_load_courses(conn,start,end,promotion_id) if beginning else []
-    subjects=[];trainers=[]
+    subjects=_subjects(conn,promotion_id);trainers=[]
     if _has_table(conn,'trainers'):
-        for row in conn.execute('''SELECT s.*,t.nom,t.prenom,COALESCE((SELECT SUM(c.end_min-c.start_min)/60.0 FROM planning_courses c WHERE c.subject_id=s.id),0) AS scheduled_hours
-            FROM planning_subjects s JOIN trainers t ON t.id=s.trainer_id WHERE s.promotion_id=? ORDER BY s.name''',(promotion_id,)):
-            item=dict(row);item['trainer_name']=f"{item.pop('prenom') or ''} {item.pop('nom') or ''}".strip();subjects.append(item)
         trainers=[dict(row) for row in conn.execute('SELECT t.id,t.nom,t.prenom,t.email FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE a.promotion_id=? AND t.active=1 ORDER BY t.nom,t.prenom',(promotion_id,))]
     return dict(promotion=promotion,days=days,rules=rules,exceptions=exceptions,subjects=subjects,
                 rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms ORDER BY name')],trainers=trainers,
-                courses=courses,calendar_configured=bool(rules or exceptions),start=start,end=end)
+                courses=courses,calendar_configured=bool(rules or exceptions),calendar_revision=_calendar_version(conn,promotion_id),
+                catalog=get_planning_catalog(conn),start=start,end=end)
 
 
 def _unavailability(conn,trainer_id=None):
@@ -182,38 +269,78 @@ def _unavailability(conn,trainer_id=None):
 def _overlap(a,b):return a['start_min']<b['end_min'] and a['end_min']>b['start_min']
 
 
+def _groups(course):
+    return course.get('groups') or [dict(promotion_id=course['promotion_id'],subject_id=course['subject_id'])]
+
+
 def _course(conn,data,existing=None):
     if not isinstance(data,dict):raise PlanningError('Les données du cours sont invalides.')
     merged=dict(existing or {});merged.update(data)
-    promotion_id=merged.get('promotion_id');promotion=_promotion(conn,promotion_id,ready=True)
+    promotion_id=merged.get('promotion_id');_promotion(conn,promotion_id,ready=True)
     if not isinstance(merged.get('subject_id'),str):raise PlanningError('Choisissez une matière valide.')
     subject=conn.execute('SELECT * FROM planning_subjects WHERE id=? AND promotion_id=?',(merged.get('subject_id'),promotion_id)).fetchone()
     if not subject:raise PlanningError('Choisissez une matière de cette promotion.')
     trainer_id=merged.get('trainer_id')
     if trainer_id is not None and not isinstance(trainer_id,str):raise PlanningError('Choisissez un formateur valide.')
     trainer_id=trainer_id or subject['trainer_id']
-    if not _has_table(conn,'trainers') or not conn.execute('SELECT 1 FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE t.id=? AND t.active=1 AND a.promotion_id=?',(trainer_id,promotion_id)).fetchone():raise PlanningError('Le formateur doit être actif et affecté à cette promotion.')
+    shared=merged.get('shared',[])
+    if not isinstance(shared,list) or len(shared)>49:raise PlanningError('Choisissez au maximum 50 promotions pour une séance commune.')
+    groups=[dict(promotion_id=promotion_id,subject_id=subject['id'])];seen={promotion_id}
+    for entry in shared:
+        if not isinstance(entry,dict) or not isinstance(entry.get('promotion_id'),str) or not isinstance(entry.get('subject_id'),str):raise PlanningError('Chaque promotion supplémentaire doit avoir sa propre matière.')
+        if entry['promotion_id'] in seen:raise PlanningError('Une promotion ne peut apparaître qu’une seule fois dans une séance.')
+        seen.add(entry['promotion_id']);groups.append(dict(promotion_id=entry['promotion_id'],subject_id=entry['subject_id']))
+    for group in groups:
+        promotion=_promotion(conn,group['promotion_id'],ready=True)
+        matched=conn.execute('SELECT name,color FROM planning_subjects WHERE id=? AND promotion_id=?',(group['subject_id'],group['promotion_id'])).fetchone()
+        if not matched:raise PlanningError('Chaque matière doit appartenir à la promotion sélectionnée.')
+        if not _has_table(conn,'trainers') or not conn.execute('SELECT 1 FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE t.id=? AND t.active=1 AND a.promotion_id=?',(trainer_id,group['promotion_id'])).fetchone():raise PlanningError('Le formateur de la séance doit être actif et affecté à chacune des promotions participantes.')
+        group.update(promotion_name=promotion['nom'],subject_name=matched['name'],color=matched['color'])
     room_id=merged.get('room_id')
     if room_id is not None and not isinstance(room_id,str):raise PlanningError('Choisissez une salle valide.')
     room_id=room_id or None
     if room_id and not conn.execute('SELECT 1 FROM planning_rooms WHERE id=? AND active=1',(room_id,)).fetchone():raise PlanningError('Choisissez une salle active.')
-    day=_iso(merged.get('date'))
-    start=_minutes(merged.get('start'));end=_minutes(merged.get('end'),end=True)
+    day=_iso(merged.get('date'));start=_minutes(merged.get('start'));end=_minutes(merged.get('end'),end=True)
     if end<=start:raise PlanningError('L’heure de fin doit être postérieure à l’heure de début.')
-    return dict(promotion_id=promotion_id,subject_id=subject['id'],trainer_id=trainer_id,room_id=room_id,date=day.isoformat(),start=_clock(start),end=_clock(end),start_min=start,end_min=end,title=_text(merged.get('title',''),'le titre du cours',160))
+    return dict(promotion_id=promotion_id,subject_id=subject['id'],trainer_id=trainer_id,room_id=room_id,date=day.isoformat(),
+                start=_clock(start),end=_clock(end),start_min=start,end_min=end,title=_text(merged.get('title',''),'le titre du cours',160),
+                groups=groups,shared=[dict(promotion_id=g['promotion_id'],subject_id=g['subject_id']) for g in groups[1:]],
+                promotion_ids=[g['promotion_id'] for g in groups],is_shared=len(groups)>1)
 
 
-def _conflicts(conn,course,exclude_id=None,pool=None,calendar=None,unavailable=None):
-    found=[];day=_iso(course['date']);promotion=_promotion(conn,course['promotion_id'])
-    if not promotion.get('date_debut') or not promotion.get('date_fin') or not promotion['date_debut']<=course['date']<=promotion['date_fin']:
-        found.append(dict(type='outside_promotion',message='Ce cours est en dehors des dates de la promotion.',date=course['date']))
-    rules,exceptions=calendar if calendar is not None else _calendar(conn,course['promotion_id'])
-    day_state=_day(promotion,day,rules,exceptions)
-    if day_state['kind']!='school':found.append(dict(type='not_school',message='Ce jour n’est pas défini comme une journée école : '+day_state['label']+'.',date=course['date']))
+def _budget_conflicts(conn,course,exclude_id=None,pending=None):
+    found=[];duration=course['end_min']-course['start_min']
+    for group in _groups(course):
+        subject=conn.execute('SELECT name,planned_hours FROM planning_subjects WHERE id=?',(group['subject_id'],)).fetchone()
+        limit=_budget_minutes(subject['planned_hours']) if subject else None
+        base=dict(subject_id=group['subject_id'],subject_name=subject['name'] if subject else '',promotion_id=group['promotion_id'],date=course['date'])
+        if limit is None:
+            found.append(dict(base,type='subject_budget_missing',message='Renseignez le volume annuel de cette matière avant de programmer un cours.'));continue
+        consumed=_subject_minutes(conn,group['subject_id'],exclude_id)
+        added=sum(item['end_min']-item['start_min'] for item in pending or [] if any(g['subject_id']==group['subject_id'] for g in _groups(item)))
+        if consumed+added+duration>limit:
+            found.append(dict(base,type='subject_budget',message=f"Le volume annuel de {subject['name']} serait dépassé.",
+                              planned_minutes=limit,scheduled_minutes=consumed,pending_minutes=added,requested_minutes=duration,
+                              remaining_minutes=max(0,limit-consumed-added)))
+    return found
+
+
+def _conflicts(conn,course,exclude_id=None,pool=None,calendar=None,unavailable=None,pending=None,include_budget=True):
+    found=[];day=_iso(course['date'])
+    for group in _groups(course):
+        promotion=_promotion(conn,group['promotion_id'])
+        if not promotion.get('date_debut') or not promotion.get('date_fin') or not promotion['date_debut']<=course['date']<=promotion['date_fin']:
+            found.append(dict(type='outside_promotion',message='Ce cours est en dehors des dates de la promotion.',date=course['date'],promotion_id=group['promotion_id']))
+        rules,exceptions=calendar if calendar is not None and group['promotion_id']==course['promotion_id'] else _calendar(conn,group['promotion_id'])
+        day_state=_day(promotion,day,rules,exceptions)
+        if day_state['kind']!='school':found.append(dict(type='not_school',message=promotion['nom']+' : ce jour n’est pas défini comme une journée école ('+day_state['label']+').',date=course['date'],promotion_id=group['promotion_id']))
     rows=pool if pool is not None else _load_courses(conn,course['date'],course['date'])
+    own_promotions={g['promotion_id'] for g in _groups(course)}
     for other in rows:
         if (exclude_id is not None and other.get('id')==exclude_id) or other['date']!=course['date'] or not _overlap(course,other):continue
-        for resource,kind,label in [('promotion_id','promotion_overlap','Cette promotion a déjà un cours'),('trainer_id','trainer_overlap','Ce formateur intervient déjà sur un autre cours'),('room_id','room_overlap','Cette salle est déjà réservée')]:
+        common=own_promotions & {g['promotion_id'] for g in _groups(other)}
+        if common:found.append(dict(type='promotion_overlap',message=f"Une promotion participante a déjà un cours de {_clock(other['start_min'])} à {_clock(other['end_min'])}.",date=course['date'],course_id=other.get('id'),promotion_ids=sorted(common)))
+        for resource,kind,label in [('trainer_id','trainer_overlap','Ce formateur intervient déjà sur un autre cours'),('room_id','room_overlap','Cette salle est déjà réservée')]:
             if course.get(resource) and course.get(resource)==other.get(resource):
                 found.append(dict(type=kind,message=f"{label}, de {_clock(other['start_min'])} à {_clock(other['end_min'])}.",date=course['date'],course_id=other.get('id'),promotion_id=other.get('promotion_id'),promotion_name=other.get('promotion_name',''),subject_name=other.get('subject_name','')))
     for block in unavailable if unavailable is not None else _unavailability(conn,course['trainer_id']):
@@ -221,6 +348,7 @@ def _conflicts(conn,course,exclude_id=None,pool=None,calendar=None,unavailable=N
         intervals=block['times'] or [{'start':'00:00','end':'24:00'}]
         if any(course['start_min']<_minutes(slot['end'],True) and course['end_min']>_minutes(slot['start']) for slot in intervals):
             found.append(dict(type='unavailable',message='Formateur indisponible : '+block['reason'],date=course['date'],unavailability_id=block.get('id')))
+    if include_budget:found.extend(_budget_conflicts(conn,course,exclude_id,pending))
     return found
 
 
@@ -265,8 +393,10 @@ def validate_promotion_change(conn,promotion_id,data):
 def validate_trainer_promotions_change(conn,trainer_id,promotion_ids):
     if not _has_table(conn,'planning_courses'):return []
     granted=set(promotion_ids);issues=[];today=date.today().isoformat()
-    for row in conn.execute('SELECT id,promotion_id,date FROM planning_courses WHERE trainer_id=? AND date>=?',(trainer_id,today)):
-        if row['promotion_id'] not in granted:issues.append(dict(type='trainer_courses',message='Ce formateur a encore un cours à venir dans une promotion retirée.',course_id=row['id'],promotion_id=row['promotion_id'],date=row['date']))
+    for row in _load_courses(conn,start=today):
+        if row['trainer_id']!=trainer_id:continue
+        for group in _groups(row):
+            if group['promotion_id'] not in granted:issues.append(dict(type='trainer_courses',message='Ce formateur a encore un cours à venir dans une promotion retirée.',course_id=row['id'],promotion_id=group['promotion_id'],date=row['date']))
     for row in conn.execute('SELECT id,name,promotion_id FROM planning_subjects WHERE trainer_id=?',(trainer_id,)):
         if row['promotion_id'] not in granted:issues.append(dict(type='trainer_subjects',message='Attribuez cette matière à un autre formateur avant de retirer la promotion : '+row['name'],subject_id=row['id'],promotion_id=row['promotion_id']))
     return issues
@@ -326,7 +456,13 @@ def register_planning(app,db_connect,require_admin):
         else:
             course_id=secrets.token_urlsafe(24)
             conn.execute('INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,room_id,date,start_min,end_min,title,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(course_id,*(course[key] for key in ('promotion_id','subject_id','trainer_id','room_id','date','start_min','end_min','title')),now,now))
+        conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course_id,))
+        conn.executemany('INSERT INTO planning_course_groups(course_id,promotion_id,subject_id) VALUES(?,?,?)',[(course_id,g['promotion_id'],g['subject_id']) for g in _groups(course)])
         return course_id
+
+    def touch_calendar(conn,promotion_id):
+        conn.execute('INSERT INTO planning_calendar_versions(promotion_id,version) VALUES(?,1) ON CONFLICT(promotion_id) DO UPDATE SET version=version+1',(promotion_id,))
+        return _calendar_version(conn,promotion_id)
 
     def existing_course(conn,course_id,payload,require_version=False):
         row=next((c for c in _load_courses(conn) if c['id']==course_id),None)
@@ -345,6 +481,23 @@ def register_planning(app,db_connect,require_admin):
         with closing(connect()) as conn:promotions=list_promotions(conn)
         response=app.make_response(render_template('planning_admin.html',title='Planning annuel · Plateforme de gestion des BTS',promotions=promotions,selected_promotion=request.args.get('promotion_id',''),csrf_token=csrf()))
         response.headers['Cache-Control']='no-store';return response
+
+    def catalog_page(template,title):
+        if not require_admin() and 'login' in app.view_functions:return redirect(url_for('login',next=request.full_path.rstrip('?')))
+        guard()
+        response=app.make_response(render_template(template,title=title+' · Plateforme de gestion des BTS',csrf_token=csrf(),selected_promotion=request.args.get('promotion_id','')))
+        response.headers['Cache-Control']='no-store';return response
+
+    @app.get('/admin/matieres')
+    def planning_subjects_admin():return catalog_page('planning_subjects.html','Matières')
+
+    @app.get('/admin/salles')
+    def planning_rooms_admin():return catalog_page('planning_rooms.html','Salles')
+
+    @app.get('/admin/planning/api/catalog')
+    def planning_catalog():
+        guard()
+        with closing(connect()) as conn:return result(get_planning_catalog(conn))
 
     @app.get('/admin/planning/api/state')
     def planning_state():
@@ -365,7 +518,7 @@ def register_planning(app,db_connect,require_admin):
             if not snapshot['promotion'].get('date_debut') or not snapshot['promotion'].get('date_fin'):
                 raise PlanningError('Complétez les dates de la promotion avant d’exporter le planning.')
             from planning_pdf import build_planning_pdf
-            pdf=build_planning_pdf(snapshot['promotion'],snapshot['courses'],snapshot['days'],snapshot['start'],snapshot['end'],mode=view)
+            pdf=build_planning_pdf(snapshot['promotion'],snapshot['courses'],snapshot['days'],snapshot['start'],snapshot['end'],mode=view,**({'subjects':snapshot['subjects']} if view=='annual' else {}))
             code=re.sub(r'[^A-Za-z0-9_-]','',snapshot['promotion'].get('bts','BTS')) or 'BTS'
             response=send_file(BytesIO(pdf),mimetype='application/pdf',as_attachment=False,download_name=f"planning-{code}-{snapshot['start']}-{snapshot['end']}.pdf")
             response.headers['Cache-Control']='private, no-store';response.headers['X-Content-Type-Options']='nosniff'
@@ -388,7 +541,7 @@ def register_planning(app,db_connect,require_admin):
             rules,exceptions=_calendar(conn,rule['promotion_id']);rules.append(rule)
             reject(_base_rule_conflicts(rules));reject(_course_issues_for_calendar(conn,rule['promotion_id'],rules,exceptions))
             conn.execute('INSERT INTO planning_calendar_rules(id,promotion_id,start_date,end_date,weekdays,kind,label) VALUES(?,?,?,?,?,?,?)',(rule['id'],rule['promotion_id'],rule['start_date'],rule['end_date'],json.dumps(rule['weekdays']),rule['kind'],rule['label']))
-            return dict(rule=rule,message='Règle d’alternance enregistrée.')
+            return dict(rule=rule,calendar_revision=touch_calendar(conn,rule['promotion_id']),message='Règle d’alternance enregistrée.')
         return transact(operation)
 
     @app.route('/admin/planning/api/calendar/rules/<rule_id>',methods=['PUT','DELETE'])
@@ -403,9 +556,10 @@ def register_planning(app,db_connect,require_admin):
                 if rule['promotion_id']!=row['promotion_id']:raise PlanningError('Une règle ne peut pas être déplacée vers une autre promotion.')
                 rule['id']=rule_id;rules.append(rule);reject(_base_rule_conflicts(rules))
             reject(_course_issues_for_calendar(conn,row['promotion_id'],rules,exceptions))
-            if request.method=='DELETE':conn.execute('DELETE FROM planning_calendar_rules WHERE id=?',(rule_id,));return dict(message='Règle supprimée.')
+            if request.method=='DELETE':
+                conn.execute('DELETE FROM planning_calendar_rules WHERE id=?',(rule_id,));return dict(calendar_revision=touch_calendar(conn,row['promotion_id']),message='Règle supprimée.')
             conn.execute('UPDATE planning_calendar_rules SET start_date=?,end_date=?,weekdays=?,kind=?,label=? WHERE id=?',(rule['start_date'],rule['end_date'],json.dumps(rule['weekdays']),rule['kind'],rule['label'],rule_id))
-            return dict(rule=rule,message='Règle mise à jour.')
+            return dict(rule=rule,calendar_revision=touch_calendar(conn,row['promotion_id']),message='Règle mise à jour.')
         return transact(operation)
 
     @app.put('/admin/planning/api/calendar/exceptions')
@@ -417,7 +571,7 @@ def register_planning(app,db_connect,require_admin):
             exceptions=[item for item in exceptions if item['date']!=day]+[dict(date=day,kind=kind,label=label)]
             reject(_course_issues_for_calendar(conn,promotion['id'],rules,exceptions))
             conn.execute('INSERT INTO planning_day_exceptions(promotion_id,date,kind,label) VALUES(?,?,?,?) ON CONFLICT(promotion_id,date) DO UPDATE SET kind=excluded.kind,label=excluded.label',(promotion['id'],day,kind,label))
-            return dict(message='Exception enregistrée.')
+            return dict(calendar_revision=touch_calendar(conn,promotion['id']),message='Exception enregistrée.')
         return transact(operation)
 
     @app.delete('/admin/planning/api/calendar/exceptions/<promotion_id>/<day>')
@@ -425,7 +579,29 @@ def register_planning(app,db_connect,require_admin):
         def operation(conn,payload):
             _iso(day);_promotion(conn,promotion_id);rules,exceptions=_calendar(conn,promotion_id)
             reject(_course_issues_for_calendar(conn,promotion_id,rules,[item for item in exceptions if item['date']!=day]))
-            conn.execute('DELETE FROM planning_day_exceptions WHERE promotion_id=? AND date=?',(promotion_id,day));return dict(message='Exception supprimée.')
+            conn.execute('DELETE FROM planning_day_exceptions WHERE promotion_id=? AND date=?',(promotion_id,day));return dict(calendar_revision=touch_calendar(conn,promotion_id),message='Exception supprimée.')
+        return transact(operation)
+
+    @app.post('/admin/planning/api/calendar/bulk')
+    def planning_calendar_bulk():
+        def operation(conn,payload):
+            promotion=_promotion(conn,payload.get('promotion_id'),True);expected=payload.get('expected_revision')
+            if isinstance(expected,bool) or not isinstance(expected,int) or expected<0:raise PlanningError('Rechargez le calendrier avant de sauvegarder : sa révision est requise.')
+            if expected!=_calendar_version(conn,promotion['id']):raise PlanningError('Le calendrier a été modifié entre-temps. Rechargez-le avant de sauvegarder.',[dict(type='calendar_stale')],409)
+            days=payload.get('days')
+            if not isinstance(days,list) or not 1<=len(days)<=741:raise PlanningError('Sélectionnez entre 1 et 741 journées à enregistrer.')
+            changed={}
+            for item in days:
+                if not isinstance(item,dict):raise PlanningError('Les journées du calendrier sont invalides.')
+                day=_iso(item.get('date')).isoformat();kind=item.get('kind')
+                if day in changed:raise PlanningError('Chaque date doit apparaître une seule fois dans la sauvegarde.')
+                if not promotion['date_debut']<=day<=promotion['date_fin'] or not isinstance(kind,str) or kind not in KINDS:raise PlanningError('Chaque journée doit avoir un type valide et rester dans les dates de la promotion.')
+                changed[day]=dict(date=day,kind=kind,label=_text(item.get('label',''),'le libellé',180))
+            rules,exceptions=_calendar(conn,promotion['id'])
+            proposed=[item for item in exceptions if item['date'] not in changed]+list(changed.values())
+            reject(_course_issues_for_calendar(conn,promotion['id'],rules,proposed),'Des cours existent sur des journées modifiées. Aucune journée n’a été enregistrée.')
+            conn.executemany('INSERT INTO planning_day_exceptions(promotion_id,date,kind,label) VALUES(?,?,?,?) ON CONFLICT(promotion_id,date) DO UPDATE SET kind=excluded.kind,label=excluded.label',[(promotion['id'],item['date'],item['kind'],item['label']) for item in changed.values()])
+            return dict(calendar_revision=touch_calendar(conn,promotion['id']),count=len(changed),message='Calendrier annuel enregistré.')
         return transact(operation)
 
     @app.route('/admin/planning/api/rooms',methods=['POST'])
@@ -453,7 +629,7 @@ def register_planning(app,db_connect,require_admin):
             old=conn.execute('SELECT * FROM planning_subjects WHERE id=?',(subject_id,)).fetchone() if subject_id else None
             if subject_id and not old:raise PlanningError('Matière introuvable.',status=404)
             if request.method=='DELETE':
-                reject([dict(type='subject_used',message='Cette matière comporte encore des cours. Supprimez ou réaffectez ces cours avant de la retirer.')] if conn.execute('SELECT 1 FROM planning_courses WHERE subject_id=? LIMIT 1',(subject_id,)).fetchone() else [])
+                reject([dict(type='subject_used',message='Cette matière comporte encore des cours. Supprimez ou réaffectez ces cours avant de la retirer.')] if conn.execute('SELECT 1 FROM planning_courses c WHERE c.subject_id=? OR EXISTS(SELECT 1 FROM planning_course_groups g WHERE g.course_id=c.id AND g.subject_id=?) LIMIT 1',(subject_id,subject_id)).fetchone() else [])
                 conn.execute('DELETE FROM planning_subjects WHERE id=?',(subject_id,));return dict(message='Matière supprimée.')
             data=dict(old or {});data.update(payload);promotion=_promotion(conn,data.get('promotion_id'),True)
             if old and old['promotion_id']!=promotion['id']:raise PlanningError('Une matière ne peut pas changer de promotion.')
@@ -462,15 +638,12 @@ def register_planning(app,db_connect,require_admin):
             if not _has_table(conn,'trainers') or not conn.execute('SELECT 1 FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE t.id=? AND t.active=1 AND a.promotion_id=?',(trainer_id,promotion['id'])).fetchone():raise PlanningError('Choisissez un formateur actif affecté à cette promotion.')
             name=_text(data.get('name',''),'le nom de la matière',120,True);color=data.get('color','#626b4e')
             if not isinstance(color,str) or not re.fullmatch('#[0-9a-fA-F]{6}',color):raise PlanningError('La couleur de la matière doit être au format #RRGGBB.')
-            hours=data.get('planned_hours')
-            if hours in ('',None):hours=None
-            else:
-                try:hours=float(hours)
-                except (ValueError,TypeError,OverflowError):raise PlanningError('Le volume horaire est invalide.')
-                if not math.isfinite(hours) or not 0<hours<=5000:raise PlanningError('Le volume horaire doit être compris entre 0 et 5 000 heures.')
+            hours=_annual_hours(data.get('planned_hours'))
+            used=_subject_minutes(conn,subject_id) if subject_id else 0
+            reject([dict(type='subject_budget',subject_id=subject_id,planned_minutes=_budget_minutes(hours),scheduled_minutes=used,message='Le volume annuel ne peut pas être inférieur aux heures déjà planifiées.')] if used>_budget_minutes(hours) else [])
             sid=subject_id or secrets.token_urlsafe(24)
             conn.execute('INSERT INTO planning_subjects(id,promotion_id,name,trainer_id,color,planned_hours) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,trainer_id=excluded.trainer_id,color=excluded.color,planned_hours=excluded.planned_hours',(sid,promotion['id'],name,trainer_id,color,hours))
-            return dict(subject=dict(id=sid,promotion_id=promotion['id'],name=name,trainer_id=trainer_id,color=color,planned_hours=hours),message='Matière enregistrée. Les cours existants conservent leur formateur.')
+            return dict(subject=next(item for item in _subjects(conn,promotion['id']) if item['id']==sid),message='Matière enregistrée. Les cours existants conservent leur formateur.')
         return transact(operation)
 
     @app.post('/admin/planning/api/courses')
@@ -484,7 +657,8 @@ def register_planning(app,db_connect,require_admin):
     def planning_course_update(course_id):
         def operation(conn,payload):
             old=existing_course(conn,course_id,payload,require_version=True)
-            if request.method=='DELETE':conn.execute('DELETE FROM planning_courses WHERE id=?',(course_id,));return dict(message='Cours supprimé.')
+            if request.method=='DELETE':
+                conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course_id,));conn.execute('DELETE FROM planning_courses WHERE id=?',(course_id,));return dict(message='Cours supprimé.')
             course=_course(conn,payload,old)
             if course['promotion_id']!=old['promotion_id']:raise PlanningError('Dupliquez le cours pour le proposer à une autre promotion.')
             reject(_conflicts(conn,course,exclude_id=course_id));persist(conn,course,course_id)
@@ -515,7 +689,7 @@ def register_planning(app,db_connect,require_admin):
             for item in source:
                 try:target_day=(_iso(item['date'])+offset).isoformat()
                 except OverflowError:raise PlanningError('Les dates de duplication dépassent les limites du calendrier.')
-                items.append({**{key:item[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title')},'date':target_day})
+                items.append({**{key:item[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title','shared')},'date':target_day})
         else:raise PlanningError('Choisissez une récurrence ou une duplication.')
         if not items or len(items)>MAX_BATCH:raise PlanningError(f'Choisissez entre 1 et {MAX_BATCH} occurrences.')
         return items
@@ -535,9 +709,16 @@ def register_planning(app,db_connect,require_admin):
                 for index,first in normalized:
                     for second_index,second in normalized:
                         if second_index<=index or first['date']!=second['date'] or not _overlap(first,second):continue
-                        if any(first.get(key) and first.get(key)==second.get(key) for key in ('promotion_id','trainer_id','room_id')):
+                        if ({g['promotion_id'] for g in _groups(first)} & {g['promotion_id'] for g in _groups(second)}) or any(first.get(key) and first.get(key)==second.get(key) for key in ('trainer_id','room_id')):
                             for target,other in ((index,second_index),(second_index,index)):
                                 preview[target]['conflicts'].append(dict(type='batch_overlap',message='Cette occurrence chevauche une autre occurrence sélectionnée.',other_key=str(other),date=first['date']));preview[target]['valid']=False
+                accepted=[]
+                for index,course in normalized:
+                    if not preview[index]['valid']:continue
+                    budget_issues=_budget_conflicts(conn,course,pending=accepted)
+                    if budget_issues:
+                        preview[index]['conflicts'].extend(budget_issues);preview[index]['valid']=False
+                    else:accepted.append(course)
             token=serializer.dumps(dict(items=items,binding=hashlib.sha256(csrf().encode()).hexdigest()))
             valid=sum(item['valid'] for item in preview)
             return result(items=preview,preview_token=token,summary=dict(total=len(preview),valid=valid,conflicts=len(preview)-valid))
@@ -556,7 +737,7 @@ def register_planning(app,db_connect,require_admin):
                 if not isinstance(key,str) or len(key)>4 or not re.fullmatch(r'0|[1-9][0-9]*',key) or int(key)>=len(preview['items']):raise PlanningError('La sélection de cours est invalide.')
                 item=preview['items'][int(key)]
                 try:
-                    course=_course(conn,item);current_issues=_conflicts(conn,course,pool=_load_courses(conn,course['date'],course['date'])+courses)
+                    course=_course(conn,item);current_issues=_conflicts(conn,course,pool=_load_courses(conn,course['date'],course['date'])+courses,pending=courses)
                     issues.extend(dict(issue,key=key) for issue in current_issues);courses.append(course)
                 except PlanningError as error:issues.append(dict(type='invalid_course',key=key,message=str(error),date=item.get('date')))
             reject(issues,'Le planning a changé ou la sélection contient des conflits. Aucun cours n’a été ajouté.')
@@ -577,15 +758,20 @@ def register_planning(app,db_connect,require_admin):
             slots=[]
             with closing(connect()) as conn:
                 data={key:request.args.get(key) for key in ('promotion_id','subject_id','trainer_id','room_id')};data.update(date=beginning.isoformat(),start=_clock(day_start),end=_clock(min(day_start+duration,1440)))
+                if 'shared' in request.args:
+                    try:data['shared']=json.loads(request.args['shared'])
+                    except (ValueError,TypeError):raise PlanningError('Les promotions de la séance commune sont invalides.')
                 template=_course(conn,data);exclude=request.args.get('exclude_course_id')
                 if exclude:
                     old=existing_course(conn,exclude,{})
                     if old['promotion_id']!=template['promotion_id']:raise PlanningError('Le cours déplacé appartient à une autre promotion.')
                 pool=_load_courses(conn,beginning.isoformat(),ending.isoformat());calendar=_calendar(conn,template['promotion_id']);unavailable=_unavailability(conn,template['trainer_id'])
+                budget_issues=_budget_conflicts(conn,template,exclude)
                 for day in _dates(beginning,ending):
                     for start in range(day_start,day_end-duration+1,step):
                         course=dict(template,date=day.isoformat(),start_min=start,end_min=start+duration)
-                        issues=_conflicts(conn,course,exclude,pool,calendar,unavailable)
+                        issues=_conflicts(conn,course,exclude,pool,calendar,unavailable,include_budget=False)
+                        issues.extend(dict(issue,date=day.isoformat()) for issue in budget_issues)
                         slots.append(dict(date=day.isoformat(),start=_clock(start),end=_clock(start+duration),available=not issues,conflicts=issues))
             return result(slots=slots)
         except PlanningError as error:return fail(error)

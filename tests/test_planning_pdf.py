@@ -140,3 +140,165 @@ def test_invalid_ranges_and_modes_are_rejected():
     with pytest.raises(ValueError):pdf(start='2026-10-25',end='2026-10-19')
     with pytest.raises(ValueError):pdf(start='2026-01-01',end='2030-01-01')
     with pytest.raises(ValueError):pdf(mode='unknown')
+
+
+def shared_course(**updates):
+    groups=[
+        {'promotion_id':'fake-promo','promotion_name':PROMOTION['nom'],'subject_id':'mos-english','subject_name':'Anglais - métiers de la sécurité','color':'#5F7662'},
+        {'promotion_id':'other-promo','promotion_name':'BTS MCO - 1re année','subject_id':'mco-english','subject_name':'Anglais - commerce et relation client','color':'#AB7D2F'},
+    ]
+    return course(start='09:00',end='13:00',id='shared-session',promotion_id='other-promo',subject_id='mco-english',
+                  subject_name='Anglais principal',groups=groups,promotion_ids=['fake-promo','other-promo'],is_shared=True,**updates)
+
+
+def test_shared_session_is_counted_once_with_local_subject_for_each_promotion():
+    session=shared_course()
+    first=pdf([session,dict(session)])
+    first_text=' '.join(content(first).split())
+    assert len(first.pages)==1
+    assert '4 h de cours' in first_text and '8 h de cours' not in first_text
+    assert first_text.count('Camille Exemple')==1
+    assert 'Anglais - métiers de la sécurité' in first_text
+    assert 'Anglais - commerce et relation client' not in first_text
+    assert 'Cours commun - 2 promotions' in first_text
+    other={**PROMOTION,'id':'other-promo','nom':'BTS MCO - 1re année'}
+    second=PdfReader(BytesIO(build_planning_pdf(other,[session,dict(session)],[], '2026-10-19','2026-10-25',generated_at=EDITED)))
+    second_text=' '.join(content(second).split())
+    assert '4 h de cours' in second_text and 'Anglais - commerce et relation client' in second_text
+    assert 'Anglais - métiers de la sécurité' not in second_text
+    assert second_text.count('Camille Exemple')==1
+
+
+def test_shared_session_not_exported_for_non_participant_and_display_alias_supported():
+    foreign=shared_course()
+    foreign['promotion_ids']=['other-promo']
+    foreign['groups']=[foreign['groups'][1]]
+    assert 'Aucun cours programmé' in content(pdf([foreign]))
+    local=course(display_subject_name='Matière locale au groupe',display_color='#AB7D2F')
+    text=' '.join(content(pdf([local])).split())
+    assert 'Matière locale au groupe' in text and 'Culture générale' not in text
+
+
+def test_annual_shared_hours_and_budgets_use_full_promotion_totals():
+    subjects=[{'id':'mos-english','name':'Anglais - métiers de la sécurité','trainer_name':'Camille Exemple',
+               'planned_hours':80,'scheduled_hours':35.5,'remaining_hours':44.5,'budget_configured':True}]
+    reader=pdf([shared_course(),shared_course()],start='2026-10-01',end='2026-10-31',mode='annual',subjects=subjects)
+    assert len(reader.pages)==2
+    calendar=reader.pages[0].extract_text()
+    budget=' '.join(reader.pages[1].extract_text().split())
+    assert '4 h de cours sur la période' in calendar
+    assert 'VOLUMES ANNUELS PAR MATIÈRE' in budget
+    assert '80 h' in budget and '35 h 30' in budget and 'À programmer : 44 h 30' in budget
+    assert 'indépendamment de la période du calendrier' in budget
+    assert budget.count('Anglais - métiers de la sécurité')==1
+    assert '2 / 2' in budget
+
+
+def test_missing_and_exceeded_budgets_are_explicit_not_false_zero():
+    subjects=[
+        {'id':'missing','name':'Matière à compléter','planned_hours':None,'scheduled_hours':2,'budget_configured':False},
+        {'id':'over','name':'Matière dépassée','planned_hours':10,'scheduled_hours':12.5,'budget_configured':True},
+        {'id':'remaining','name':'Matière à programmer','planned_hours':20,'scheduled_hours':1,'budget_configured':True},
+    ]
+    text=' '.join(content(pdf(mode='annual',subjects=subjects)).split())
+    assert 'Volume à définir' in text and '1 volume(s) à définir' in text
+    assert '-2 h 30 (dépassement)' in text and 'À programmer : 19 h' in text
+    assert 'Données incomplètes' not in text
+
+
+def test_annual_budget_long_subjects_paginate_without_truncation_or_duplicate_rows():
+    subjects=[{'id':str(index),'name':f'Matière {index:02d} - Préparation et organisation des prestations dans un environnement professionnel complexe',
+               'trainer_name':'Alexandra Exemple - Intervenante spécialisée en stratégie et prévention',
+               'planned_hours':30.25,'scheduled_hours':12.75,'budget_configured':True} for index in range(18)]
+    reader=pdf(mode='annual',subjects=subjects+[dict(subjects[0])])
+    assert len(reader.pages)>=4
+    text=' '.join(content(reader).split())
+    for index in range(18):
+        assert text.count(f'Matière {index:02d}')==1
+    assert '30 h 15' in text and '12 h 45' in text and 'À programmer : 17 h 30' in text
+    assert '…' not in text
+
+
+def test_missing_annual_scheduled_hours_are_not_filled_with_selected_period_hours():
+    subjects=[{'id':'subject','name':'Culture générale','planned_hours':80,'budget_configured':True}]
+    text=' '.join(content(pdf([course()],mode='annual',subjects=subjects)).split())
+    assert 'Données incomplètes' in text and 'Planification non disponible' in text
+    assert 'À programmer : 77 h' not in text
+
+
+@pytest.mark.parametrize('view', ['weekly', 'annual'])
+def test_flask_export_for_secondary_promotion_uses_local_subject_and_full_year_budget(tmp_path, view):
+    """Actual SQL snapshot + Flask route + PDF, using a private synthetic database."""
+    import sqlite3
+    from flask import Flask, session
+    from planning import ensure_planning_schema, register_planning
+
+    database = tmp_path / 'shared-export.sqlite'
+
+    def connect():
+        connection = sqlite3.connect(database)
+        connection.row_factory = sqlite3.Row
+        return connection
+
+    with connect() as connection:
+        connection.execute('CREATE TABLE candidats(id TEXT PRIMARY KEY)')
+        ensure_planning_schema(connection)
+        connection.execute('CREATE TABLE trainers(id TEXT PRIMARY KEY,nom TEXT,prenom TEXT,email TEXT,active INTEGER,version INTEGER)')
+        connection.execute('INSERT INTO trainers VALUES(?,?,?,?,?,?)', ('trainer', 'Exemple', 'Camille', 'camille@example.test', 1, 1))
+        connection.execute('INSERT INTO planning_rooms VALUES(?,?,?)', ('room', 'Salle Acacia', 1))
+        for pid, code, sid, name, target in [
+            ('primary', 'MCO', 'primary-subject', 'Anglais commercial', 80),
+            ('secondary', 'MOS', 'secondary-subject', 'Anglais des métiers de la sécurité', 60),
+        ]:
+            connection.execute('INSERT INTO promotions(id,nom,bts,niveau,rentree_annee,date_debut,date_fin,active,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                               (pid, 'BTS '+code+' - 1re année', code, 1, 2026, '2027-01-01', '2027-03-31', 1, '2026-10-01', '2026-10-01'))
+            connection.execute('INSERT INTO trainer_promotions VALUES(?,?)', ('trainer', pid))
+            connection.execute('INSERT INTO planning_subjects VALUES(?,?,?,?,?,?)', (sid, pid, name, 'trainer', '#5F7662', target))
+    application = Flask(__name__)
+    application.secret_key = 'pdf-integration-test-only'
+    application.config['TESTING'] = True
+    register_planning(application, connect, lambda: bool(session.get('admin_ok')))
+    client = application.test_client()
+    url = '/admin/planning/export.pdf?promotion_id=secondary&start=2027-01-04&end=2027-01-10&view='+view
+    assert client.get(url).status_code == 403
+    with client.session_transaction() as state:
+        state['admin_ok'] = True
+        state['_planning_csrf'] = 'export-test'
+    headers = {'X-CSRF-Token': 'export-test'}
+    for pid in ('primary', 'secondary'):
+        response = client.post('/admin/planning/api/calendar/rules', headers=headers, json={
+            'promotion_id': pid, 'start_date': '2027-01-01', 'end_date': '2027-03-31',
+            'weekdays': [0,1,2,3,4], 'kind': 'school', 'label': 'École',
+        })
+        assert response.status_code == 200, response.json
+    for day in ('2027-01-04', '2027-01-11'):
+        response = client.post('/admin/planning/api/courses', headers=headers, json={
+            'promotion_id': 'primary', 'subject_id': 'primary-subject', 'room_id': 'room',
+            'date': day, 'start': '09:00', 'end': '12:00',
+            'shared': [{'promotion_id': 'secondary', 'subject_id': 'secondary-subject'}],
+        })
+        assert response.status_code == 200, response.json
+    response = client.get(url)
+    assert response.status_code == 200 and response.mimetype == 'application/pdf'
+    assert response.headers['Content-Disposition'].startswith('inline;')
+    assert response.headers['Cache-Control'] == 'private, no-store'
+    assert response.headers['X-Content-Type-Options'] == 'nosniff'
+    reader = PdfReader(BytesIO(response.data))
+    text = ' '.join(content(reader).split())
+    assert 'BTS MOS - 1re année' in text
+    assert 'Anglais commercial' not in text
+    assert text.count('Anglais des métiers de la sécurité') == 1
+    if view == 'weekly':
+        assert len(reader.pages) == 1
+        assert '3 h de cours' in text and '6 h de cours' not in text
+        assert text.count('Camille Exemple') == 1
+        assert 'Salle : Salle Acacia' in text and 'Cours commun - 2 promotions' in text
+    else:
+        assert len(reader.pages) == 2  # annual calendar followed by the subject budget
+        assert '3 h de cours sur la période' in text
+        assert 'VOLUMES ANNUELS PAR MATIÈRE' in text
+        assert '60 h' in text and '6 h' in text and 'À programmer : 54 h' in text
+        assert 'À programmer : 57 h' not in text  # outside-export course still consumes annual budget
+    with connect() as connection:
+        assert connection.execute('SELECT COUNT(*) FROM planning_courses').fetchone()[0] == 2
+        assert connection.execute('SELECT COUNT(*) FROM planning_course_groups').fetchone()[0] == 4

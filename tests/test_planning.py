@@ -377,3 +377,84 @@ def test_concurrent_course_and_unavailability_cannot_create_inconsistent_state(a
     with ThreadPoolExecutor(max_workers=2) as executor:statuses=list(executor.map(worker,['course','block']))
     assert sorted(statuses)==[200,409]
     assert count(db)+count(db,'planning_trainer_unavailability')==1
+
+
+def test_catalog_minutes_precision_and_fractional_minute_rejected(client,db):
+    setup_school(client)
+    response=call(client,'/subjects/s1',dict(planned_hours=1.1),method='PUT')
+    assert response.status_code==200
+    assert response.json['subject']['planned_minutes']==66
+    add(client,end='10:06')
+    state=client.get(BASE+'/catalog').json
+    subject=next(item for item in state['subjects'] if item['id']=='s1')
+    assert subject['scheduled_minutes']==66 and subject['remaining_minutes']==0
+    assert subject['remaining_hours']==0 and subject['budget_configured'] is True
+    assert {'p1','p2','undated'}=={row['id'] for row in state['promotions']}
+    assert next(item for item in state['trainers'] if item['id']=='t1')['promotion_ids']==['p1','p2','undated']
+    for value in (.001,True,None):
+        assert call(client,'/subjects/s1',dict(planned_hours=value),method='PUT').status_code==400
+    with db() as conn:assert conn.execute('SELECT planned_hours FROM planning_subjects WHERE id=?',('s1',)).fetchone()[0]==1.1
+
+
+def test_catalog_pages_require_admin_and_do_not_cache(app,client):
+    app.jinja_loader=DictLoader({'planning_subjects.html':'{{ planning_csrf_token }}','planning_rooms.html':'{{ planning_csrf_token }}'})
+    visitor=app.test_client()
+    for path in ('/admin/matieres','/admin/salles',BASE+'/catalog'):
+        assert visitor.get(path).status_code==403
+        response=client.get(path)
+        assert response.status_code==200 and response.headers['Cache-Control']=='no-store'
+
+
+def test_bulk_calendar_requires_revision_and_invalidates_after_rule_or_exception(client,db):
+    initial=rule(client).json
+    assert initial['calendar_revision']==1
+    payload=dict(promotion_id='p1',days=[dict(date='2027-01-05',kind='company')])
+    assert call(client,'/calendar/bulk',payload).status_code==400
+    payload['expected_revision']=1
+    assert call(client,'/calendar/exceptions',dict(promotion_id='p1',date='2027-01-06',kind='holiday'),method='PUT').json['calendar_revision']==2
+    response=call(client,'/calendar/bulk',payload)
+    assert response.status_code==409 and types(response)=={'calendar_stale'}
+    assert count(db,'planning_day_exceptions')==1
+    payload['expected_revision']=2
+    assert call(client,'/calendar/bulk',payload).json['calendar_revision']==3
+    assert client.get(BASE+'/state?promotion_id=p1').json['calendar_revision']==3
+
+
+def test_shared_duplicate_from_secondary_and_independent_local_display(client,db):
+    setup_school(client)
+    response=call(client,'/courses',course(shared=[dict(promotion_id='p2',subject_id='s2')]))
+    assert response.status_code==200
+    cid=response.json['course']['id']
+    state=client.get(BASE+'/state?promotion_id=p2').json
+    assert len(state['courses'])==1 and state['courses'][0]['id']==cid
+    assert state['courses'][0]['promotion_id']=='p1'
+    assert state['courses'][0]['display_subject_name']=='Matière s2'
+    assert call(client,'/subjects/s2',{},method='DELETE').status_code==409
+    preview=call(client,'/courses/preview',dict(promotion_id='p2',mode='duplicate',course_ids=[cid],target_start='2027-01-11'))
+    assert preview.status_code==200 and preview.json['items'][0]['course']['shared']==[dict(promotion_id='p2',subject_id='s2')]
+    response=call(client,'/courses/batch',dict(preview_token=preview.json['preview_token'],selected_keys=['0']))
+    assert response.status_code==200 and count(db)==2 and count(db,'planning_course_groups')==4
+
+
+def test_shared_availability_checks_each_calendar_and_budget(client,db):
+    import json
+    from urllib.parse import urlencode
+    setup_school(client)
+    with db() as conn:conn.execute('UPDATE planning_subjects SET planned_hours=1 WHERE id=?',('s2',))
+    query=dict(promotion_id='p1',subject_id='s1',trainer_id='t1',room_id='r1',start='2027-01-04',end='2027-01-04',duration=120,shared=json.dumps([dict(promotion_id='p2',subject_id='s2')]))
+    response=client.get(BASE+'/availability?'+urlencode(query))
+    assert response.status_code==200
+    assert all(not row['available'] for row in response.json['slots'])
+    assert all(any(issue['type']=='subject_budget' and issue['subject_id']=='s2' for issue in row['conflicts']) for row in response.json['slots'])
+    query['shared']='not-json'
+    assert client.get(BASE+'/availability?'+urlencode(query)).status_code==400
+
+
+def test_annual_pdf_receives_entire_subject_budget_snapshot(client):
+    setup_school(client);add(client)
+    with patch('planning_pdf.build_planning_pdf',return_value=b'%PDF-1.4 test') as build:
+        response=client.get('/admin/planning/export.pdf?promotion_id=p1&view=annual')
+        assert response.status_code==200
+        assert build.call_args.kwargs['mode']=='annual'
+        subject=next(item for item in build.call_args.kwargs['subjects'] if item['id']=='s1')
+        assert subject['planned_minutes']==1800 and subject['scheduled_minutes']==120
