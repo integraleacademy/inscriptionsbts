@@ -461,3 +461,16 @@ def test_old_photo_prefix_is_resolved_inside_own_dossier(client, tmp_path):
     with application.db() as conn:
         conn.execute('UPDATE candidats SET fichiers_photo=? WHERE id=?', (json.dumps(['/former/disk/uploads/old-photo/PhotoIdentite_old-photo.jpg']), 'old-photo'))
     assert client.get('/espace/old-photo/photo').status_code == 200
+
+
+def test_legacy_flat_photo_belongs_to_exact_dossier(client, tmp_path):
+    from PIL import Image
+    seed(2026, 'flat-owner'); seed(2026, 'flat-other')
+    folder = tmp_path / 'uploads'; folder.mkdir()
+    photo = folder / 'Photo_flat-owner.jpeg'
+    Image.new('RGB', (30, 40), 'gold').save(photo)
+    with application.db() as conn:
+        for cid in ('flat-owner', 'flat-other'):
+            conn.execute('UPDATE candidats SET fichiers_photo=? WHERE id=?', (json.dumps([str(photo)]), cid))
+    assert client.get('/espace/flat-owner/photo').status_code == 200
+    assert client.get('/espace/flat-other/photo').status_code == 404

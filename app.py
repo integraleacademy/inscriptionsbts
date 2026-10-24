@@ -3311,7 +3311,14 @@ def _candidate_photo_response(row):
         # Resolve that same filename strictly inside this dossier's directory.
         if os.path.commonpath([directory, path]) != directory or not os.path.isfile(path):
             path = os.path.realpath(os.path.join(directory, os.path.basename(stored)))
-        if os.path.commonpath([directory, path]) != directory or not os.path.isfile(path):
+        root = os.path.realpath(UPLOAD_DIR)
+        basename = os.path.basename(stored)
+        flat_legacy = bool(re.fullmatch(r'(?:Photo|PhotoIdentite)_' + re.escape(row['id']) + r'(?:_\d+)?\.[a-zA-Z0-9]+', basename, re.IGNORECASE))
+        if not os.path.isfile(path) and flat_legacy:
+            path = os.path.realpath(os.path.join(root, basename))
+        in_dossier = os.path.commonpath([directory, path]) == directory
+        in_legacy_root = flat_legacy and os.path.dirname(path) == root
+        if not (in_dossier or in_legacy_root) or not os.path.isfile(path):
             continue
         try:
             with Image.open(path) as source:
