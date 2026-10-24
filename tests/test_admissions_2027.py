@@ -92,6 +92,28 @@ def test_ics_uses_absolute_timezone(client):
     assert b'DTSTART:20261201T090000Z' in response.data
 
 
+def test_trainer_pages_are_integrated_without_student_or_legacy_scripts(client, monkeypatch):
+    monkeypatch.setattr(application.app, 'secret_key', 'integration-test-secret-for-trainers')
+    login = client.get('/formateur/connexion')
+    assert login.status_code == 200
+    assert b'ESPACE FORMATEUR' in login.data
+    assert b'trainer-space.css' in login.data
+    for forbidden in (b'googletagmanager.com', b'cdn.brevo.com', b'js/main_front.js', b'js/main_admin.js'):
+        assert forbidden not in login.data
+    assert client.get('/admin/formateurs').status_code in (302, 403)
+    auth(client)
+    management = client.get('/admin/formateurs?bts=MCO&rentree=2026')
+    assert management.status_code == 200
+    assert b'id="workspace-sidebar"' in management.data
+    assert b'/admin/formateurs' in management.data
+    assert b'js/trainer-space.js' in management.data
+    assert b'js/main_admin.js' not in management.data
+    seed(2026, 'trainer-entry')
+    fiche = client.get('/admin/candidat/trainer-entry?rentree=2026')
+    assert fiche.status_code == 200
+    assert b'/admin/formateurs?bts=MCO&amp;rentree=2026' in fiche.data
+
+
 def test_cohort_migration_idempotent_and_isolated_admin(client):
     seed(2026,'old');seed(2027,'new')
     application.ensure_campaign_schema();application.ensure_campaign_schema()

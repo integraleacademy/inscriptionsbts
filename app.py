@@ -7,6 +7,7 @@ from place_search import register_place_search
 from candidate_access import register_candidate_access
 from candidate_messages import register_candidate_messages
 from candidate_documents import register_candidate_documents, document_preview_response
+from trainer_access import register_trainer_access
 from legacy_links import snapshot_legacy_links, verify_legacy_link
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
@@ -65,6 +66,14 @@ def run_startup_integrity_checks():
         "candidate_access.py",
         "candidate_messages.py",
         "candidate_documents.py",
+        "trainer_access.py",
+        "templates/trainer_admin.html",
+        "templates/trainer_login.html",
+        "templates/trainer_password.html",
+        "templates/trainer_forgot_password.html",
+        "templates/trainer_dashboard.html",
+        "static/css/trainer-space.css",
+        "static/js/trainer-space.js",
         "templates/document_preview.html",
         "legacy_links.py",
         "templates/candidate_login.html",
@@ -104,7 +113,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post)\(\s*['"]([^'"]+)['"]""")
@@ -937,6 +946,7 @@ register_place_search(app)
 register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
 register_candidate_messages(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event)
 register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
+register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
 
 
 @app.route("/ouverture.ics")
