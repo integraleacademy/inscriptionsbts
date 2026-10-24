@@ -1,40 +1,21 @@
 {% extends "base.html" %}
-{% block body_class %}admissions-page{% endblock %}
+{% from 'ui_icons.html' import icon %}
+{% block body_class %}waiting-page{% endblock %}
 {% block content %}
-<section class="admission-hero">
-  <div class="hero-copy">
-    <p class="eyebrow"><span class="status-dot"></span> BTS EN ALTERNANCE · SEPTEMBRE 2027</p>
-    <h1>Ton avenir.<br><span>À toi de jouer.</span></h1>
-    <p class="hero-lead">Deux ans pour apprendre un métier, prendre confiance et construire la suite. Ta prochaine aventure commence à Intégrale Academy.</p>
-    <div class="hero-facts"><span><b>2 ans</b> pour te former</span><span><b>6 BTS</b> pour choisir ta voie</span><span><b>1 salaire</b> pendant ton alternance</span></div>
-    <div class="hero-location">Puget-sur-Argens · Côte d’Azur <span>ou 100 % en ligne, en direct</span></div>
-  </div>
-  <div class="hero-visual">
-    <span class="visual-label">LA SUITE S’ÉCRIT AVEC TOI</span>
-    <img src="{{ url_for('static', filename='admissions/campus.webp') }}" alt="Illustration d’étudiants Intégrale Academy en cours et en visioconférence" width="800" height="600" fetchpriority="high">
-    <div class="year-sticker"><small>RENTRÉE</small><b>2027</b><span>Ton prochain chapitre ↗</span></div>
-  </div>
-</section>
-<section class="launch-panel" aria-labelledby="launch-title" data-opens="{{ opening_iso }}" data-server-now="{{ server_now }}" data-scheduled="{{ 'true' if scheduled else 'false' }}">
-  <div class="launch-heading"><div><span class="closed-label">Les inscriptions pour la rentrée 2026 sont clôturées</span><h2 id="launch-title">{% if admission_open %}Les inscriptions 2027 sont ouvertes.{% elif scheduled %}On se retrouve le 1er décembre.{% else %}Les inscriptions sont momentanément suspendues.{% endif %}</h2><p>{% if scheduled %}Ouverture des inscriptions pour septembre 2027 le <strong>1er décembre 2026 à 10 h</strong>, heure de Paris.{% elif admission_open %}Choisis ton BTS et commence ta candidature pour septembre 2027.{% else %}{{ portal_message or 'Notre équipe reste disponible pour vous renseigner.' }}{% endif %}</p></div><span class="launch-mark" aria-hidden="true">↗</span></div>
+<section class="waiting-room" aria-labelledby="launch-title" data-opens="{{ opening_iso }}" data-server-now="{{ server_now }}" data-scheduled="{{ 'true' if scheduled else 'false' }}">
+  <div class="waiting-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+  <p class="waiting-label"><span></span> INSCRIPTIONS BTS · INTÉGRALE ACADEMY</p>
+  <p class="closed-season">Les inscriptions pour la rentrée <strong>2026 sont clôturées.</strong></p>
+  <div class="waiting-symbol">{{ icon('clock') }}</div>
+  <h1 id="launch-title">{% if admission_open %}À vous de jouer.<br><em>Les inscriptions sont ouvertes.</em>{% elif scheduled %}On se retrouve<br><em>le 1er décembre.</em>{% else %}Un instant.<br><em>Nous revenons bientôt.</em>{% endif %}</h1>
+  <p class="waiting-intro">{% if scheduled %}Les inscriptions pour la rentrée de <strong>septembre 2027</strong> <br>ouvriront le <strong>1er décembre 2026 à 10 h</strong>, heure de Paris.{% elif admission_open %}Commencez votre dossier pour la rentrée de septembre 2027.{% else %}{{ portal_message or 'Les inscriptions sont momentanément suspendues. Notre équipe reste disponible.' }}{% endif %}</p>
   {% if scheduled %}
-  <div class="countdown" role="timer" aria-label="Temps restant avant l’ouverture des inscriptions">
-    <div><strong id="count-days">--</strong><span>jours</span></div><b class="separator">:</b><div><strong id="count-hours">--</strong><span>heures</span></div><b class="separator">:</b><div><strong id="count-minutes">--</strong><span>minutes</span></div><b class="separator">:</b><div><strong id="count-seconds">--</strong><span>secondes</span></div>
+  <div class="waiting-countdown" role="timer" aria-label="Temps restant avant l’ouverture des inscriptions">
+    {% for key,label in [('days','jours'),('hours','heures'),('minutes','minutes'),('seconds','secondes')] %}<div><strong id="count-{{ key }}">--</strong><span>{{ label }}</span></div>{% if not loop.last %}<b aria-hidden="true">:</b>{% endif %}{% endfor %}
   </div>
-  <div class="launch-actions"><a class="button button-gold" href="{{ url_for('opening_calendar') }}">Ajouter à mon calendrier <span>↗</span></a><a class="text-link light" href="#formations">En attendant, découvre nos BTS ↓</a></div>
-  <noscript><p>Rendez-vous le 1er décembre 2026 à 10 h, heure de Paris. Le décompte s’affiche lorsque JavaScript est activé.</p></noscript>
-  {% elif admission_open %}<a class="button button-gold" href="{{ url_for('candidature') }}">Commencer ma candidature <span>→</span></a>{% endif %}
+  <a class="calendar-reminder" href="{{ url_for('opening_calendar') }}">{{ icon('clock') }} Ajouter la date à mon calendrier <span>↗</span></a>
+  <noscript><p>Rendez-vous le 1er décembre 2026 à 10 h, heure de Paris.</p></noscript>
+  {% elif admission_open %}<a class="button button-gold" href="{{ url_for('candidature') }}">Commencer mon inscription {{ icon('arrow') }}</a>{% endif %}
 </section>
-<section id="formations" class="bts-section">
-  <div class="section-heading"><div><p class="eyebrow">UNE AMBITION, PLUSIEURS CHEMINS</p><h2>Quel BTS est fait pour toi ?</h2></div><p>Sécurité, commerce, immobilier ou gestion.<br>Choisis la voie qui te ressemble.</p></div>
-  {% set programmes = {"MOS":"btsmos", "MCO":"btsmco", "NDRC":"btsndrc", "PI":"btsprofessionsimmobilieres", "CI":"commerceinternational"} %}
-  <div class="bts-grid">
-    {% for code,label,desc in [('MOS','Management opérationnel de la sécurité','Organiser, protéger, encadrer.'),('MCO','Management commercial opérationnel','Vendre, manager, entreprendre.'),('NDRC','Négociation et digitalisation de la relation client','Convaincre, négocier, connecter.'),('PI','Professions immobilières','Conseiller, négocier, accompagner.'),('CI','Commerce international','Échanger, voyager, s’ouvrir au monde.'),('CG','Comptabilité et gestion','Analyser, comprendre, piloter.')] %}
-    <a class="bts-card" href="{{ 'https://www.integraleacademy.com/' ~ programmes[code] if code in programmes else 'tel:+33422470768' }}" {% if code in programmes %}target="_blank" rel="noopener"{% endif %}><div><span class="bts-code">BTS {{ code }}</span><span class="card-arrow">↗</span></div><h3>{{ label }}</h3><p>{{ desc }}</p><small>{{ 'Découvrir le programme' if code in programmes else 'Parlons de ce BTS' }}</small></a>
-    {% endfor %}
-  </div>
-</section>
-<section class="admission-steps"><div><p class="eyebrow">SIMPLE, DU DÉBUT À LA RENTRÉE</p><h2>Ton inscription,<br>en trois temps.</h2><p>Une démarche en ligne, une équipe à tes côtés.</p></div><ol><li><span>01</span><div><h3>Tu nous parles de toi</h3><p>Ton BTS, ton parcours, ton projet et tes documents, dans un formulaire guidé.</p></div></li><li><span>02</span><div><h3>On étudie ta candidature</h3><p>Tu suis ton dossier dans ton espace candidat et reçois notre réponse par e-mail et SMS.</p></div></li><li><span>03</span><div><h3>Tu confirmes ton inscription</h3><p>Après validation de ta candidature, tu confirmes ton choix et prépares ta rentrée avec nous.</p></div></li></ol></section>
-<section class="admission-help"><div><p class="eyebrow">ON EN PARLE ?</p><h2>Une question sur ton futur BTS ?</h2><p>Notre équipe t’aide à trouver le parcours qui te correspond.</p></div><a class="button button-dark" href="tel:+33422470768">04 22 47 07 68 <span>↗</span></a></section>
 <script src="{{ url_for('static', filename='js/countdown.js') }}" defer></script>
 {% endblock %}

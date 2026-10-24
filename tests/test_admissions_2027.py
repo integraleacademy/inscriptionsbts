@@ -45,9 +45,11 @@ def seed(year, cid, status='confirmee'):
 
 
 def payload():
-    fields=dict(nom='TEST',prenom='Camille',sexe='Femme',date_naissance='2008-01-01',ville_naissance='Paris',cp_naissance='75001',pays_naissance='France',nationalite='Française',num_secu='208017512345646',email='camille@example.test',email_confirm='camille@example.test',tel='0600000000',adresse='1 rue Test',cp='75001',ville='Paris',bts='MCO',mode='presentiel',baccalaureat='Prévu en 2027',bac_type='Général',permis_b='Oui',projet_pourquoi='Apprendre le commerce',projet_objectif='Devenir responsable',consent='1',entreprise_trouvee='non',recherches_commencees='oui',cherche_idf='non')
+    fields=dict(nom='TEST',prenom='Camille',sexe='Femme',date_naissance='2008-01-01',ville_naissance='Paris',cp_naissance='75001',pays_naissance='France',nationalite='Française',num_secu='208017512345646',email='camille@example.test',email_confirm='camille@example.test',tel='0600000000',adresse='1 rue Test',cp='75001',ville='Paris',bts='MCO',mode='presentiel',baccalaureat='Prévu en 2027',bac_type='Général',permis_b='Oui',projet_pourquoi='Apprendre le commerce',projet_objectif='Devenir responsable',projet_passions='La musique et les voyages',consent='1',entreprise_trouvee='non',recherches_commencees='oui',cherche_idf='non')
+    for group in application.PROFILE_GROUPS:
+        fields[group['name']+'[]'] = [group['options'][0][0]]
     for key in ['ci','ci2','carte_vitale','cv','lm']:
-        fields[key]=(io.BytesIO(b'%PDF-1.4\n'),key+'.pdf')
+        fields[key]=(io.BytesIO(b'%PDF-1.4\n' + b' ' * 11000),key+'.pdf')
     fields['photo']=(io.BytesIO(b'\x89PNG\r\n\x1a\n'),'photo.png')
     return fields
 
@@ -204,3 +206,180 @@ def test_certificate_placeholders_split_across_runs():
     personalize_certificate(doc,{'{{NOM_PRENOM}}':'Camille TEST','{{DATE_AUJOURDHUI}}':'24/10/2026'},2027)
     assert p.text=='2027-2029 — Camille TEST : 24/10/2026'
     assert p.runs[0].bold
+
+
+def nir_with_key(core):
+    numeric = core.replace('2A', '19').replace('2B', '18')
+    return core + str(97 - int(numeric) % 97).zfill(2)
+
+
+@pytest.mark.parametrize('core,birth,sex', [
+    ('2080175123456','2008-01-01','Femme'),
+    ('108012A123456','2008-01-01','Homme'),
+    ('208012B123456','2008-01-01','Femme'),
+    ('1080199123456','2008-01-01','Homme'),
+])
+def test_nir_key_corsica_and_birth_coherence(core,birth,sex):
+    nir=nir_with_key(core)
+    assert application.validate_nir(nir,birth,sex)[0]
+    assert application.validate_nir(nir[:5]+' '+nir[5:],birth,sex)[0]
+    assert not application.validate_nir(nir[:-2]+'00',birth,sex)[0]
+    assert not application.validate_nir(nir,'2007-01-01',sex)[0]
+    assert not application.validate_nir(nir,'2008-02-01',sex)[0]
+    assert not application.validate_nir(nir,birth,'Homme' if sex=='Femme' else 'Femme')[0]
+    assert not application.validate_nir(nir+'1',birth,sex)[0]
+
+
+@pytest.mark.parametrize('name', ['qualites[]','motivation[]','valeurs[]','travail[]','projet_passions'])
+def test_each_original_project_section_is_mandatory(client,monkeypatch,name):
+    monkeypatch.setattr(application,'campaign_is_open',lambda:True)
+    data=payload();data.pop(name)
+    response=client.post('/submit',data=data)
+    assert response.status_code==400, response.text
+    with application.db() as conn:
+        assert conn.execute('SELECT COUNT(*) FROM candidats').fetchone()[0]==0
+
+
+def test_all_original_profile_choices_and_form_fields_remain(client):
+    auth(client)
+    html=client.get('/candidature?preview=1').text
+    from html.parser import HTMLParser
+    class Elements(HTMLParser):
+        def __init__(self): super().__init__(); self.elements=[]
+        def handle_starttag(self, tag, attrs): self.elements.append((tag,dict(attrs)))
+    parser=Elements();parser.feed(html)
+    expected={'qualites':['rigoureux','organise','autonome','communication','esprit_equipe','curieux','leadership','creatif','empathique','serieux'], 'motivation':['reussite','stabilite','utilite','defis','contact','innovation','evolution','apprentissage'], 'valeurs':['salaire','sens','contact','mobilite','stabilite','responsabilite','autonomie','equipe'], 'travail':['methodique','pratique','collaboratif','independant','creatif','objectif']}
+    for group,values in expected.items():
+        assert [attrs['value'] for tag,attrs in parser.elements if tag=='input' and attrs.get('name')==group+'[]']==values
+    for name in ['bts','mode','nom','prenom','date_naissance','sexe','pays_naissance','ville_naissance','cp_naissance','nationalite','adresse','cp','ville','num_secu','email','email_confirm','tel','resp_nom','resp_prenom','resp_email','resp_tel','baccalaureat','bac_type','bac_autre','permis_b','entreprise_trouvee','recherches_commencees','cherche_idf','souhaite_accompagnement','projet_pourquoi','projet_objectif','projet_passions','raison_aps','aps_souhaitee','ci','ci2','photo','carte_vitale','cv','lm']:
+        assert any(attrs.get('name')==name for tag,attrs in parser.elements), name
+    assert sum('data-step' in attrs for tag,attrs in parser.elements)==7
+    assert sum('data-suggest' in attrs for tag,attrs in parser.elements)==6
+
+
+@pytest.mark.parametrize('modifications', [
+    {'num_secu':'208017512345600'},
+    {'bac_type':'Autre','bac_autre':''},
+    {'bts':'MOS','mos_parcours':'autre','aps_souhaitee':'non','raison_aps':''},
+    {'cherche_idf':'oui','souhaite_accompagnement':''},
+    {'entreprise_trouvee':''},
+    {'qualites[]':['unknown_value']},
+    {'sexe':'unknown_value'},
+])
+def test_conditional_and_nir_validation_cannot_be_bypassed(client,monkeypatch,modifications):
+    monkeypatch.setattr(application,'campaign_is_open',lambda:True)
+    data=payload();data.update(modifications)
+    assert client.post('/submit',data=data).status_code==400
+
+
+@pytest.mark.parametrize('name,content,filename', [
+    ('cv',b'%PDF-1.4\n','tiny.pdf'),
+    ('cv',b'not a pdf'+b' '*11000,'fake.pdf'),
+    ('cv',b'%PDF-1.4\n'+b' '*(8*1024*1024),'large.pdf'),
+    ('photo',b'%PDF-1.4\n'+b' '*11000,'wrong.png'),
+    ('photo',b'photo','wrong.exe'),
+])
+def test_file_controls_preserved(client,monkeypatch,name,content,filename):
+    monkeypatch.setattr(application,'campaign_is_open',lambda:True)
+    data=payload();data[name]=(io.BytesIO(content),filename)
+    assert client.post('/submit',data=data).status_code==400
+    assert not os.path.exists(application.UPLOAD_DIR) or not os.listdir(application.UPLOAD_DIR)
+
+
+def test_minor_requires_valid_guardian_contacts(client,monkeypatch):
+    monkeypatch.setattr(application,'campaign_is_open',lambda:True)
+    from datetime import date
+    year=date.today().year-17
+    for invalid in [{}, {'resp_nom':'Parent','resp_prenom':'Camille','resp_email':'invalid','resp_tel':'0600000000'}]:
+        data=payload();data.update(date_naissance=f'{year}-01-01',num_secu=nir_with_key(f'2{year%100:02d}0175123456'));data.update(invalid)
+        assert client.post('/submit',data=data).status_code==400
+
+
+def test_preview_never_creates_a_dossier_or_draft_even_after_opening(client,monkeypatch):
+    auth(client);monkeypatch.setattr(application,'campaign_is_open',lambda:True)
+    data=payload();data['admin_preview']='1'
+    assert client.post('/submit',data=data).status_code==403
+    response=client.post('/save_draft',json={'full_form':{'email':'test@example.test','admin_preview':'1'}})
+    assert response.status_code==403
+    assert not os.path.exists(os.path.join(application.DATA_DIR,'drafts.json'))
+
+
+def test_candidate_sheet_retains_legacy_profiles_and_atomic_edits(client):
+    seed(2026,'sheet')
+    assert client.get('/admin/candidat/sheet').status_code==302
+    assert client.post('/admin/candidat/sheet/informations',json={'prenom':'Alex'}).status_code==403
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET tel='0600000000',projet_qualites='rigoureux, curieux',projet_motivation='reussite',projet_recherche='sens',projet_travail='methodique' WHERE id='sheet'")
+    auth(client)
+    page=client.get('/admin/candidat/sheet');assert page.status_code==200
+    for label in ['Fiche PDF','Supprimer le dossier','Rigueur','Curiosité','La réussite personnelle','Un métier qui a du sens','Je suis méthodique','panel-historique','panel-documents']:
+        assert label in page.text
+    for term in ['YPAREO','NEO','Intégration']:assert term not in page.text
+    assert client.post('/admin/candidat/sheet/informations',json={'prenom':'Alex','email':'bad'}).status_code==400
+    with application.db() as conn:assert conn.execute("SELECT prenom FROM candidats WHERE id='sheet'").fetchone()[0]=='Camille'
+    assert client.post('/admin/candidat/sheet/informations',json={'prenom':'Alex','id':'unauthorized'}).json['ok']
+    with application.db() as conn:assert conn.execute("SELECT prenom FROM candidats WHERE id='sheet'").fetchone()[0]=='Alex'
+    logs=client.get('/admin/logs/sheet').json
+    assert any(log['type']=='FICHE_MODIFIEE' for log in logs)
+    assert client.get('/admin/candidat/missing').status_code==404
+    assert client.post('/admin/update-status',json={'id':'sheet','value':'bad'}).status_code==400
+    assert client.post('/admin/update-status',json={'id':'missing','value':'validee'}).status_code==404
+    assert client.post('/admin/ypareo-neo/sheet').status_code==404
+    assert client.post('/admin/update-field',json={'id':'sheet','field':'label_ypareo','value':True}).status_code==400
+
+
+def test_country_city_address_and_prefix_suggestions_with_safe_fallback(client,monkeypatch):
+    import place_search
+    place_search.search_places.cache_clear();place_search.department_communes.cache_clear()
+    assert any(v['value']=='États-Unis' for v in client.get('/api/admission/suggestions?kind=country&q=etats').json['items'])
+    calls=[]
+    def fake_get(url,params):
+        calls.append((url,params))
+        if 'geo.api.gouv.fr' in url:return [{'nom':'Puget-sur-Argens','codesPostaux':['83480'],'code':'83099'}]
+        if 'photon' in url:return {'features':[{'properties':{'name':'Londres','country':'Royaume-Uni'}}]}
+        return {'features':[{'properties':{'name':'54 Chemin du Carreou','label':'54 Chemin du Carreou 83480 Puget-sur-Argens','city':'Puget-sur-Argens','postcode':'83480','type':'housenumber'}}]}
+    monkeypatch.setattr(place_search,'_get',fake_get)
+    for query in ['kind=city&q=Puget','kind=postcode&q=83480','kind=postcode&q=834','kind=address&q=54+chemin']:
+        data=client.get('/api/admission/suggestions?'+query).json['items'][0]
+        assert data['city']=='Puget-sur-Argens' and data['postcode']=='83480'
+    data=client.get('/api/admission/suggestions?kind=city&q=Londres&country=Royaume-Uni').json['items'][0]
+    assert data['city']=='Londres'
+    assert all(url.startswith('https://') for url,params in calls)
+    import requests
+    monkeypatch.setattr(place_search,'_get',lambda *a: (_ for _ in ()).throw(requests.Timeout()))
+    assert client.get('/api/admission/suggestions?kind=city&q=Uncached').json['unavailable']
+    assert client.get('/api/admission/suggestions?kind=bad&q=ab').status_code==400
+    place_search.search_places.cache_clear();place_search.department_communes.cache_clear()
+
+
+def test_pdf_zip_and_single_candidate_actions_remain_available(client,tmp_path):
+    import zipfile
+    seed(2027,'document-test');auth(client)
+    document=tmp_path/'piece.pdf';document.write_bytes(b'%PDF-1.4\n'+b' '*11000)
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET fichiers_cv=?,tel='0600000000' WHERE id='document-test'",(json.dumps([str(document)]),))
+    files=client.get('/admin/files/document-test').json
+    assert files[0]['filename']=='piece.pdf'
+    result=client.get('/admin/files/download/document-test')
+    assert result.status_code==200
+    assert zipfile.ZipFile(io.BytesIO(result.data)).namelist()==['piece.pdf'];result.close()
+    result=client.get('/admin/print/document-test')
+    assert result.status_code==200 and result.data.startswith(b'%PDF-'),result.text[:100];result.close()
+    assert client.post('/admin/update-field',json={'id':'document-test','field':'label_aps','value':True}).json['ok']
+    assert client.post('/admin/update-field',json={'id':'document-test','field':'commentaires','value':'Note de test'}).json['ok']
+    assert client.post('/admin/delete/document-test').json['ok']
+    assert client.get('/admin/candidat/document-test').status_code==404
+
+
+def test_status_notification_is_preserved_without_duplicate_send(client,monkeypatch):
+    seed(2027,'notification-test','preinscription');auth(client)
+    mail=[];sms=[]
+    monkeypatch.setattr(application,'send_mail',lambda *a,**k:mail.append(a))
+    monkeypatch.setattr(application,'send_sms_brevo',lambda *a,**k:sms.append(a))
+    with application.db() as conn:conn.execute("UPDATE candidats SET tel='0600000000' WHERE id='notification-test'")
+    for _ in range(2):
+        result=client.post('/admin/update-status',json={'id':'notification-test','value':'validee'})
+        assert result.status_code==200
+    assert len(mail)==1 and len(sms)==1
+    assert 'septembre 2027' in mail[0][2]
+    assert client.get('/admin/logs/notification-test').json

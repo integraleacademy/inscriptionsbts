@@ -1,6 +1,9 @@
+from contextlib import closing
 
 import os, sqlite3, json, uuid, shutil
 from datetime import datetime, timedelta
+from admission_options import PROFILE_GROUPS
+from place_search import register_place_search
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
 from werkzeug.utils import secure_filename
@@ -11,15 +14,7 @@ from sms_templates import sms_text
 from mail_templates import mail_html
 from utils import get_mail_context
 from utils import BTS_LABELS
-from services.ypareo_neo import (
-    YpareoError,
-    construire_payload_participation_bts_mos,
-    creer_apprenant_ypareo,
-    extraire_id_numerique_affectation_ypareo,
-    get_ypareo_access_token,
-    inscrire_bts_mos_a_action_formation,
-    rattacher_bts_mos_action_formation_automatiquement,
-)
+
 
 # ============================
 # 🔒 STARTUP INTEGRITY CHECK – STRICT (Parcoursup inclus)
@@ -54,6 +49,16 @@ def run_startup_integrity_checks():
         "templates/email_base.html",
         "static/js/main_front.js",
         "static/js/main_admin.js",
+        "static/js/application-2027.js",
+        "static/js/admission-validation.js",
+        "static/js/place-autocomplete.js",
+        "static/js/bts-management.js",
+        "static/js/workspace-shell.js",
+        "static/css/bts-experience.css",
+        "templates/candidate_sheet.html",
+        "admission_options.py",
+        "place_search.py",
+        "static/admissions/countries-fr.json",
         "static/css/styles.css",
         "static/logo-integrale.png",
     ]
@@ -79,10 +84,10 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py"]:
         py_sources[p] = _read(p)
 
-    route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.route\(\s*['"]([^'"]+)['"]""")
+    route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post)\(\s*['"]([^'"]+)['"]""")
     defined_routes = set()
     for name, src in py_sources.items():
         if not src: continue
@@ -120,7 +125,7 @@ def run_startup_integrity_checks():
     # --- 5) FETCH() DANS JS DOIVENT EXISTER EN ROUTES PYTHON ---
     js_fetch_targets = set()
     fetch_regex = re.compile(r"""fetch\(\s*['"](/[^'"]+)['"]""")
-    for js_path in ["static/js/main_front.js", "static/js/main_admin.js"]:
+    for js_path in ["static/js/main_front.js", "static/js/main_admin.js", "static/js/application-2027.js", "static/js/bts-management.js", "static/js/place-autocomplete.js"]:
         js = _read(js_path) or ""
         for u in fetch_regex.findall(js):
             # on ignore les querystrings et paramètres dynamiques
@@ -246,7 +251,7 @@ def protect_parcoursup_routes():
 # 🔧 Rendre la fonction now() accessible dans les templates Jinja
 @app.context_processor
 def inject_now():
-    return {'now': datetime.utcnow, 'server_now': datetime.utcnow().isoformat() + 'Z', 'admission_year': ADMISSION_YEAR, 'opening_iso': OPENS_AT.isoformat(), 'opening_label': OPENING_LABEL, 'candidate_year': candidate_year, 'selected_year': request.args.get('rentree', str(ADMISSION_YEAR))}
+    return {'now': datetime.utcnow, 'server_now': datetime.utcnow().isoformat() + 'Z', 'admission_year': ADMISSION_YEAR, 'opening_iso': OPENS_AT.isoformat(), 'opening_label': OPENING_LABEL, 'candidate_year': candidate_year, 'selected_year': request.args.get('rentree', str(ADMISSION_YEAR)), 'profile_groups': PROFILE_GROUPS}
 
 # 🕓 Filtre Jinja pour convertir une chaîne ISO en datetime
 from datetime import datetime
@@ -428,6 +433,8 @@ def validate_nir(nir_raw, date_naissance_str, sexe_str):
     nir_clean = normalize_nir(nir_raw)
 
     # 🔁 copie temporaire pour le calcul (convertit juste pour la vérif)
+    if not re.fullmatch(r"[0-9]{5}(?:[0-9]{2}|2[AB])[0-9]{8}", nir_clean):
+        return False, "Le numéro doit comporter 15 caractères ; 2A et 2B sont autorisés pour la Corse."
     nir_calc = nir_clean.replace("2A", "19").replace("2B", "18")
     digits = "".join(ch for ch in nir_calc if ch.isdigit())
 
@@ -544,7 +551,7 @@ def ensure_schema():
     cols = [r[1] for r in cur.fetchall()]
 
     expected_cols = [
-        "nationalite",
+        "nationalite", "raison_aps",
         "projet_qualites", "projet_motivation", "projet_recherche", "projet_travail",
         "verif_docs", "nouveau_doc", "replace_token", "replace_token_exp", "replace_meta",
         "label_ypareo", "label_carte_etudiante",
@@ -702,8 +709,9 @@ def login():
         password = request.form.get("password", "")
         if email == LOGIN_EMAIL and password == LOGIN_PASSWORD:
             session["admin_ok"] = True
-            flash("Connexion réussie ✅", "success")
-            return redirect(url_for("admin"))
+            flash("Connexion réussie", "success")
+            destination = request.args.get("next", "")
+            return redirect(destination if destination.startswith("/") and not destination.startswith("//") else url_for("admin"))
         else:
             return render_template("login.html", error="Identifiants incorrects.")
 
@@ -890,9 +898,14 @@ def index():
 @app.route("/candidature")
 def candidature():
     preview = require_admin() and request.args.get("preview") == "1"
+    if request.args.get("preview") == "1" and not require_admin():
+        return redirect(url_for("login", next="/candidature?preview=1"))
     if not admissions_available() and not preview:
         return redirect(url_for("index"))
     return render_template("index.html", title="Ma candidature BTS · Rentrée 2027", saved_data=None, preview=preview)
+
+
+register_place_search(app)
 
 
 @app.route("/ouverture.ics")
@@ -960,6 +973,8 @@ def save_draft():
         full_form = data.get("full_form", {})
         if not isinstance(full_form, dict) or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(full_form.get("email", ""))):
             return jsonify(success=False, error="Indiquez une adresse e-mail valide pour recevoir votre lien de reprise."), 400
+        if str(full_form.get("admin_preview", "")) == "1":
+            return jsonify(success=False, error="Cet aperçu ne permet pas d’enregistrer un brouillon."), 403
         full_form["rentree_annee"] = ADMISSION_YEAR
 
         # 🔑 Id unique du brouillon (token)
@@ -1051,13 +1066,15 @@ def reprendre_formulaire(token):
 
 
 def validate_application(form, files):
-    required = ("nom", "prenom", "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "email", "email_confirm", "tel", "adresse", "cp", "ville", "num_secu", "baccalaureat", "bac_type", "permis_b", "projet_pourquoi", "projet_objectif")
+    required = ("nom", "prenom", "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "email", "email_confirm", "tel", "adresse", "cp", "ville", "num_secu", "baccalaureat", "bac_type", "permis_b", "projet_pourquoi", "projet_objectif", "projet_passions")
     if any(not (form.get(k) or "").strip() for k in required):
         return "Complétez les champs obligatoires avant d’envoyer votre candidature."
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", form.get("email", "")) or form.get("email", "").lower() != form.get("email_confirm", "").lower():
         return "Les deux adresses e-mail doivent être valides et identiques."
     if form.get("bts") not in {"MOS", "MCO", "NDRC", "PI", "CI", "CG"} or form.get("mode") not in {"presentiel", "distanciel"}:
         return "Choisissez votre BTS et votre mode de formation."
+    if form.get("sexe") not in ("Homme", "Femme"):
+        return "Précisez le sexe indiqué sur votre état civil."
     if not re.fullmatch(r"0[1-9]\d{8}", form.get("tel", "")):
         return "Indiquez un numéro de téléphone français à 10 chiffres."
     try:
@@ -1068,6 +1085,8 @@ def validate_application(form, files):
         age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
         if age < 18 and any(not form.get(k, "").strip() for k in ("resp_nom", "resp_prenom", "resp_email", "resp_tel")):
             return "Les coordonnées de votre responsable légal sont obligatoires."
+        if age < 18 and (not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", form.get("resp_email", "")) or not re.fullmatch(r"0[1-9]\d{8}", form.get("resp_tel", ""))):
+            return "Vérifiez l’e-mail et le téléphone de votre responsable légal."
     except ValueError:
         return "Vérifiez votre date de naissance."
     valid, message = validate_nir(form["num_secu"], form["date_naissance"], form["sexe"])
@@ -1078,6 +1097,19 @@ def validate_application(form, files):
             return "Précisez votre situation pour le BTS MOS."
         if form.get("mos_parcours") == "autre" and form.get("aps_souhaitee") not in {"oui", "non"}:
             return "Précisez votre souhait concernant la formation APS."
+    if form.get("bac_type") == "Autre" and not form.get("bac_autre", "").strip():
+        return "Précisez votre type de baccalauréat."
+    for key in ("entreprise_trouvee", "recherches_commencees", "cherche_idf"):
+        if form.get(key) not in ("oui", "non"):
+            return "Complétez les réponses concernant votre recherche d’entreprise."
+    if form.get("cherche_idf") == "oui" and form.get("souhaite_accompagnement") not in ("oui", "non"):
+        return "Précisez si vous souhaitez être accompagné par Pôle Alternance."
+    if form.get("bts") == "MOS" and form.get("mos_parcours") == "autre" and form.get("aps_souhaitee") == "non" and not form.get("raison_aps", "").strip():
+        return "Précisez la solution envisagée pour la formation APS."
+    for group in PROFILE_GROUPS:
+        selected = form.getlist(group["name"] + "[]")
+        if not selected or any(value not in dict(group["options"]) for value in selected):
+            return "Sélectionnez au moins une réponse dans chaque partie du projet motivé."
     if form.get("consent") != "1":
         return "Confirmez l’exactitude de vos informations."
     allowed = {"ci": {"pdf", "jpg", "jpeg", "png"}, "ci2": {"pdf", "jpg", "jpeg", "png"}, "photo": {"jpg", "jpeg", "png"}, "carte_vitale": {"pdf"}, "cv": {"pdf"}, "lm": {"pdf"}}
@@ -1091,6 +1123,11 @@ def validate_application(form, files):
         file.seek(0, 2); size = file.tell(); file.seek(0)
         if extension not in extensions or not 0 < size <= 8 * 1024 * 1024:
             return "Un justificatif a un format non accepté ou dépasse 8 Mo."
+        if key in ("carte_vitale", "cv", "lm") and size < 10 * 1024:
+            return "Un PDF semble vide ou incomplet (moins de 10 Ko). Transmettez un document lisible."
+        header = file.read(8); file.seek(0)
+        if (extension == "pdf" and not header.startswith(b"%PDF-")) or (extension in ("jpg", "jpeg") and not header.startswith(b"\xff\xd8")) or (extension == "png" and not header.startswith(b"\x89PNG\r\n\x1a\n")):
+            return "Le contenu d’un justificatif ne correspond pas à son format. Vérifiez le fichier."
     return None
 
 
@@ -1098,6 +1135,8 @@ def validate_application(form, files):
 def submit():
     from datetime import date  # ✅ import ici (ou mets-le en haut du fichier)
 
+    if request.form.get("admin_preview") == "1":
+        return jsonify(ok=False, error="Cet aperçu ne permet pas de déposer un dossier."), 403
     if not admissions_available():
         return jsonify(ok=False, error=f"Les inscriptions ouvriront le {OPENING_LABEL}."), 403
     form = request.form
@@ -1457,358 +1496,46 @@ def admin():
         return redirect(url_for("login"))
 
     rows = _admin_filtered_rows(request.args)
-    return render_template("admin.html", title="Administration", rows=rows, statuts=STATUTS)
+    return render_template("admin.html", title="Plateforme de gestion des BTS", rows=rows, statuts=STATUTS)
 
 
-def _session_ypareo_depuis_candidat(candidat):
-    bts = str(
-        candidat.get("bts")
-        or candidat.get("formation")
-        or candidat.get("training_type")
-        or ""
-    ).upper().strip()
-    aliases = {
-        "MOS": "BTS MOS",
-        "MCO": "BTS MCO",
-        "NDRC": "BTS NDRC",
-        "PI": "BTS PI",
-        "CI": "BTS CI",
-    }
-    code = next((key for key in aliases if key in bts.split()), None)
-    if not code:
-        raise YpareoError(f"BTS non reconnu pour YPAREO : {bts or 'non renseigné'}", 400)
-    return {"training_type": aliases[code], "name": aliases[code]}
-
-
-
-def _rattacher_af_ypareo_existante(conn, candidat, session_obj):
-    """Retente uniquement le rattachement AF BTS MOS, sans recréer personne/cursus."""
-    now = datetime.now().isoformat()
-    personne_guid = candidat.get("ypareo_id_personne") or candidat.get("ypareo_id")
-    cursus_guid = candidat.get("ypareo_id_cursus") or candidat.get("ypareo_cursus_id")
-    try:
-        ids_business, response = rattacher_bts_mos_action_formation_automatiquement(
-            candidat, personne_guid, cursus_guid
-        )
-        id_affectation = ids_business.get("id_affectation_numerique")
-        conn.execute(
-            """
-            UPDATE candidats
-            SET ypareo_af_statut='rattachee', ypareo_af_error='',
-                ypareo_af_id_numerique=?, ypareo_id_dossier=?,
-                ypareo_inscriptions=?, ypareo_af_synced_at=?,
-                ypareo_sync_at=?, label_ypareo=1, updated_at=?
-            WHERE id=?
-            """,
-            (
-                str(id_affectation or ""),
-                str(id_affectation or ""),
-                json.dumps(ids_business, ensure_ascii=False),
-                now,
-                now,
-                now,
-                candidat["id"],
-            ),
-        )
-        conn.commit()
-        candidat = get_candidat(conn, candidat["id"])
-        log_event(candidat, "YPAREO_AF_AUTO_FINALISEE", ids_business)
-        return {
-            "ok": True,
-            "message": "Personne, cursus et action de formation BTS MOS rattachés avec succès dans YPAREO.",
-            "candidat": candidat,
-            "response": response,
-        }
-    except YpareoError as exc:
-        message = (
-            "Personne et cursus créés, mais impossible de retrouver automatiquement l’ID numérique business YPAREO. "
-            "Vérifier l’endpoint de recherche personne business."
-        )
-        conn.execute(
-            """
-            UPDATE candidats
-            SET ypareo_af_statut='en_attente', ypareo_af_error=?,
-                ypareo_sync_at=?, updated_at=?
-            WHERE id=?
-            """,
-            (message, now, now, candidat["id"]),
-        )
-        conn.commit()
-        candidat = get_candidat(conn, candidat["id"])
-        log_event(candidat, "YPAREO_AF_AUTO_ERREUR", {"erreur": str(exc)})
-        return {"ok": False, "error": message, "candidat": candidat, "status_code": 200}
-
-def _synchroniser_candidat_ypareo(conn, id_candidat):
-    candidat = get_candidat(conn, id_candidat)
-    if not candidat:
-        return {"ok": False, "error": "Candidat introuvable.", "status_code": 404}
-    if candidate_year(candidat) >= 2027 and "MOS" in (candidat.get("bts") or "").upper():
-        try:
-            construire_payload_participation_bts_mos(candidate_year(candidat))
-        except YpareoError as exc:
-            return {"ok": False, "error": str(exc), "status_code": 409}
-    personne_existante = candidat.get("ypareo_id") or candidat.get("ypareo_id_personne")
-    cursus_existant = candidat.get("ypareo_cursus_id") or candidat.get("ypareo_id_cursus")
-    session_obj = _session_ypareo_depuis_candidat(candidat)
-    if personne_existante and cursus_existant:
-        if (candidat.get("ypareo_af_statut") != "rattachee") and "MOS" in (candidat.get("bts") or "").upper():
-            return _rattacher_af_ypareo_existante(conn, candidat, session_obj)
-        return {
-            "ok": True,
-            "already_synced": True,
-            "message": "Ce candidat a déjà été envoyé dans YPAREO.",
-            "candidat": candidat,
-        }
-
-    now = datetime.now().isoformat()
-    try:
-        result = creer_apprenant_ypareo(candidat, session_obj)
-        conn.execute(
-            """
-            UPDATE candidats
-            SET ypareo_id=?, ypareo_statut='succes', ypareo_erreur='',
-                ypareo_cursus_id=?, ypareo_cursus_statut='succes',
-                ypareo_cursus_erreur=?,
-                ypareo_id_personne=?, ypareo_id_cursus=?, ypareo_id_dossier=?,
-                ypareo_inscriptions=?, ypareo_af_statut=?, ypareo_af_error=?,
-                ypareo_af_id_numerique=?, ypareo_af_synced_at=?,
-                ypareo_sync_at=?, label_ypareo=1,
-                updated_at=?
-            WHERE id=?
-            """,
-            (
-                str(result["personne_id"]),
-                str(result["cursus_id"] or ""),
-                result.get("participation_warning", ""),
-                str(result["personne_id"]),
-                str(result["cursus_id"] or ""),
-                str(result.get("id_inscription_numerique_interne") or ""),
-                json.dumps({
-                    "public_guid": result.get("id_inscription_public_guid"),
-                    "id_numerique_interne": result.get("id_inscription_numerique_interne"),
-                    "id_personne_numerique_business": result.get("id_personne_numerique_business"),
-                    "id_cursus_numerique_business": result.get("id_cursus_numerique_business"),
-                    "participation_warning": result.get("participation_warning", ""),
-                }, ensure_ascii=False),
-                "en_attente" if result.get("participation_warning") else "rattachee",
-                result.get("participation_warning", ""),
-                str(result.get("id_inscription_numerique_interne") or ""),
-                now if result.get("participation_response") else "",
-                now,
-                now,
-                id_candidat,
-            ),
-        )
-        conn.commit()
-        candidat = get_candidat(conn, id_candidat)
-        log_event(candidat, "YPAREO_NEO_SYNC", {
-            "statut": "succes",
-            "ypareo_id": candidat["ypareo_id"],
-            "ypareo_cursus_id": candidat["ypareo_cursus_id"],
-        })
-        message = result.get("participation_warning") or "Personne, cursus et action de formation BTS MOS rattachés avec succès dans YPAREO."
-        return {"ok": True, "message": message, "candidat": candidat}
-    except YpareoError as exc:
-        message = str(exc)
-        personne_id = str(exc.personne_id or candidat.get("ypareo_id") or "")
-        personne_statut = "succes" if personne_id else "erreur"
-        personne_erreur = "" if personne_id else message
-        conn.execute(
-            """
-            UPDATE candidats
-            SET ypareo_id=?, ypareo_statut=?, ypareo_erreur=?,
-                ypareo_cursus_statut='erreur', ypareo_cursus_erreur=?,
-                ypareo_sync_at=?, updated_at=?
-            WHERE id=?
-            """,
-            (personne_id, personne_statut, personne_erreur, message, now, now, id_candidat),
-        )
-        conn.commit()
-        candidat = get_candidat(conn, id_candidat)
-        app.logger.warning(
-            "Échec synchronisation YPAREO candidat %s (HTTP %s) : %s",
-            id_candidat,
-            exc.status_code,
-            message,
-        )
-        log_event(candidat, "YPAREO_NEO_ERREUR", {"erreur": message})
-        return {"ok": False, "error": message, "candidat": candidat, "status_code": exc.status_code}
-    except Exception:
-        app.logger.exception("Erreur interne pendant la synchronisation YPAREO du candidat %s", id_candidat)
-        message = "Erreur interne inattendue pendant la synchronisation YPAREO."
-        conn.execute(
-            """
-            UPDATE candidats SET ypareo_statut='erreur', ypareo_erreur=?,
-                ypareo_cursus_statut='erreur', ypareo_cursus_erreur=?,
-                ypareo_sync_at=?, updated_at=? WHERE id=?
-            """,
-            (message, message, now, now, id_candidat),
-        )
-        conn.commit()
-        return {"ok": False, "error": message, "status_code": 500}
-
-
-def _creer_sauvegarde_ypareo_reset(conn):
-    """Crée une sauvegarde de sécurité avant un reset YPAREO."""
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-    db_backup_path = os.path.join(DATA_DIR, f"data_backup_ypareo_reset_{timestamp}.db")
-    json_backup_path = os.path.join(DATA_DIR, f"data_backup_ypareo_reset_{timestamp}.json")
-    shutil.copy2(DB_PATH, db_backup_path)
-
-    candidats = [dict(row) for row in conn.execute("SELECT * FROM candidats").fetchall()]
-    with open(json_backup_path, "w", encoding="utf-8") as backup_file:
-        json.dump(candidats, backup_file, ensure_ascii=False, indent=2)
-
-    return {"db": db_backup_path, "json": json_backup_path}
-
-
-def _colonnes_ypareo_candidats(conn):
-    """Retourne toutes les colonnes candidat stockant des données YPAREO."""
-    rows = conn.execute("PRAGMA table_info(candidats)").fetchall()
-    return [row[1] for row in rows if str(row[1]).startswith("ypareo_")]
-
-
-@app.post("/admin/ypareo-neo/<candidate_id>/reset")
-def reset_ypareo_candidate(candidate_id):
+@app.route("/admin/candidat/<cid>")
+def admin_candidate_sheet(cid):
     if not require_admin():
-        abort(403)
+        return redirect(url_for("login", next=request.full_path))
+    with closing(db()) as conn:
+        row = get_candidat(conn, cid)
+    if not row: abort(404)
+    year = candidate_year(row)
+    columns = {"qualites": "projet_qualites", "motivation": "projet_motivation", "valeurs": "projet_recherche", "travail": "projet_travail"}
+    profile_display = {g["name"]: [dict(g["options"]).get(v, v) for v in (parse_list(row.get(columns[g["name"]])) or [v.strip() for v in (row.get(columns[g["name"]]) or "").split(",") if v.strip()])] for g in PROFILE_GROUPS}
+    return render_template("candidate_sheet.html", profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year)
 
-    app.logger.info("Réinitialisation YPAREO candidat : %s", candidate_id)
-    conn = db()
-    try:
-        candidat = get_candidat(conn, candidate_id)
-        if not candidat:
-            app.logger.warning("Réinitialisation YPAREO impossible : candidat introuvable (%s)", candidate_id)
-            flash("Candidat introuvable : données YPAREO non réinitialisées.", "error")
-            return redirect(url_for("admin"))
 
-        ypareo_cols = _colonnes_ypareo_candidats(conn)
-        champs_supprimes = [col for col in ypareo_cols if candidat.get(col) not in (None, "")]
-        backup_paths = _creer_sauvegarde_ypareo_reset(conn)
-        app.logger.info("Sauvegarde créée avant reset YPAREO : %s", backup_paths)
-
-        if ypareo_cols:
-            assignments = ", ".join(f"{col}=?" for col in ypareo_cols)
-            values = [""] * len(ypareo_cols)
-            values.extend([datetime.now().isoformat(), candidate_id])
-            conn.execute(
-                f"UPDATE candidats SET {assignments}, label_ypareo=0, updated_at=? WHERE id=?",
-                values,
-            )
+@app.post("/admin/candidat/<cid>/informations")
+def admin_candidate_information(cid):
+    if not require_admin(): abort(403)
+    data = request.get_json(silent=True) or {}
+    fields = {"nom", "prenom", "email", "tel", "bts", "mode", "adresse", "cp", "ville", "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "num_secu", "resp_nom", "resp_prenom", "resp_email", "resp_tel", "baccalaureat", "bac_type", "bac_autre", "entreprise_trouvee", "recherches_commencees", "cherche_idf", "souhaite_accompagnement"}
+    changes = {key: str(value or "").strip() for key, value in data.items() if key in fields}
+    if not changes: return jsonify(ok=False, error="Aucune modification à enregistrer."), 400
+    with closing(db()) as conn:
+        row = get_candidat(conn, cid)
+        if not row: abort(404)
+        merged = {**row, **changes}
+        if merged.get("bts") not in BTS_LABELS or merged.get("mode") not in ("presentiel", "distanciel"):
+            return jsonify(ok=False, error="Vérifiez la formation et son mode de suivi."), 400
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", merged.get("email") or "") or not re.fullmatch(r"0[1-9]\d{8}", merged.get("tel") or ""):
+            return jsonify(ok=False, error="Vérifiez l’e-mail et le téléphone."), 400
+        if {"num_secu", "date_naissance", "sexe"}.intersection(changes) and merged.get("num_secu") and merged["num_secu"] != "123456789123456":
+            ok, message = validate_nir(merged["num_secu"], merged.get("date_naissance"), merged.get("sexe"))
+            if not ok: return jsonify(ok=False, error=message), 400
+        changed = {key: value for key, value in changes.items() if str(row.get(key) or "") != value}
+        if changed:
+            conn.execute("UPDATE candidats SET " + ", ".join(key + "=?" for key in changed) + ", updated_at=? WHERE id=?", [*changed.values(), datetime.now().isoformat(), cid])
             conn.commit()
-
-        app.logger.info(
-            "Champs supprimés pour le reset YPAREO du candidat %s : %s",
-            candidate_id,
-            ", ".join(champs_supprimes) if champs_supprimes else "aucun champ renseigné",
-        )
-        log_event(dict(candidat), "YPAREO_NEO_RESET", {
-            "champs_supprimes": champs_supprimes,
-            "sauvegarde": backup_paths,
-        })
-        flash("Données YPAREO réinitialisées pour ce candidat.", "success")
-        return redirect(url_for("admin"))
-    except Exception:
-        conn.rollback()
-        app.logger.exception("Erreur pendant la réinitialisation YPAREO du candidat %s", candidate_id)
-        flash("Erreur pendant la réinitialisation des données YPAREO du candidat.", "error")
-        return redirect(url_for("admin"))
-    finally:
-        conn.close()
-
-
-
-@app.post("/admin/ypareo-neo/<id_candidat>")
-def admin_ypareo_neo(id_candidat):
-    if not require_admin():
-        return jsonify(ok=False, error="Authentification administrateur requise."), 403
-
-    conn = db()
-    try:
-        result = _synchroniser_candidat_ypareo(conn, id_candidat)
-        status_code = result.pop("status_code", 200)
-        return jsonify(result), status_code
-    finally:
-        conn.close()
-
-
-@app.post("/admin/ypareo-neo/<candidate_id>/finaliser-af")
-def finaliser_af_ypareo(candidate_id):
-    if not require_admin():
-        return jsonify(ok=False, error="Authentification administrateur requise."), 403
-    data = request.get_json(silent=True) or request.form or {}
-    url_affectation = (data.get("ypareo_af_url_affectation") or data.get("url_affectation") or "").strip()
-    id_numerique = data.get("ypareo_af_id_numerique") or data.get("id_numerique")
-    if not id_numerique:
-        id_numerique = extraire_id_numerique_affectation_ypareo(url_affectation)
-    if not id_numerique:
-        return jsonify(ok=False, error="ID inscription numérique YPAREO introuvable dans l’URL saisie."), 400
-
-    conn = db()
-    try:
-        candidat = get_candidat(conn, candidate_id)
-        if not candidat:
-            return jsonify(ok=False, error="Candidat introuvable."), 404
-        if not (candidat.get("ypareo_id") or candidat.get("ypareo_id_personne")) or not (candidat.get("ypareo_cursus_id") or candidat.get("ypareo_id_cursus")):
-            return jsonify(ok=False, error="La personne et le cursus doivent déjà exister dans YPAREO."), 400
-
-        app.logger.info("URL affectation saisie manuellement : %s", url_affectation)
-        app.logger.info("ID numérique extrait : %s", id_numerique)
-        app.logger.info("PUT participation avec ID numérique")
-        token = get_ypareo_access_token()
-        response = inscrire_bts_mos_a_action_formation(id_numerique, token, **({"year": candidate_year(candidat)} if candidate_year(candidat) >= 2027 else {}))
-        now = datetime.now().isoformat()
-        conn.execute(
-            """
-            UPDATE candidats
-            SET ypareo_af_statut='rattachee', ypareo_af_error='',
-                ypareo_af_url_affectation=?, ypareo_af_id_numerique=?,
-                ypareo_af_synced_at=?, ypareo_cursus_erreur='', updated_at=?
-            WHERE id=?
-            """,
-            (url_affectation, str(id_numerique), now, now, candidate_id),
-        )
-        conn.commit()
-        candidat = get_candidat(conn, candidate_id)
-        log_event(candidat, "YPAREO_AF_FINALISEE", {"id_numerique": id_numerique})
-        app.logger.info("Résultat final : AF YPAREO rattachée")
-        return jsonify(ok=True, message="Personne, cursus et action de formation BTS MOS rattachés avec succès dans YPAREO.", response=response)
-    except YpareoError as exc:
-        now = datetime.now().isoformat()
-        conn.execute(
-            """
-            UPDATE candidats
-            SET ypareo_af_statut='erreur', ypareo_af_error=?,
-                ypareo_af_url_affectation=?, ypareo_af_id_numerique=?, updated_at=?
-            WHERE id=?
-            """,
-            (str(exc), url_affectation, str(id_numerique), now, candidate_id),
-        )
-        conn.commit()
-        app.logger.warning("Résultat final : échec AF YPAREO %s", exc)
-        return jsonify(ok=False, error=str(exc)), getattr(exc, "status_code", 502)
-    finally:
-        conn.close()
-
-
-@app.get("/admin/ypareo-neo/diagnostic-business-personne")
-def diagnostic_business_personne_ypareo():
-    if not require_admin():
-        return jsonify(ok=False, error="Authentification administrateur requise."), 403
-    email = (request.args.get("email") or "").strip()
-    endpoint = os.getenv("YPAREO_BUSINESS_PERSONNE_SEARCH_ENDPOINT", "").strip()
-    if not endpoint:
-        return jsonify(
-            ok=False,
-            error="Configurer YPAREO_BUSINESS_PERSONNE_SEARCH_ENDPOINT avec l’endpoint business de recherche personne utilisé par l’interface YPAREO.",
-        ), 503
-    if not email:
-        return jsonify(ok=False, error="Paramètre email requis."), 400
-    from services.ypareo_neo import _build_business_url, _get_business_json
-    token = get_ypareo_access_token()
-    url = _build_business_url(endpoint, email=email, q=email, search=email)
-    payload = _get_business_json(url, token, "diagnostic recherche business personne")
-    return jsonify(ok=True, url=url, response=payload)
+    if changed: log_event(row, "FICHE_MODIFIEE", {"champs": list(changed)})
+    return jsonify(ok=True)
 
 
 def campaign_rows(statut=None):
@@ -1817,49 +1544,6 @@ def campaign_rows(statut=None):
         args["statut"] = statut
     return _admin_filtered_rows(args)
 
-
-@app.get("/admin/ypareo-neo/count-confirmed")
-def admin_ypareo_neo_count_confirmed():
-    if not require_admin():
-        return jsonify(ok=False, error="Authentification administrateur requise."), 403
-    conn = db()
-    try:
-        count = sum(1 for r in campaign_rows("confirmee") if not r.get("ypareo_id") or not r.get("ypareo_cursus_id"))
-        return jsonify(ok=True, count=count)
-    finally:
-        conn.close()
-
-
-@app.post("/admin/ypareo-neo/send-confirmed")
-def admin_ypareo_neo_send_confirmed():
-    if not require_admin():
-        return jsonify(ok=False, error="Authentification administrateur requise."), 403
-    conn = db()
-    try:
-        rows = [r for r in campaign_rows("confirmee") if not r.get("ypareo_id") or not r.get("ypareo_cursus_id")]
-        if not rows:
-            return jsonify(ok=False, error="Aucun dossier en inscription confirmée à envoyer vers YPAREO NEO."), 400
-
-        sent_ids = []
-        errors = []
-        for row in rows:
-            cid = row["id"]
-            result = _synchroniser_candidat_ypareo(conn, cid)
-            if result.get("ok"):
-                sent_ids.append(cid)
-            else:
-                errors.append({"id": cid, "error": result.get("error", "Erreur inconnue")})
-
-        return jsonify(
-            ok=not errors,
-            total=len(rows),
-            sent=len(sent_ids),
-            sent_ids=sent_ids,
-            errors=errors,
-            message=f"{len(sent_ids)} dossier(s) envoyé(s) vers YPAREO NEO.",
-        ), (207 if errors and sent_ids else 500 if errors else 200)
-    finally:
-        conn.close()
 
 @app.get("/api/kpi")
 def api_kpi():
@@ -1923,7 +1607,7 @@ def admin_update_field():
     allowed = [
         "nom", "prenom", "bts", "mode", "tel", "email",
         "label_aps", "label_aut_ok", "label_cheque_ok",
-        "label_ypareo", "label_carte_etudiante",
+        "label_carte_etudiante",
         "commentaires", "nouveau_doc"
     ]
 
@@ -1973,10 +1657,18 @@ def admin_update_status():
 
     # 🔽 On récupère l'ancien statut AVANT toute modification
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    full_row = dict(cur.fetchone())
+    found = cur.fetchone()
+    if not found:
+        conn.close()
+        return jsonify(ok=False, error="Candidat introuvable"), 404
+    full_row = dict(found)
+    if value not in {key for key, _, _ in STATUTS}:
+        conn.close()
+        return jsonify(ok=False, error="Statut invalide"), 400
 
     # 🛑 ANTI-DOUBLON : si le statut est déjà celui demandé → NE RIEN ENVOYER
     if full_row.get("statut") == value:
+        conn.close()
         return jsonify({"ok": True, "statut": value})
 
     # 🕓 Enregistre la date correspondant au statut
@@ -2598,9 +2290,9 @@ def admin_logs(cid):
     cur.execute("""
         SELECT type, payload, created_at 
         FROM logs 
-        WHERE candidat_id=? 
+        WHERE candidat_id=? OR cid=?
         ORDER BY datetime(created_at) DESC
-    """, (cid,))
+    """, (cid, cid))
     rows = [dict(r) for r in cur.fetchall()]
     conn.close()
 
@@ -3759,6 +3451,7 @@ def api_set_portal_status():
 # =====================================================
 @app.route("/admin/resend_mail_sms/<cid>", methods=["POST"])
 def admin_resend_mail_sms(cid):
+    if not require_admin(): abort(403)
     try:
         data = request.get_json(force=True)
         action = data.get("action")
@@ -3858,6 +3551,7 @@ def admin_resend_mail_sms(cid):
 # =====================================================
 @app.route("/admin/relance/<cid>", methods=["POST"])
 def admin_relance(cid):
+    if not require_admin(): abort(403)
     try:
         data = request.get_json() or {}
         action = data.get("action", "").strip()

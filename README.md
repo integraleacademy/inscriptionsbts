@@ -1,4 +1,4 @@
-# Plateforme Admissions BTS 2027 – Intégrale Academy
+# Plateforme de gestion des BTS – Intégrale Academy
 
 Flask app prête à déployer sur Render (disk persistant) pour gérer :
 - Formulaire public de **pré‑inscription**
@@ -17,54 +17,16 @@ flask --app app run --debug
 ```
 ## Déploiement Render
 - Connectez le repo, Render détecte `render.yaml`.
-- Configurez `MAIL_USERNAME`, `MAIL_PASSWORD`, `ADMIN_PASSWORD` dans le dashboard Render.
-- Un disque persistant de 1GB est monté sur `/opt/render/project/src/data`.
-
-### Configuration YPAREO NEO
-
-Les variables YPAREO déclarées dans `render.yaml` ont `sync: false` : leurs
-valeurs doivent être renseignées dans **Render > Environment** avec les
-identifiants de votre instance YPAREO.
-
-Variables communes obligatoires :
-
-- `YPAREO_API_URL`
-- `YPAREO_AUTH_ENDPOINT`
-- `YPAREO_AUTH_TOKEN`
-- `YPAREO_APPRENANTS_ENDPOINT`
-- `YPAREO_CURSUS_ENDPOINT`
-
-Variables communes optionnelles :
-
-- `YPAREO_ID_ORGANISME`, à renseigner seulement si l’API de votre instance le
-  demande.
-- `YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE`
-
-Si `YPAREO_ID_SITUATION_AVANT_APPRENTISSAGE` est vide ou absente, le champ
-`idSituationAvantApprentissage` n’est pas envoyé dans le payload cursus. Si elle
-est renseignée, sa valeur doit être l’identifiant numérique YPAREO de la
-situation à affecter aux nouveaux cursus.
-
-Une variable d’identifiant de formation est également obligatoire pour chaque
-BTS synchronisé :
-
-- `YPAREO_ID_FORMATION_BTS_MOS`
-- `YPAREO_ID_FORMATION_BTS_MCO`
-- `YPAREO_ID_FORMATION_BTS_NDRC`
-- `YPAREO_ID_FORMATION_BTS_PI`
-- `YPAREO_ID_FORMATION_BTS_CI`
-
-Après ajout ou modification d’une variable dans Render, redéployez le service.
-Si la personne a déjà été créée mais que le cursus a échoué, relancer la
-synchronisation réutilise son `ypareo_id` et tente uniquement de créer le
-cursus.
-
+- Sur le service existant `inscriptionsbts`, les commits de `main` déclenchent le déploiement.
+- Le service utilise `BREVO_API_KEY`, `SENDER_EMAIL`, `BASE_URL`, `SECRET_KEY`,
+  `LOGIN_EMAIL` et `LOGIN_PASSWORD`. Les valeurs se configurent dans Render.
+- Les données du service existant sont conservées sur son disque persistant `/data`.
 
 ## Campagne septembre 2027
 
 - Ouverture publique : **1er décembre 2026 à 10 h Europe/Paris**, soit
   `2026-12-01T09:00:00Z`. Cette date est centralisée dans `campaign.py`.
-- `/` présente la clôture 2026, les six BTS, un décompte synchronisé sur
+- `/` présente uniquement la clôture 2026, un décompte synchronisé sur
   l’heure serveur et un lien calendrier. À l’ouverture, le bouton mène à
   `/candidature` (sept étapes, reprise par e-mail et récapitulatif).
 - Les routes de création, de sauvegarde et de reprise sont bloquées côté
@@ -79,17 +41,25 @@ cursus.
   utilisent la rentrée sélectionnée. Les certificats et messages suivent
   l’année du dossier, et les anciennes sessions APS ne sont plus proposées.
 
-### Action de formation YPAREO MOS 2027
+### Gestion des candidatures et aperçu
 
-Avant d’envoyer la nouvelle promotion vers YPAREO, renseigner les trois
-paramètres métier correspondant à l’action de formation créée dans YPAREO :
-
-- `YPAREO_BTS_MOS_2027_ACTION_FORMATION_ID`
-- `YPAREO_BTS_MOS_2027_DATE_DEBUT` (`AAAA-MM-JJ`)
-- `YPAREO_BTS_MOS_2027_DATE_FIN` (`AAAA-MM-JJ`)
-
-Le logiciel refuse un rattachement 2027 avec la configuration 2026.
-Les dates et identifiants ne sont pas déduits du calendrier précédent.
+- La plateforme s’appelle « Plateforme de gestion des BTS ».
+- Chaque ligne mène à `/admin/candidat/<id>` : informations modifiables,
+  projet, documents, communications, historique et suivi. Les actions
+  individuelles ne sont plus dispersées dans le tableau.
+- Le menu se réduit sur ordinateur et conserve sa position après rechargement.
+- Après connexion à `/admin`, « Aperçu du formulaire » ouvre les sept étapes
+  sans saisie obligatoire. La case « Tester les contrôles de saisie » permet
+  de vérifier les validations. Aucun dossier ne peut être envoyé en aperçu.
+- La vérification NIR (clé, année, mois, sexe, Corse) fonctionne en direct et
+  côté serveur. Les quatre groupes de profil et les contrôles de pièces du
+  formulaire 2026 sont conservés. Les six pièces restent proposées.
+- Les suggestions utilisent les communes de l’API Géo, le géocodage IGN et
+  Photon pour les villes étrangères. Pays et nationalités sont proposés
+  localement. En cas d’indisponibilité, la saisie manuelle reste possible.
+- Les boutons et routes de synchronisation YPAREO NEO ont été supprimés.
+  Les anciennes colonnes restent en base pour conserver les historiques ;
+  aucune configuration de synchronisation n’est requise.
 
 ### Vérification
 
@@ -97,7 +67,7 @@ Les dates et identifiants ne sont pas déduits du calendrier précédent.
 
 Tests de la frontière horaire, des restrictions avant ouverture, des
 brouillons, des justificatifs, des cohortes, des e-mails, des certificats
-et de la configuration YPAREO. Les envois externes sont simulés.
+du NIR, des champs 2026 et des fiches candidat. Les envois externes sont simulés.
 Le parcours a également été vérifié dans Chromium à 1440 et 390 px,
 avec candidature complète, erreurs de validation, mineur/responsable légal,
 reprise, suivi candidat, filtres, actualisation et menus d’administration.

@@ -73,9 +73,6 @@ table.querySelectorAll('.status-select').forEach(sel => {
       });
     });
 
-    table.querySelectorAll('.ypareo-neo-btn').forEach(btn => {
-      btn.addEventListener('click', () => envoyerYpareoNeo(btn));
-    });
 
     // 📎 Boutons pièces justificatives
     table.querySelectorAll('.files-btn').forEach(btn => {
@@ -318,227 +315,6 @@ filesModal.addEventListener("click", async (e) => {
 
 
 }); // ✅ FIN DOMContentLoaded
-
-
-function marquerBoutonYpareoEnvoye(btn, couleur = "#6c757d") {
-  if (!btn) return;
-  btn.textContent = "✅ Envoyé YPAREO";
-  btn.style.background = couleur;
-  btn.title = "";
-  btn.disabled = true;
-  const errorDetail = btn.parentElement?.querySelector(".ypareo-error-detail");
-  if (errorDetail) {
-    errorDetail.textContent = "";
-    errorDetail.style.display = "none";
-  }
-  const checkbox = btn.closest("tr")?.querySelector('[data-field="label_ypareo"]');
-  if (checkbox) checkbox.checked = true;
-}
-
-async function rafraichirCompteurYpareoMass() {
-  const btn = document.getElementById("btnMassYpareoNeo");
-  if (!btn) return 0;
-  try {
-    const res = await fetch(campaignURL("/admin/ypareo-neo/count-confirmed"), { cache: "no-store" });
-    const data = await res.json();
-    if (!res.ok || !data.ok) throw new Error(data.error || "Compteur indisponible");
-    btn.textContent = `🚀 YPAREO NEO (${data.count})`;
-    btn.disabled = data.count === 0;
-    btn.title = data.count === 0
-      ? "Aucun dossier en inscription confirmée à envoyer vers YPAREO NEO"
-      : "Envoyer tous les dossiers en inscription confirmée vers YPAREO NEO";
-    return data.count;
-  } catch (err) {
-    console.warn("Impossible de récupérer le nombre de dossiers YPAREO NEO :", err);
-    return 0;
-  }
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const massYpareoBtn = document.getElementById("btnMassYpareoNeo");
-  const modal = document.getElementById("ypareoMassConfirmModal");
-  const countEl = document.getElementById("ypareoMassConfirmCount");
-  const cancelBtn = document.getElementById("ypareoMassCancel");
-  const confirmBtn = document.getElementById("ypareoMassConfirm");
-  if (!massYpareoBtn || !modal || !countEl || !confirmBtn) return;
-
-  rafraichirCompteurYpareoMass();
-
-  cancelBtn?.addEventListener("click", () => modal.classList.add("hidden"));
-
-  massYpareoBtn.addEventListener("click", async () => {
-    massYpareoBtn.disabled = true;
-    const count = await rafraichirCompteurYpareoMass();
-    massYpareoBtn.disabled = count === 0;
-    if (count === 0) {
-      showToast("Aucun dossier confirmé à envoyer vers YPAREO NEO.", "#6c757d");
-      return;
-    }
-    countEl.textContent = count;
-    modal.classList.remove("hidden");
-  });
-
-  confirmBtn.addEventListener("click", async () => {
-    modal.classList.add("hidden");
-    ouvrirProgressionYpareo();
-    document.getElementById("ypareoProgressSubtitle").textContent =
-      "Envoi groupé des dossiers confirmés vers YPAREO NEO…";
-    massYpareoBtn.disabled = true;
-    const oldText = massYpareoBtn.textContent;
-    massYpareoBtn.textContent = "⏳ Envoi YPAREO en cours…";
-
-    const cursusTimer = window.setTimeout(() => definirEtapeYpareo("cursus"), 850);
-    try {
-      const res = await fetch(campaignURL("/admin/ypareo-neo/send-confirmed"), {
-        method: "POST",
-        headers: { "Accept": "application/json" }
-      });
-      const data = await res.json().catch(() => ({}));
-      window.clearTimeout(cursusTimer);
-      definirEtapeYpareo("cursus");
-
-      (data.sent_ids || []).forEach((id) => {
-        const btn = document.querySelector(`.ypareo-neo-btn[data-id="${CSS.escape(String(id))}"]`);
-        marquerBoutonYpareoEnvoye(btn, "#6c757d");
-      });
-
-      if (!res.ok || !data.ok) {
-        const detail = data.errors?.length
-          ? `${data.sent || 0}/${data.total || 0} envoyé(s). ${data.errors.length} erreur(s).`
-          : (data.error || "Erreur lors de l’envoi groupé YPAREO NEO.");
-        throw new Error(detail);
-      }
-
-      terminerProgressionYpareo(true, data.message || "Envoi groupé terminé.");
-      showToast(`✅ ${data.sent} dossier(s) envoyé(s) vers YPAREO NEO`, "#28a745");
-      await rafraichirCompteurYpareoMass();
-    } catch (err) {
-      window.clearTimeout(cursusTimer);
-      terminerProgressionYpareo(false, err.message);
-      showToast(`❌ ${err.message}`, "#dc3545");
-    } finally {
-      massYpareoBtn.textContent = oldText;
-      await rafraichirCompteurYpareoMass();
-    }
-  });
-});
-
-async function envoyerYpareoNeo(btn) {
-  const id = btn.dataset.id;
-  if (!id || btn.disabled) return;
-  const errorDetail = btn.parentElement.querySelector(".ypareo-error-detail");
-  ouvrirProgressionYpareo();
-  btn.disabled = true;
-  btn.textContent = "⏳ Envoi…";
-  btn.style.background = "#6c757d";
-  if (errorDetail) errorDetail.style.display = "none";
-
-  const cursusTimer = window.setTimeout(() => {
-    definirEtapeYpareo("cursus");
-  }, 850);
-
-  try {
-    const response = await fetch(`/admin/ypareo-neo/${encodeURIComponent(id)}`, {
-      method: "POST",
-      headers: { "Accept": "application/json" }
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.ok) {
-      throw new Error(data.error || `Erreur HTTP ${response.status}`);
-    }
-    window.clearTimeout(cursusTimer);
-    definirEtapeYpareo("cursus");
-    marquerBoutonYpareoEnvoye(btn, "#28a745");
-    terminerProgressionYpareo(true);
-    showToast(data.message || "✅ Candidat envoyé dans YPAREO", "#28a745");
-  } catch (error) {
-    window.clearTimeout(cursusTimer);
-    btn.textContent = "❌ Erreur YPAREO";
-    btn.style.background = "#dc3545";
-    btn.title = error.message;
-    btn.disabled = false;
-    if (errorDetail) {
-      errorDetail.textContent = error.message;
-      errorDetail.style.display = "block";
-    }
-    terminerProgressionYpareo(false, error.message);
-    showToast(`❌ ${error.message}`, "#dc3545");
-  }
-}
-
-function ouvrirProgressionYpareo() {
-  const modal = document.getElementById("ypareoProgressModal");
-  const card = document.getElementById("ypareoProgressCard");
-  const spinner = document.getElementById("ypareoProgressSpinner");
-  const error = document.getElementById("ypareoProgressError");
-  const close = document.getElementById("ypareoProgressClose");
-  card?.classList.remove("is-success", "is-error");
-  if (spinner) spinner.textContent = "";
-  document.getElementById("ypareoProgressTitle").textContent =
-    "Transmission en cours vers YPAREO NEO";
-  document.getElementById("ypareoProgressSubtitle").textContent =
-    "Création de la fiche apprenant et de son inscription à la formation…";
-  document.getElementById("ypareoProgressNote").textContent =
-    "Veuillez patienter et ne fermez pas cette page.";
-  document.getElementById("ypareoPersonStep")?.classList.add("active");
-  document.getElementById("ypareoPersonStep")?.classList.remove("done");
-  document.getElementById("ypareoCursusStep")?.classList.remove("active", "done");
-  document.getElementById("ypareoProgressLine")?.classList.remove("active");
-  if (error) {
-    error.textContent = "";
-    error.style.display = "none";
-  }
-  if (close) close.style.display = "none";
-  modal?.classList.remove("hidden");
-}
-
-function definirEtapeYpareo(etape) {
-  if (etape !== "cursus") return;
-  document.getElementById("ypareoPersonStep")?.classList.remove("active");
-  document.getElementById("ypareoPersonStep")?.classList.add("done");
-  document.getElementById("ypareoProgressLine")?.classList.add("active");
-  document.getElementById("ypareoCursusStep")?.classList.add("active");
-  const subtitle = document.getElementById("ypareoProgressSubtitle");
-  if (subtitle) subtitle.textContent = "La personne est prête. Création de son cursus de formation…";
-}
-
-function terminerProgressionYpareo(succes, message = "") {
-  const card = document.getElementById("ypareoProgressCard");
-  const spinner = document.getElementById("ypareoProgressSpinner");
-  const title = document.getElementById("ypareoProgressTitle");
-  const subtitle = document.getElementById("ypareoProgressSubtitle");
-  const note = document.getElementById("ypareoProgressNote");
-  const error = document.getElementById("ypareoProgressError");
-  const close = document.getElementById("ypareoProgressClose");
-
-  card?.classList.add(succes ? "is-success" : "is-error");
-  if (spinner) spinner.textContent = succes ? "✓" : "!";
-  if (title) title.textContent = succes ? "Transmission YPAREO terminée" : "Échec de la transmission YPAREO";
-  if (subtitle) {
-    subtitle.textContent = succes
-      ? "La personne et son cursus ont bien été créés dans YPAREO NEO."
-      : "La synchronisation n’a pas pu être terminée.";
-  }
-  if (note) {
-    note.textContent = succes
-      ? "Les identifiants YPAREO ont été enregistrés sur le candidat."
-      : "Corrigez le problème puis cliquez à nouveau sur Erreur YPAREO.";
-  }
-  document.getElementById("ypareoPersonStep")?.classList.remove("active");
-  document.getElementById("ypareoPersonStep")?.classList.add("done");
-  document.getElementById("ypareoProgressLine")?.classList.add("active");
-  document.getElementById("ypareoCursusStep")?.classList.remove("active");
-  if (succes) document.getElementById("ypareoCursusStep")?.classList.add("done");
-  if (!succes && error) {
-    error.textContent = message;
-    error.style.display = "block";
-  }
-  if (close) close.style.display = "block";
-}
-
-document.getElementById("ypareoProgressClose")?.addEventListener("click", () => {
-  document.getElementById("ypareoProgressModal")?.classList.add("hidden");
-});
 
 
 // ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ
@@ -1579,14 +1355,13 @@ document.addEventListener('DOMContentLoaded', () => {
   let enabled=true,remaining=60,busy=false;
   function bindRefreshedRows(body){
     body.querySelectorAll('.status-select').forEach(sel=>{updateStatusColor(sel);sel.addEventListener('change',()=>onStatusChange(sel));});
-    body.querySelectorAll('.ypareo-neo-btn').forEach(btn=>btn.addEventListener('click',()=>envoyerYpareoNeo(btn)));
     body.querySelectorAll('input.chk,td[contenteditable=true]').forEach(el=>el.addEventListener(el.matches('input')?'change':'blur',async()=>{
       const id=el.closest('tr').dataset.id,field=el.dataset.field,value=el.matches('input')?(el.checked?1:0):el.textContent.trim();
       try{const res=await fetch('/admin/update-field',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,field,value})});const data=await res.json();if(!res.ok || !data.ok)throw new Error();showToast('Modification enregistrée','#356ae6');}catch{showToast('La modification n’a pas été enregistrée. Réessayez.','#b33b50');}
     }));
   }
   async function refresh(manualRequest=false){
-    if(busy || document.activeElement?.isContentEditable || document.querySelector('.row-tools[open],.row-labels[open],.modal:not(.hidden),.ypareo-progress-modal:not(.hidden)'))return;
+    if(busy || document.activeElement?.isContentEditable || document.querySelector('.row-tools[open],.row-labels[open],.modal:not(.hidden)'))return;
     busy=true;
     try{
       const response=await fetch(location.href,{cache:'no-store'});if(!response.ok)throw new Error();
@@ -1635,7 +1410,6 @@ async function refreshRow(id) {
         <details class="row-labels"><summary>Suivi du dossier ⌄</summary><div><label><input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS</label>
         <label><input type="checkbox" class="chk" data-field="label_aut_ok" ${data.row.label_aut_ok ? "checked" : ""}> AUT OK</label>
         <label><input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK</label>
-        <label><input type="checkbox" class="chk" data-field="label_ypareo" ${data.row.label_ypareo ? "checked" : ""}> YPAREO</label>
         <label><input type="checkbox" class="chk" data-field="label_carte_etudiante" ${data.row.label_carte_etudiante ? "checked" : ""}> Carte étudiante</label></div></details>
       </td>
     `;
@@ -1916,40 +1690,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 
-
-document.addEventListener("click", async (e) => {
-  const btn = e.target.closest(".ypareo-af-finalize-btn");
-  if (!btn) return;
-  const id = btn.dataset.id;
-  const wrapper = btn.closest(".ypareo-af-finalize");
-  const input = wrapper?.querySelector(".ypareo-af-url-input");
-  const errorDetail = btn.parentElement?.parentElement?.querySelector(".ypareo-error-detail");
-  const oldText = btn.textContent;
-  btn.disabled = true;
-  btn.textContent = "⏳ Finalisation…";
-  if (errorDetail) errorDetail.style.display = "none";
-  try {
-    const response = await fetch(`/admin/ypareo-neo/${encodeURIComponent(id)}/finaliser-af`, {
-      method: "POST",
-      headers: { "Accept": "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify({ ypareo_af_url_affectation: input?.value || "" })
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || !data.ok) throw new Error(data.error || `Erreur HTTP ${response.status}`);
-    btn.textContent = "✅ AF rattachée";
-    btn.style.background = "#28a745";
-    wrapper?.remove();
-    showToast(data.message || "✅ AF YPAREO finalisée", "#28a745");
-  } catch (error) {
-    btn.disabled = false;
-    btn.textContent = oldText;
-    if (errorDetail) {
-      errorDetail.textContent = error.message;
-      errorDetail.style.display = "block";
-    }
-    showToast(`❌ ${error.message}`, "#dc3545");
-  }
-});
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.admin-menu .menu-panel button').forEach(button => button.addEventListener('click', () => button.closest('.admin-menu').removeAttribute('open')));

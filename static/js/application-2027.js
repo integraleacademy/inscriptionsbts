@@ -9,6 +9,8 @@
   const save = document.getElementById('save-application');
   const error = document.getElementById('application-error');
   const notice = document.getElementById('application-notice');
+  const preview = form.dataset.preview === 'true';
+  const enforce = () => !preview || !!document.getElementById('preview-validation')?.checked;
   let index = 0, furthest = 0, submitting = false;
   const value = name => new FormData(form).get(name) || '';
   const showMessage = (message, failure = true) => { const el = failure ? error : notice; el.textContent = message; el.hidden = false; };
@@ -25,15 +27,18 @@
   }
   function validate(step) {
     conditional();
+    if (!enforce()) return true;
     const fields = [...steps[step].querySelectorAll('input,select,textarea')].filter(x => !x.disabled);
     for (const field of fields) {
       field.setCustomValidity('');
       if (field.type === 'email') field.value = field.value.trim();
       if (field.name === 'email_confirm' && field.value.toLowerCase() !== value('email').toLowerCase()) field.setCustomValidity('Les deux adresses e-mail doivent être identiques.');
+      if (field.name === 'num_secu') {const result=AdmissionValidation.nir(field.value,value('date_naissance'),value('sexe'));field.setCustomValidity(result.ok?'':result.message);}
       if (field.name === 'date_naissance' && field.value >= new Date().toLocaleDateString('en-CA')) field.setCustomValidity('Vérifie ta date de naissance.');
       if (field.type === 'file' && field.files[0]) {
         const file = field.files[0];
         const ext = '.' + file.name.split('.').pop().toLowerCase();
+        if (['carte_vitale','cv','lm'].includes(field.name) && file.size < 10*1024) field.setCustomValidity('Ce PDF semble vide ou incomplet (moins de 10 Ko). Ajoute un document lisible.');
         if (!field.accept.split(',').includes(ext) || file.size > 8 * 1024 * 1024 || file.size === 0) field.setCustomValidity('Vérifie le format et la taille du fichier (8 Mo maximum).');
       }
       if (!field.checkValidity()) {
@@ -42,8 +47,21 @@
       }
       field.classList.remove('invalid'); field.removeAttribute('aria-invalid');
     }
+    for(const group of steps[step].querySelectorAll('[data-required-group]')) {
+      if(!group.querySelector('input:checked')) {showMessage('Choisis au moins une réponse dans chacune des quatre parties de ton projet.');group.querySelector('input').focus();return false;}
+    }
     return true;
   }
+  function nirFeedback() {
+    const input=form.elements.num_secu, help=document.getElementById('numSecuHelp');
+    const result=AdmissionValidation.nir(input.value,value('date_naissance'),value('sexe'));
+    help.textContent=input.value?result.message:'15 caractères, avec la clé de contrôle. Vérification automatique pendant la saisie.';
+    help.dataset.state=input.value?(result.ok?'valid':'invalid'):'';
+    input.setCustomValidity(input.value&&!result.ok?result.message:'');
+    input.classList.toggle('invalid',!!input.value&&!result.ok);input.setAttribute('aria-invalid',String(!!input.value&&!result.ok));
+    return result.ok;
+  }
+  window.verifierNumSecu=nirFeedback;
   function recap() {
     const container = document.getElementById('application-recap'); container.replaceChildren();
     steps.slice(0,-1).forEach((step,i) => {
@@ -65,9 +83,17 @@
     });
   }
   function show(step, focus = true) {
-    index = step; furthest = Math.max(furthest,index); error.hidden = true; notice.hidden = true;
+    index = step;
+    document.body.dataset.applicationStep=String(index);
+    document.getElementById('journey-number').textContent=String(index+1).padStart(2,'0');
+    document.querySelectorAll('[data-journey-icon]').forEach((el,i)=>el.hidden=i!==index);
+    const captions=['Un projet. Une direction. Et si la suite commençait ici ?','Derrière chaque dossier, il y a une personnalité. Faisons connaissance.','Garder le lien, pour avancer ensemble jusqu’à la rentrée.','Là où tu en es aujourd’hui. Là où tu aimerais aller demain.','Ce qui t’anime compte autant que ce que tu sais déjà.','Les dernières pièces, pour donner vie à ton inscription.','Tout est là. Ton prochain chapitre peut commencer.'];
+    document.getElementById('journey-caption').textContent=captions[index];
+    document.getElementById('journey-sticker').textContent=['LE DÉBUT DE LA SUITE ↗','ENCHANTÉS DE TE CONNAÎTRE','ON GARDE LE CONTACT','UN PARCOURS QUI T’APPARTIENT','TA DIFFÉRENCE COMPTE','PRESQUE AU BOUT','À TOI DE JOUER ↗'][index];
+    const current=steps[index];current.classList.remove('step-enter');void current.offsetWidth;current.classList.add('step-enter');
+    furthest = Math.max(furthest,index); error.hidden = true; notice.hidden = true;
     steps.forEach((section,i) => { section.hidden = i !== index; });
-    nav.forEach((button,i) => { button.disabled = i > furthest; button.classList.toggle('active',i===index); button.classList.toggle('done',i<index); if (i===index) button.setAttribute('aria-current','step'); else button.removeAttribute('aria-current'); });
+    nav.forEach((button,i) => { button.disabled = !preview && i > furthest; button.classList.toggle('active',i===index); button.classList.toggle('done',i<index); if (i===index) button.setAttribute('aria-current','step'); else button.removeAttribute('aria-current'); });
     document.getElementById('step-label').textContent = `ÉTAPE ${index+1} SUR ${steps.length} · ${steps[index].dataset.title.toUpperCase()}`;
     document.getElementById('step-percent').textContent = `${Math.round(index / (steps.length - 1) * 100)} %`;
     document.getElementById('application-progress').value = index;
@@ -78,12 +104,13 @@
   }
   previous.addEventListener('click', () => show(index-1));
   next.addEventListener('click', () => { if (validate(index)) show(index+1); });
-  nav.forEach((button,i) => button.addEventListener('click', () => { if(i<=index || validate(index)) show(i); }));
-  form.addEventListener('change', conditional);
+  nav.forEach((button,i) => button.addEventListener('click', () => { if(preview || i<=index || validate(index)) show(i); }));
+  form.addEventListener('change', event=>{conditional();if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
   form.addEventListener('input', event => {
     const input = event.target; input.setCustomValidity?.(''); input.classList.remove('invalid'); input.removeAttribute('aria-invalid');
     if (input.type === 'tel') input.value = input.value.replace(/\D/g,'');
-    if (input.name === 'num_secu') input.value = input.value.toUpperCase().replace(/[^0-9AB]/g,'');
+    if (input.name === 'num_secu') input.value = input.value.toUpperCase().replace(/[^0-9AB]/g,'').slice(0,15);
+    if(['num_secu','date_naissance','sexe'].includes(input.name))nirFeedback();
   });
   form.querySelectorAll('input[type="file"]').forEach(input => input.addEventListener('change', () => {
     const state = input.closest('label').querySelector('.file-state'); const file = input.files[0]; state.textContent = file ? `${file.name} · ${(file.size/1024/1024).toFixed(1)} Mo` : 'Choisir un fichier'; input.closest('label').classList.toggle('has-file',!!file);
@@ -101,12 +128,12 @@
   form.addEventListener('submit', async event => {
     event.preventDefault(); if(submitting || form.dataset.preview==='true') return;
     for(let i=0;i<steps.length;i++){if(!validate(i)){show(i);validate(i);return;}}
-    submitting=true;send.disabled=true;save.disabled=true;previous.disabled=true;send.textContent='Envoi de ta candidature…';form.setAttribute('aria-busy','true');
+    submitting=true;document.body.classList.add('application-sending');send.disabled=true;save.disabled=true;previous.disabled=true;send.textContent='Envoi de ta candidature…';form.setAttribute('aria-busy','true');
     try{const res=await fetch(form.action,{method:'POST',headers:{Accept:'application/json'},body:new FormData(form)}); const type=res.headers.get('content-type') || ''; if(!type.includes('application/json')) throw new Error('L’envoi n’a pas pu être confirmé. Réessaie ou contacte notre équipe.'); const data=await res.json();if(!res.ok || !data.ok)throw new Error(data.error || 'Impossible de transmettre ta candidature.');window.location.assign(data.redirect);}
-    catch(err){showMessage(err.message);submitting=false;send.disabled=false;save.disabled=false;previous.disabled=false;send.textContent='Envoyer ma candidature ↗';form.removeAttribute('aria-busy');}
+    catch(err){showMessage(err.message);document.body.classList.remove('application-sending');submitting=false;send.disabled=false;save.disabled=false;previous.disabled=false;send.textContent='Envoyer ma candidature ↗';form.removeAttribute('aria-busy');}
   });
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
-  conditional();show(0,false);
+  conditional();show(0,false);nirFeedback();
   if(saved)showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false);
 })();
