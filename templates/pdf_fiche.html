@@ -178,7 +178,7 @@
   {% if row.baccalaureat %}
     {% if 'oui' in row.baccalaureat.lower() %}✅ Oui
     {% elif 'non' in row.baccalaureat.lower() %}❌ Non
-    {% elif 'prévu' in row.baccalaureat.lower() or '2026' in row.baccalaureat %}📅 Prévu en 2026
+    {% elif 'prévu' in row.baccalaureat.lower() or '2026' in row.baccalaureat %}📅 {{ row.baccalaureat }}
     {% else %}{{ row.baccalaureat }}
     {% endif %}
   {% else %}

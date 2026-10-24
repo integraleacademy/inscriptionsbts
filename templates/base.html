@@ -33,24 +33,35 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   
 </head>
 
-<body class="{% block body_class %}{% endblock %}">
+{% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}
+<body class="academy-ui {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
+<a class="skip-link" href="#main-content">Aller au contenu</a>
 
     <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PKTXJCXF"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- End Google Tag Manager (noscript) -->
   
-  <!-- 🧭 Nouvelle barre supérieure centrée -->
-  <header class="topbar new-topbar centered-topbar">
-    <div class="datetime" id="datetime"></div>
-    <div class="brand-centered">
-      <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Logo Intégrale Academy" class="logo-centered">
-      <h1>Intégrale Academy</h1>
-    </div>
-  </header>
+  {% if is_admin %}
+  <aside class="workspace-sidebar" id="workspace-sidebar">
+    <a href="/admin" class="workspace-brand"><img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Intégrale Academy"><span>ADMISSIONS<span>BTS · Espace équipe</span></span></a>
+    <span class="nav-caption">GESTION DES ADMISSIONS</span>
+    <nav aria-label="Navigation administration">
+      <a href="/admin" class="{% if request.path == '/admin' %}active{% endif %}"><span>▦</span> Candidatures</a>
+      <a href="/admin/reprendre-plus-tard"><span>◷</span> Dossiers à reprendre</a>
+      <a href="{{ url_for('parcoursup.dashboard') }}"><span>↗</span> Parcoursup</a>
+      <a href="/admin/pole-alternance"><span>◇</span> Pôle Alternance</a>
+      <a href="/admin/voyage-londres"><span>✈</span> Voyage à Londres</a>
+    </nav>
+    <div class="sidebar-bottom"><p>RENTRÉE SEPTEMBRE 2027</p><small>Ouverture le 1er décembre 2026 à 10 h · Paris</small><a href="/candidature?preview=1" target="_blank" rel="noopener">Prévisualiser le formulaire ↗</a><a href="/" target="_blank" rel="noopener">Voir le site public ↗</a><a href="/logout">Se déconnecter</a></div>
+  </aside>
+  <header class="workspace-topbar"><button type="button" class="menu-toggle" aria-controls="workspace-sidebar" aria-expanded="false">☰ <span>Menu</span></button><span>Intégrale Academy <span class="breadcrumb-sep">/</span> Admissions BTS</span><a href="/" target="_blank" rel="noopener">Portail public ↗</a></header>
+  {% else %}
+  <header class="admissions-header"><a href="/" class="academy-brand"><img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Intégrale Academy"><span>INTÉGRALE<b>ACADEMY</b></span></a><span class="header-caption">Ton futur commence ici.</span><a href="tel:+33422470768" class="header-contact">Une question ? <b>04 22 47 07 68 ↗</b></a></header>
+  {% endif %}
 
   <!-- ✅ Contenu principal -->
-  <main class="{% if 'admin' in request.path or 'parcoursup' in request.path %}admin-full{% elif 'espace' in request.path %}container candidat{% else %}container{% endif %}">
+  <main id="main-content" class="{% if 'admin' in request.path or 'parcoursup' in request.path %}admin-full{% elif 'espace' in request.path %}container candidat{% else %}container{% endif %}">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-area">
@@ -63,32 +74,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     {% block content %}{% endblock %}
   </main>
 
-  <!-- ❤️ Pied de page -->
-  <footer class="footer-signature">
-    <p>❤️ Site internet créé et développé par <strong>Intégrale Group</strong></p>
-  </footer>
-
-  <!-- JS dynamiques -->
-  <script>
-    // 🕒 Date et heure en français (première lettre majuscule)
-    function updateDateTime() {
-      const now = new Date();
-      const options = {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit'
-      };
-      let text = now.toLocaleString('fr-FR', options);
-      // Met majuscule à la première lettre du jour
-      text = text.charAt(0).toUpperCase() + text.slice(1);
-      document.getElementById('datetime').textContent = text;
-    }
-    setInterval(updateDateTime, 1000);
-    updateDateTime();
-  </script>
-
+  <footer class="footer-signature"><span>Intégrale Academy · Puget-sur-Argens, Côte d’Azur</span><a href="https://integraleacademy.com" target="_blank" rel="noopener">integraleacademy.com ↗</a><small>Une école Intégrale Group</small></footer>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admissions-2027.css') }}?v=1">
+  <script>document.querySelector('.menu-toggle')?.addEventListener('click', function(){ const open = document.body.classList.toggle('sidebar-open'); this.setAttribute('aria-expanded', String(open)); });</script>
   {% if 'admin' in request.path or 'parcoursup' in request.path %}
     <script src="{{ url_for('static', filename='js/main_admin.js') }}"></script>
-  {% elif request.path.startswith('/replace-files') %}
+  {% elif request.path.startswith('/replace-files') or request.path.startswith('/espace/') or request.path == '/login' or request.path == '/' or request.path == '/candidature' or request.path.startswith('/reprendre/') %}
     {# Pas de JS front sur cette page #}
   {% else %}
     <script src="{{ url_for('static', filename='js/main_front.js') }}" defer></script>

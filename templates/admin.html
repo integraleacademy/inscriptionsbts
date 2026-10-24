@@ -276,63 +276,14 @@
 <div class="admin-wrapper">
 
   <!-- 🔝 En-tête -->
-<header class="admin-header">
-
-
-  
-
-  <h2>📋 Administration — Pré-inscriptions BTS 2026</h2>
-
-  <button class="btn primary" id="btnPortal">
-  🔒 Gestion Portail
-</button>
-
-    <button class="btn gold" id="btnMassReconfirm" style="margin-left:10px;">
-    📢 Envoyer reconfirmation à tous
-  </button>
-
-  <button class="btn" id="btnMassYpareoNeo" style="margin-left:10px;background:linear-gradient(135deg,#6f42c1,#2468e8);color:white;font-weight:800;box-shadow:0 10px 22px rgba(111,66,193,.22);">
-    🚀 YPAREO NEO
-  </button>
-
-  <button class="btn green" id="btnMassValidatedRelance" style="margin-left:10px;">
-    🔔 RELANCER TOUTES LES CANDIDATURES VALIDEES
-  </button>
-
-  <div class="admin-actions">
-    <a href="{{ url_for('voyage_londres') }}" class="btn primary" style="display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#173b70,#2563eb);box-shadow:0 8px 20px rgba(37,99,235,.25);">
-      🇬🇧 Gestion voyage Londres
-    </a>
-    <a href="{{ url_for('parcoursup.dashboard') }}" class="btn secondary" style="display:inline-flex;align-items:center;gap:6px;">
-      📋 Gestion Parcoursup
-    </a>
-
-    <a href="{{ url_for('admin_export_csv') }}" class="btn secondary">📄 Export CSV</a>
-    <a href="{{ url_for('admin_export_json') }}" class="btn secondary">💾 Export JSON</a>
-    <a href="{{ url_for('admin_export_confirmed_xlsx') }}" class="btn secondary">📊 Export Excel confirmées</a>
-    <a href="{{ url_for('admin_export_filtered_xlsx', **request.args) }}" class="btn secondary">📊 Export Excel filtré</a>
-    <a href="/admin/reprendre-plus-tard" class="btn small-btn" style="background:#6c757d;">
-  ⏳ Reprendre plus tard
-</a>
-    <a href="{{ url_for('admin_pole_alternance') }}" 
-   class="btn secondary" 
-   style="display:inline-flex;align-items:center;gap:6px;">
-  👥 Pôle Alternance
-</a>
-
-
-    <form action="{{ url_for('admin_clear_db') }}" method="post" style="display:inline"
-          onsubmit="return confirm('⚠️ Êtes-vous sûr de vouloir tout effacer ? Cette action est irréversible.')">
-      <button class="btn danger">🗑️ Vider la base</button>
-    </form>
-  </div>
-</header>
+<header class="admin-header"><div><p class="eyebrow">LE BON CAP, POUR CHAQUE CANDIDAT</p><h2>Les candidatures</h2><p>Suivez les admissions, de la première demande à la rentrée.</p></div><div class="admin-top-actions"><a class="btn primary" href="{{ url_for('admin_export_filtered_xlsx', **request.args) }}">Exporter la sélection ↗</a><details class="admin-menu"><summary class="btn">Actions & outils ···</summary><div class="menu-panel"><p>PORTAIL D’INSCRIPTION</p><button class="btn" id="btnPortal">Paramètres du portail</button><a class="btn" href="/candidature?preview=1" target="_blank" rel="noopener">Prévisualiser le formulaire 2027 ↗</a><hr><p>ACTIONS SUR LA RENTRÉE SÉLECTIONNÉE</p><button class="btn" id="btnMassValidatedRelance">Relancer les candidatures validées</button><button class="btn" id="btnMassReconfirm">Demander les reconfirmations</button><button class="btn" id="btnMassYpareoNeo">Synchroniser avec YPAREO NEO</button><hr><p>EXPORTS</p><a class="btn" href="{{ url_for('admin_export_csv', **request.args) }}">Télécharger en CSV</a><a class="btn" href="{{ url_for('admin_export_json', **request.args) }}">Télécharger en JSON</a><a class="btn" href="{{ url_for('admin_export_confirmed_xlsx', **request.args) }}">Excel des inscriptions confirmées</a><hr><p>ACTUALISATION</p><div id="liveControl"><span id="liveStatus">Actualisation active</span> <span id="countdown">60 s</span><button class="btn" id="toggleLive">Mettre en pause</button><button class="btn" id="manualRefresh">Actualiser maintenant</button></div><span id="brevoIndicator">État de la messagerie…</span><hr><details><summary class="btn">Maintenance</summary><form action="{{ url_for('admin_clear_db') }}" method="post" onsubmit="return confirm('Supprimer TOUS les dossiers de TOUTES les rentrées ? Cette action est irréversible.');"><button class="btn danger">Vider toute la base</button></form></details></div></details></div></header>
+<div class="campaign-banner"><span aria-hidden="true">◷</span><div><b>Rentrée 2027 · Ouverture automatique le 1er décembre 2026 à 10 h, heure de Paris</b>Retrouvez les dossiers existants en sélectionnant la rentrée 2026 dans les filtres.</div></div>
 
 <!-- 📊 DASHBOARD INTÉGRALE ACADEMY -->
 <div class="ia-dashboard">
   
   <div class="kpi-card">
-    <div class="kpi-icon icon-gray">📝</div>
+    <div class="kpi-icon icon-gray">◇</div>
     <div class="kpi-info">
       <div class="kpi-value" id="st_pre">—</div>
       <div class="kpi-label">Pré-inscriptions</div>
@@ -340,7 +291,7 @@
   </div>
 
   <div class="kpi-card">
-    <div class="kpi-icon icon-blue">📤</div>
+    <div class="kpi-icon icon-blue">↗</div>
     <div class="kpi-info">
       <div class="kpi-value" id="st_val">—</div>
       <div class="kpi-label">Validées</div>
@@ -348,7 +299,7 @@
   </div>
 
   <div class="kpi-card">
-    <div class="kpi-icon icon-gold">🎓</div>
+    <div class="kpi-icon icon-gold">✓</div>
     <div class="kpi-info">
       <div class="kpi-value" id="st_conf">—</div>
       <div class="kpi-label">Confirmées</div>
@@ -356,7 +307,7 @@
   </div>
 
   <div class="kpi-card">
-    <div class="kpi-icon icon-orange">⏳</div>
+    <div class="kpi-icon icon-orange">◷</div>
     <div class="kpi-info">
       <div class="kpi-value" id="st_reconf">—</div>
       <div class="kpi-label">Reconf. en cours</div>
@@ -364,7 +315,7 @@
   </div>
 
   <div class="kpi-card">
-    <div class="kpi-icon icon-green">✔️</div>
+    <div class="kpi-icon icon-green">✓</div>
     <div class="kpi-info">
       <div class="kpi-value" id="st_reconf2">—</div>
       <div class="kpi-label">Re-confirmées</div>
@@ -372,7 +323,7 @@
   </div>
 
   <div class="kpi-card">
-    <div class="kpi-icon icon-red">❌</div>
+    <div class="kpi-icon icon-red">×</div>
     <div class="kpi-info">
       <div class="kpi-value" id="st_ann">—</div>
       <div class="kpi-label">Annulées</div>
@@ -380,7 +331,7 @@
   </div>
 
   <div class="kpi-card">
-    <div class="kpi-icon icon-black">⚠️</div>
+    <div class="kpi-icon icon-black">!</div>
     <div class="kpi-info">
       <div class="kpi-value" id="st_docs">—</div>
       <div class="kpi-label">Docs non conformes</div>
@@ -455,10 +406,11 @@
     <input type="text" 
        id="searchBTS" 
        name="q" 
-       placeholder="🔍 Rechercher (nom, prénom, mail...)" 
+       placeholder="Rechercher un nom, un e-mail…"
        value="{{ request.args.get('q','') }}">
 
 
+    <select name="rentree" aria-label="Rentrée"><option value="2027" {% if selected_year == '2027' %}selected{% endif %}>Rentrée 2027</option><option value="2026" {% if selected_year == '2026' %}selected{% endif %}>Rentrée 2026</option><option value="all" {% if selected_year == 'all' %}selected{% endif %}>Toutes les rentrées</option></select>
     <select name="bts">
       <option value="">BTS (tous)</option>
       <option value="MOS" {% if request.args.get('bts') == 'MOS' %}selected{% endif %}>MOS</option>
@@ -482,7 +434,7 @@
       {% endfor %}
     </select>
 
-    <select name="label">
+<button class="btn primary" type="submit">Appliquer</button><a class="btn secondary" href="{{ url_for('admin') }}">Réinitialiser</a><details class="advanced-filters"><summary>Plus de filtres : étiquettes, relances et cartes étudiantes</summary><div>    <select name="label">
       <option value="">Étiquette</option>
       <option value="APS" {% if request.args.get('label') == 'APS' %}selected{% endif %}>APS</option>
       <option value="AUT" {% if request.args.get('label') == 'AUT' %}selected{% endif %}>AUT OK</option>
@@ -494,43 +446,29 @@
   🔔 Relancés uniquement
 </label>
 
-<button class="btn primary" type="submit">Filtrer</button>
 <button
   class="btn {% if request.args.get('carte_etudiante_manquante') %}gold{% else %}secondary{% endif %}"
   type="submit"
   name="carte_etudiante_manquante"
   value="1"
   title="Afficher uniquement les inscriptions confirmées sans carte étudiante cochée">
-  🎓 Cartes étudiantes à faire
+  ✓ Cartes étudiantes à faire
 </button>
-<a class="btn secondary" href="{{ url_for('admin_export_filtered_xlsx', **request.args) }}">📊 Export Excel filtré</a>
-<a class="btn secondary" href="{{ url_for('admin') }}">↻ Réinitialiser</a>
+</div></details>
 
-<div id="brevoIndicator"
-     style="
-       display:inline-flex;
-       align-items:center;
-       padding:6px 12px;
-       margin-left:10px;
-       border-radius:8px;
-       font-weight:600;
-       background:#ccc;
-       color:#333;
-     ">
-  ⏳ Vérification Brevo...
-</div>
 
 </form>
 
   
 <div id="rowCount" style="font-weight:600; margin:10px 0;">
-  📊 Nombre de lignes : chargement...
+  {{ rows|length }} dossier(s) dans cette sélection
 </div>
 
 
 
+  {% if not rows %}<div class="empty-campaign"><span aria-hidden="true">◇</span><h3>Aucun dossier dans cette sélection</h3><p>Les candidatures 2027 apparaîtront ici dès l’ouverture des inscriptions.<br>Vous pouvez consulter les dossiers des rentrées précédentes.</p><a href="/admin?rentree=2026">Consulter la rentrée 2026 →</a></div>{% endif %}
   <!-- 📊 Tableau -->
-  <div class="table-container">
+  <div class="table-container" {% if not rows %}hidden{% endif %}>
     <table class="admin-table">
       <thead>
         <tr>
@@ -541,7 +479,7 @@
           <th>Téléphone</th>
           <th>Email</th>
           <th>Statut</th>
-          <th>Étiquettes</th>
+          <th>Suivi</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -561,29 +499,29 @@
               {% endfor %}
             </select>
           </td>
-     <td class="etiquettes">
+     <td class="etiquettes"><details class="row-labels"><summary>Suivi du dossier ⌄</summary><div>
   <label><input type="checkbox" class="chk" data-field="label_aps" {% if r.label_aps %}checked{% endif %}> APS</label>
   <label><input type="checkbox" class="chk" data-field="label_aut_ok" {% if r.label_aut_ok %}checked{% endif %}> AUT OK</label>
   <label><input type="checkbox" class="chk" data-field="label_cheque_ok" {% if r.label_cheque_ok %}checked{% endif %}> Chèque OK</label>
   <label><input type="checkbox" class="chk" data-field="label_ypareo" {% if r.label_ypareo %}checked{% endif %}> YPAREO</label>
   <label><input type="checkbox" class="chk" data-field="label_carte_etudiante" {% if r.label_carte_etudiante %}checked{% endif %}> Carte étudiante</label>
-</td>
+</div></details></td>
 
 <td style="text-align:center; white-space:nowrap;">
   <a href="{{ url_for('admin_espace_candidat', cid=r.id) }}" 
      class="btn small" 
      target="_blank"
      style="background:#f4c45a;color:#111;font-weight:600;">
-     👁️ Espace
+     Ouvrir
   </a>
 
   <button class="btn small action-btn" 
           data-id="{{ r.id }}" 
-          data-commentaire="{{ r.commentaires|default('')|escape }}">
-    ⚙️ Actions
+          data-commentaire="{{ r.commentaires|default('', true)|escape }}">
+    Actions
   </button>
 
-  {% set ypareo_envoye = r.ypareo_id and r.ypareo_cursus_id %}
+<details class="row-tools"><summary>Intégrations ⌄</summary><div>  {% set ypareo_envoye = r.ypareo_id and r.ypareo_cursus_id %}
   {% set ypareo_af_a_rattacher = ypareo_envoye and r.ypareo_af_statut != 'rattachee' %}
   {% set ypareo_af_en_attente = ypareo_envoye and r.ypareo_af_statut == 'en_attente' %}
   {% set ypareo_error = r.ypareo_af_error or r.ypareo_cursus_erreur or r.ypareo_erreur %}
@@ -594,7 +532,7 @@
     {% if ypareo_envoye and not ypareo_af_a_rattacher %}disabled{% endif %}
     title="{{ ypareo_error|default('', true)|e }}"
     style="margin-left:6px;background:{% if ypareo_envoye and not ypareo_af_a_rattacher %}#28a745{% elif ypareo_af_a_rattacher %}#0d6efd{% elif ypareo_error %}#dc3545{% else %}#6f42c1{% endif %};color:white;font-weight:600;">
-    {% if ypareo_envoye and not ypareo_af_a_rattacher %}✅ Envoyé YPAREO{% elif ypareo_af_a_rattacher %}🔗 Rattacher AF YPAREO{% elif ypareo_error %}❌ Erreur YPAREO{% else %}🚀 YPAREO NEO{% endif %}
+    {% if ypareo_envoye and not ypareo_af_a_rattacher %}✅ Envoyé YPAREO{% elif ypareo_af_a_rattacher %}🔗 Rattacher AF YPAREO{% elif ypareo_error %}× Erreur YPAREO{% else %}🚀 YPAREO NEO{% endif %}
   </button>
   <form
     method="post"
@@ -625,6 +563,7 @@
     {{ ypareo_error|default('', true) }}
   </small>
 
+</div></details>
   {% if r.nouveau_doc %}
     <span style="color:#28a745;font-weight:600;margin-left:8px;">📥 Nouveau document déposé</span>
   {% endif %}
@@ -675,7 +614,7 @@
     <div class="ypareo-confirm-icon" aria-hidden="true">🚀</div>
     <h3 id="ypareoMassConfirmTitle">Envoi groupé vers YPAREO NEO</h3>
     <p class="ypareo-progress-subtitle">
-      Tous les dossiers en <strong>Inscription confirmée</strong> non encore envoyés seront transmis exactement comme avec le bouton YPAREO NEO de chaque ligne.
+      Pour la rentrée sélectionnée, tous les dossiers en <strong>Inscription confirmée</strong> non encore envoyés seront transmis exactement comme avec le bouton YPAREO NEO de chaque ligne.
     </p>
     <div class="ypareo-confirm-count">
       <span>Nombre de dossiers concernés</span>
@@ -721,7 +660,7 @@
 <!-- ⚙️ MODALE D’ACTIONS (version harmonisée) -->
 <div id="actionsModal" class="modal hidden">
   <div class="modal-content">
-    <h3 style="text-align:center;margin-bottom:10px;">⚙️ Actions</h3>
+    <h3 style="text-align:center;margin-bottom:10px;">Actions</h3>
 
     <!-- SECTION : Dossier -->
     <div class="modal-section">
@@ -772,7 +711,7 @@
     <hr>
 
     <div id="nonConformesBlock" style="background:#fff8e1;padding:10px 15px;border-radius:8px;margin-top:10px;">
-      <h4 style="margin-top:0;">⚠️ Pièces non conformes</h4>
+      <h4 style="margin-top:0;">! Pièces non conformes</h4>
       <ul id="nonConformesList" style="margin:0;padding-left:20px;font-size:14px;color:#c00;">
         <li>Aucune pièce non conforme</li>
       </ul>
@@ -880,7 +819,7 @@
 <!-- 🔐 MODALE — GESTION PORTAIL -->
 <div id="portalModal" class="modal hidden">
   <div class="modal-content" style="width:480px;">
-    <h3>🔐 Gestion du portail d’inscriptions</h3>
+    <h3>🔐 Paramètres du portail d’inscriptions</h3><p class="information-note">L’ouverture publique est programmée le <strong>1er décembre 2026 à 10 h (Paris)</strong>. Le mode « ouvert » autorise les candidatures à partir de cette date. Le mode « fermé » permet de suspendre les inscriptions après cette date.</p>
     <p>Choisissez l’état actuel du portail :</p>
 
     <div style="margin:15px 0;">
@@ -909,19 +848,7 @@
   </div>
 </div>
 
-    <!-- 🧠 Panneau de contrôle auto-refresh -->
-<div id="liveControl" style="
-  position:fixed;bottom:20px;left:20px;
-  background:#fff;border:1px solid #ddd;
-  box-shadow:0 2px 8px rgba(0,0,0,.15);
-  border-radius:10px;padding:10px 14px;
-  font-size:14px;font-family:'Segoe UI',sans-serif;
-  z-index:9999;display:flex;align-items:center;gap:10px;">
-  <span id="liveStatus" style="color:#28a745;">🟢 Auto ON</span>
-  <button id="toggleLive" style="border:none;background:#f4c45a;color:#111;padding:5px 10px;border-radius:6px;cursor:pointer;">⏸️ Pause</button>
-  <button id="manualRefresh" style="border:none;background:#007bff;color:#fff;padding:5px 10px;border-radius:6px;cursor:pointer;">🔁 Rafraîchir</button>
-  <span id="countdown" style="color:#555;font-weight:600;">(60s)</span>
-</div>
+
 
     <script>
 // 🔍 Vérifie l'état de Brevo toutes les 10 sec
@@ -952,7 +879,7 @@ async function checkBrevo() {
 
 // Lancement + intervalle
 checkBrevo();
-setInterval(checkBrevo, 10000);
+setInterval(checkBrevo, 60000);
 </script>
 
    
@@ -960,7 +887,7 @@ setInterval(checkBrevo, 10000);
     <script>
 async function refreshKPI() {
     try {
-        const r = await fetch("/api/kpi");
+        const r = await fetch(campaignURL("/api/kpi"));
         const data = await r.json();
 
         document.getElementById("st_pre").innerText = data.preinscription;

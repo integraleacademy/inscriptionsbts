@@ -12,6 +12,7 @@ import unicodedata
 from datetime import datetime
 
 import requests
+from campaign import candidate_year
 
 logger = logging.getLogger(__name__)
 
@@ -820,17 +821,33 @@ def rattacher_bts_mos_action_formation_automatiquement(candidat, id_personne_gui
     )
     logger.info("PUT participation final")
     participation_response = inscrire_bts_mos_a_action_formation(
-        ids["id_affectation_numerique"], access_token
+        ids["id_affectation_numerique"], access_token, **({"year": candidate_year(candidat)} if candidate_year(candidat) >= 2027 else {})
     )
     return ids, participation_response
 
-def construire_payload_participation_bts_mos():
+def construire_payload_participation_bts_mos(year=2026):
+    action_id = YPAREO_BTS_MOS_ACTION_FORMATION_ID
+    start = YPAREO_BTS_MOS_ACTION_FORMATION_DATE_DEBUT
+    end = YPAREO_BTS_MOS_ACTION_FORMATION_DATE_FIN
+    if year >= 2027:
+        prefix = f"YPAREO_BTS_MOS_{year}_"
+        action_id = os.getenv(prefix + "ACTION_FORMATION_ID", "")
+        start = os.getenv(prefix + "DATE_DEBUT", "")
+        end = os.getenv(prefix + "DATE_FIN", "")
+        try:
+            action_id = int(action_id)
+            start_date = datetime.strptime(start, "%Y-%m-%d")
+            end_date = datetime.strptime(end, "%Y-%m-%d")
+            if action_id <= 0 or start_date.year != year or end_date <= start_date:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise YpareoError(f"Le rattachement YPAREO MOS {year} reste à paramétrer : renseignez {prefix}ACTION_FORMATION_ID, {prefix}DATE_DEBUT et {prefix}DATE_FIN. Aucun rattachement à une ancienne rentrée ne sera effectué.", status_code=409)
     return [
         {
-            "dateDebut": YPAREO_BTS_MOS_ACTION_FORMATION_DATE_DEBUT,
-            "dateFin": YPAREO_BTS_MOS_ACTION_FORMATION_DATE_FIN,
+            "dateDebut": start,
+            "dateFin": end,
             "id": None,
-            "idActionFormation": YPAREO_BTS_MOS_ACTION_FORMATION_ID,
+            "idActionFormation": action_id,
         }
     ]
 
@@ -840,11 +857,11 @@ def extraire_id_numerique_affectation_ypareo(value):
     return int(matches[-1]) if matches else None
 
 
-def inscrire_bts_mos_a_action_formation(id_inscription_ypareo, access_token=None):
+def inscrire_bts_mos_a_action_formation(id_inscription_ypareo, access_token=None, year=2026):
     if access_token is None:
         access_token = get_ypareo_access_token()
     url = _business_url(f"/inscription/{id_inscription_ypareo}/participation")
-    payload = construire_payload_participation_bts_mos()
+    payload = construire_payload_participation_bts_mos(year)
 
     try:
         response = requests.put(
@@ -950,7 +967,7 @@ def creer_apprenant_ypareo(candidat, session_obj):
         logger.info("id_inscription GUID utilisé : %s", id_guid)
         try:
             participation_response = inscrire_bts_mos_a_action_formation(
-                id_guid, access_token
+                id_guid, access_token, **({"year": candidate_year(candidat)} if candidate_year(candidat) >= 2027 else {})
             )
         except YpareoError as exc:
             if getattr(exc, "status_code", None) == 404:

@@ -1,6 +1,7 @@
 
 import os, sqlite3, json, uuid, shutil
 from datetime import datetime, timedelta
+from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
 from werkzeug.utils import secure_filename
 from utils import send_mail, send_sms_brevo, dossier_number, new_token, sign_token, make_signed_link
@@ -12,6 +13,7 @@ from utils import get_mail_context
 from utils import BTS_LABELS
 from services.ypareo_neo import (
     YpareoError,
+    construire_payload_participation_bts_mos,
     creer_apprenant_ypareo,
     extraire_id_numerique_affectation_ypareo,
     get_ypareo_access_token,
@@ -244,7 +246,7 @@ def protect_parcoursup_routes():
 # 🔧 Rendre la fonction now() accessible dans les templates Jinja
 @app.context_processor
 def inject_now():
-    return {'now': datetime.utcnow}
+    return {'now': datetime.utcnow, 'server_now': datetime.utcnow().isoformat() + 'Z', 'admission_year': ADMISSION_YEAR, 'opening_iso': OPENS_AT.isoformat(), 'opening_label': OPENING_LABEL, 'candidate_year': candidate_year, 'selected_year': request.args.get('rentree', str(ADMISSION_YEAR))}
 
 # 🕓 Filtre Jinja pour convertir une chaîne ISO en datetime
 from datetime import datetime
@@ -290,7 +292,7 @@ def btsfull(value):
 @app.template_filter('bacdisp')
 def bacdisp(value):
     if not value: return ""
-    if "prévu" in value.lower(): return "Prévu en 2026"
+    if "prévu" in value.lower(): return value
     if "oui" in value.lower(): return "Oui"
     if "non" in value.lower(): return "Non"
     return value
@@ -364,8 +366,7 @@ def _bac_status_display(v: str) -> str:
     s = _normalize((v or "").strip().lower())
     if s in {"oui","yes","true","1"}: return "Oui"
     if s in {"non","no","false","0"}: return "Non"
-    if "prev" in s and "2026" in s: return "Prévu en 2026"
-    if "prev" in s: return "Prévu"
+    if "prev" in s: return v
     return (v or "").strip() or "—"
 
 # 🔗 Enregistrement global
@@ -515,7 +516,8 @@ CREATE TABLE IF NOT EXISTS candidats (
     ypareo_af_synced_at TEXT,
     ypareo_sync_at TEXT,
     date_validee TEXT, date_confirmee TEXT, date_reconfirmee TEXT,
-    slug_public TEXT
+    slug_public TEXT,
+    rentree_annee INTEGER NOT NULL DEFAULT 2026
 );
 """)
 
@@ -869,52 +871,41 @@ def ensure_souhaite_accompagnement_field():
 
 # ---------------- Public: Pré-inscriptions ----------------
 
+def admissions_available():
+    portal = get_portal_status()
+    manual_closed = portal.get("campaign_year") == ADMISSION_YEAR and portal.get("status") == "closed"
+    return campaign_is_open() and not manual_closed
+
+
+def admission_landing():
+    portal = get_portal_status()
+    return render_template("admissions_landing.html", title="BTS en alternance · Rentrée 2027", admission_open=admissions_available(), scheduled=not campaign_is_open(), portal_message=portal.get("message", "") if portal.get("campaign_year") == ADMISSION_YEAR else "")
+
+
 @app.route("/")
 def index():
-    # =====================================================
-    # 🧑‍💻 BYPASS ADMIN – permet d’accéder même si le portail est fermé
-    # =====================================================
-    if request.args.get("admin_bypass") == "1":
-        print("🔓 Bypass admin activé – accès forcé au formulaire")
-        return render_template(
-            "index.html",
-            title="Mode test (admin bypass)",
-            portal_closed=False,
-            portal_message="🧑‍💻 Formulaire visible uniquement pour test.",
-            portal_comment="",
-            saved_data=None,
-            step=0
-        )
-
-    # =====================================================
-    # 🔐 Vérifie l’état du portail
-    # =====================================================
-    portal = get_portal_status()
-    if portal["status"] == "closed":
-        return render_template(
-            "index.html",
-            title="Inscriptions momentanément fermées",
-            portal_closed=True,
-            portal_message=portal.get("message", ""),
-            portal_comment=portal.get("comment", ""),
-            saved_data=None,
-            step=0
-        )
-
-    # =====================================================
-    # 🚀 Portail ouvert → accès normal
-    # =====================================================
-    return render_template(
-        "index.html",
-        title="Pré-inscriptions BTS 2026",
-        portal_closed=False,
-        portal_message="",
-        portal_comment="",
-        saved_data=None,
-        step=0
-    )
+    return admission_landing()
 
 
+@app.route("/candidature")
+def candidature():
+    preview = require_admin() and request.args.get("preview") == "1"
+    if not admissions_available() and not preview:
+        return redirect(url_for("index"))
+    return render_template("index.html", title="Ma candidature BTS · Rentrée 2027", saved_data=None, preview=preview)
+
+
+@app.route("/ouverture.ics")
+def opening_calendar():
+    content = "\r\n".join([
+        "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Integrale Academy//Admissions//FR",
+        "BEGIN:VEVENT", "UID:bts-2027-opening@integraleacademy.com", "DTSTAMP:20261024T000000Z",
+        "DTSTART:20261201T090000Z", "DTEND:20261201T093000Z",
+        "SUMMARY:Ouverture des inscriptions BTS 2027 - Integrale Academy",
+        "DESCRIPTION:Candidatez sur https://inscriptionsbts.onrender.com/",
+        "URL:https://inscriptionsbts.onrender.com/", "END:VEVENT", "END:VCALENDAR", ""
+    ])
+    return content, 200, {"Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": "attachment; filename=ouverture-bts-2027.ics"}
 
 
 def save_files(field_key: str, cand_id: str):
@@ -957,6 +948,8 @@ def b(v):
 # =====================================================
 @app.route("/save_draft", methods=["POST"])
 def save_draft():
+    if not admissions_available():
+        return jsonify(success=False, error=f"Les inscriptions ouvriront le {OPENING_LABEL}."), 403
     try:
         data = request.get_json()
         if not data:
@@ -965,6 +958,9 @@ def save_draft():
         # 🔥 On sauvegarde TOUT, absolument tout :
         # tous les champs text, select, radios, checkboxes, etc.
         full_form = data.get("full_form", {})
+        if not isinstance(full_form, dict) or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(full_form.get("email", ""))):
+            return jsonify(success=False, error="Indiquez une adresse e-mail valide pour recevoir votre lien de reprise."), 400
+        full_form["rentree_annee"] = ADMISSION_YEAR
 
         # 🔑 Id unique du brouillon (token)
         token = new_token()
@@ -1022,7 +1018,8 @@ def save_draft():
 # =====================================================
 @app.route("/reprendre/<token>")
 def reprendre_formulaire(token):
-    DATA_DIR = os.getenv("DATA_DIR", "/data")
+    if not admissions_available():
+        return redirect(url_for("index"))
     DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
 
     if not os.path.exists(DRAFT_PATH):
@@ -1040,6 +1037,9 @@ def reprendre_formulaire(token):
         abort(404)
 
     saved_full_form = draft.get("full_form", {})
+    if saved_full_form.get("rentree_annee") != ADMISSION_YEAR:
+        flash("Ce brouillon concerne une ancienne rentrée. Commencez une nouvelle candidature pour septembre 2027.", "info")
+        return redirect(url_for("candidature"))
 
     # 💥 On injecte TOUT dans la page
     return render_template(
@@ -1050,15 +1050,64 @@ def reprendre_formulaire(token):
     )
 
 
+def validate_application(form, files):
+    required = ("nom", "prenom", "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "email", "email_confirm", "tel", "adresse", "cp", "ville", "num_secu", "baccalaureat", "bac_type", "permis_b", "projet_pourquoi", "projet_objectif")
+    if any(not (form.get(k) or "").strip() for k in required):
+        return "Complétez les champs obligatoires avant d’envoyer votre candidature."
+    if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", form.get("email", "")) or form.get("email", "").lower() != form.get("email_confirm", "").lower():
+        return "Les deux adresses e-mail doivent être valides et identiques."
+    if form.get("bts") not in {"MOS", "MCO", "NDRC", "PI", "CI", "CG"} or form.get("mode") not in {"presentiel", "distanciel"}:
+        return "Choisissez votre BTS et votre mode de formation."
+    if not re.fullmatch(r"0[1-9]\d{8}", form.get("tel", "")):
+        return "Indiquez un numéro de téléphone français à 10 chiffres."
+    try:
+        birth = datetime.strptime(form["date_naissance"], "%Y-%m-%d").date()
+        today = datetime.now().date()
+        if birth >= today:
+            return "Vérifiez votre date de naissance."
+        age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+        if age < 18 and any(not form.get(k, "").strip() for k in ("resp_nom", "resp_prenom", "resp_email", "resp_tel")):
+            return "Les coordonnées de votre responsable légal sont obligatoires."
+    except ValueError:
+        return "Vérifiez votre date de naissance."
+    valid, message = validate_nir(form["num_secu"], form["date_naissance"], form["sexe"])
+    if not valid and form["num_secu"] != "123456789123456":
+        return message
+    if form.get("bts") == "MOS":
+        if form.get("mos_parcours") not in {"bac_pro_ms", "bac_pro_ms_en_cours", "carte_cnaps", "autre"}:
+            return "Précisez votre situation pour le BTS MOS."
+        if form.get("mos_parcours") == "autre" and form.get("aps_souhaitee") not in {"oui", "non"}:
+            return "Précisez votre souhait concernant la formation APS."
+    if form.get("consent") != "1":
+        return "Confirmez l’exactitude de vos informations."
+    allowed = {"ci": {"pdf", "jpg", "jpeg", "png"}, "ci2": {"pdf", "jpg", "jpeg", "png"}, "photo": {"jpg", "jpeg", "png"}, "carte_vitale": {"pdf"}, "cv": {"pdf"}, "lm": {"pdf"}}
+    for key, extensions in allowed.items():
+        file = files.get(key)
+        if not file or not file.filename:
+            if key != "ci2":
+                return "Ajoutez tous les justificatifs obligatoires."
+            continue
+        extension = file.filename.rsplit(".", 1)[-1].lower()
+        file.seek(0, 2); size = file.tell(); file.seek(0)
+        if extension not in extensions or not 0 < size <= 8 * 1024 * 1024:
+            return "Un justificatif a un format non accepté ou dépasse 8 Mo."
+    return None
+
+
 @app.route("/submit", methods=["POST"])
 def submit():
     from datetime import date  # ✅ import ici (ou mets-le en haut du fichier)
 
+    if not admissions_available():
+        return jsonify(ok=False, error=f"Les inscriptions ouvriront le {OPENING_LABEL}."), 403
     form = request.form
+    error = validate_application(form, request.files)
+    if error:
+        return jsonify(ok=False, error=error), 400
     conn = db()
     cur = conn.cursor()
     counter = get_counter_for_today(conn)
-    numero = dossier_number(counter=counter)
+    numero = dossier_number(counter=counter, year=ADMISSION_YEAR)
 
     # === Normalisation du BAC ===
     baccalaureat = (form.get("baccalaureat") or "").strip()
@@ -1085,17 +1134,8 @@ def submit():
     aps_session_other = (form.get("aps_session_other") or "").strip()
     raison_aps = (form.get("raison_aps") or "").strip()
 
-    APS_SESSIONS = {
-        "puget": "8 juillet → 12 août 2026 — Intégrale Academy (Puget-sur-Argens)",
-        "autre": "7 septembre → 9 octobre 2026 — Intégrale Academy (Puget-sur-Argens)",
-    }
+    aps_session = "Calendrier 2027 à confirmer avec l’équipe" if aps_souhaitee else ""
 
-    if aps_session_value in APS_SESSIONS:
-        aps_session = APS_SESSIONS[aps_session_value]
-    elif aps_session_value.lower() == "autre" and aps_session_other:
-        aps_session = aps_session_other
-    else:
-        aps_session = aps_session_value
 
     entreprise_trouvee = (form.get("entreprise_trouvee") or "").strip()
     recherches_commencees = (form.get("recherches_commencees") or "").strip()
@@ -1127,6 +1167,9 @@ def submit():
 
     # ✅ Maintenant seulement : form_overrides (car est_mineur/resp_* existent)
     form_overrides = {
+        "rentree_annee": ADMISSION_YEAR,
+        "permis_b": int(form.get("permis_b") == "Oui"),
+        "mos_parcours": form.get("mos_parcours", ""),
         "projet_pourquoi": projet_pourquoi,
         "projet_objectif": projet_objectif,
         "projet_passions": projet_passions,
@@ -1170,7 +1213,7 @@ def submit():
     now = datetime.now().isoformat()
 
     # 📎 Sauvegarde des fichiers
-    fichiers_ci = save_files("ci", cand_id)
+    fichiers_ci = save_files("ci", cand_id) + save_files("ci2", cand_id)
     fichiers_photo = save_files("photo", cand_id)
     fichiers_carte_vitale = save_files("carte_vitale", cand_id)
     fichiers_cv = save_files("cv", cand_id)
@@ -1253,7 +1296,7 @@ def submit():
             <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
               <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
               <p>Bonjour,<br><br>
-              Un nouveau candidat a demandé à être accompagné par Pôle Alternance pour trouver une entreprise (rentrée septembre 2026). Je vous prie de bien vouloir trouver ci-dessous les coordonnées du candidat. Vous trouverez également en pièce-jointe son CV et sa lettre de motivation. A bientôt, Clément VAILLANT (ceci est un mail automatique).</p>
+              Un nouveau candidat a demandé à être accompagné par Pôle Alternance pour trouver une entreprise (rentrée septembre {ADMISSION_YEAR}). Je vous prie de bien vouloir trouver ci-dessous les coordonnées du candidat. Vous trouverez également en pièce-jointe son CV et sa lettre de motivation. A bientôt, Clément VAILLANT (ceci est un mail automatique).</p>
               <ul>
                 <li><strong>Nom :</strong> {nom}</li>
                 <li><strong>Prénom :</strong> {prenom}</li>
@@ -1318,6 +1361,7 @@ def submit():
     # ✉️ Mail accusé de réception
     html = mail_html(
         "accuse_reception",
+        rentree_annee=ADMISSION_YEAR,
         prenom=form.get("prenom", ""),
         bts_label=bts_label,
         lien_espace=lien_espace,
@@ -1348,6 +1392,8 @@ def submit():
 
     # Notification email to the admin inbox disabled on request.
 
+    if request.accept_mimetypes.best == "application/json":
+        return jsonify(ok=True, redirect=lien_espace)
     return redirect(lien_espace)
 
 
@@ -1361,6 +1407,7 @@ def submit():
 
 def _admin_filtered_rows(args):
     q = args.get("q", "").strip().lower()
+    flt_year = args.get("rentree", str(ADMISSION_YEAR))
     flt_bts = args.get("bts", "")
     flt_statut = args.get("statut", "")
     flt_mode = args.get("mode", "")
@@ -1372,12 +1419,13 @@ def _admin_filtered_rows(args):
     cur = conn.cursor()
     cur.execute("SELECT * FROM candidats ORDER BY created_at DESC")
     rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
 
     def is_checked(value):
         return value in (1, "1", True, "true", "True", "on", "yes")
 
     def match(row):
-        ok = True
+        ok = flt_year == "all" or str(candidate_year(row)) == flt_year
         if q:
             blob = " ".join([str(row.get(k, "")) for k in ("nom", "prenom", "email", "tel", "bts", "numero_dossier")]).lower()
             ok &= q in blob
@@ -1494,6 +1542,11 @@ def _synchroniser_candidat_ypareo(conn, id_candidat):
     candidat = get_candidat(conn, id_candidat)
     if not candidat:
         return {"ok": False, "error": "Candidat introuvable.", "status_code": 404}
+    if candidate_year(candidat) >= 2027 and "MOS" in (candidat.get("bts") or "").upper():
+        try:
+            construire_payload_participation_bts_mos(candidate_year(candidat))
+        except YpareoError as exc:
+            return {"ok": False, "error": str(exc), "status_code": 409}
     personne_existante = candidat.get("ypareo_id") or candidat.get("ypareo_id_personne")
     cursus_existant = candidat.get("ypareo_cursus_id") or candidat.get("ypareo_id_cursus")
     session_obj = _session_ypareo_depuis_candidat(candidat)
@@ -1703,7 +1756,7 @@ def finaliser_af_ypareo(candidate_id):
         app.logger.info("ID numérique extrait : %s", id_numerique)
         app.logger.info("PUT participation avec ID numérique")
         token = get_ypareo_access_token()
-        response = inscrire_bts_mos_a_action_formation(id_numerique, token)
+        response = inscrire_bts_mos_a_action_formation(id_numerique, token, **({"year": candidate_year(candidat)} if candidate_year(candidat) >= 2027 else {}))
         now = datetime.now().isoformat()
         conn.execute(
             """
@@ -1758,19 +1811,20 @@ def diagnostic_business_personne_ypareo():
     return jsonify(ok=True, url=url, response=payload)
 
 
+def campaign_rows(statut=None):
+    args = {"rentree": request.args.get("rentree", str(ADMISSION_YEAR))}
+    if statut:
+        args["statut"] = statut
+    return _admin_filtered_rows(args)
+
+
 @app.get("/admin/ypareo-neo/count-confirmed")
 def admin_ypareo_neo_count_confirmed():
     if not require_admin():
         return jsonify(ok=False, error="Authentification administrateur requise."), 403
     conn = db()
     try:
-        count = conn.execute(
-            """
-            SELECT COUNT(*) FROM candidats
-            WHERE statut = 'confirmee'
-              AND (COALESCE(ypareo_id, '') = '' OR COALESCE(ypareo_cursus_id, '') = '')
-            """
-        ).fetchone()[0]
+        count = sum(1 for r in campaign_rows("confirmee") if not r.get("ypareo_id") or not r.get("ypareo_cursus_id"))
         return jsonify(ok=True, count=count)
     finally:
         conn.close()
@@ -1782,14 +1836,7 @@ def admin_ypareo_neo_send_confirmed():
         return jsonify(ok=False, error="Authentification administrateur requise."), 403
     conn = db()
     try:
-        rows = conn.execute(
-            """
-            SELECT id FROM candidats
-            WHERE statut = 'confirmee'
-              AND (COALESCE(ypareo_id, '') = '' OR COALESCE(ypareo_cursus_id, '') = '')
-            ORDER BY created_at ASC
-            """
-        ).fetchall()
+        rows = [r for r in campaign_rows("confirmee") if not r.get("ypareo_id") or not r.get("ypareo_cursus_id")]
         if not rows:
             return jsonify(ok=False, error="Aucun dossier en inscription confirmée à envoyer vers YPAREO NEO."), 400
 
@@ -1816,35 +1863,12 @@ def admin_ypareo_neo_send_confirmed():
 
 @app.get("/api/kpi")
 def api_kpi():
-    """
-    Renvoie les stats pour la barre de KPI en haut de l'admin.
-    Les clés renvoyées correspondent aux statuts dans la table `candidats`.
-    """
-
-    import sqlite3  # au cas où ça ne soit pas déjà importé tout en haut
-
-    # ⚠️ Adapte DB_PATH si ton projet utilise un autre nom de variable
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    cur = conn.cursor()
-
-    # 🧮 Statuts à compter
-    stats = {
-        "preinscription": 0,
-        "validee": 0,
-        "confirmee": 0,
-        "reconf_en_cours": 0,
-        "reconfirmee": 0,
-        "annulee": 0,
-        "docs_non_conformes": 0,
-    }
-
-    for statut in stats.keys():
-        cur.execute("SELECT COUNT(*) AS c FROM candidats WHERE statut = ?", (statut,))
-        row = cur.fetchone()
-        stats[statut] = row["c"] if row else 0
-
-    conn.close()
+    if not require_admin():
+        abort(403)
+    stats = {key: 0 for key, _, _ in STATUTS}
+    for row in _admin_filtered_rows({"rentree": request.args.get("rentree", str(ADMISSION_YEAR))}):
+        if row.get("statut") in stats:
+            stats[row["statut"]] += 1
     return jsonify(stats)
 
 # =====================================================
@@ -1854,10 +1878,9 @@ def api_kpi():
 def admin_json():
     if not require_admin():
         abort(403)
-    conn = db()
-    rows = [dict(r) for r in conn.execute("SELECT id, nom, prenom, bts, mode, tel, email, statut, created_at FROM candidats ORDER BY created_at DESC LIMIT 500")]
-    conn.close()
-    return jsonify({"ok": True, "rows": rows})
+    rows = _admin_filtered_rows(request.args)
+    keys = ("id", "nom", "prenom", "bts", "mode", "tel", "email", "statut", "created_at", "rentree_annee")
+    return jsonify(ok=True, rows=[{k: r.get(k) for k in keys} for r in rows])
 
 # =====================================================
 # ⚡ API JSON – Détail d'une ligne candidat (refresh dynamique)
@@ -2219,9 +2242,7 @@ def admin_delete(cid):
 def admin_export_csv():
     if not require_admin(): abort(403)
     import csv, io
-    conn = db(); cur = conn.cursor()
-    cur.execute("SELECT * FROM candidats ORDER BY created_at DESC")
-    rows = [dict(r) for r in cur.fetchall()]
+    rows = _admin_filtered_rows(request.args)
     buf = io.StringIO()
     if rows:
         w = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
@@ -2271,9 +2292,7 @@ def admin_export_filtered_xlsx():
 @app.route("/admin/export.json")
 def admin_export_json():
     if not require_admin(): abort(403)
-    conn = db(); cur = conn.cursor()
-    cur.execute("SELECT * FROM candidats ORDER BY created_at DESC")
-    rows = [dict(r) for r in cur.fetchall()]
+    rows = _admin_filtered_rows(request.args)
     return jsonify(rows)
 
 @app.route("/admin/export-confirmed.xlsx")
@@ -2298,14 +2317,7 @@ def admin_export_confirmed_xlsx():
             return f"{digits[0:2]} {digits[2:4]} {digits[4:6]} {digits[6:8]} {digits[8:10]}"
         return (v or "").strip()
 
-    conn = db(); cur = conn.cursor()
-    cur.execute("""
-        SELECT nom, prenom, email, tel, bts, mode
-        FROM candidats
-        WHERE statut = 'confirmee'
-        ORDER BY created_at DESC
-    """)
-    rows = [dict(r) for r in cur.fetchall()]
+    rows = campaign_rows("confirmee")
 
     wb = Workbook()
     ws = wb.active
@@ -2355,6 +2367,8 @@ BTS_LABELS = {
 # =====================================================
 @app.route("/admin/generate_certificat/<id>")
 def admin_generate_certificat(id):
+    if not require_admin():
+        abort(403)
     from docx import Document
     from datetime import datetime
     from flask import send_file
@@ -2367,13 +2381,13 @@ def admin_generate_certificat(id):
     # 🧾 récupérer infos candidat
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id = ?", (id,))
+    cur.execute("SELECT nom, prenom, bts, rentree_annee FROM candidats WHERE id = ?", (id,))
     row = cur.fetchone()
     conn.close()
     if not row:
         return "Candidat introuvable", 404
 
-    nom, prenom, bts = row
+    nom, prenom, bts, rentree = row
     full_name = f"{prenom.upper()} {nom.upper()}"
     date_now = datetime.now().strftime("%d/%m/%Y")
 
@@ -2385,28 +2399,15 @@ def admin_generate_certificat(id):
         "{{NOM_PRENOM}}": full_name,
         "{{FORMATION}}": bts_nom_complet,
         "{{DATE_AUJOURDHUI}}": date_now,
-        "{{ANNEE_DEBUT}}": "2026",
-        "{{ANNEE_FIN}}": "2028",
+        "{{ANNEE_DEBUT}}": str(rentree),
+        "{{ANNEE_FIN}}": str(rentree + 2),
     }
 
     # 🧩 ouvrir modèle Word et remplacer les balises dans tous les paragraphes et tables
     doc = Document(template_path)
 
-    def replace_text_in_paragraph(paragraph):
-        for key, val in replacements.items():
-            if key in paragraph.text:
-                for run in paragraph.runs:
-                    if key in run.text:
-                        run.text = run.text.replace(key, val)
-
-    for p in doc.paragraphs:
-        replace_text_in_paragraph(p)
-
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for p in cell.paragraphs:
-                    replace_text_in_paragraph(p)
+    from certificates import personalize_certificate
+    personalize_certificate(doc, replacements, rentree)
 
     # 💾 sauvegarde du document Word généré
     output_docx = os.path.join(output_dir, f"certificat_{id}.docx")
@@ -2427,6 +2428,8 @@ def admin_generate_certificat(id):
 # =====================================================
 @app.route("/admin/generate_certificat_presentiel/<id>")
 def admin_generate_certificat_presentiel(id):
+    if not require_admin():
+        abort(403)
     from docx import Document
     from datetime import datetime
     from flask import send_file
@@ -2439,13 +2442,13 @@ def admin_generate_certificat_presentiel(id):
     # 🧾 récupérer infos candidat
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT nom, prenom, bts FROM candidats WHERE id = ?", (id,))
+    cur.execute("SELECT nom, prenom, bts, rentree_annee FROM candidats WHERE id = ?", (id,))
     row = cur.fetchone()
     conn.close()
     if not row:
         return "Candidat introuvable", 404
 
-    nom, prenom, bts = row
+    nom, prenom, bts, rentree = row
     full_name = f"{prenom.upper()} {nom.upper()}"
     date_now = datetime.now().strftime("%d/%m/%Y")
 
@@ -2457,28 +2460,15 @@ def admin_generate_certificat_presentiel(id):
         "{{NOM_PRENOM}}": full_name,
         "{{FORMATION}}": bts_nom_complet,
         "{{DATE_AUJOURDHUI}}": date_now,
-        "{{ANNEE_DEBUT}}": "2026",
-        "{{ANNEE_FIN}}": "2028",
+        "{{ANNEE_DEBUT}}": str(rentree),
+        "{{ANNEE_FIN}}": str(rentree + 2),
     }
 
     # 🧩 ouvrir modèle Word et remplacer les balises dans tous les paragraphes et tables
     doc = Document(template_path)
 
-    def replace_text_in_paragraph(paragraph):
-        for key, val in replacements.items():
-            if key in paragraph.text:
-                for run in paragraph.runs:
-                    if key in run.text:
-                        run.text = run.text.replace(key, val)
-
-    for p in doc.paragraphs:
-        replace_text_in_paragraph(p)
-
-    for table in doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for p in cell.paragraphs:
-                    replace_text_in_paragraph(p)
+    from certificates import personalize_certificate
+    personalize_certificate(doc, replacements, rentree)
 
     # 💾 sauvegarde du document Word généré
     output_docx = os.path.join(output_dir, f"certificat_presentiel_{id}.docx")
@@ -2502,6 +2492,8 @@ def admin_generate_certificat_presentiel(id):
 # =====================================================
 @app.route("/admin/send_certificat/<id>")
 def admin_send_certificat(id):
+    if not require_admin():
+        abort(403)
     from flask import jsonify
     from utils import send_mail
     import os
@@ -2517,23 +2509,24 @@ def admin_send_certificat(id):
     # 🧾 Récupérer les infos du candidat
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT prenom, nom, email, bts FROM candidats WHERE id = ?", (id,))
+    cur.execute("SELECT prenom, nom, email, bts, rentree_annee FROM candidats WHERE id = ?", (id,))
     row = cur.fetchone()
     conn.close()
 
     if not row:
         return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
 
-    prenom, nom, email, bts = row
+    prenom, nom, email, bts, rentree = row
     bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
 
     # ✉️ Mail HTML
     html = mail_html(
         "certificat",
+        rentree_annee=rentree,
         prenom=prenom.title(),
         bts_label=bts_nom_complet
     )
-    subject = f"Votre certificat de scolarité – {bts_nom_complet} 2026-2028"
+    subject = f"Votre certificat de scolarité – {bts_nom_complet} {rentree}-{rentree + 2}"
 
     try:
         send_mail(email, subject, html, attachments=[cert_path])
@@ -2550,6 +2543,8 @@ def admin_send_certificat(id):
 # =====================================================
 @app.route("/admin/send_certificat_presentiel/<id>")
 def admin_send_certificat_presentiel(id):
+    if not require_admin():
+        abort(403)
     from flask import jsonify
     from utils import send_mail
     import os
@@ -2562,22 +2557,23 @@ def admin_send_certificat_presentiel(id):
 
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT prenom, nom, email, bts FROM candidats WHERE id = ?", (id,))
+    cur.execute("SELECT prenom, nom, email, bts, rentree_annee FROM candidats WHERE id = ?", (id,))
     row = cur.fetchone()
     conn.close()
 
     if not row:
         return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
 
-    prenom, nom, email, bts = row
+    prenom, nom, email, bts, rentree = row
     bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
 
     html = mail_html(
         "certificat_presentiel",
+        rentree_annee=rentree,
         prenom=prenom.title(),
         bts_label=bts_nom_complet
     )
-    subject = f"Votre certificat de scolarité – Présentiel ({bts_nom_complet} 2026-2028)"
+    subject = f"Votre certificat de scolarité – Présentiel ({bts_nom_complet} {rentree}-{rentree + 2})"
 
     try:
         send_mail(email, subject, html, attachments=[cert_path])
@@ -2941,6 +2937,7 @@ def admin_files_notify():
     link = make_signed_link("/replace-files", token)
     html = mail_html(
         "docs_non_conformes",
+        rentree_annee=candidate_year(row),
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
         lien_espace=link
@@ -2953,6 +2950,7 @@ def admin_files_notify():
         tel = "+33" + tel[1:]
     msg = sms_text(
         "docs_non_conformes",
+        rentree_annee=candidate_year(row),
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
@@ -3238,6 +3236,7 @@ def confirm_inscription():
 
     html = mail_html(
         "inscription_confirmee",
+        rentree_annee=candidate_year(row),
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
         numero_dossier=row.get("numero_dossier", ""),
@@ -3357,6 +3356,7 @@ def reconfirm_validate():
     # ✉️ Mail confirmation reconfirmation
     html = mail_html(
         "reconfirmation_validee",
+        rentree_annee=candidate_year(row),
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
@@ -3368,6 +3368,7 @@ def reconfirm_validate():
         tel = "+33" + tel[1:]
     msg = sms_text(
         "reconfirmation_validee",
+        rentree_annee=candidate_year(row),
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
     )
@@ -3560,13 +3561,13 @@ def espace_candidat(slug):
         row["mode_label"] = "🏫 En présentiel à Puget-sur-Argens (Var, 83)"
 
     explications = {
-        "preinscription": "Nous avons bien reçu votre Pré-inscription. Votre dossier est cours d’examen par notre équipe.",
-        "validee": "Votre candidature est validée. Vous devez confirmer votre inscription depuis le lien que nous vous avons envoyé par mail et par SMS.",
-        "confirmee": "Votre inscription est officiellement confirmée 🎓. Bienvenue à Intégrale Academy !",
-        "reconf_en_cours": "Vous souhaitez toujours intégrer notre école ? Vous avez changé d'avis ? Veuillez re-confirmer votre inscription depuis le mail que vous avez reçu.",
-        "reconfirmee": "Tout est OK :✅.",
-        "docs_non_conformes": "Certains documents ont été jugés non conformes. Veuillez consulter votre e-mail pour les renvoyer.",
-        "annulee": "Votre inscription a été annulée. Pour toute question, contactez notre équipe.",
+        "preinscription": "Nous avons bien reçu ta candidature. Notre équipe étudie ton dossier et te répondra par e-mail et SMS.",
+        "validee": "Ta candidature est validée. Confirme maintenant ton inscription depuis le lien reçu par e-mail et SMS.",
+        "confirmee": "Ton inscription est confirmée. Bienvenue à Intégrale Academy !",
+        "reconf_en_cours": "Confirme que tu souhaites toujours nous rejoindre depuis le lien reçu par e-mail.",
+        "reconfirmee": "Ta présence à la rentrée est confirmée. À très bientôt !",
+        "docs_non_conformes": "Certains documents doivent être remplacés ou complétés. Consulte ton e-mail pour les transmettre.",
+        "annulee": "Ton inscription a été annulée. Notre équipe reste disponible si tu souhaites faire le point.",
     }
 
     explication_statut = explications.get(statut, "Le traitement de votre dossier est en cours.")
@@ -3636,6 +3637,7 @@ def admin_reconfirm(cid):
     # ✉️ Mail HTML (utilise ton template)
     html = mail_html(
         "reconfirmation",
+        rentree_annee=candidate_year(row),
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
         lien_espace=link
@@ -3717,6 +3719,7 @@ def api_get_portal_status():
     (utilisé par l’admin.js pour afficher le statut et le message).
     """
     data = load_portal_status()
+    data.update(scheduled=not campaign_is_open(), opening=OPENING_LABEL, effective_open=admissions_available())
     return jsonify(data)
 
 
@@ -3726,15 +3729,19 @@ def api_set_portal_status():
     💾 Route API pour modifier le statut du portail
     (open / closed) + message + commentaire.
     """
+    if not require_admin():
+        return jsonify(ok=False, error="Authentification administrateur requise."), 403
     data = request.get_json() or {}
     status = data.get("status", "open")
+    if status not in ("open", "closed"):
+        return jsonify(ok=False, error="Statut invalide."), 400
     message = data.get("message", "")
     comment = data.get("comment", "")  # 🗒️ Nouveau champ commentaire
 
     # Enregistre le tout dans /data/portal.json
     with open(PORTAL_FILE, "w", encoding="utf-8") as f:
         json.dump(
-            {"status": status, "message": message, "comment": comment},
+            {"status": status, "message": message, "comment": comment, "campaign_year": ADMISSION_YEAR},
             f,
             ensure_ascii=False,
             indent=2
@@ -4046,7 +4053,7 @@ def admin_count_validated_applications():
 
     try:
         conn = db()
-        count = conn.execute("SELECT COUNT(*) FROM candidats WHERE statut = 'validee'").fetchone()[0]
+        count = len(campaign_rows("validee"))
         conn.close()
         return jsonify(ok=True, count=count)
     except Exception as e:
@@ -4066,11 +4073,7 @@ def admin_relance_all_validated():
     try:
         conn = db()
         cur = conn.cursor()
-        rows = cur.execute("""
-            SELECT *
-            FROM candidats
-            WHERE statut = 'validee'
-        """).fetchall()
+        rows = campaign_rows("validee")
 
         if not rows:
             conn.close()
@@ -4109,9 +4112,11 @@ def admin_relance_all_validated():
 # =====================================================
 @app.route("/admin/count_confirmed")
 def admin_count_confirmed():
+    if not require_admin():
+        return jsonify(ok=False, error="Non autorisé"), 403
     try:
         conn = db()
-        count = conn.execute("SELECT COUNT(*) FROM candidats WHERE statut = 'confirmee'").fetchone()[0]
+        count = len(campaign_rows("confirmee"))
         conn.close()
         return jsonify(ok=True, count=count)
     except Exception as e:
@@ -4124,16 +4129,14 @@ def admin_count_confirmed():
 # =====================================================
 @app.route("/admin/reconfirm_all", methods=["POST"])
 def admin_reconfirm_all():
+    if not require_admin():
+        return jsonify(ok=False, error="Non autorisé"), 403
     try:
         conn = db()
         cur = conn.cursor()
 
         # 🔍 On sélectionne uniquement les candidats avec le statut "confirmee"
-        rows = cur.execute("""
-            SELECT id, prenom, email, tel, bts, slug_public
-            FROM candidats 
-            WHERE statut = 'confirmee'
-        """).fetchall()
+        rows = campaign_rows("confirmee")
 
         if not rows:
             conn.close()
@@ -4166,7 +4169,7 @@ def admin_reconfirm_all():
 
             # ✉️ Mail de reconfirmation
             subject = "Reconfirmation d’inscription – Intégrale Academy"
-            html_content = mail_html("reconfirmation", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
+            html_content = mail_html("reconfirmation", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace, rentree_annee=candidate_year(r))
             send_mail(email, subject, html_content)
 
             # 📱 SMS de reconfirmation
@@ -4291,28 +4294,8 @@ def brevo_status():
 
 @app.route("/admin/stats")
 def admin_stats():
-    if not require_admin():
-        abort(403)
-
-    conn = db()
-    cur = conn.cursor()
-
-    def count(statut):
-        cur.execute("SELECT COUNT(*) FROM candidats WHERE statut=?", (statut,))
-        return cur.fetchone()[0]
-
-    stats = {
-        "preinscription": count("preinscription"),
-        "validee": count("validee"),
-        "confirmee": count("confirmee"),
-        "reconf_en_cours": count("reconf_en_cours"),
-        "reconfirmee": count("reconfirmee"),
-        "annulee": count("annulee"),
-        "docs_non_conformes": count("docs_non_conformes"),
-    }
-
-    conn.close()
-    return jsonify(ok=True, stats=stats)
+    response = api_kpi()
+    return jsonify(ok=True, stats=response.get_json())
 
 
 
@@ -4341,6 +4324,7 @@ def admin_send_mail_aps(cid):
             prenom=row.get("prenom", ""),
             bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
             aps_session=row.get("aps_session", ""),
+            rentree_annee=candidate_year(row),
             lien_espace="https://cnapsv5-1.onrender.com/"
         )
 
@@ -4588,6 +4572,19 @@ def voyage_londres_recap(iid):
 
 
 
+
+def ensure_campaign_schema():
+    conn = db()
+    try:
+        columns = {r[1] for r in conn.execute("PRAGMA table_info(candidats)")}
+        if "rentree_annee" not in columns:
+            conn.execute("ALTER TABLE candidats ADD COLUMN rentree_annee INTEGER NOT NULL DEFAULT 2026")
+        conn.commit()
+    finally:
+        conn.close()
+
+
+ensure_campaign_schema()
 
 from gestionstagiaires_api import register_gestionstagiaires_api
 register_gestionstagiaires_api(app, db, UPLOAD_DIR)

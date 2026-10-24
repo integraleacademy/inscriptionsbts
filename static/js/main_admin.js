@@ -1,3 +1,9 @@
+function campaignURL(path) {
+  const url = new URL(path, window.location.origin);
+  url.searchParams.set('rentree', new URLSearchParams(window.location.search).get('rentree') || '2027');
+  return url.pathname + url.search;
+}
+function escapeCell(value) { const span=document.createElement('span'); span.textContent=value ?? ''; return span.innerHTML; }
 // === Intégrale Academy – JS ADMIN SEUL ===
 window.currentId = null;
 
@@ -86,12 +92,9 @@ table.querySelectorAll('.status-select').forEach(sel => {
   // 🎨 Appliquer la bonne couleur au select selon son statut
   // =====================================================
   function updateStatusColor(sel) {
-    const val = sel.value;
-    const root = getComputedStyle(document.documentElement);
-    let color = root.getPropertyValue(`--${val}`).trim();
-    if (!color) color = "#7d7d7d"; // gris par défaut
-    sel.style.background = color;
-    sel.style.color = (val === "confirmee") ? "#111" : "#fff";
+    const colors = {preinscription:['#eef2f7','#5d6c80'],validee:['#eaf1ff','#3564bb'],confirmee:['#fcf2d9','#9a7221'],reconf_en_cours:['#fff1e6','#ac662b'],reconfirmee:['#e9f6ef','#39855f'],annulee:['#fcebed','#ae4a5a'],docs_non_conformes:['#f5edfa','#8c5fa5']};
+    const [bg,ink]=colors[sel.value] || colors.preinscription;
+    sel.style.background=bg;sel.style.color=ink;sel.style.borderColor=bg;
   }
 
   window.updateStatusColor = updateStatusColor;
@@ -336,7 +339,7 @@ async function rafraichirCompteurYpareoMass() {
   const btn = document.getElementById("btnMassYpareoNeo");
   if (!btn) return 0;
   try {
-    const res = await fetch("/admin/ypareo-neo/count-confirmed", { cache: "no-store" });
+    const res = await fetch(campaignURL("/admin/ypareo-neo/count-confirmed"), { cache: "no-store" });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || "Compteur indisponible");
     btn.textContent = `🚀 YPAREO NEO (${data.count})`;
@@ -386,7 +389,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const cursusTimer = window.setTimeout(() => definirEtapeYpareo("cursus"), 850);
     try {
-      const res = await fetch("/admin/ypareo-neo/send-confirmed", {
+      const res = await fetch(campaignURL("/admin/ypareo-neo/send-confirmed"), {
         method: "POST",
         headers: { "Accept": "application/json" }
       });
@@ -1233,7 +1236,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const data = await res.json();
 
     if (data.ok) {
-      alert("✅ Portail mis à jour : " + (status === "open" ? "OUVERT" : "FERMÉ"));
+      alert("Paramètres enregistrés : " + (status === "open" ? "ouverture autorisée à partir du 1er décembre 2026 à 10 h (Paris)." : "inscriptions suspendues."));
       portalModal.classList.add("hidden");
       location.reload();
     } else {
@@ -1410,7 +1413,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!massValidatedBtn) return;
 
   try {
-    const res = await fetch("/admin/count_validated_applications");
+    const res = await fetch(campaignURL("/admin/count_validated_applications"));
     const data = await res.json();
     if (data.ok) {
       massValidatedBtn.textContent = `🔔 RELANCER TOUTES LES CANDIDATURES VALIDEES (${data.count})`;
@@ -1440,7 +1443,7 @@ document.addEventListener("DOMContentLoaded", () => {
     massValidatedBtn.textContent = "⏳ Envoi des relances en cours...";
 
     try {
-      const res = await fetch("/admin/relance_all_validated", { method: "POST" });
+      const res = await fetch(campaignURL("/admin/relance_all_validated"), { method: "POST" });
       const data = await res.json();
 
       if (res.ok && data.ok) {
@@ -1466,7 +1469,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!massBtn) return;
 
   try {
-    const res = await fetch("/admin/count_confirmed");
+    const res = await fetch(campaignURL("/admin/count_confirmed"));
     const data = await res.json();
     if (data.ok) {
       massBtn.textContent = `📢 Envoyer reconfirmation à ${data.count} candidats confirmés`;
@@ -1497,7 +1500,7 @@ document.addEventListener("DOMContentLoaded", () => {
     massBtn.textContent = "⏳ Envoi en cours...";
 
     try {
-      const res = await fetch("/admin/reconfirm_all", { method: "POST" });
+      const res = await fetch(campaignURL("/admin/reconfirm_all"), { method: "POST" });
       const data = await res.json();
 
       if (data.ok) {
@@ -1566,223 +1569,39 @@ async function refreshCandidateRow(id) {
   }
 }
 
-// =====================================================
-// 🕓 Actualisation automatique de tout le tableau admin
-// =====================================================
+// One refresh loop; server-rendered rows retain all actions and cohort filters.
 const isParcoursupPage = window.location.pathname.startsWith("/parcoursup");
-
-document.addEventListener("DOMContentLoaded", () => {
-  if (isParcoursupPage) return;
-
-  const table = document.querySelector(".admin-table tbody");
-  if (!table) return;
-
-  let autoRefreshInterval = 60; // ⏱️ toutes les 60 secondes (modifiable)
-  let lastUpdate = Date.now();
-
-  async function refreshAdminTable() {
-    try {
-      const res = await fetch(window.location.href, { cache: "no-store" });
-      const html = await res.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
-      const newBody = doc.querySelector(".admin-table tbody");
-
-      if (!newBody) return;
-
-      // 🟡 Ne pas remplacer si l’utilisateur édite une cellule
-      const isEditing = document.activeElement && document.activeElement.tagName === "TD" && document.activeElement.isContentEditable;
-      if (isEditing) return;
-
-      table.replaceWith(newBody);
-      console.log("🔄 Tableau mis à jour automatiquement");
-
-      // 🟢 Réapplique les couleurs de statuts
-      newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
-      // 🧩 Rebinding après refresh automatique
-newBody.querySelectorAll(".status-select").forEach(sel => {
-  sel.addEventListener("change", () => onStatusChange(sel));
-});
-
-
-    } catch (err) {
-      console.warn("Erreur d’actualisation automatique :", err);
-    }
+document.addEventListener('DOMContentLoaded', () => {
+  if(window.location.pathname !== '/admin')return;
+  const toggle=document.getElementById('toggleLive'), manual=document.getElementById('manualRefresh');
+  const state=document.getElementById('liveStatus'), counter=document.getElementById('countdown');
+  if(!toggle || !manual)return;
+  let enabled=true,remaining=60,busy=false;
+  function bindRefreshedRows(body){
+    body.querySelectorAll('.status-select').forEach(sel=>{updateStatusColor(sel);sel.addEventListener('change',()=>onStatusChange(sel));});
+    body.querySelectorAll('.ypareo-neo-btn').forEach(btn=>btn.addEventListener('click',()=>envoyerYpareoNeo(btn)));
+    body.querySelectorAll('input.chk,td[contenteditable=true]').forEach(el=>el.addEventListener(el.matches('input')?'change':'blur',async()=>{
+      const id=el.closest('tr').dataset.id,field=el.dataset.field,value=el.matches('input')?(el.checked?1:0):el.textContent.trim();
+      try{const res=await fetch('/admin/update-field',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,field,value})});const data=await res.json();if(!res.ok || !data.ok)throw new Error();showToast('Modification enregistrée','#356ae6');}catch{showToast('La modification n’a pas été enregistrée. Réessayez.','#b33b50');}
+    }));
   }
-
-  // 🔁 Actualisation automatique
-  setInterval(() => {
-    const now = Date.now();
-    if (now - lastUpdate > autoRefreshInterval * 1000) {
-      refreshAdminTable();
-      lastUpdate = now;
-    }
-  }, 5000);
-});
-
-// =====================================================
-// ⚙️ Panneau de contrôle Live admin (pause / reprise / timer)
-// =====================================================
-document.addEventListener("DOMContentLoaded", () => {
-  const toggleBtn = document.getElementById("toggleLive");
-  const manualBtn = document.getElementById("manualRefresh");
-  const liveStatus = document.getElementById("liveStatus");
-  const countdownEl = document.getElementById("countdown");
-
-  if (!toggleBtn || !manualBtn) return;
-
-  let liveEnabled = true;
-  let countdown = 60; // secondes
-  let interval;
-
-  async function refreshAdminTableNow() {
-    const table = document.querySelector(".admin-table tbody");
-    if (!table) return;
-    try {
-      const res = await fetch(window.location.href, { cache: "no-store" });
-      // 🚫 Empêche le refresh si une cellule est en édition
-const editing = document.activeElement?.isContentEditable;
-if (editing) {
-  console.log("⏸️ Refresh annulé pendant édition");
-  return;
-}
-      const html = await res.text();
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, "text/html");
-      const newBody = doc.querySelector(".admin-table tbody");
-      if (!newBody) return;
-      table.replaceWith(newBody);
-      // 🧩 Réinitialise les écouteurs après un refresh manuel ou auto
-setTimeout(() => {
-  console.log("♻️ Rebinding après refresh");
-  const checks = document.querySelectorAll("input.chk");
-  const editable = document.querySelectorAll('td[contenteditable="true"]');
-
-  // ✅ Cases à cocher (étiquettes)
-  checks.forEach(chk => {
-    chk.addEventListener("change", async () => {
-      const tr = chk.closest("tr");
-      const id = tr.dataset.id;
-      const field = chk.dataset.field;
-      const value = chk.checked ? 1 : 0;
-      await fetch("/admin/update-field", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, field, value })
-      });
-      showToast("💾 Étiquette sauvegardée", "#28a745");
-    });
-  });
-
-  // ✅ Champs éditables (nom, prénom, bts, etc.)
-  editable.forEach(td => {
-    td.addEventListener("blur", async () => {
-      const tr = td.closest("tr");
-      const id = tr.dataset.id;
-      const field = td.dataset.field;
-      const value = td.textContent.trim();
-      await fetch("/admin/update-field", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, field, value })
-      });
-      showToast("💾 Sauvegardé", "#28a745");
-    });
-  });
-}, 500);
-
-      showToast("🔁 Tableau actualisé", "#007bff");
-      if (window.refreshKPI) refreshKPI();
-
-      newBody.querySelectorAll(".status-select").forEach(sel => updateStatusColor(sel));
-      // 🧩 Rebinding après refresh
-newBody.querySelectorAll(".status-select").forEach(sel => {
-  sel.addEventListener("change", () => onStatusChange(sel));
-});
-
-    } catch (err) {
-      console.warn("Erreur refresh manuel :", err);
-    }
+  async function refresh(manualRequest=false){
+    if(busy || document.activeElement?.isContentEditable || document.querySelector('.row-tools[open],.row-labels[open],.modal:not(.hidden),.ypareo-progress-modal:not(.hidden)'))return;
+    busy=true;
+    try{
+      const response=await fetch(location.href,{cache:'no-store'});if(!response.ok)throw new Error();
+      const doc=new DOMParser().parseFromString(await response.text(),'text/html');
+      const next=doc.querySelector('.admin-table tbody'),current=document.querySelector('.admin-table tbody');
+      if(next&&current){current.replaceWith(next);bindRefreshedRows(next);document.querySelector('.table-container').hidden=!next.children.length;document.querySelector('.empty-campaign')?.toggleAttribute('hidden',!!next.children.length);updateRowCount();}
+      if(window.refreshKPI)await refreshKPI();
+      if(manualRequest)showToast('Dossiers actualisés','#356ae6');
+    }catch{if(manualRequest)showToast('Actualisation impossible. Réessayez.','#b33b50');}
+    finally{busy=false;}
   }
-
-  function startTimer() {
-    clearInterval(interval);
-    interval = setInterval(async () => {
-      if (!liveEnabled) return;
-      countdown--;
-      countdownEl.textContent = `(${countdown}s)`;
-      if (countdown <= 0) {
-        await refreshAdminTableNow();
-        countdown = 60;
-      }
-    }, 1000);
-  }
-
-  toggleBtn.addEventListener("click", () => {
-    liveEnabled = !liveEnabled;
-    liveStatus.textContent = liveEnabled ? "🟢 Auto ON" : "🔴 Auto OFF";
-    toggleBtn.textContent = liveEnabled ? "⏸️ Pause" : "▶️ Reprendre";
-    countdownEl.style.color = liveEnabled ? "#555" : "#999";
-  });
-
-  manualBtn.addEventListener("click", async () => {
-    await refreshAdminTableNow();
-    countdown = 60;
-  });
-
-  startTimer();
+  toggle.addEventListener('click',()=>{enabled=!enabled;state.textContent=enabled?'Actualisation active':'Actualisation en pause';toggle.textContent=enabled?'Mettre en pause':'Reprendre';});
+  manual.addEventListener('click',()=>{refresh(true);remaining=60;});
+  setInterval(()=>{if(enabled && !document.hidden){remaining--;counter.textContent=remaining+' s';if(remaining<=0){refresh();remaining=60;}}},1000);
 });
-
-// =====================================================
-// 🧭 Détection et insertion des nouveaux candidats en live
-// =====================================================
-async function checkNewCandidats() {
-  if (isParcoursupPage) return;
-
-  try {
-    const res = await fetch("/admin/json", { cache: "no-store" });
-    const data = await res.json();
-
-    if (!data.ok || !Array.isArray(data.rows)) return;
-
-    const tbody = document.querySelector(".admin-table tbody");
-    if (!tbody) return;
-
-    const existingIds = Array.from(tbody.querySelectorAll("tr")).map(tr => tr.dataset.id);
-    const nouveaux = data.rows.filter(r => !existingIds.includes(r.id));
-
-    if (nouveaux.length > 0) {
-      nouveaux.forEach(r => {
-        const tr = document.createElement("tr");
-        tr.dataset.id = r.id;
-        tr.innerHTML = `
-          <td>${r.nom}</td>
-          <td>${r.prenom}</td>
-          <td>${r.bts}</td>
-          <td>${r.mode}</td>
-          <td>${r.tel}</td>
-          <td>${r.email}</td>
-          <td><select class="status-select"><option>${r.statut}</option></select></td>
-          <td>—</td>
-          <td style="text-align:center;">🆕</td>
-        `;
-        tr.style.background = "#e8ffe8";
-        tr.style.transition = "background 1s";
-        tbody.prepend(tr);
-        setTimeout(() => (tr.style.background = ""), 1500);
-      });
-
-      showToast(`🆕 ${nouveaux.length} nouveau(x) candidat(s) ajouté(s)`, "#28a745");
-      nouveaux.forEach(r => console.log("Nouveau candidat détecté:", r.nom, r.prenom));
-    }
-  } catch (err) {
-    console.warn("Erreur checkNewCandidats:", err);
-  }
-}
-
-// 🔁 vérifie toutes les 60 s (ou adapte à ton intervalle)
-setInterval(checkNewCandidats, 60000);
-
 
 // =====================================================
 // ⚡ Rafraîchissement intelligent des lignes après actions – version stabilisée
@@ -1798,12 +1617,12 @@ async function refreshRow(id) {
 
     // 🔁 Reconstruit uniquement les colonnes éditables et les étiquettes
     const html = `
-      <td contenteditable="true" data-field="nom">${data.row.nom}</td>
-      <td contenteditable="true" data-field="prenom">${data.row.prenom}</td>
-      <td contenteditable="true" data-field="bts">${data.row.bts}</td>
-      <td contenteditable="true" data-field="mode">${data.row.mode}</td>
-      <td contenteditable="true" data-field="tel">${data.row.tel}</td>
-      <td contenteditable="true" data-field="email">${data.row.email}</td>
+      <td contenteditable="true" data-field="nom">${escapeCell(data.row.nom)}</td>
+      <td contenteditable="true" data-field="prenom">${escapeCell(data.row.prenom)}</td>
+      <td contenteditable="true" data-field="bts">${escapeCell(data.row.bts)}</td>
+      <td contenteditable="true" data-field="mode">${escapeCell(data.row.mode)}</td>
+      <td contenteditable="true" data-field="tel">${escapeCell(data.row.tel)}</td>
+      <td contenteditable="true" data-field="email">${escapeCell(data.row.email)}</td>
       <td>
         <select class="status-select" data-field="statut">
           ${data.statuts.map(s => `
@@ -1813,11 +1632,11 @@ async function refreshRow(id) {
       </td>
       <td class="etiquettes" 
           style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:nowrap;white-space:nowrap;">
-        <label><input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS</label>
+        <details class="row-labels"><summary>Suivi du dossier ⌄</summary><div><label><input type="checkbox" class="chk" data-field="label_aps" ${data.row.label_aps ? "checked" : ""}> APS</label>
         <label><input type="checkbox" class="chk" data-field="label_aut_ok" ${data.row.label_aut_ok ? "checked" : ""}> AUT OK</label>
         <label><input type="checkbox" class="chk" data-field="label_cheque_ok" ${data.row.label_cheque_ok ? "checked" : ""}> Chèque OK</label>
         <label><input type="checkbox" class="chk" data-field="label_ypareo" ${data.row.label_ypareo ? "checked" : ""}> YPAREO</label>
-        <label><input type="checkbox" class="chk" data-field="label_carte_etudiante" ${data.row.label_carte_etudiante ? "checked" : ""}> Carte étudiante</label>
+        <label><input type="checkbox" class="chk" data-field="label_carte_etudiante" ${data.row.label_carte_etudiante ? "checked" : ""}> Carte étudiante</label></div></details>
       </td>
     `;
 
@@ -1833,7 +1652,7 @@ async function refreshRow(id) {
 
     // 🎨 Applique la bonne couleur du statut
     const sel = tr.querySelector(".status-select");
-    if (sel) updateStatusColor(sel);
+    if (sel) { updateStatusColor(sel); sel.addEventListener("change", () => onStatusChange(sel)); }
 
     // 🧩 Réattache les cases à cocher
     tr.querySelectorAll("input.chk").forEach(chk => {
@@ -1992,7 +1811,7 @@ async function onStatusChange(sel) {
 // =====================================================
 async function loadAdminStats() {
   try {
-    const res = await fetch("/admin/stats");
+    const res = await fetch(campaignURL("/admin/stats"));
     const data = await res.json();
     if (!data.ok) return;
 
@@ -2025,7 +1844,7 @@ function updateRowCount() {
 
     const el = document.getElementById("rowCount");
     if (el) {
-        el.textContent = `📊 ${count} ligne${count > 1 ? "s" : ""} affichée${count > 1 ? "s" : ""}`;
+        el.textContent = `${count} dossier${count > 1 ? "s" : ""} dans cette sélection`;
     }
 }
 
@@ -2130,4 +1949,10 @@ document.addEventListener("click", async (e) => {
     }
     showToast(`❌ ${error.message}`, "#dc3545");
   }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.admin-menu .menu-panel button').forEach(button => button.addEventListener('click', () => button.closest('.admin-menu').removeAttribute('open')));
+  const statuses=['preinscription','validee','confirmee','reconf_en_cours','reconfirmee','annulee','docs_non_conformes'];
+  document.querySelectorAll('.kpi-card').forEach((card,i)=>{card.tabIndex=0;card.setAttribute('role','link');const go=()=>{const u=new URL(location.href);u.searchParams.set('statut',statuses[i]);location.assign(u);};card.addEventListener('click',go);card.addEventListener('keydown',e=>{if(e.key==='Enter')go();});});
 });

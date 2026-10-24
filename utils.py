@@ -1,5 +1,6 @@
 import os, secrets, hmac, hashlib, ssl, smtplib
 from datetime import datetime
+from campaign import ADMISSION_YEAR, candidate_year
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.application import MIMEApplication
@@ -132,9 +133,9 @@ def send_sms_brevo(phone_number, message):
 # =====================================================
 # 🔢 Numérotation de dossier
 # =====================================================
-def dossier_number(now=None, counter=1):
+def dossier_number(now=None, counter=1, year=ADMISSION_YEAR):
     now = now or datetime.now()
-    return f"2026BTS{now.strftime('%d')}{now.strftime('%m')}{counter:04d}"
+    return f"{year}BTS{now.strftime('%d')}{now.strftime('%m')}{counter:04d}"
 
 # =====================================================
 # 🔐 Génération et signature de token
@@ -208,6 +209,7 @@ def get_mail_context(row, lien_espace=None, lien_confirmation=None):
     bts_code = (row.get("bts") or "").strip().upper()
 
     return {
+        "rentree_annee": candidate_year(row),
         "prenom": row.get("prenom", ""),
         "form_nom": row.get("nom", ""),
         "form_prenom": row.get("prenom", ""),

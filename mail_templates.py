@@ -3,6 +3,7 @@
 # =====================================================
 
 import os
+from campaign import ADMISSION_YEAR, candidate_year
 import unicodedata
 from flask import render_template_string
 
@@ -19,6 +20,7 @@ def _normalize_mode_text(value: str) -> str:
 def mail_html(template_name, **kwargs):
     """Retourne le HTML complet d’un mail avec logo et design unifié."""
 
+    rentree = kwargs.get("rentree_annee") or (candidate_year(kwargs) if kwargs.get("numero_dossier") else ADMISSION_YEAR)
     # === Variables de base ===
     prenom = kwargs.get("prenom", "") or ""
     lien_espace = kwargs.get("lien_espace", "#") or "#"
@@ -144,8 +146,8 @@ def mail_html(template_name, **kwargs):
   Pour réserver un rendez-vous téléphonique vous pouvez nous contacter au
   <strong>04 22 47 07 68</strong>.</p>
 
-  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre 2026 ?</strong><br>
-  Vous aurez jusqu’au mois de <strong>décembre 2026</strong> pour trouver une entreprise d’accueil et signer
+  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre {rentree} ?</strong><br>
+  Vous aurez jusqu’au mois de <strong>décembre {rentree}</strong> pour trouver une entreprise d’accueil et signer
   un contrat d’apprentissage. Pas d'inquiétude : la plupart des contrats d’apprentissage se concrétisent
   après la rentrée entre septembre et novembre. Vous pourrez donc commencer les cours au mois de septembre,
   même si vous n'avez pas encore signé de contrat d'apprentissage.</p>
@@ -323,8 +325,8 @@ def mail_html(template_name, **kwargs):
   Pour réserver un rendez-vous téléphonique vous pouvez nous contacter au
   <strong>04 22 47 07 68</strong>.</p>
 
-  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre 2026 ?</strong><br>
-  Vous aurez jusqu’au mois de <strong>décembre 2026</strong> pour trouver une entreprise d’accueil et signer
+  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre {rentree} ?</strong><br>
+  Vous aurez jusqu’au mois de <strong>décembre {rentree}</strong> pour trouver une entreprise d’accueil et signer
   un contrat d’apprentissage. Pas d'inquiétude : la plupart des contrats d’apprentissage se concrétisent
   après la rentrée entre septembre et novembre. Vous pourrez donc commencer les cours au mois de septembre,
   même si vous n'avez pas encore signé de contrat d'apprentissage.</p>
@@ -485,8 +487,8 @@ def mail_html(template_name, **kwargs):
   Pour réserver un rendez-vous téléphonique vous pouvez nous contacter au
   <strong>04 22 47 07 68</strong>.</p>
 
-  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre 2026 ?</strong><br>
-  Vous aurez jusqu’au mois de <strong>décembre 2026</strong> pour trouver une entreprise d’accueil et signer
+  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre {rentree} ?</strong><br>
+  Vous aurez jusqu’au mois de <strong>décembre {rentree}</strong> pour trouver une entreprise d’accueil et signer
   un contrat d'apprentissage. Pas d'inquiétude : la plupart des contrats d’apprentissage se concrétisent
   après la rentrée entre septembre et novembre. Vous pourrez donc commencer les cours au mois de septembre,
   même si vous n'avez pas encore signé de contrat d'apprentissage.</p>
@@ -947,8 +949,8 @@ def mail_html(template_name, **kwargs):
   Pour réserver un rendez-vous téléphonique vous pouvez nous contacter au
   <strong>04 22 47 07 68</strong>.</p>
 
-  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre 2026 ?</strong><br>
-  Vous aurez jusqu’au mois de <strong>décembre 2026</strong> pour trouver une entreprise d’accueil et signer
+  <p><strong>Dois-je obligatoirement signer un contrat d'apprentissage avant septembre {rentree} ?</strong><br>
+  Vous aurez jusqu’au mois de <strong>décembre {rentree}</strong> pour trouver une entreprise d’accueil et signer
   un contrat d’apprentissage. Pas d'inquiétude : la plupart des contrats d’apprentissage se concrétisent
   après la rentrée entre septembre et novembre. Vous pourrez donc commencer les cours au mois de septembre,
   même si vous n'avez pas encore signé de contrat d'apprentissage.</p>
@@ -1141,10 +1143,24 @@ def mail_html(template_name, **kwargs):
         }
     }  # 👈 FIN du dictionnaire templates
 
+    if int(rentree) >= 2027:
+        templates["demande_aps"]["content"] = f"""
+            <p>Bonjour {prenom},</p>
+            <p>Lors de votre candidature en <strong>BTS MOS pour la rentrée {rentree}</strong>,
+            vous avez indiqué souhaiter suivre la formation APS à Intégrale Academy.</p>
+            <p>Notre équipe vous contactera pour confirmer le calendrier, les conditions
+            d’admission et de financement ainsi que les démarches à effectuer avant la formation.</p>
+            <p>Vous pouvez répondre à ce message pour faire le point sur votre situation.</p>
+            <p>À très bientôt,<br><strong>L’équipe Intégrale Academy</strong></p>
+        """
+
     # === Sécurité : vérifie que le modèle existe ===
     tpl = templates.get(template_name)
     if not tpl:
         return f"<p>Modèle inconnu : {template_name}</p>"
+
+    tpl = dict(tpl)
+    tpl["content"] = tpl["content"].replace("{rentree}", str(rentree))
 
     # === Lecture du modèle de base ===
     try:
@@ -1169,6 +1185,7 @@ def mail_html(template_name, **kwargs):
 # ==========================================================
 def get_mail_context(row, lien_espace="#"):
     return {
+        "rentree_annee": candidate_year(row),
         "prenom": row.get("prenom", ""),
         "bts_label": row.get("bts", ""),
         "lien_espace": lien_espace,
