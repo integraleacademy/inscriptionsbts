@@ -3322,7 +3322,7 @@ def _candidate_photo_response(row):
             continue
         try:
             with Image.open(path) as source:
-                if source.format not in ('JPEG', 'PNG', 'WEBP', 'GIF', 'BMP', 'TIFF'): continue
+                if source.format not in ('JPEG', 'MPO', 'PNG', 'WEBP', 'GIF', 'BMP', 'TIFF'): continue
                 photo = ImageOps.exif_transpose(source)
                 photo.thumbnail((600, 600))
                 out = BytesIO()

@@ -474,3 +474,16 @@ def test_legacy_flat_photo_belongs_to_exact_dossier(client, tmp_path):
             conn.execute('UPDATE candidats SET fichiers_photo=? WHERE id=?', (json.dumps([str(photo)]), cid))
     assert client.get('/espace/flat-owner/photo').status_code == 200
     assert client.get('/espace/flat-other/photo').status_code == 404
+
+
+def test_jpeg_filename_containing_mpo_photo_is_supported(client, tmp_path):
+    from PIL import Image
+    seed(2026, 'mpo-owner')
+    folder = tmp_path / 'uploads' / 'mpo-owner'; folder.mkdir(parents=True)
+    photo = folder / 'Photo_mpo-owner.jpeg'
+    Image.new('RGB', (30, 40), 'gold').save(photo, format='MPO', save_all=True, append_images=[Image.new('RGB', (30, 40), 'white')])
+    with Image.open(photo) as image: assert image.format == 'MPO'
+    with application.db() as conn:
+        conn.execute('UPDATE candidats SET fichiers_photo=? WHERE id=?', (json.dumps([str(photo)]), 'mpo-owner'))
+    response = client.get('/espace/mpo-owner/photo')
+    assert response.status_code == 200 and response.mimetype == 'image/jpeg'
