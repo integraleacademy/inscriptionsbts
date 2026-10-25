@@ -7,6 +7,7 @@
 {% set is_planning_admin = request.path.startswith('/admin/planning') %}
 {% set is_planning_catalog = request.path in ['/admin/matieres', '/admin/salles'] %}
 {% set is_portal_planning = request.endpoint in ['trainer_planning', 'student_planning'] %}
+{% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}
 {% set is_student_portal = request.endpoint in ['espace_candidat', 'student_dashboard', 'student_planning'] %}
 {% macro academy_logo() %}<span class="academy-sigle" aria-hidden="true"><img src="{{ url_for('static', filename='academy-official-logo.png') }}" width="5906" height="1772" alt=""></span><span class="academy-wordmark"><span>INTÉGRALE</span><span>ACADEMY</span></span>{% endmacro %}
 <!DOCTYPE html>
@@ -64,9 +65,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-vibrant.css') }}?v=1">
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
+  {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
 </head>
 
-{% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}
 <body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
 
