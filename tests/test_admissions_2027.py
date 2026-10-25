@@ -371,6 +371,14 @@ def test_preparation_precedes_small_question_groups_without_changing_other_pages
     assert guide is not None and not guide.has_attr('hidden')
     assert 'Commencer ma pré-inscription' in guide.get_text()
     assert len(guide.select('[data-prepared]')) == 5
+    illustrations = guide.select('.preparation-document img')
+    assert len(illustrations) == 5
+    assert len({image['src'] for image in illustrations}) == 5
+    from pathlib import Path
+    for image in illustrations:
+        assert image.get('alt')
+        assert (Path(application.app.root_path) / image['src'].lstrip('/')).is_file()
+    assert not guide.select_one('.preparation-more').has_attr('open')
     for text in ['Ta pièce d’identité', 'Ta photo d’identité', 'Ta carte Vitale', 'Ton CV', 'Ta lettre de motivation', '8 Mo', 'PDF', 'JPG', 'PNG', 'Je confirme mon inscription']:
         assert text in guide.get_text()
     assert not guide.select('input[type=file]')  # Preparation does not transmit documents.

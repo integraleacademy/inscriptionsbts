@@ -32,53 +32,42 @@ body.academy-ui.application-page {
 .academy-ui.application-page .preview-notice select { width: 200px; max-width: 100%; padding: 6px 8px; border: 1px solid #c4d4e9; border-radius: 6px; background: white; font-size: 11px; }
 .academy-ui.application-page .preview-notice button { background: transparent; color: #245dc0; border: 1px solid #b5c8e3; border-radius: 7px; padding: 7px 10px; font-size: 11px; }
 
-/* Preparation is a real first view, kept in the DOM when the form begins. */
-.academy-ui.application-page .preparation-page { max-width: 1260px; padding: 44px 40px 32px; margin: auto; }
-.academy-ui.application-page .preparation-hero { display: grid; grid-template-columns: 1fr 1.05fr; align-items: center; gap: 56px; }
-.academy-ui.application-page .preparation-copy h1 { font-size: clamp(38px,4.2vw,60px); line-height: 1.1; letter-spacing: -2.3px; margin: 0 0 24px; font-weight: 800; }
-.academy-ui.application-page .preparation-copy > p:not(.eyebrow) { color: #586575; font-size: 16px; line-height: 1.8; max-width: 490px; margin: 0 0 24px; }
-.academy-ui.application-page .preparation-copy .eyebrow { font-size: 9px; color: #92702f; margin-bottom: 22px; }
-.academy-ui.application-page .preparation-visual { position: relative; margin: 0; border-radius: 24px; overflow: hidden; align-self: stretch; min-height: 440px; background: #d6e9fb; }
-.academy-ui.application-page .preparation-visual img { width: 100%; height: 100%; position: absolute; object-fit: cover; object-position: 48% center; }
-.academy-ui.application-page .preparation-visual:after { content: ''; position: absolute; inset: 35% 0 0; background: linear-gradient(transparent,#102439ed); }
-.academy-ui.application-page .preparation-visual figcaption { position: absolute; bottom: 30px; left: 30px; right: 25px; z-index: 1; color: white; }
-.academy-ui.application-page .preparation-visual figcaption span { display: block; font-size: 9px; letter-spacing: 1.4px; color: #f1cf7d; margin-bottom: 10px; }
-.academy-ui.application-page .preparation-visual figcaption strong { font: 800 25px/1.3 Manrope,sans-serif; letter-spacing: -.6px; }
-.academy-ui.application-page .preparation-facts { display: flex; gap: 22px; margin-top: 29px; }
-.academy-ui.application-page .preparation-facts span { font-size: 10px; line-height: 1.7; color: #657181; }
-.academy-ui.application-page .preparation-facts b { display: block; font-size: 17px; color: #172536; }
-.academy-ui.application-page .preparation-route { display: grid; grid-template-columns: repeat(3,1fr); list-style: none; padding: 24px 32px; margin: 38px 0 70px; border-radius: 17px; background: #172b46; color: #fff; gap: 26px; }
-.academy-ui.application-page .preparation-route li { display: flex; align-items: center; gap: 18px; margin: 0; }
-.academy-ui.application-page .preparation-route li > span { font: italic 400 33px Georgia,serif; color: #f1cd79; }
-.academy-ui.application-page .preparation-route b { font-size: 14px; display: block; }
-.academy-ui.application-page .preparation-route small { font-size: 11px; color: #c6d3e4; }
-.academy-ui.application-page .preparation-section-heading { display: flex; justify-content: space-between; align-items: end; gap: 24px; margin-bottom: 32px; }
-.academy-ui.application-page .preparation-page h2 { font-size: clamp(29px,3vw,40px); letter-spacing: -1.2px; line-height: 1.17; margin: 0; color: #172536; }
-.academy-ui.application-page .preparation-section-heading > p { color: #637080; font-size: 12px; line-height: 1.9; margin: 0; }
-.academy-ui.application-page #preparation-count { display: inline-block; background: #e8f1ff; border-radius: 30px; padding: 4px 13px; font-weight: 700; color: #245dc0; margin-top: 9px; }
-.academy-ui.application-page #documents-a-preparer { scroll-margin-top: 24px; }
-.academy-ui.application-page .preparation-document-list { background: white; border: 1px solid #dce2e9; border-radius: 18px; padding: 0 28px; }
-.academy-ui.application-page .preparation-document { display: grid; grid-template-columns: 40px 1fr auto; gap: 23px; align-items: start; padding: 27px 0; border-bottom: 1px solid #e4e9f0; }
-.academy-ui.application-page .preparation-document:last-child { border: 0; }
-.academy-ui.application-page .document-number { font: 500 12px Manrope,sans-serif; color: #778ca9; padding-top: 8px; }
-.academy-ui.application-page .document-format { font-size: 10px; letter-spacing: .4px; color: #245dc0; font-weight: 600; margin: 0 0 7px; }
-.academy-ui.application-page .preparation-document h3 { font-size: 19px; margin: 0 0 9px; }
-.academy-ui.application-page .preparation-document p:last-child { margin: 0; font-size: 13px; line-height: 1.8; color: #5c6876; max-width: 740px; }
-.academy-ui.application-page .document-ready { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid #d4dfea; border-radius: 9px; margin: 18px 0 0; font-size: 12px; white-space: nowrap; cursor: pointer; background: #f7faff; }
+/* Illustrated preparation: only the essentials are visible before starting. */
+.academy-ui.application-page .preparation-page { max-width: 1260px; padding: 38px 40px 32px; margin: auto; }
+.academy-ui.application-page .preparation-intro { display: flex; justify-content: space-between; align-items: end; gap: 35px; margin-bottom: 30px; }
+.academy-ui.application-page .preparation-intro .eyebrow { font-size: 9px; margin-bottom: 14px; }
+.academy-ui.application-page .preparation-intro h1 { font-size: clamp(34px,3.5vw,46px); line-height: 1.1; letter-spacing: -1.6px; margin: 0 0 15px; font-weight: 800; }
+.academy-ui.application-page .preparation-intro p:not(.eyebrow) { color: #5c6876; font-size: 14px; line-height: 1.7; margin: 0; }
+.academy-ui.application-page .preparation-limits { flex-shrink: 0; display: flex; flex-direction: column; align-items: end; gap: 5px; font-size: 11px; color: #68788e; }
+.academy-ui.application-page .preparation-limits b { color: #2a405e; font-size: 13px; }
+.academy-ui.application-page #preparation-count { display: inline-block; background: #e8f1ff; border-radius: 30px; padding: 7px 14px; font-weight: 700; color: #245dc0; margin-top: 9px; }
+.academy-ui.application-page .preparation-document-list { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 22px; }
+.academy-ui.application-page .preparation-document { display: flex; flex-direction: column; min-width: 0; border: 1px solid #dce4ef; background: white; border-radius: 17px; overflow: hidden; box-shadow: 0 5px 18px #19365605; }
+.academy-ui.application-page .preparation-document-art { position: relative; background: #dbeeff; }
+.academy-ui.application-page .preparation-document-art img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; }
+.academy-ui.application-page .document-number { position: absolute; left: 14px; top: 14px; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #fff; color: #284362; font: 800 11px Manrope,sans-serif; box-shadow: 0 3px 12px #19365614; }
+.academy-ui.application-page .preparation-document-copy { padding: 20px; display: flex; flex-direction: column; flex: 1; }
+.academy-ui.application-page .document-format { color: #245dc0; background: #edf4ff; font-size: 10px; font-weight: 700; align-self: start; padding: 4px 8px; border-radius: 5px; margin: 0 0 12px; }
+.academy-ui.application-page .preparation-document:nth-child(2) .document-format { background: #f2edfb; color: #64508b; }
+.academy-ui.application-page .preparation-document:nth-child(3) .document-format { background: #eaf6ef; color: #34714d; }
+.academy-ui.application-page .preparation-document h2 { font-size: 19px; letter-spacing: -.5px; line-height: 1.3; margin: 0 0 10px; color: #172536; }
+.academy-ui.application-page .preparation-document-copy > p:not(.document-format) { font-size: 13px; line-height: 1.7; margin: 0 0 18px; min-height: 45px; color: #5e6e83; }
+.academy-ui.application-page .document-ready { margin: auto 0 0; padding: 14px 0 0; border: 0; border-top: 1px solid #e5eaf1; display: flex; align-items: center; gap: 9px; font-size: 12px; color: #2e4563; cursor: pointer; }
 .academy-ui.application-page .document-ready input { width: 17px; height: 17px; margin: 0; accent-color: #245dc0; }
-.academy-ui.application-page .document-ready:has(:checked) { background: #e7f2ff; border-color: #7fabdf; color: #174c94; }
-.academy-ui.application-page .preparation-checklist-note { font-size: 11px; color: #647287; margin: 18px 0 22px; }
-.academy-ui.application-page .preparation-before { display: grid; grid-template-columns: 1.15fr 1fr; gap: 65px; margin: 70px 0; align-items: center; }
-.academy-ui.application-page .preparation-before p:not(.eyebrow),
-.academy-ui.application-page .preparation-before li { font-size: 13px; color: #5c6876; line-height: 1.9; }
-.academy-ui.application-page .preparation-before ul { padding-left: 20px; }
-.academy-ui.application-page .preparation-before li { padding-left: 4px; margin-bottom: 8px; }
-.academy-ui.application-page .preparation-after { padding: 30px 34px; background: #edf4ff; border-radius: 18px; }
-.academy-ui.application-page .preparation-after .application-information-card { background: transparent; border: 0; padding: 0; margin: 0; }
-.academy-ui.application-page .preparation-after > p:last-child { margin: 20px 0 0; color: #526681; font-size: 12px; }
-.academy-ui.application-page .preparation-start { display: flex; align-items: center; justify-content: space-between; gap: 35px; margin-top: 60px; padding: 24px 0; }
-.academy-ui.application-page .preparation-start p:not(.eyebrow) { font-size: 13px; color: #5c6876; }
-.academy-ui.application-page .preparation-start .button { flex-shrink: 0; }
+.academy-ui.application-page .preparation-document:has(.document-ready :checked) { border-color: #83a9df; box-shadow: 0 0 0 1px #83a9df; }
+.academy-ui.application-page .preparation-start { border-radius: 17px; background: #172b46; color: white; padding: 30px; display: flex; flex-direction: column; min-width: 0; }
+.academy-ui.application-page .preparation-start .eyebrow { color: #f0cf85; font-size: 9px; margin: 0 0 15px; }
+.academy-ui.application-page .preparation-start h2 { font-size: 32px; line-height: 1.15; letter-spacing: -.8px; margin: 0 0 20px; color: white; }
+.academy-ui.application-page .preparation-start h2 em { color: #f0cf85; }
+.academy-ui.application-page .preparation-route { list-style: none; padding: 0; margin: 0 0 25px; }
+.academy-ui.application-page .preparation-route li { display: flex; gap: 12px; align-items: baseline; color: #d4e0f1; font-size: 12px; line-height: 1.7; margin: 0 0 12px; }
+.academy-ui.application-page .preparation-route li > span { color: #89b8fc; font-weight: 700; font-size: 10px; }
+.academy-ui.application-page .preparation-start .button { background: #fff; color: #172b46; border-color: white; font-size: 13px; padding: 14px 16px; gap: 12px; width: 100%; margin-top: auto; line-height: 1.5; }
+.academy-ui.application-page .preparation-start .button:hover { background: #dbeaff; border-color: #dbeaff; }
+.academy-ui.application-page .preparation-resume { color: #b9cbe3; font-size: 11px; line-height: 1.7; margin: 15px 0 0; }
+.academy-ui.application-page .preparation-page .preparation-more { margin-top: 24px; background: transparent; }
+.academy-ui.application-page .preparation-more h3 { font-size: 15px; margin: 20px 0 8px; }
+.academy-ui.application-page .preparation-more .application-information-card { background: transparent; border: 0; padding: 0; }
 
 /* Compact chapter rail, one small question group in the main panel. */
 .academy-ui.application-page .application-layout { display: grid; grid-template-columns: 280px minmax(0,1fr); max-width: 1440px; min-height: calc(100svh - 84px); margin: auto; }
@@ -203,8 +192,6 @@ body.academy-ui.application-page {
 .academy-ui.application-page .footer-signature { background: #fffdf8; border-top: 1px solid #e2e6ed; color: #6a788d; padding: 24px 4%; }
 
 @media (max-width: 1100px) {
-  .academy-ui.application-page .preparation-hero { gap: 30px; }
-  .academy-ui.application-page .preparation-visual { min-height: 410px; }
   .academy-ui.application-page .application-layout { grid-template-columns: 240px minmax(0,1fr); }
   .academy-ui.application-page .application-aside { padding: 28px 22px; }
   .academy-ui.application-page .journey-intro h2 { font-size: 26px; }
@@ -218,24 +205,6 @@ body.academy-ui.application-page {
   .academy-ui.application-page .official-academy-header .academy-wordmark { font-size: 12px; letter-spacing: .6px; }
   .academy-ui.application-page .official-academy-header .header-contact { display: none; }
   .academy-ui.application-page .official-academy-header .candidate-access-link { position: static; padding: 8px 10px; font-size: 10px; }
-  .academy-ui.application-page .preparation-page { padding: 32px 22px; }
-  .academy-ui.application-page .preparation-hero { grid-template-columns: 1fr; gap: 30px; }
-  .academy-ui.application-page .preparation-copy h1 { font-size: 43px; letter-spacing: -1.8px; }
-  .academy-ui.application-page .preparation-copy > p:not(.eyebrow) { font-size: 14px; }
-  .academy-ui.application-page .preparation-visual { min-height: 290px; }
-  .academy-ui.application-page .preparation-visual figcaption { left: 23px; bottom: 23px; }
-  .academy-ui.application-page .preparation-visual figcaption strong { font-size: 22px; }
-  .academy-ui.application-page .preparation-facts { gap: 25px; }
-  .academy-ui.application-page .preparation-route { gap: 22px; grid-template-columns: 1fr; margin-bottom: 45px; padding: 25px; }
-  .academy-ui.application-page .preparation-section-heading { display: block; }
-  .academy-ui.application-page .preparation-section-heading > p { margin-top: 20px; }
-  .academy-ui.application-page .preparation-document-list { padding: 0 20px; }
-  .academy-ui.application-page .preparation-document { grid-template-columns: 24px minmax(0,1fr); gap: 10px; padding: 23px 0; }
-  .academy-ui.application-page .document-ready { grid-column: 2; justify-self: start; margin-top: 5px; }
-  .academy-ui.application-page .preparation-document h3 { font-size: 18px; }
-  .academy-ui.application-page .preparation-before { grid-template-columns: 1fr; gap: 15px; margin: 45px 0; }
-  .academy-ui.application-page .preparation-after { padding: 25px; }
-  .academy-ui.application-page .preparation-start { align-items: stretch; flex-direction: column; gap: 10px; margin-top: 35px; }
   .academy-ui.application-page .application-layout { display: block; }
   .academy-ui.application-page .application-aside { padding: 18px 23px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-right: 0; border-bottom: 1px solid #dae5f4; }
   .academy-ui.application-page .journey-intro .eyebrow { margin-bottom: 6px; font-size: 7px; }
@@ -276,10 +245,27 @@ body.academy-ui.application-page {
   .academy-ui.application-page .official-academy-header .academy-wordmark { font-size: 10px; }
   .academy-ui.application-page .official-academy-header .academy-sigle { width: 38px; height: 36px; }
   .academy-ui.application-page .official-academy-header .candidate-access-link { font-size: 9px; }
-  .academy-ui.application-page .preparation-copy h1 { font-size: 37px; }
-  .academy-ui.application-page .preparation-facts { gap: 13px; }
   .academy-ui.application-page .journey-illustration { width: 62px; height: 62px; }
   .academy-ui.application-page .journey-intro h2 { font-size: 21px; }
   .academy-ui.application-page .application-bottom { align-items: start; }
   .academy-ui.application-page .required-note { max-width: 70px; text-align: right; }
+}
+
+@media (max-width: 1000px) {
+  .academy-ui.application-page .preparation-page { padding: 30px 28px; }
+  .academy-ui.application-page .preparation-document-list { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 18px; }
+  .academy-ui.application-page .preparation-intro { align-items: start; }
+  .academy-ui.application-page .preparation-limits { align-items: start; max-width: 205px; flex-shrink: 1; padding-top: 28px; }
+}
+@media (max-width: 600px) {
+  .academy-ui.application-page .preparation-page { padding: 25px 20px; }
+  .academy-ui.application-page .preparation-intro { display: block; margin-bottom: 24px; }
+  .academy-ui.application-page .preparation-intro h1 { font-size: 36px; letter-spacing: -1.2px; }
+  .academy-ui.application-page .preparation-intro p:not(.eyebrow) { font-size: 13px; }
+  .academy-ui.application-page .preparation-limits { padding-top: 17px; max-width: none; gap: 3px; }
+  .academy-ui.application-page #preparation-count { margin-top: 8px; }
+  .academy-ui.application-page .preparation-document-list { grid-template-columns: 1fr; gap: 18px; }
+  .academy-ui.application-page .preparation-document-copy { padding: 20px; }
+  .academy-ui.application-page .preparation-document-copy > p:not(.document-format) { min-height: 0; }
+  .academy-ui.application-page .preparation-start { padding: 25px; }
 }

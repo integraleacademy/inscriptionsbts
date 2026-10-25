@@ -3,7 +3,7 @@
 {% from 'application_fields.html' import field, choices, screen, upload %}
 {% import 'application_information.html' as information %}
 {% block body_class %}application-page{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/application-journey.css') }}?v=1">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/application-journey.css') }}?v=2">{% endblock %}
 {% block content %}
 {% if preview %}<div class="preview-notice"><b>Aperçu administrateur</b><span>Parcourez le guide et toutes les questions sans saisir de données.</span><label><input type="checkbox" id="preview-validation"> Tester les contrôles de saisie</label><label>Aller à <select id="preview-step"><option value="guide">Guide de préparation</option></select></label><button type="button" id="preview-success">Voir la confirmation</button></div>{% endif %}
 {% include 'application_preparation.html' %}

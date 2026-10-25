@@ -1,0 +1,33 @@
+{
+  "description": "Document illustrations for the BTS preparation page.",
+  "reused": [
+    {
+      "file": "identity.webp",
+      "source": "https://cnapsv3.onrender.com/static/illustrations/prepare-identity.webp?v=manual-2"
+    },
+    {
+      "file": "photo.webp",
+      "source": "https://cnapsv3.onrender.com/static/illustrations/prepare-photo.webp?v=manual-2"
+    }
+  ],
+  "generated": [
+    {
+      "file": "vitale.webp",
+      "generator": "built-in image_gen",
+      "style_reference": "identity.webp",
+      "prompt": "Use case: illustration-story. Asset type: small landscape illustration for an Intégrale Academy pre-application document checklist, displayed in a 3:2 card. Reference image role: STYLE ONLY. Match its exact clean hand-drawn educational cartoon illustration style: tidy dark navy outlines, soft flat cel-shaded shapes, simple expressive young-adult faces, rich blues, white and sky blue bright interior, light warm wood desk, cheerful professional atmosphere. Make one coherent full-bleed illustration, NOT a collage, no panels, no border, no website UI, no captions, no logos, no watermark. Landscape 3:2 composition with the main action and document centered and clearly readable at small card size. No real personal information; document details are stylized lines. Subject: a young adult woman seated at a sunny desk preparing a scan of her French Carte Vitale. She holds a clearly recognizable GREEN health insurance card with a small gold chip and the single word 'Vitale', angled toward the viewer, beside a smartphone and a plain paper copy. Card large enough to recognize, hands anatomically correct. Bright blue office window and plant in the simple background. This is an administrative document scene, not a medical consultation."
+    },
+    {
+      "file": "cv.webp",
+      "generator": "built-in image_gen",
+      "style_reference": "identity.webp",
+      "prompt": "Use case: illustration-story. Asset type: small landscape illustration for an Intégrale Academy pre-application document checklist, displayed in a 3:2 card. Reference image role: STYLE ONLY. Match its exact clean hand-drawn educational cartoon illustration style: tidy dark navy outlines, soft flat cel-shaded shapes, simple expressive young-adult faces, rich blues, white and sky blue bright interior, light warm wood desk, cheerful professional atmosphere. Make one coherent full-bleed illustration, NOT a collage, no panels, no border, no website UI, no captions, no logos, no watermark. Landscape 3:2 composition with the main action and document centered and clearly readable at small card size. No real personal information; document details are stylized lines. Subject: a young adult man with short curly hair reviewing his CV on a laptop in a sunny study space. Laptop screen is angled to the viewer and shows a clean stylized résumé with the large readable heading 'CV', a small round portrait and blue section bars. A matching printed CV lies on the light wood desk, and he points at it with one hand. A few books and a green plant, bright blue classroom windows. One person only."
+    },
+    {
+      "file": "letter.webp",
+      "generator": "built-in image_gen",
+      "style_reference": "identity.webp",
+      "prompt": "Use case: illustration-story. Asset type: small landscape illustration for an Intégrale Academy pre-application document checklist, displayed in a 3:2 card. Reference image role: STYLE ONLY. Match its exact clean hand-drawn educational cartoon illustration style: tidy dark navy outlines, soft flat cel-shaded shapes, simple expressive young-adult faces, rich blues, white and sky blue bright interior, light warm wood desk, cheerful professional atmosphere. Make one coherent full-bleed illustration, NOT a collage, no panels, no border, no website UI, no captions, no logos, no watermark. Landscape 3:2 composition with the main action and document centered and clearly readable at small card size. No real personal information; document details are stylized lines. Subject: a young adult woman with shoulder-length chestnut hair writing a motivation letter at a light wood desk with a blue pen. The sheet shows only the small heading 'Motivation' and abstract blue lines, no personal details. Her thoughtful friendly face and hand writing are both visible. A plain envelope beside the sheet helps distinguish this from a CV, and a closed blue notebook, bright blue windows and plant in the background. One person only."
+    }
+  ]
+}
