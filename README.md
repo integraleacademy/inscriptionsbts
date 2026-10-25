@@ -150,8 +150,10 @@ Le modèle fourni `Carte Etudiante-Bureautique.pdf` est conservé sans modificat
 dans `assets/student_cards/carte_etudiante_original.pdf`. Les champs proviennent
 du modèle de saisie numérique fourni en parallèle. Le PDF est statique et prêt
 à imprimer, sans formulaire interactif, et la signature du titulaire est laissée
-vierge. Deux formats sont disponibles : A4 de deux pages avec repères de découpe
-(100 %, recto verso sur le bord long), ou deux faces au format original 86 × 54 mm.
+vierge. Le PDF est prévu pour une imprimante à badges : deux pages au format
+original 86 × 54 mm, une face par page, sans feuille A4, marges ajoutées, consignes
+ni repères de découpe. Les anciens liens avec `format=a4` génèrent également ce
+format badge. Le pilote de l’imprimante conserve la gestion du retournement.
 La photo enregistrée est insérée sans recadrage supplémentaire. La génération
 est réservée aux administrateurs, sans envoi ni modification de l’étiquette
 « Carte étudiante envoyée ». Aucun PDF nominatif n’est stocké dans les fichiers

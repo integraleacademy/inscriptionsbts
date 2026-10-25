@@ -7,9 +7,8 @@ import re
 from zoneinfo import ZoneInfo
 
 from flask import abort, make_response, render_template, request, send_file
-from pypdf import PdfReader, PdfWriter, Transformation
+from pypdf import PdfReader, PdfWriter
 from pypdf.generic import NameObject, DictionaryObject
-from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -86,10 +85,10 @@ def _text(drawing, key, value, height, size=7):
     drawing.drawString(left + 1, height - (top + bottom) / 2 - fitted * .34, value)
 
 
-def student_card_pdf(row, photo, *, start=None, end=None, layout='a4'):
+def student_card_pdf(row, photo, *, start=None, end=None, layout='carte'):
     row = dict(row)
     if layout not in ('a4', 'carte'):
-        raise ValueError('Choisissez le format A4 ou le format carte.')
+        raise ValueError('Choisissez le format carte pour l’impression sur badge.')
     if not row.get('nom') or not row.get('prenom'):
         raise ValueError('Renseignez le nom et le prénom dans l’onglet Informations.')
     birth = _date(row.get('date_naissance'), 'date de naissance')
@@ -133,40 +132,11 @@ def student_card_pdf(row, photo, *, start=None, end=None, layout='a4'):
                               preserveAspectRatio=True, anchor='c')
         drawing.save()
         page.merge_page(PdfReader(BytesIO(overlay.getvalue())).pages[0])
-    if layout == 'carte':
-        writer = cards
-    else:
-        writer = PdfWriter()
-        for index, card in enumerate(cards.pages):
-            width, height = float(card.mediabox.width), float(card.mediabox.height)
-            x, y = (A4[0]-width)/2, (A4[1]-height)/2
-            page = writer.add_blank_page(width=A4[0], height=A4[1])
-            page.merge_transformed_page(card, Transformation().translate(x, y))
-            guide = BytesIO()
-            drawing = canvas.Canvas(guide, pagesize=A4, invariant=1)
-            drawing.setStrokeColorRGB(.35, .39, .45)
-            drawing.setLineWidth(.3)
-            for corner_x in (x, x+width):
-                for corner_y in (y, y+height):
-                    sx = -1 if corner_x == x else 1
-                    sy = -1 if corner_y == y else 1
-                    drawing.line(corner_x+sx*3, corner_y, corner_x+sx*11, corner_y)
-                    drawing.line(corner_x, corner_y+sy*3, corner_x, corner_y+sy*11)
-            drawing.setFillColorRGB(.18, .23, .32)
-            drawing.setFont(FONT, 12)
-            drawing.drawCentredString(A4[0]/2, y+height+62, 'Carte étudiante - ' + ('Recto' if index == 0 else 'Verso'))
-            drawing.setFont(FONT, 9)
-            for line, text in enumerate((
-                'Imprimer en A4 à taille réelle (100 %), sans ajuster à la page.',
-                'Recto verso : retourner sur le bord long. Découper selon les repères.',
-                'Format final : 86 × 54 mm. La signature est à compléter par le titulaire.',
-            )):
-                drawing.drawCentredString(A4[0]/2, y-39-line*15, text)
-            drawing.save()
-            page.merge_page(PdfReader(BytesIO(guide.getvalue())).pages[0])
+    # Older open sheets may still send format=a4. Always return full-page badge
+    # faces so a stale link cannot reintroduce a paper sheet or cutting guides.
+    writer = cards
     writer.root_object[NameObject('/ViewerPreferences')] = DictionaryObject({
         NameObject('/PrintScaling'): NameObject('/None'),
-        NameObject('/Duplex'): NameObject('/DuplexFlipLongEdge'),
     })
     writer.add_metadata({'/Title': f"Carte étudiante - {row['prenom']} {row['nom'].upper()}", '/Author': 'Intégrale Academy'})
     output = BytesIO()
@@ -190,7 +160,7 @@ def register_student_cards(app, db_connect, upload_dir, require_admin):
             except NotFound:
                 raise ValueError('La photo d’identité est absente ou illisible. Ajoutez une photo au dossier avant de générer la carte.') from None
             content = student_card_pdf(row, photo, start=request.args.get('debut'), end=request.args.get('fin'),
-                                       layout=request.args.get('format', 'a4'))
+                                       layout=request.args.get('format', 'carte'))
         except ValueError as exc:
             response = make_response(render_template('student_card_error.html', row=row, error=str(exc),
                                                       title='Carte étudiante'), 400)

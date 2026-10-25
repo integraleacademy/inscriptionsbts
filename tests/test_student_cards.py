@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 from PIL import Image, ImageDraw
 from pypdf import PdfReader
-from reportlab.lib.pagesizes import A4
 
 from student_cards import TEMPLATE, student_card_dates, student_card_pdf
 from test_admissions_2027 import application, auth, client, seed
@@ -43,26 +42,28 @@ def test_dates_are_dossier_based_and_follow_the_school_year():
     assert student_card_dates({'numero_dossier':'2027BTS0001'}, date(2026, 10, 25))['start'] == '2027-09-01'
 
 
-@pytest.mark.parametrize('layout,size', [('a4',A4), ('carte',(243.779,153.071))])
+@pytest.mark.parametrize('layout', ['', '&format=carte', '&format=a4'])
 @pytest.mark.parametrize('mode,address,excluded', [('presentiel','54 chemin du Carreou','141 rue de Rivoli'),
                                                    ('distanciel','141 rue de Rivoli','54 chemin du Carreou')])
-def test_card_has_original_artwork_identity_correct_address_and_print_settings(student, layout, size, mode, address, excluded):
+def test_card_has_original_artwork_identity_correct_address_and_print_settings(student, layout, mode, address, excluded):
     with application.db() as conn:
         conn.execute('UPDATE candidats SET mode=? WHERE id=?',(mode,'card-student'))
     before = current_row()
-    response = student.get(f'/admin/candidat/card-student/carte-etudiante.pdf?format={layout}&debut=2027-09-01&fin=2028-08-31')
+    response = student.get(f'/admin/candidat/card-student/carte-etudiante.pdf?debut=2027-09-01&fin=2028-08-31{layout}')
     assert response.status_code == 200 and response.mimetype == 'application/pdf'
     assert response.headers['Cache-Control'] == 'private, no-store'
     assert response.headers['Content-Disposition'].startswith('inline;')
     reader = PdfReader(BytesIO(response.data))
     assert len(reader.pages) == 2
     for page in reader.pages:
-        assert (float(page.mediabox.width),float(page.mediabox.height)) == pytest.approx(size,abs=.01)
+        assert (float(page.mediabox.width),float(page.mediabox.height)) == pytest.approx((243.779,153.071),abs=.01)
         assert not [a for a in page.get('/Annots',[]) if a.get_object().get('/Subtype') == '/Widget']
     assert not reader.get_fields()
     assert reader.trailer['/Root']['/ViewerPreferences']['/PrintScaling'] == '/None'
-    assert reader.trailer['/Root']['/ViewerPreferences']['/Duplex'] == '/DuplexFlipLongEdge'
+    assert '/Duplex' not in reader.trailer['/Root']['/ViewerPreferences']
     front, back = [p.extract_text() for p in reader.pages]
+    for instruction in ('Imprimer en A4', 'repères', 'Découper', 'bord long', 'Carte étudiante - Recto', 'Carte étudiante - Verso'):
+        assert instruction not in front + back
     for value in ['DUPONT', 'Éléonore', '29/02/2008', '01/09/2027 au 31/08/2028']:
         assert value in front
     for value in [address, 'CFA Intégrale Academy', 'Clément VAILLANT', 'integraleacademy.com', '04 22 47 07 68']:
@@ -141,7 +142,7 @@ def test_long_accented_names_remain_complete(student):
     assert row['nom'] in text and row['prenom'] in text
 
 
-def test_documents_tab_offers_preview_print_dates_and_both_sizes(student):
+def test_documents_tab_generates_badges_directly_without_a_format_choice(student):
     from bs4 import BeautifulSoup
     soup = BeautifulSoup(student.get('/admin/candidat/card-student?rentree=2027').text,'html.parser')
     form = soup.select_one('#panel-documents .student-card-form')
@@ -149,5 +150,7 @@ def test_documents_tab_offers_preview_print_dates_and_both_sizes(student):
     assert form['action'].endswith('/card-student/carte-etudiante.pdf')
     # The campaign filter cannot change this student's original cohort.
     assert form.select_one('[name=debut]')['value'] == student_card_dates(current_row())['start']
-    assert [o['value'] for o in form.select('[name=format] option')] == ['a4','carte']
+    assert not form.select('[name=format]')
+    assert 'imprimante à badges' in form.get_text()
+    assert 'En A4' not in form.get_text()
     assert [b['value'] for b in form.select('button[name=download]')] == ['0','1']

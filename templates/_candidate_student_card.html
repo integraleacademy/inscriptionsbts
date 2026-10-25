@@ -4,9 +4,8 @@
     <div class="student-card-fields">
       <label class="sheet-field"><span>Valable du</span><input type="date" name="debut" value="{{ student_card_dates.start }}" required></label>
       <label class="sheet-field"><span>Au</span><input type="date" name="fin" value="{{ student_card_dates.end }}" required></label>
-      <label class="sheet-field"><span>Format d’impression</span><select name="format"><option value="a4">A4 recto verso · avec repères de découpe</option><option value="carte">Format carte · 86 × 54 mm</option></select></label>
     </div>
-    <p class="student-card-help">En A4 : imprimez à <strong>100 %</strong>, en recto verso sur le <strong>bord long</strong>. La signature du titulaire reste à compléter à la main.</p>
+    <p class="student-card-help"><strong>Prêt pour votre imprimante à badges.</strong> Deux pages au format carte 86 × 54 mm : une face par page, sans marges ajoutées ni repères de découpe.</p>
     {% if not candidate_photo_url %}<p class="student-card-missing" role="status">La photo d’identité doit être ajoutée au dossier pour générer la carte.</p>{% endif %}
     {% if not row.date_naissance %}<p class="student-card-missing" role="status">Complétez la date de naissance dans l’onglet Informations.</p>{% endif %}
     <div class="certificate-actions"><button type="submit" class="btn" name="download" value="0">Prévisualiser la carte</button><button type="submit" class="btn primary" name="download" value="1">Générer le PDF à imprimer</button></div>
