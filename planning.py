@@ -26,6 +26,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from promotions import ensure_promotion_schema, list_promotions
 from planning_holidays import public_holiday_name
+import subject_references
 
 KINDS={'school','company','holiday','closed'}
 MAX_BATCH=500
@@ -66,6 +67,7 @@ def ensure_planning_schema(conn):
         if not conn.execute('SELECT 1 FROM planning_migrations WHERE name=?',('shared_courses_v1',)).fetchone():
             conn.execute('INSERT OR IGNORE INTO planning_course_groups(course_id,promotion_id,subject_id) SELECT id,promotion_id,subject_id FROM planning_courses')
             conn.execute('INSERT INTO planning_migrations(name) VALUES(?)',('shared_courses_v1',))
+        subject_references.schema(conn)
         conn.execute('RELEASE SAVEPOINT planning_schema')
     except Exception:
         conn.execute('ROLLBACK TO SAVEPOINT planning_schema');conn.execute('RELEASE SAVEPOINT planning_schema');raise
@@ -250,12 +252,13 @@ def _annual_hours(value):
 def _subjects(conn,promotion_id=None):
     if not _has_table(conn,'trainers'):return []
     sql='''SELECT s.*,t.nom,t.prenom,p.nom AS promotion_name FROM planning_subjects s
-        JOIN trainers t ON t.id=s.trainer_id JOIN promotions p ON p.id=s.promotion_id'''
+        LEFT JOIN trainers t ON t.id=s.trainer_id JOIN promotions p ON p.id=s.promotion_id'''
     args=[]
     if promotion_id:sql+=' WHERE s.promotion_id=?';args.append(promotion_id)
     items=[]
     for row in conn.execute(sql+' ORDER BY p.nom,s.name',args):
         item=dict(row);item['trainer_name']=f"{item.pop('prenom') or ''} {item.pop('nom') or ''}".strip()
+        item.update(subject_references.details(conn,item['id']))
         item['scheduled_minutes']=_subject_minutes(conn,item['id']);item['scheduled_hours']=item['scheduled_minutes']/60
         item['planned_minutes']=_budget_minutes(item['planned_hours']);item['budget_configured']=item['planned_minutes'] is not None
         item['remaining_minutes']=max(0,item['planned_minutes']-item['scheduled_minutes']) if item['budget_configured'] else None
@@ -671,21 +674,28 @@ def register_planning(app,db_connect,require_admin):
             if subject_id and not old:raise PlanningError('Matière introuvable.',status=404)
             if request.method=='DELETE':
                 reject([dict(type='subject_used',message='Cette matière comporte encore des cours. Supprimez ou réaffectez ces cours avant de la retirer.')] if conn.execute('SELECT 1 FROM planning_courses c WHERE c.subject_id=? OR EXISTS(SELECT 1 FROM planning_course_groups g WHERE g.course_id=c.id AND g.subject_id=?) LIMIT 1',(subject_id,subject_id)).fetchone() else [])
+                conn.execute('DELETE FROM planning_subject_details WHERE subject_id=?',(subject_id,))
                 conn.execute('DELETE FROM planning_subjects WHERE id=?',(subject_id,));return dict(message='Matière supprimée.')
-            data=dict(old or {});data.update(payload);promotion=_promotion(conn,data.get('promotion_id'),True)
+            metadata=subject_references.details(conn,subject_id) if old else {}
+            imported=bool(metadata.get('import_id'))
+            data=dict(old or {});data.update(payload);promotion=_promotion(conn,data.get('promotion_id'),not imported)
+            if not promotion['active']:raise PlanningError('Cette promotion est archivée.')
             if old and old['promotion_id']!=promotion['id']:raise PlanningError('Une matière ne peut pas changer de promotion.')
             trainer_id=data.get('trainer_id')
             if not isinstance(trainer_id,str):raise PlanningError('Choisissez un formateur valide.')
-            if not _has_table(conn,'trainers') or not conn.execute('SELECT 1 FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE t.id=? AND t.active=1 AND a.promotion_id=?',(trainer_id,promotion['id'])).fetchone():raise PlanningError('Choisissez un formateur actif affecté à cette promotion.')
+            if not (imported and trainer_id=='') and (not _has_table(conn,'trainers') or not conn.execute('SELECT 1 FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE t.id=? AND t.active=1 AND a.promotion_id=?',(trainer_id,promotion['id'])).fetchone()):raise PlanningError('Choisissez un formateur actif affecté à cette promotion.')
             name=_text(data.get('name',''),'le nom de la matière',120,True);color=data.get('color','#626b4e')
             if not isinstance(color,str) or not re.fullmatch('#[0-9a-fA-F]{6}',color):raise PlanningError('La couleur de la matière doit être au format #RRGGBB.')
-            hours=_annual_hours(data.get('planned_hours'))
+            hours=None if imported and data.get('planned_hours') in (None,'') else _annual_hours(data.get('planned_hours'))
             used=_subject_minutes(conn,subject_id) if subject_id else 0
-            reject([dict(type='subject_budget',subject_id=subject_id,planned_minutes=_budget_minutes(hours),scheduled_minutes=used,message='Le volume annuel ne peut pas être inférieur aux heures déjà planifiées.')] if used>_budget_minutes(hours) else [])
+            reject([dict(type='subject_budget',subject_id=subject_id,planned_minutes=_budget_minutes(hours),scheduled_minutes=used,message='Le volume annuel ne peut pas être inférieur aux heures déjà planifiées.')] if used and used>(_budget_minutes(hours) or 0) else [])
             sid=subject_id or secrets.token_urlsafe(24)
             conn.execute('INSERT INTO planning_subjects(id,promotion_id,name,trainer_id,color,planned_hours) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,trainer_id=excluded.trainer_id,color=excluded.color,planned_hours=excluded.planned_hours',(sid,promotion['id'],name,trainer_id,color,hours))
+            subject_references.save_details(conn,sid,payload,metadata)
             return dict(subject=next(item for item in _subjects(conn,promotion['id']) if item['id']==sid),message='Matière enregistrée. Les cours existants conservent leur formateur.')
         return transact(operation)
+
+    subject_references.register(app,connect,guard,body,result,fail,transact)
 
     @app.post('/admin/planning/api/courses')
     def planning_course_create():

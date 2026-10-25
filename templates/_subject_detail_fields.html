@@ -1,0 +1,18 @@
+<details class="subject-reference-fields" id="subject-reference-fields">
+  <summary>Référentiel, coefficient et programme</summary>
+  <div class="catalog-form-row">
+    <label class="catalog-field">Unité / épreuve<input name="exam_unit" maxlength="80" placeholder="Ex. U4 · E4"></label>
+    <label class="catalog-field">Coefficient d’examen<input name="coefficient" type="number" min="0" max="100" step="any" placeholder="Non renseigné"></label>
+  </div>
+  <label class="reference-check"><input type="checkbox" name="optional"> Enseignement / épreuve facultative</label>
+  <div class="catalog-form-row">
+    <label class="catalog-field">Horaire scolaire · 1re année<input name="weekly_hours_first" type="number" min="0" max="80" step="any" placeholder="h / semaine"></label>
+    <label class="catalog-field">Horaire scolaire · 2e année<input name="weekly_hours_second" type="number" min="0" max="80" step="any" placeholder="h / semaine"></label>
+  </div>
+  <p class="reference-help">Ces horaires du référentiel ne remplacent pas le volume annuel de votre promotion en alternance.</p>
+  <label class="catalog-field">Objectifs et compétences<textarea name="objectives" rows="5" maxlength="12000"></textarea></label>
+  <label class="catalog-field">Contenu pédagogique / savoirs associés<textarea name="pedagogical_content" rows="7" maxlength="20000"></textarea></label>
+  <label class="catalog-field">Modalités d’examen<textarea name="exam_format" rows="3" maxlength="2000"></textarea></label>
+  <label class="catalog-field">Points à vérifier / notes<textarea name="review_note" rows="2" maxlength="2000"></textarea></label>
+  <div id="subject-reference-provenance" class="reference-source" hidden></div>
+</details>

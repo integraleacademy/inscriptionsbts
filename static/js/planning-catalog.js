@@ -36,7 +36,7 @@
   function busy(dialog, value) {
     dialog.dataset.busy = value ? '1' : '';
     dialog.setAttribute('aria-busy', String(value));
-    dialog.querySelectorAll('button,input,select').forEach(control => {
+    dialog.querySelectorAll('button,input,select,textarea').forEach(control => {
       if (value) { control.dataset.previousDisabled = control.disabled ? '1' : '0'; control.disabled = true; }
       else if (control.dataset.previousDisabled !== undefined) { control.disabled = control.dataset.previousDisabled === '1'; delete control.dataset.previousDisabled; }
     });
@@ -75,6 +75,7 @@
     const top = el('div', 'catalog-card-top'); top.append(el('span', 'catalog-promotion', item.promotion_name || promotion?.nom || 'Promotion'));
     if (promotion && !active(promotion.active)) top.append(el('span', 'catalog-state inactive', 'Archivée'));
     card.append(top, el('h3', '', item.name));
+    if (item.exam_unit || item.coefficient !== null && item.coefficient !== undefined) card.append(el('span', 'subject-reference-badge', [item.exam_unit, item.coefficient !== null && item.coefficient !== undefined ? 'Coefficient ' + number(item.coefficient) : '', item.optional ? 'Facultative' : ''].filter(Boolean).join(' · ')));
     const teacher = el('p', 'catalog-teacher'); teacher.append(icon('person'), el('span', '', item.trainer_name || 'Formateur à définir')); card.append(teacher);
     const metrics = el('div', 'catalog-hour-metrics');
     for (const [label, value, cls] of [['Prévues sur l’année', planned, ''], ['Planifiées', scheduled, ''], ['Restantes', remaining, 'remaining']]) { const part = el('div', cls); part.append(el('span', '', label), el('b', '', configured || label === 'Planifiées' ? duration(value) : 'À définir')); metrics.append(part); }
@@ -122,11 +123,14 @@
     const promotionId = form.elements.promotion_id.value;
     const trainers = state.data.trainers.filter(trainer => active(trainer.active) && (trainer.promotion_ids || []).some(id => String(id) === promotionId));
     optionList(form.elements.trainer_id, trainers, trainerName, promotionId ? 'Choisir un formateur' : 'Choisir d’abord une promotion', selected);
-    form.elements.trainer_id.disabled = !trainers.length;
+    const imported = !!state.editing?.import_id;
+    if (imported) form.elements.trainer_id.options[0].textContent = 'À attribuer plus tard';
+    form.elements.trainer_id.required = !imported;
+    form.elements.trainer_id.disabled = !trainers.length && !imported;
     $('catalog-trainer-help').textContent = !promotionId ? 'Choisissez une promotion pour voir ses formateurs.' : !trainers.length ? 'Aucun formateur actif n’est affecté à cette promotion. Ajoutez une affectation dans Formateurs.' : selected && !trainers.some(trainer => String(trainer.id) === String(selected)) ? 'L’ancien formateur n’est plus disponible. Choisissez un formateur actif affecté à la promotion.' : 'Seuls les formateurs actifs affectés à la promotion sont proposés.';
     const promotion = state.data.promotions.find(item => String(item.id) === promotionId);
-    $('catalog-save').disabled = !ready(promotion) || !trainers.length;
-    const guard = $('catalog-form-guard'); guard.hidden = !promotion || ready(promotion); guard.textContent = 'Cette promotion est archivée ou ses dates sont incomplètes. Rendez-la active et complétez ses dates dans Promotions avant de modifier ses matières.';
+    $('catalog-save').disabled = imported ? !promotion || !active(promotion.active) : !ready(promotion) || !trainers.length;
+    const guard = $('catalog-form-guard'); guard.hidden = imported || !promotion || ready(promotion); guard.textContent = 'Cette promotion est archivée ou ses dates sont incomplètes. Rendez-la active et complétez ses dates dans Promotions avant de modifier ses matières.';
   }
   function openEditor(item = null) {
     if (state.loading || !state.data) return;
@@ -141,24 +145,48 @@
       select.disabled = !!item;
       $('catalog-promotion-help').textContent = item ? 'La promotion d’une matière existante ne peut pas être changée.' : 'La matière appartient à cette promotion.';
       populateTrainers(item?.trainer_id);
+      form.elements.planned_hours.required = !item?.import_id;
       form.elements.planned_hours.value = item?.planned_hours ?? (minuteValue(item || {}, 'planned') !== null ? minuteValue(item, 'planned') / 60 : '');
       const scheduled = item ? minuteValue(item, 'scheduled') || 0 : 0;
       form.elements.planned_hours.min = String(Math.max(1 / 60, scheduled / 60));
       form.elements.planned_hours.setCustomValidity('');
       form.elements.color.querySelector('[data-existing-color]')?.remove();
       const color = safeColor(item?.color); if (![...form.elements.color.options].some(option => option.value.toLowerCase() === color.toLowerCase())) { const option = new Option('Couleur actuelle', color); option.dataset.existingColor = '1'; form.elements.color.add(option); } form.elements.color.value = [...form.elements.color.options].find(option => option.value.toLowerCase() === color.toLowerCase()).value;
+      fillReferenceFields(item);
       $('catalog-existing-hours').hidden = !item; $('catalog-existing-hours').textContent = duration(scheduled) + ' déjà planifiées. Le volume annuel doit couvrir au moins ces heures.'; $('catalog-course-note').hidden = !item;
     } else form.elements.active.checked = item ? active(item.active) : true;
     show(editor, isSubjects && !item && !form.elements.promotion_id.value ? form.elements.promotion_id : form.elements.name);
   }
+  function fillReferenceFields(item) {
+    for (const key of ['exam_unit', 'objectives', 'pedagogical_content', 'exam_format', 'review_note', 'coefficient', 'weekly_hours_first', 'weekly_hours_second']) if (form.elements[key]) form.elements[key].value = item?.[key] ?? '';
+    if (form.elements.optional) form.elements.optional.checked = !!item?.optional;
+    const panel = $('subject-reference-fields'); if (panel) panel.open = !!item?.import_id;
+    const source = $('subject-reference-provenance'); if (!source) return;
+    source.replaceChildren(); source.hidden = !item?.source_url;
+    if (item?.source_url) {
+      try {
+        const url = new URL(item.source_url); if (url.protocol !== 'https:') return;
+        const link = el('a', '', item.source_label || 'Consulter le référentiel officiel'); link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; source.append(link);
+        for (const value of [item.reference_title, item.reference_version, item.evidence]) if (value) source.append(el('p', '', value));
+      } catch (_) { source.hidden = true; }
+    }
+  }
+  window.addEventListener('catalog:reload', event => {
+    if (isSubjects && event.detail?.promotion_id) { $('catalog-promotion-filter').value = event.detail.promotion_id; rootPromotion(event.detail.promotion_id); }
+    load(event.detail?.message || 'Catalogue actualisé.');
+  });
+  function rootPromotion(value) { app.dataset.selectedPromotion = value; }
   form.addEventListener('submit', async event => {
     event.preventDefault(); if (editor.dataset.busy || !state.data) return;
     errorAt('catalog-form-error', ''); let payload;
     if (isSubjects) {
       const value = Number(form.elements.planned_hours.value), scheduled = state.editing ? minuteValue(state.editing, 'scheduled') || 0 : 0;
-      form.elements.planned_hours.setCustomValidity(!Number.isFinite(value) || value <= 0 ? 'Renseignez un volume annuel supérieur à zéro.' : Math.abs(value * 60 - Math.round(value * 60)) > 1e-7 ? 'Le volume doit correspondre à un nombre entier de minutes, par exemple 1,5 h pour 1 h 30.' : value * 60 + 1e-7 < scheduled ? 'Le volume annuel ne peut pas être inférieur aux ' + duration(scheduled) + ' déjà planifiées.' : '');
+      form.elements.planned_hours.setCustomValidity(state.editing?.import_id && !form.elements.planned_hours.value && !scheduled ? '' : !Number.isFinite(value) || value <= 0 ? 'Renseignez un volume annuel supérieur à zéro.' : Math.abs(value * 60 - Math.round(value * 60)) > 1e-7 ? 'Le volume doit correspondre à un nombre entier de minutes, par exemple 1,5 h pour 1 h 30.' : value * 60 + 1e-7 < scheduled ? 'Le volume annuel ne peut pas être inférieur aux ' + duration(scheduled) + ' déjà planifiées.' : '');
       if ($('catalog-save').disabled) return;
-      payload = {promotion_id: state.editing?.promotion_id || form.elements.promotion_id.value, name: form.elements.name.value.trim(), trainer_id: form.elements.trainer_id.value, planned_hours: value, color: form.elements.color.value};
+      payload = {promotion_id: state.editing?.promotion_id || form.elements.promotion_id.value, name: form.elements.name.value.trim(), trainer_id: form.elements.trainer_id.value, planned_hours: state.editing?.import_id && !form.elements.planned_hours.value ? null : value, color: form.elements.color.value};
+      for (const key of ['exam_unit', 'objectives', 'pedagogical_content', 'exam_format', 'review_note']) if (form.elements[key]) payload[key] = form.elements[key].value;
+      for (const key of ['coefficient', 'weekly_hours_first', 'weekly_hours_second']) if (form.elements[key]) payload[key] = form.elements[key].value === '' ? null : Number(form.elements[key].value);
+      if (form.elements.optional) payload.optional = form.elements.optional.checked;
     } else payload = {name: form.elements.name.value.trim(), active: form.elements.active.checked};
     if (!form.reportValidity()) return;
     busy(editor, true);
