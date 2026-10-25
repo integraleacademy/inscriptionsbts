@@ -291,7 +291,7 @@ def test_application_retains_training_guidance_and_next_steps(client, monkeypatc
         assert 'Examen officiel' in panel
     for phrase in ('ZOOM', 'emploi du temps fixe', 'évaluations et devoirs',
                    'académie de Nice', 'académie de Paris', 'CNAPS',
-                   'autorisation préalable', 'Pôle Alternance',
+                   'autorisation préalable',
                    '0 € pour l’apprenti', 'Aucun frais d’inscription',
                    'rémunéré selon ton âge', 'accusé de réception',
                    'numéro de dossier', 'Je confirme mon inscription'):
@@ -357,7 +357,7 @@ def test_all_original_profile_choices_and_form_fields_remain(client):
     expected={'qualites':['rigoureux','organise','autonome','communication','esprit_equipe','curieux','leadership','creatif','empathique','serieux'], 'motivation':['reussite','stabilite','utilite','defis','contact','innovation','evolution','apprentissage'], 'valeurs':['salaire','sens','contact','mobilite','stabilite','responsabilite','autonomie','equipe'], 'travail':['methodique','pratique','collaboratif','independant','creatif','objectif']}
     for group,values in expected.items():
         assert [attrs['value'] for tag,attrs in parser.elements if tag=='input' and attrs.get('name')==group+'[]']==values
-    for name in ['bts','mode','nom','prenom','date_naissance','sexe','pays_naissance','ville_naissance','cp_naissance','nationalite','adresse','cp','ville','num_secu','email','email_confirm','tel','resp_nom','resp_prenom','resp_email','resp_tel','baccalaureat','bac_type','bac_autre','permis_b','entreprise_trouvee','recherches_commencees','cherche_idf','souhaite_accompagnement','projet_pourquoi','projet_objectif','projet_passions','raison_aps','aps_souhaitee','ci','ci2','photo','carte_vitale','cv','lm']:
+    for name in ['bts','mode','nom','prenom','date_naissance','sexe','pays_naissance','ville_naissance','cp_naissance','nationalite','adresse','cp','ville','num_secu','email','email_confirm','tel','resp_nom','resp_prenom','resp_email','resp_tel','baccalaureat','bac_type','bac_autre','permis_b','entreprise_trouvee','recherches_commencees','cherche_idf','projet_pourquoi','projet_objectif','projet_passions','raison_aps','aps_souhaitee','ci','ci2','photo','carte_vitale','cv','lm']:
         assert any(attrs.get('name')==name for tag,attrs in parser.elements), name
     assert sum('data-group-nav' in attrs for tag,attrs in parser.elements)==7
     assert sum('data-suggest' in attrs for tag,attrs in parser.elements)==6
@@ -431,7 +431,6 @@ def test_shared_header_offers_all_three_spaces(client, path, monkeypatch):
     {'num_secu':'208017512345600'},
     {'bac_type':'Autre','bac_autre':''},
     {'bts':'MOS','mos_parcours':'autre','aps_souhaitee':'non','raison_aps':''},
-    {'cherche_idf':'oui','souhaite_accompagnement':''},
     {'entreprise_trouvee':''},
     {'qualites[]':['unknown_value']},
     {'sexe':'unknown_value'},
@@ -706,3 +705,26 @@ def test_old_upload_links_require_admin_and_forward_private_viewer(client, tmp_p
     assert response.location == '/admin/candidat/legacy-link/document/proof.pdf'
     response = client.get(response.location)
     assert response.headers['Content-Disposition'].startswith('inline;')
+
+
+def test_retired_partner_portal_is_closed(client):
+    with client.session_transaction() as state:
+        state['polealternance'] = True
+    assert client.get('/admin/pole-alternance').status_code == 410
+    assert client.post('/login-pole', data={'email': 'old@example.test', 'password': 'unused'}).status_code == 410
+    with client.session_transaction() as state:
+        assert 'polealternance' not in state
+
+
+def test_idf_application_no_longer_requires_or_notifies_partner(client, monkeypatch):
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: True)
+    sent = []
+    monkeypatch.setattr(application, 'send_mail', lambda recipient, *args, **kwargs: sent.append(recipient))
+    data = payload()
+    data.update(cherche_idf='oui', souhaite_accompagnement='oui')
+    response = client.post('/submit', data=data)
+    assert response.status_code in (200, 302), response.text
+    assert not any('polealternance' in str(recipient) for recipient in sent)
+    auth(client)
+    html = client.get('/candidature?preview=1').text
+    assert 'Pôle Alternance' not in html and 'name="souhaite_accompagnement"' not in html

@@ -830,44 +830,10 @@ def health():
     return "ok"
 
 @app.route("/login-pole", methods=["GET", "POST"])
-def pole_login():
-    error = None
-
-    if request.method == "POST":
-        email = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "").strip()
-
-        # 🔐 Identifiants autorisés
-        if email == "eric@polealternance.fr" and password == "polealternance":
-            session["polealternance"] = True
-            return redirect("/admin/pole-alternance")
-
-        error = "Identifiants incorrects."
-
-    return render_template("pole_login.html", error=error)
-
-
-@app.route("/admin/pole-alternance")
-def admin_pole_alternance():
-    # 🔐 Protection d’accès
-    if not session.get("polealternance") and session.get("email") != "clement@integraleacademy.com":
-        return redirect("/login-pole")
-
-    conn = db()
-    cur = conn.cursor()
-
-    # 🔍 On récupère uniquement les candidats accompagnés
-    rows = cur.execute("""
-        SELECT *
-        FROM candidats
-        WHERE souhaite_accompagnement = 'oui'
-        ORDER BY created_at DESC
-    """).fetchall()
-
-    return render_template("admin_pole_alternance.html",
-                           rows=rows,
-                           statuts=STATUTS,
-                           now=datetime.now)
+@app.get("/admin/pole-alternance")
+def retired_partner_portal():
+    session.pop("polealternance", None)
+    return "Cet espace partenaire n’est plus disponible.", 410
 
 
 @app.route("/admin/reprendre-plus-tard")
@@ -1206,8 +1172,6 @@ def validate_application(form, files):
     for key in ("entreprise_trouvee", "recherches_commencees", "cherche_idf"):
         if form.get(key) not in ("oui", "non"):
             return "Complétez les réponses concernant votre recherche d’entreprise."
-    if form.get("cherche_idf") == "oui" and form.get("souhaite_accompagnement") not in ("oui", "non"):
-        return "Précisez si vous souhaitez être accompagné par Pôle Alternance."
     if form.get("bts") == "MOS" and form.get("mos_parcours") == "autre" and form.get("aps_souhaitee") == "non" and not form.get("raison_aps", "").strip():
         return "Précisez la solution envisagée pour la formation APS."
     for group in PROFILE_GROUPS:
@@ -1282,7 +1246,7 @@ def submit():
 
     entreprise_trouvee = (form.get("entreprise_trouvee") or "").strip()
     recherches_commencees = (form.get("recherches_commencees") or "").strip()
-    souhaite_accompagnement = (form.get("souhaite_accompagnement") or "").strip()
+    souhaite_accompagnement = ""  # Retired partner programme; keep historical database values.
 
     # 🎯 Vérification du numéro de sécurité sociale
     nir = form.get("num_secu", "").strip()
@@ -1410,68 +1374,6 @@ def submit():
 
     cur.execute(sql, tuple(values))
     conn.commit()
-
-    # =====================================================
-    # 🤝 ENVOI AUTOMATIQUE – ACCOMPAGNEMENT PÔLE ALTERNANCE
-    # =====================================================
-    if souhaite_accompagnement.lower() == "oui":
-        try:
-            print("📤 Préparation du mail Pôle Alternance...")
-
-            prenom = form.get("prenom", "")
-            nom = form.get("nom", "")
-            email = form.get("email", "")
-            tel = form.get("tel", "")
-            bts = form.get("bts", "")
-            mode = form.get("mode", "")
-            ville = form.get("ville", "")
-            projet_pourquoi = form.get("projet_pourquoi", "")
-            projet_objectif = form.get("projet_objectif", "")
-            projet_passions = form.get("projet_passions", "")
-            projet_qualites = ", ".join(request.form.getlist("qualites[]"))
-            projet_motivation = ", ".join(request.form.getlist("motivation[]"))
-            projet_recherche = ", ".join(request.form.getlist("valeurs[]"))
-            projet_travail = ", ".join(request.form.getlist("travail[]"))
-
-            bts_label = BTS_LABELS.get(bts.strip().upper(), bts)
-
-            html = f"""
-            <div style='font-family:Segoe UI,Arial,sans-serif;font-size:15px;color:#222;'>
-              <h2 style='color:#2d2d2d;'>🎓 Nouveau candidat à accompagner Intégrale Academy</h2>
-              <p>Bonjour,<br><br>
-              Un nouveau candidat a demandé à être accompagné par Pôle Alternance pour trouver une entreprise (rentrée septembre {ADMISSION_YEAR}). Je vous prie de bien vouloir trouver ci-dessous les coordonnées du candidat. Vous trouverez également en pièce-jointe son CV et sa lettre de motivation. A bientôt, Clément VAILLANT (ceci est un mail automatique).</p>
-              <ul>
-                <li><strong>Nom :</strong> {nom}</li>
-                <li><strong>Prénom :</strong> {prenom}</li>
-                <li><strong>Email :</strong> {email}</li>
-                <li><strong>Téléphone :</strong> {tel}</li>
-                <li><strong>Ville :</strong> {ville}</li>
-                <li><strong>BTS :</strong> {bts_label}</li>
-                <li><strong>Mode :</strong> {mode}</li>
-              </ul>
-            </div>
-            """
-
-            attachments = []
-            cand_dir = os.path.join(UPLOAD_DIR, cand_id)
-            try:
-                cv = next((f for f in os.listdir(cand_dir) if f.lower().startswith("cv_")), None)
-                lm = next((f for f in os.listdir(cand_dir) if f.lower().startswith("lettremotivation_")), None)
-                if cv: attachments.append(os.path.join(cand_dir, cv))
-                if lm: attachments.append(os.path.join(cand_dir, lm))
-            except Exception as e:
-                print("⚠️ Impossible de lister les fichiers du candidat :", e)
-
-            send_mail(
-                "eric@polealternance.fr",
-                f"🤝 Nouveau candidat à accompagner – {prenom} {nom}",
-                html,
-                attachments=attachments if attachments else None
-            )
-
-            print("✅ Mail Pôle Alternance envoyé avec succès.")
-        except Exception as e:
-            print("❌ Erreur envoi mail Pôle Alternance :", e)
 
     # 🧾 Logs et mails
     candidat = {

@@ -42,9 +42,9 @@
   }
   function connectionStatus() {
     const enabled = state.settings?.configured;
-    $('reference-connection-state').textContent = enabled ? 'Connexion OpenAI configurée' : 'Connectez OpenAI pour activer la recherche';
+    $('reference-connection-state').textContent = enabled ? 'Analyse des référentiels disponible' : 'Configurez OpenAI dans les paramètres pour activer la recherche';
     $('reference-analyze').disabled = !enabled;
-    $('reference-settings-open').textContent = enabled ? 'Gérer la connexion' : 'Connexion OpenAI';
+    $('reference-settings-link').hidden = !!enabled;
   }
   function choosePromotion() {
     const promotion = state.catalog.promotions.find(p => p.id === $('reference-promotion').value);
@@ -72,7 +72,10 @@
       state.settings = settings; populate();
       if (state.job && state.rows.length && state.job.status === 'ready') { showStep('review'); selection(); return; }
       const latest = await api('/latest');
-      if (latest.job && !['failed', 'imported'].includes(latest.job.status)) handleJob(latest.job);
+      if (latest.job?.recoverable) {
+        showStep('progress');
+        handleJob(await api('/' + encodeURIComponent(latest.job.job_id) + '/recover', 'POST', {}));
+      } else if (latest.job && !['failed', 'imported'].includes(latest.job.status)) handleJob(latest.job);
       else { showStep('source'); $('reference-promotion').focus(); }
     } catch (error) { alert(error.message); }
     finally { state.opening = false; $('reference-open').disabled = false; }
@@ -118,9 +121,10 @@
     const card = node('article', 'reference-subject'), head = node('div', 'reference-subject-head');
     const checkLabel = node('label', 'reference-row-choice');
     row.check = node('input'); row.check.type = 'checkbox'; row.check.setAttribute('aria-label', 'Importer ' + value.name);
-    row.check.checked = draft ? !!draft.selected : !value.optional;
+    row.check.checked = original.importable !== false && (draft ? !!draft.selected : !value.optional);
     row.title = node('strong', '', value.name); checkLabel.append(row.check, row.title);
     row.badge = node('span', 'reference-coefficient', 'Coefficient ' + fmt(value.coefficient)); head.append(checkLabel, row.badge); card.append(head);
+    if (original.source_issue) card.append(node('p', 'reference-source-issue', original.source_issue));
     row.duplicate = node('p', 'reference-duplicate'); row.duplicate.hidden = true; card.append(row.duplicate);
     const detail = node('details', 'reference-edit'); detail.append(node('summary', '', 'Vérifier et modifier cette matière'));
     const content = node('div', 'reference-edit-content');
@@ -145,8 +149,9 @@
     const existing = new Set(state.catalog.subjects.filter(s => s.promotion_id === state.job?.promotion_id).map(s => normal(s.name)));
     for (const row of state.rows) {
       const duplicate = existing.has(normal(row.fields.name.value));
-      row.check.disabled = duplicate || state.saving;
-      if (duplicate) row.check.checked = false;
+      const blocked = row.original.importable === false;
+      row.check.disabled = duplicate || blocked || state.saving;
+      if (duplicate || blocked) row.check.checked = false;
       row.duplicate.hidden = !duplicate;
       row.duplicate.textContent = 'Déjà présente dans cette promotion : laissée de côté. Vous pouvez modifier son nom si vous souhaitez créer une autre matière.';
     }
@@ -218,24 +223,4 @@
   for (const id of ['reference-close', 'reference-bottom-close']) $(id).addEventListener('click', () => { if (!state.saving) dialog.close(); });
   dialog.addEventListener('cancel', event => { if (state.saving) event.preventDefault(); });
   dialog.addEventListener('close', () => { $('reference-open').focus(); });
-  $('reference-settings-open').addEventListener('click', () => {
-    alert('', 'reference-settings-error'); $('reference-key').value = '';
-    const managed = state.settings.managed_by_server;
-    $('reference-key').disabled = managed; $('reference-key-save').hidden = managed; $('reference-key-server').hidden = !managed;
-    $('reference-key-remove').hidden = !state.settings.configured || managed;
-    $('reference-settings').showModal(); if (!managed) $('reference-key').focus();
-  });
-  $('reference-settings-close').addEventListener('click', () => { if (!$('reference-settings').dataset.busy) $('reference-settings').close(); });
-  $('reference-settings').addEventListener('cancel', event => { if ($('reference-settings').dataset.busy) event.preventDefault(); });
-  $('reference-settings').addEventListener('close', () => { $('reference-key').value = ''; });
-  async function saveConnection(method) {
-    if ($('reference-settings').dataset.busy) return;
-    $('reference-settings').dataset.busy = '1'; $('reference-key-save').disabled = true; $('reference-key-remove').disabled = true;
-    alert('', 'reference-settings-error');
-    try { state.settings = await api('/settings', method, method === 'PUT' ? {api_key: $('reference-key').value.trim()} : {}); connectionStatus(); $('reference-settings').close(); }
-    catch (error) { alert(error.message, 'reference-settings-error'); }
-    finally { delete $('reference-settings').dataset.busy; $('reference-key-save').disabled = false; $('reference-key-remove').disabled = false; }
-  }
-  $('reference-settings-form').addEventListener('submit', event => { event.preventDefault(); if (event.target.reportValidity()) saveConnection('PUT'); });
-  $('reference-key-remove').addEventListener('click', () => saveConnection('DELETE'));
 })();

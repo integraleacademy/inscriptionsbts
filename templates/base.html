@@ -5,6 +5,7 @@
 {% set is_trainer_admin = request.path.startswith('/admin/formateurs') %}
 {% set is_promotions_admin = request.path.startswith('/admin/promotions') %}
 {% set is_planning_admin = request.path.startswith('/admin/planning') %}
+{% set is_admin_settings = request.path == '/admin/parametres' %}
 {% set is_planning_catalog = request.path in ['/admin/matieres', '/admin/salles'] %}
 {% set is_portal_planning = request.endpoint in ['trainer_planning', 'student_planning'] %}
 {% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}
@@ -19,7 +20,7 @@
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-integrale.png') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
-  {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog %}
+  {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings %}
   <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -71,7 +72,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
 
-    {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog %}
+    {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings %}
     <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PKTXJCXF"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -83,7 +84,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <a href="/admin" class="workspace-brand official-academy-brand" title="Plateforme de gestion des BTS">{{ academy_logo() }}</a>
     <span class="nav-caption">VOTRE ESPACE ÉQUIPE</span>
     <nav aria-label="Navigation administration">
-      {% for href,label,symbol in [('/admin','Candidatures','grid'),('/admin/promotions','Promotions','briefcase'),('/admin/planning','Plannings','clock'),('/admin/matieres','Matières','book'),('/admin/salles','Salles','home'),('/admin/formateurs','Formateurs','book'),('/admin/reprendre-plus-tard','Dossiers à reprendre','clock'),('/parcoursup','Parcoursup','arrow'),('/admin/pole-alternance','Pôle Alternance','briefcase'),('/admin/voyage-londres','Voyage à Londres','globe')] %}
+      {% for href,label,symbol in [('/admin','Candidatures','grid'),('/admin/promotions','Promotions','briefcase'),('/admin/planning','Plannings','clock'),('/admin/matieres','Matières','book'),('/admin/salles','Salles','home'),('/admin/formateurs','Formateurs','book'),('/admin/reprendre-plus-tard','Dossiers à reprendre','clock'),('/parcoursup','Parcoursup','arrow'),('/admin/voyage-londres','Voyage à Londres','globe'),('/admin/parametres','Paramètres','settings')] %}
       <a href="{{ href }}" title="{{ label }}" class="{% if request.path == href or (href == '/admin' and request.path.startswith('/admin/candidat/')) %}active{% endif %}">{{ icon(symbol) }}<span class="nav-text">{{ label }}</span></a>
       {% endfor %}
     </nav>
@@ -122,6 +123,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <script src="{{ url_for('static', filename='js/trainer-space.js') }}?v=4" defer></script>
   {% elif request.endpoint in ['admin', 'admin_candidate_sheet'] %}
     <script src="{{ url_for('static', filename='js/bts-management.js') }}?v=3" defer></script>
+  {% elif is_admin_settings %}
+    {# Dedicated settings script is loaded by the page. #}
   {% elif 'admin' in request.path or 'parcoursup' in request.path %}
     <script src="{{ url_for('static', filename='js/main_admin.js') }}"></script>
   {% elif request.path.startswith('/replace-files') or request.path.startswith('/espace/') or request.path == '/login' or request.path == '/' or request.path == '/candidature' or request.path.startswith('/reprendre/') %}

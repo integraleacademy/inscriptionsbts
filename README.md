@@ -81,7 +81,7 @@ en arrière-plan ; l’aperçu est disponible pendant 24 heures dans la même se
 administrateur. Le BTS MOS propose le lien de l’arrêté du 2 mars 2020.
 
 La connexion utilise `OPENAI_API_KEY` si cette variable est définie. Sinon,
-l’administrateur peut enregistrer sa clé via **Connexion OpenAI**. Cette clé est
+l’administrateur peut enregistrer sa clé via **Paramètres → OpenAI**. Cette clé est
 chiffrée en base avec une clé dérivée de `SECRET_KEY` (stable, au moins 20
 caractères, distincte de la valeur de développement). Une rotation de
 `SECRET_KEY` nécessite de saisir à nouveau la clé API. Aucune clé n’est renvoyée
@@ -110,3 +110,5 @@ de `planning_subjects`. Elles restent éditables dans la fiche matière.
 Les tests `tests/test_subject_references.py` simulent OpenAI et ne consomment
 aucun crédit API. Le parcours navigateur simulé est couvert par
 `tests/subject_references_frontend.cjs` (jsdom ; rendu automatique de la vraie page et catalogue de test associé).
+
+Les paramètres OpenAI se trouvent dans **Paramètres → OpenAI** (`/admin/parametres`). La clé existante est conservée. Les résultats asynchrones demandent la liste complète des sources à chaque récupération ; une matière non sourcée reste visible mais ne bloque pas les autres. Les anciennes analyses bloquées par le contrôle des sources peuvent être récupérées en rouvrant l’import dans la même session, pendant 24 heures, sans nouvelle génération.

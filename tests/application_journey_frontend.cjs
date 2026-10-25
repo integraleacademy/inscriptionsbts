@@ -83,9 +83,9 @@ function setup({preview = true, saved = null} = {}) {
     jump('naissance'); fill('date_naissance','2000-01-01');
     check(form.elements.resp_nom.disabled && form.elements.resp_email.disabled, 'Adult flow excludes guardian fields from validation and payload');
     jump('zone'); choose('cherche_idf','oui'); click('next-step');
-    check(current() === 'accompagnement', 'Île-de-France selection offers Pôle Alternance');
-    choose('souhaite_accompagnement','oui'); click('previous-step'); choose('cherche_idf','non'); click('next-step');
-    check(current() === 'motif' && form.elements.souhaite_accompagnement[0].disabled, 'Other regions skip partner follow-up');
+    check(current() === 'motif' && !form.elements.souhaite_accompagnement, 'Île-de-France continues without the retired partner step');
+    click('previous-step'); choose('cherche_idf','non'); click('next-step');
+    check(current() === 'motif', 'Other regions continue to motivation');
     jump('photo'); const originalFile = file('photo','portrait.png'); click('review-preparation'); click('start-application');
     check(current() === 'photo' && form.elements.photo.files[0] === originalFile, 'Guide keeps already selected files in the same page');
     jump('recap');

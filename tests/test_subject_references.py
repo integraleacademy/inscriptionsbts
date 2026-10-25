@@ -71,7 +71,7 @@ def test_server_key_cannot_be_overridden(client, monkeypatch):
 def test_missing_key_is_actionable_no_job(client, db, monkeypatch):
     monkeypatch.delenv('OPENAI_API_KEY', raising=False)
     response = call(client, '/references/analyze', dict(promotion_id='p1', exam_year=2028))
-    assert response.status_code == 503 and 'Connexion OpenAI' in response.json['message']
+    assert response.status_code == 503 and 'Paramètres' in response.json['message']
     with db() as conn:
         assert conn.execute('SELECT count(*) FROM planning_reference_jobs').fetchone()[0] == 0
 
@@ -90,15 +90,86 @@ def test_official_url_allowed(url):
 
 def test_no_sources_no_importable_preview():
     response = provider_result(); response['output'] = response['output'][1:]
-    with pytest.raises(PlanningError, match='source officielle'): refs.extract_preview(response)
+    with pytest.raises(PlanningError, match='document officiel'): refs.extract_preview(response)
 
 
-def test_invented_source_rejected():
+def test_invented_source_is_not_importable():
     response = provider_result()
     data = json.loads(response['output'][1]['content'][0]['text'])
     data['subjects'][0]['source_url'] = 'https://www.education.gouv.fr/invented'
     response['output'][1]['content'][0]['text'] = json.dumps(data)
-    with pytest.raises(PlanningError, match='source officielle'): refs.extract_preview(response)
+    preview = refs.extract_preview(response)
+    assert preview['subjects'][0]['importable'] is False
+    assert preview['subjects'][0]['source_issue']
+
+
+def test_background_retrieval_requests_full_sources(client, monkeypatch):
+    monkeypatch.setenv('OPENAI_API_KEY', KEY)
+    calls = []
+    def request(method, url, **kwargs):
+        calls.append(method)
+        if method == 'POST':
+            data = {'id': 'resp_test', 'status': 'queued'}
+        else:
+            assert url == refs.API_URL + '/resp_test'
+            assert kwargs['params'] == {'include[]': 'web_search_call.action.sources'}
+            data = provider_result()
+        return type('Response', (), {'status_code': 200, 'json': lambda self: data})()
+    with patch.object(refs.requests, 'request', side_effect=request):
+        job = call(client, '/references/analyze', dict(promotion_id='p1', exam_year=2028, source_url=URL)).json
+        preview = client.get(BASE+'/references/'+job['job_id']).json
+    assert preview['status'] == 'ready'
+    assert preview['preview']['subjects'][0]['importable'] is True
+    assert calls == ['POST', 'GET']
+
+
+@pytest.mark.parametrize('cited', [
+    URL + '/#annexe',
+    URL.replace('www.', '') + '?utm_source=chatgpt.com',
+    URL.replace('.fr/', '.fr:443/'),
+])
+def test_same_source_url_variants_are_recognised(cited):
+    response = provider_result()
+    data = json.loads(response['output'][1]['content'][0]['text'])
+    data['subjects'][0]['source_url'] = cited
+    response['output'][1]['content'][0]['text'] = json.dumps(data)
+    item = refs.extract_preview(response)['subjects'][0]
+    assert item['importable'] is True and item['source_url'] == URL
+
+
+def test_document_versions_are_not_conflated():
+    assert refs.canonical_url(URL+'?dateVersion=2020-01-01') != refs.canonical_url(URL+'?dateVersion=2026-01-01')
+    assert refs.canonical_url(URL+'?b=2&a=1') == refs.canonical_url(URL+'?a=1&b=2&utm_source=test')
+
+
+def test_one_unconfirmed_row_does_not_block_confirmed_rows(client, app, db, monkeypatch):
+    response = provider_result()
+    data = json.loads(response['output'][1]['content'][0]['text'])
+    data['subjects'].append({**data['subjects'][0], 'name': 'Non sourcée', 'source_url': 'https://www.education.gouv.fr/invented'})
+    response['output'][1]['content'][0]['text'] = json.dumps(data)
+    jid, job = ready_job(client, app, monkeypatch, db, response)
+    assert job['status'] == 'ready'
+    assert [r['importable'] for r in job['preview']['subjects']] == [True, False]
+    assert call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1'), dict(row_id='2', importable=True, source_url=URL)])).status_code == 422
+    with db() as conn:
+        assert conn.execute('SELECT count(*) FROM planning_subjects').fetchone()[0] == 4
+    result = call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1')]))
+    assert result.status_code == 200 and result.json['count'] == 1
+
+
+def test_previous_source_failure_recovers_without_new_analysis(client, app, db, monkeypatch):
+    jid, _ = ready_job(client, app, monkeypatch, db)
+    with db() as conn:
+        conn.execute("UPDATE planning_reference_jobs SET status='failed',preview=NULL,error=?,created_at=? WHERE id=?", (refs.LEGACY_SOURCE_ERRORS[0], time.time()-1800, jid))
+    assert client.get(BASE+'/references/latest').json['job']['recoverable']
+    assert client.post(BASE+'/references/'+jid+'/recover', json={}).status_code == 400
+    with patch.object(refs, 'provider', return_value=provider_result()) as provider:
+        recovered = call(client, '/references/'+jid+'/recover')
+    assert recovered.json['status'] == 'ready' and not recovered.json['recoverable']
+    provider.assert_called_once_with(KEY, 'GET', 'resp_test')
+    with patch.object(refs, 'provider') as provider:
+        assert call(client, '/references/'+jid+'/recover').json['status'] == 'ready'
+        provider.assert_not_called()
 
 
 def test_coefficient_requires_evidence():

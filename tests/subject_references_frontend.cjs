@@ -10,9 +10,11 @@ const w = dom.window, d=w.document, $=id=>d.getElementById(id);
 w.HTMLDialogElement.prototype.showModal=function(){this.open=true};
 w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'))};
 let configured=false, polls=0, imports=0, keyPayload=null, importPayload=null, editPayload=null, job=null;
+const recovering = process.env.REFERENCE_RECOVERY === '1';
+let analyses=0, recoveries=0;
 const settings=()=>({ok:true,configured,managed_by_server:false,bts_options:{MOS:'BTS Management opérationnel de la sécurité'},suggested_urls:{MOS:URL}});
 const subject=(id,name,optional=false)=>({row_id:id,name,exam_unit:'U'+id,coefficient:3,optional,weekly_hours_first:2,weekly_hours_second:2,objectives:'Objectifs officiels',pedagogical_content:'Contenu officiel',exam_format:'Écrit',source_url:URL,source_label:'Annexe II c',evidence:'Coefficient 3',review_note:''});
-const preview={qualification:'BTS MOS',reference_title:'Référentiel officiel',reference_version:'Test 2028',warnings:['Vérifier les coefficients.'],subjects:[subject('1','Culture générale'),subject('2','Management des ressources humaines'),subject('3','Langue facultative',true)]};
+const preview={qualification:'BTS MOS',reference_title:'Référentiel officiel',reference_version:'Test 2028',warnings:['Vérifier les coefficients.'],subjects:[subject('1','Culture générale'),subject('2','Management des ressources humaines'),subject('3','Langue facultative',true),{...subject('4','Matière non confirmée'),importable:false,source_issue:'Source non confirmée'}]};
 let reloads=0;w.addEventListener('catalog:reload',()=>reloads++);
 w.fetch=async(url,options={})=>{
  const method=options.method||'GET',data=options.body?JSON.parse(options.body):null;
@@ -23,7 +25,9 @@ w.fetch=async(url,options={})=>{
    return response(settings());
  }
  if(url.endsWith('/references/latest'))return response({ok:true,job});
+ if(url.endsWith('/references/job-demo/recover')){assert.equal(method,'POST');recoveries++;job={...job,status:'ready',preview};return response(job)}
  if(url.endsWith('/references/analyze')){
+   analyses++;
    assert.equal(data.source_url,URL);assert.equal(data.exam_year,2028);assert.equal(data.promotion_id,'demo');
    job={ok:true,job_id:'job-demo',status:'queued',promotion_id:'demo',query:{}};return response(job);
  }
@@ -46,15 +50,20 @@ w.eval(fs.readFileSync('static/js/subject-references.js','utf8'));
 (async()=>{
  await wait();$('reference-open').click();await wait();
  assert($('reference-dialog').open);assert.equal($('reference-qualification').value,'BTS Management opérationnel de la sécurité');
- assert.equal($('reference-url').value,URL);assert.equal($('reference-exam-year').value,'2028');assert($('reference-analyze').disabled);
- $('reference-settings-open').click();$('reference-key').value='sk-test-only-xxxxxxxxxxxxxxxxxxxxxxxxxxxx';submit('reference-settings-form');await wait();
- assert(configured);assert(!$('reference-analyze').disabled);assert.equal($('reference-key').value,'');assert(!w.sessionStorage.length);assert(keyPayload.api_key.startsWith('sk-test-only'));
- submit('reference-search-form');await wait();assert(!$('reference-progress-step').hidden);assert.equal(catalog.subjects.length,1);
- // Explicitly resume polling to avoid waiting on the real browser interval.
- $('reference-retry-poll').click();await wait();assert.equal(polls,1);assert(!$('reference-review-step').hidden);
- const cards=[...d.querySelectorAll('.reference-subject')];assert.equal(cards.length,3);
+ assert.equal($('reference-url').value,URL);assert.equal($('reference-exam-year').value,'2028');assert($('reference-analyze').disabled);assert(!$('reference-settings-link').hidden);
+ assert(!$('reference-key'));assert(!$('reference-settings'));assert.equal($('reference-settings-link').getAttribute('href'),'/admin/parametres');
+ $('reference-close').click();configured=true;
+ if(recovering)job={ok:true,job_id:'job-demo',status:'failed',promotion_id:'demo',query:{},recoverable:true};
+ $('reference-open').click();await wait();assert(!$('reference-analyze').disabled);
+ if(!recovering){
+   submit('reference-search-form');await wait();assert(!$('reference-progress-step').hidden);assert.equal(catalog.subjects.length,1);
+   $('reference-retry-poll').click();await wait();assert.equal(polls,1);assert.equal(analyses,1);
+ }else{assert.equal(analyses,0);assert.equal(recoveries,1)}
+ assert(!$('reference-review-step').hidden);
+ const cards=[...d.querySelectorAll('.reference-subject')];assert.equal(cards.length,4);
  const checks=cards.map(c=>c.querySelector('.reference-row-choice input'));
- assert(checks[0].disabled&&!checks[0].checked);assert(checks[1].checked);assert(!checks[2].checked);
+ assert(checks[0].disabled&&!checks[0].checked);assert(checks[1].checked);assert(!checks[2].checked);assert(checks[3].disabled&&!checks[3].checked);
+ $('reference-select-all').click();assert(!checks[3].checked);$('reference-select-none').click();checks[1].checked=true;change(checks[1]);
  assert($('reference-import').disabled);assert.equal($('reference-selection-count').textContent,'1 matière sélectionnée');
  $('reference-reviewed').checked=true;change($('reference-reviewed'));assert(!$('reference-import').disabled);
  input(cards[1].querySelector('[data-field="name"]'),'Management adapté');assert(!$('reference-reviewed').checked);assert($('reference-import').disabled);

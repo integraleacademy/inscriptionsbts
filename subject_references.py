@@ -15,7 +15,7 @@ import re
 import secrets
 import time
 import unicodedata
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import requests
 from flask import request, session
@@ -31,6 +31,10 @@ DETAIL_TEXT = {'exam_unit': 80, 'objectives': 12000, 'pedagogical_content': 2000
 DETAIL_NUMBERS = {'coefficient': 100, 'weekly_hours_first': 80, 'weekly_hours_second': 80}
 MOS_URL = 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000041728741'
 MAX_AGE = 24 * 3600
+LEGACY_SOURCE_ERRORS = (
+    'Une matière ne dispose pas d’une source officielle consultée. Relancez l’analyse avec le référentiel complet.',
+    'Aucune source officielle consultée n’a été retournée. Aucune matière ne peut être importée.',
+)
 
 
 def schema(conn):
@@ -141,8 +145,8 @@ def api_key(app, conn):
         try:
             return cipher(app).decrypt(row[0].encode()).decode()
         except InvalidToken:
-            raise PlanningError('La clé enregistrée ne peut plus être déchiffrée. Enregistrez-la à nouveau dans Connexion OpenAI.', status=503)
-    raise PlanningError('Connectez OpenAI pour rechercher et analyser les référentiels : ouvrez « Connexion OpenAI » et renseignez votre clé API.', status=503)
+            raise PlanningError('La clé enregistrée ne peut plus être déchiffrée. Enregistrez-la à nouveau dans Paramètres → OpenAI.', status=503)
+    raise PlanningError('Renseignez votre clé API dans Paramètres → OpenAI pour rechercher et analyser les référentiels.', status=503)
 
 
 def provider(key, method='POST', response_id=None, payload=None):
@@ -153,11 +157,13 @@ def provider(key, method='POST', response_id=None, payload=None):
     try:
         response = requests.request(method, API_URL + ('/' + response_id if response_id else ''),
             headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
+            # include on creation does not carry over to a retrieval request.
+            params={'include[]': 'web_search_call.action.sources'} if method == 'GET' else None,
             json=payload, timeout=(5, 20), allow_redirects=False)
     except requests.RequestException:
         raise PlanningError('OpenAI ne répond pas pour le moment. Réessayez dans quelques instants.', status=502)
     if response.status_code in (401, 403):
-        raise PlanningError('OpenAI refuse l’accès. Vérifiez la clé API et les autorisations du projet dans Connexion OpenAI.', status=502)
+        raise PlanningError('OpenAI refuse l’accès. Vérifiez la clé API et les autorisations du projet dans Paramètres → OpenAI.', status=502)
     if response.status_code == 429:
         raise PlanningError('Le quota ou le crédit API OpenAI est épuisé, ou la limite temporaire est atteinte. Vérifiez votre compte API puis réessayez.', status=502)
     if not 200 <= response.status_code < 300:
@@ -208,6 +214,7 @@ Reprends les objectifs et synthétise les savoirs/contenus pédagogiques avec de
 N'invente pas un programme et n'ajoute pas de promesses de certification.
 Chaque matière DOIT avoir source_url d'une page réellement consultée (sans fragment inventé), source_label
 avec annexe/page/tableau, et evidence avec un court extrait permettant de vérifier unité et coefficient.
+Recopie exactement l'URL retournée par l'outil web pour cette page, sans la reconstruire ni changer son chemin.
 Indique dans reference_version les dates, modifications et conditions d'application réellement établies.
 Limites : 40 matières ; name 120 caractères ; exam_unit 80 ; objectifs 5000 ; contenu 9000 ; evidence 1500.
 Réponds en français selon le schéma JSON. Toute incertitude doit être explicite.'''
@@ -222,12 +229,18 @@ Réponds en français selon le schéma JSON. Toute incertitude doit être explic
 
 def canonical_url(value):
     p = urlsplit(official_url(value, True))
-    return urlunsplit((p.scheme, p.netloc, p.path.rstrip('/'), p.query, ''))
+    # Ignore presentation/tracking differences, never document/version parameters.
+    host = p.hostname
+    if host.startswith('www.') and host[4:] in DOMAINS:
+        host = host[4:]
+    query = [(k, v) for k, v in parse_qsl(p.query, keep_blank_values=True)
+             if not k.lower().startswith('utm_') and k.lower() not in ('gclid', 'fbclid')]
+    return urlunsplit((p.scheme, host, p.path.rstrip('/'), urlencode(sorted(query)), ''))
 
 
 def extract_preview(response):
     from planning import PlanningError
-    sources = set()
+    sources = {}
     messages = []
     searched = False
     for item in response.get('output', []):
@@ -236,12 +249,14 @@ def extract_preview(response):
             action = item.get('action', {})
             for source in action.get('sources', []):
                 try:
-                    sources.add(canonical_url(source.get('url', '')))
+                    url = official_url(source.get('url', ''), True)
+                    sources[canonical_url(url)] = url
                 except PlanningError:
                     pass
             if action.get('url'):
                 try:
-                    sources.add(canonical_url(action['url']))
+                    url = official_url(action['url'], True)
+                    sources[canonical_url(url)] = url
                 except PlanningError:
                     pass
         if item.get('type') == 'message':
@@ -251,11 +266,12 @@ def extract_preview(response):
                 for annotation in content.get('annotations', []):
                     if annotation.get('type') == 'url_citation':
                         try:
-                            sources.add(canonical_url(annotation.get('url', '')))
+                            url = official_url(annotation.get('url', ''), True)
+                            sources[canonical_url(url)] = url
                         except PlanningError:
                             pass
     if not searched or not sources:
-        raise PlanningError('Aucune source officielle consultée n’a été retournée. Aucune matière ne peut être importée.', status=422)
+        raise PlanningError('L’analyse n’a retourné aucun document officiel consultable. Indiquez le lien direct vers le référentiel ou ses annexes.', status=422)
     try:
         data = json.loads(''.join(messages))
     except (ValueError, TypeError):
@@ -263,13 +279,24 @@ def extract_preview(response):
     if not isinstance(data, dict) or not isinstance(data.get('subjects'), list) or not 1 <= len(data['subjects']) <= 40:
         raise PlanningError('Aucune liste exploitable de matières n’a été trouvée. Précisez le lien vers le référentiel complet et ses annexes.', status=422)
     rows = []
+    blocked = 0
     for index, raw in enumerate(data['subjects']):
         if not isinstance(raw, dict):
             raise PlanningError('Le référentiel retourné est invalide.', status=422)
-        item = validate_details(raw)
+        # A missing/unrecognised citation affects this row, not the whole diploma.
+        try:
+            source_url = official_url(raw.get('source_url', ''))
+        except PlanningError:
+            source_url = ''
+        item = validate_details({**raw, 'source_url': source_url})
         item['name'] = clean_text(raw.get('name'), 'le nom de la matière', 120, True)
-        if not item.get('source_url') or canonical_url(item['source_url']) not in sources:
-            raise PlanningError('Une matière ne dispose pas d’une source officielle consultée. Relancez l’analyse avec le référentiel complet.', status=422)
+        consulted = sources.get(canonical_url(source_url)) if source_url else None
+        item['importable'] = bool(consulted)
+        if consulted:
+            item['source_url'] = consulted
+        else:
+            blocked += 1
+            item['source_issue'] = 'Source non confirmée : cette matière est laissée de côté. Les autres matières peuvent être importées.'
         if item.get('coefficient') is not None and not item.get('evidence'):
             item['coefficient'] = None
             item['review_note'] = 'Coefficient à vérifier : aucun extrait justificatif fourni.'
@@ -278,11 +305,14 @@ def extract_preview(response):
     warnings = data.get('warnings', [])
     if not isinstance(warnings, list) or len(warnings) > 30:
         raise PlanningError('Les observations du référentiel sont invalides.', status=422)
+    warnings = [clean_text(w, 'les observations', 2000) for w in warnings]
+    if blocked:
+        warnings.append(f'{blocked} matière(s) sans source confirmée : elles restent visibles mais ne sont pas sélectionnables. Vous pouvez importer les autres matières ou préciser le lien vers les annexes dans une nouvelle recherche.')
     return {'qualification': clean_text(data.get('qualification', ''), 'le diplôme', 500),
         'reference_title': clean_text(data.get('reference_title', ''), 'le titre du référentiel', 500),
         'reference_version': clean_text(data.get('reference_version', ''), 'la version du référentiel', 800),
-        'warnings': [clean_text(w, 'les observations', 2000) for w in warnings], 'subjects': rows,
-        'sources': sorted(sources), 'analyzed_at': datetime.now(timezone.utc).isoformat()}
+        'warnings': warnings, 'subjects': rows,
+        'sources': sorted(set(sources.values())), 'analyzed_at': datetime.now(timezone.utc).isoformat()}
 
 
 def register(app, connect, guard, body, result, fail, transact):
@@ -302,7 +332,8 @@ def register(app, connect, guard, body, result, fail, transact):
     def public_job(job):
         return {'job_id': job['id'], 'status': job['status'], 'promotion_id': job['promotion_id'],
             'query': json.loads(job['query']), 'preview': json.loads(job['preview']) if job['preview'] else None,
-            'message': job['error'] or '', 'receipt': json.loads(job['receipt']) if job['receipt'] else None}
+            'message': job['error'] or '', 'receipt': json.loads(job['receipt']) if job['receipt'] else None,
+            'recoverable': bool(job['status'] == 'failed' and job['provider_id'] and job['error'] in LEGACY_SOURCE_ERRORS)}
 
     @app.route('/admin/planning/api/references/settings', methods=['GET', 'PUT', 'DELETE'])
     def reference_settings():
@@ -383,14 +414,19 @@ def register(app, connect, guard, body, result, fail, transact):
             return fail(error)
 
     @app.get('/admin/planning/api/references/<job_id>')
+    @app.post('/admin/planning/api/references/<job_id>/recover')
     def reference_poll(job_id):
-        guard()
+        recovery = request.method == 'POST'
+        guard(recovery)
         try:
             with closing(connect()) as conn:
                 job = job_for(conn, job_id)
-                if job['status'] in ('ready', 'failed', 'imported'):
+                recoverable = public_job(job)['recoverable']
+                if recovery and not recoverable:
                     return result(public_job(job))
-                if time.time()-job['created_at'] > 1200:
+                if not recovery and job['status'] in ('ready', 'failed', 'imported'):
+                    return result(public_job(job))
+                if not recovery and time.time()-job['created_at'] > 1200:
                     conn.execute("UPDATE planning_reference_jobs SET status='failed',error=? WHERE id=?", ('L’analyse a expiré. Relancez-la avec un lien plus précis.', job_id))
                     conn.commit()
                     return result(public_job(job_for(conn, job_id)))
@@ -410,7 +446,9 @@ def register(app, connect, guard, body, result, fail, transact):
             elif status not in ('queued', 'in_progress'):
                 status, error = 'failed', 'L’analyse n’a pas abouti. Précisez le lien vers les annexes et relancez-la.'
             with closing(connect()) as conn:
-                conn.execute("UPDATE planning_reference_jobs SET status=?,preview=?,error=? WHERE id=? AND status IN ('starting','queued','in_progress')", (status, json.dumps(preview, ensure_ascii=False) if preview else None, error, job_id))
+                expected = ('failed',) if recovery else ('starting', 'queued', 'in_progress')
+                placeholders = ','.join('?' for _ in expected)
+                conn.execute(f"UPDATE planning_reference_jobs SET status=?,preview=?,error=? WHERE id=? AND status IN ({placeholders})", (status, json.dumps(preview, ensure_ascii=False) if preview else None, error, job_id, *expected))
                 conn.commit()
                 return result(public_job(job_for(conn, job_id)))
         except PlanningError as error:
@@ -444,6 +482,8 @@ def register(app, connect, guard, body, result, fail, transact):
                     raise PlanningError('La sélection de matières est invalide.')
                 seen.add(row['row_id'])
                 original = originals[row['row_id']]
+                if original.get('importable') is False:
+                    raise PlanningError('La source de « ' + original['name'] + ' » n’a pas été confirmée. Décochez cette matière.', status=422)
                 name = _text(row.get('name', original['name']), 'le nom de la matière', 120, True)
                 if normal(name) in existing:
                     raise PlanningError('« ' + name + ' » existe déjà dans cette promotion. Décochez-la ou modifiez son nom. Aucune matière n’a été importée.', status=409)

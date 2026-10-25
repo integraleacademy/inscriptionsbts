@@ -16,6 +16,9 @@ def render():
         page = client.get('/admin/matieres?promotion_id=demo')
         assert page.status_code == 200
         (output / 'matieres.html').write_text(page.text)
+        settings = client.get('/admin/parametres')
+        assert settings.status_code == 200
+        (output / 'settings.html').write_text(settings.text)
         (output / 'catalog.json').write_text(client.get('/admin/planning/api/catalog').text)
 
 

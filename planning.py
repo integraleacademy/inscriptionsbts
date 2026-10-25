@@ -536,6 +536,9 @@ def register_planning(app,db_connect,require_admin):
     @app.get('/admin/salles')
     def planning_rooms_admin():return catalog_page('planning_rooms.html','Salles')
 
+    @app.get('/admin/parametres')
+    def admin_settings():return catalog_page('admin_settings.html','Paramètres')
+
     @app.get('/admin/planning/api/catalog')
     def planning_catalog():
         guard()

@@ -105,3 +105,19 @@ def test_planning_catalog_pages_share_admin_navigation_and_secure_assets(connect
         assert 'href="/admin/matieres"' in page.text
         assert 'href="/admin/salles"' in page.text
         assert page.headers['Cache-Control'] == 'no-store'
+
+
+def test_settings_page_moves_secret_form_out_of_importer(connected):
+    client, _, _, _ = connected
+    page = client.get('/admin/parametres')
+    assert page.status_code == 200 and page.headers['Cache-Control'] == 'no-store'
+    assert 'id="openai-key"' in page.text and 'data-csrf="' in page.text
+    assert 'href="/admin/parametres" title="Paramètres" class="active"' in page.text
+    for unwanted in ('googletagmanager.com', 'brevo.com', 'js/main_front.js', 'js/main_admin.js', 'Pôle Alternance'):
+        assert unwanted not in page.text
+    subjects = client.get('/admin/matieres').text
+    assert 'reference-settings-link' in subjects
+    assert 'id="reference-key"' not in subjects and 'id="reference-settings"' not in subjects
+    with client.session_transaction() as state:
+        state.clear()
+    assert client.get('/admin/parametres').status_code == 403
