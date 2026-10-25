@@ -168,6 +168,13 @@
         const url = new URL(item.source_url); if (url.protocol !== 'https:') return;
         const link = el('a', '', item.source_label || 'Consulter le référentiel officiel'); link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; source.append(link);
         for (const value of [item.reference_title, item.reference_version, item.evidence]) if (value) source.append(el('p', '', value));
+        const full = {...(item.reference_full_text || {}), ...(item.full_text || {})};
+        if (Object.keys(full).length) {
+          const details = el('details', 'reference-full-text');
+          details.append(el('summary', '', 'Textes intégraux conservés à l’import'));
+          for (const [label, value] of Object.entries(full)) details.append(el('strong', '', label), el('p', 'reference-full-paragraph', value));
+          source.append(details);
+        }
       } catch (_) { source.hidden = true; }
     }
   }

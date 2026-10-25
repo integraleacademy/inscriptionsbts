@@ -105,6 +105,15 @@
     if (row.evidence) source.append(node('p', '', row.evidence));
     return source;
   }
+  function fullTextDetails(texts) {
+    const details = node('details', 'reference-full-text');
+    details.append(node('summary', '', 'Consulter les textes intégraux'));
+    details.append(node('p', 'reference-help', 'Ces textes ont été abrégés dans les champs. La version intégrale ci-dessous sera conservée avec la matière.'));
+    for (const [label, value] of Object.entries(texts || {})) {
+      details.append(node('strong', '', label), node('p', 'reference-full-paragraph', value));
+    }
+    return details;
+  }
   function field(row, label, key, type = 'text', max = null) {
     const wrap = node('label', 'catalog-field', label);
     const input = node(type === 'textarea' ? 'textarea' : 'input');
@@ -139,6 +148,7 @@
     targets.append(teacher, field(row, 'Votre volume annuel (heures)', 'planned_hours', 'number', 5000)); content.append(targets);
     content.append(node('p', 'reference-help', 'Formateur et volume annuel : facultatifs à l’import, nécessaires pour préparer les cours.'));
     content.append(field(row, 'Objectifs et compétences', 'objectives', 'textarea', 12000), field(row, 'Contenu pédagogique / savoirs associés', 'pedagogical_content', 'textarea', 20000), field(row, 'Modalités d’examen', 'exam_format', 'textarea', 2000), field(row, 'Points à vérifier / notes', 'review_note', 'textarea', 2000), sourceLink(original));
+    if (Object.keys(original.full_text || {}).length) content.append(fullTextDetails(original.full_text));
     if (original.review_note) card.append(node('p', 'reference-row-note', original.review_note));
     detail.append(content); card.append(detail); row.card = card; row.detail = detail;
     card.addEventListener('input', () => { $('reference-reviewed').checked = false; row.title.textContent = row.fields.name.value || 'Matière sans nom'; row.badge.textContent = 'Coefficient ' + fmt(number(row.fields.coefficient.value)); selection(); persistDraft(); });
@@ -167,6 +177,8 @@
     $('reference-diploma').textContent = preview.qualification;
     $('reference-version').textContent = [preview.reference_title, preview.reference_version].filter(Boolean).join(' · ');
     $('reference-warnings').replaceChildren(...preview.warnings.map(w => node('p', 'reference-caution', w)));
+    const complete = $('reference-complete-text'); complete.replaceChildren();
+    if (Object.keys(preview.full_text || {}).length) complete.append(fullTextDetails(preview.full_text));
     const draft = savedDraft();
     state.rows = preview.subjects.map(row => buildRow(row, Array.isArray(draft) ? draft.find(d => d.row_id === row.row_id) : null));
     $('reference-subjects').replaceChildren(...state.rows.map(r => r.card));

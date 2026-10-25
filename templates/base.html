@@ -114,7 +114,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if is_planning_admin %}
     <script src="{{ url_for('static', filename='js/planning.js') }}?v=5" defer></script>
   {% elif is_planning_catalog %}
-    <script src="{{ url_for('static', filename='js/planning-catalog.js') }}?v=2" defer></script>
+    <script src="{{ url_for('static', filename='js/planning-catalog.js') }}?v=3" defer></script>
   {% elif is_portal_planning %}
     <script src="{{ url_for('static', filename='js/portal-planning.js') }}?v=1" defer></script>
   {% elif is_promotions_admin %}

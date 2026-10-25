@@ -29,12 +29,22 @@ DETAIL_TEXT = {'exam_unit': 80, 'objectives': 12000, 'pedagogical_content': 2000
                'exam_format': 2000, 'source_url': 2000, 'source_label': 500,
                'reference_title': 500, 'reference_version': 800, 'evidence': 4000, 'review_note': 2000}
 DETAIL_NUMBERS = {'coefficient': 100, 'weekly_hours_first': 80, 'weekly_hours_second': 80}
+TEXT_LABELS = {'name': 'Nom de la matière', 'qualification': 'Diplôme',
+    'reference_title': 'Titre du référentiel', 'reference_version': 'Version du référentiel',
+    'exam_unit': 'Unité / épreuve', 'objectives': 'Objectifs et compétences',
+    'pedagogical_content': 'Contenu pédagogique', 'exam_format': 'Modalités d’examen',
+    'source_label': 'Repère dans la source', 'evidence': 'Extrait justificatif',
+    'review_note': 'Points à vérifier'}
 MOS_URL = 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000041728741'
 MAX_AGE = 24 * 3600
 LEGACY_SOURCE_ERRORS = (
     'Une matière ne dispose pas d’une source officielle consultée. Relancez l’analyse avec le référentiel complet.',
     'Aucune source officielle consultée n’a été retournée. Aucune matière ne peut être importée.',
 )
+LEGACY_TEXT_ERRORS = tuple('Vérifiez ' + label + '.' for label in (
+    'le diplôme', 'le titre du référentiel', 'la version du référentiel',
+    'les observations', 'le nom de la matière', *DETAIL_TEXT,
+))
 
 
 def schema(conn):
@@ -61,6 +71,24 @@ def clean_text(value, label, limit, required=False):
     if required and not value:
         raise PlanningError('Renseignez ' + label + '.')
     return value
+
+
+def generated_text(value, field, limit, full_text):
+    """Adapt provider prose to editable fields, preserving every overflow for review.
+
+    Form validation stays strict. A long AI explanation or a PDF control character
+    must not discard an otherwise usable, already billed analysis.
+    """
+    if value is None:
+        return ''
+    if not isinstance(value, str):
+        from planning import PlanningError
+        raise PlanningError('Un texte de l’analyse est illisible. Relancez l’analyse avec le référentiel complet.', status=422)
+    value = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ' ', value).strip()
+    if len(value) <= limit:
+        return value
+    full_text[TEXT_LABELS.get(field, field)] = value
+    return value[:limit-1].rstrip() + '…'
 
 
 def official_url(value, required=False):
@@ -182,16 +210,20 @@ def object_schema(properties):
 
 
 def response_payload(query):
-    text = {'type': 'string'}
-    nullable = {'type': ['number', 'null']}
+    def text(limit):
+        # Length is guidance for generation; generated_text handles any overflow.
+        return {'type': 'string', 'description': f'Au maximum {limit} caractères.'}
+    def numeric(maximum):
+        return {'type': ['number', 'null'], 'minimum': 0, 'maximum': maximum}
     item = object_schema({
-        'name': text, 'exam_unit': text, 'coefficient': nullable, 'optional': {'type': 'boolean'},
-        'weekly_hours_first': nullable, 'weekly_hours_second': nullable,
-        'objectives': text, 'pedagogical_content': text, 'exam_format': text,
-        'source_url': text, 'source_label': text, 'evidence': text, 'review_note': text,
+        'name': text(120), 'exam_unit': text(80), 'coefficient': numeric(100), 'optional': {'type': 'boolean'},
+        'weekly_hours_first': numeric(80), 'weekly_hours_second': numeric(80),
+        **{field: text(DETAIL_TEXT[field]) for field in (
+            'objectives', 'pedagogical_content', 'exam_format', 'source_url', 'source_label', 'evidence', 'review_note')},
     })
-    output = object_schema({'qualification': text, 'reference_title': text, 'reference_version': text,
-        'warnings': {'type': 'array', 'items': text}, 'subjects': {'type': 'array', 'items': item}})
+    output = object_schema({'qualification': text(500), 'reference_title': text(500), 'reference_version': text(800),
+        'warnings': {'type': 'array', 'items': text(2000), 'maxItems': 30},
+        'subjects': {'type': 'array', 'items': item, 'maxItems': 40}})
     allowed = list(DOMAINS)
     if query['source_url']:
         allowed.append(urlsplit(query['source_url']).hostname)
@@ -216,6 +248,8 @@ Chaque matière DOIT avoir source_url d'une page réellement consultée (sans fr
 avec annexe/page/tableau, et evidence avec un court extrait permettant de vérifier unité et coefficient.
 Recopie exactement l'URL retournée par l'outil web pour cette page, sans la reconstruire ni changer son chemin.
 Indique dans reference_version les dates, modifications et conditions d'application réellement établies.
+Résume reference_version en 800 caractères au maximum. Place les réserves complémentaires dans warnings.
+Pour une session future, précise que la version est celle connue à la date de consultation, sans inventer de réforme.
 Limites : 40 matières ; name 120 caractères ; exam_unit 80 ; objectifs 5000 ; contenu 9000 ; evidence 1500.
 Réponds en français selon le schéma JSON. Toute incertitude doit être explicite.'''
     return {'model': os.environ.get('OPENAI_REFERENCE_MODEL', 'gpt-5.5'),
@@ -288,8 +322,14 @@ def extract_preview(response):
             source_url = official_url(raw.get('source_url', ''))
         except PlanningError:
             source_url = ''
-        item = validate_details({**raw, 'source_url': source_url})
-        item['name'] = clean_text(raw.get('name'), 'le nom de la matière', 120, True)
+        full_text = {}
+        normalized = {**raw, 'source_url': source_url}
+        for field, limit in DETAIL_TEXT.items():
+            if field != 'source_url' and field in raw:
+                normalized[field] = generated_text(raw[field], field, limit, full_text)
+        item = validate_details(normalized)
+        item['name'] = clean_text(generated_text(raw.get('name'), 'name', 120, full_text), 'le nom de la matière', 120, True)
+        item['full_text'] = full_text
         consulted = sources.get(canonical_url(source_url)) if source_url else None
         item['importable'] = bool(consulted)
         if consulted:
@@ -305,12 +345,19 @@ def extract_preview(response):
     warnings = data.get('warnings', [])
     if not isinstance(warnings, list) or len(warnings) > 30:
         raise PlanningError('Les observations du référentiel sont invalides.', status=422)
-    warnings = [clean_text(w, 'les observations', 2000) for w in warnings]
+    full_text = {}
+    qualification = generated_text(data.get('qualification', ''), 'qualification', 500, full_text)
+    reference_title = generated_text(data.get('reference_title', ''), 'reference_title', 500, full_text)
+    reference_version = generated_text(data.get('reference_version', ''), 'reference_version', 800, full_text)
+    warnings = [generated_text(w, f'Observation {i+1}', 2000, full_text) for i, w in enumerate(warnings)]
+    if not reference_version:
+        warnings.append('La version du référentiel n’a pas été précisée par l’analyse. Vérifiez son application à votre session d’examen.')
+    if full_text or any(row['full_text'] for row in rows):
+        warnings.append('Certains textes longs ont été abrégés dans les champs. Leur texte intégral reste consultable dans les détails et sera conservé à l’import.')
     if blocked:
         warnings.append(f'{blocked} matière(s) sans source confirmée : elles restent visibles mais ne sont pas sélectionnables. Vous pouvez importer les autres matières ou préciser le lien vers les annexes dans une nouvelle recherche.')
-    return {'qualification': clean_text(data.get('qualification', ''), 'le diplôme', 500),
-        'reference_title': clean_text(data.get('reference_title', ''), 'le titre du référentiel', 500),
-        'reference_version': clean_text(data.get('reference_version', ''), 'la version du référentiel', 800),
+    return {'qualification': qualification, 'reference_title': reference_title,
+        'reference_version': reference_version, 'full_text': full_text,
         'warnings': warnings, 'subjects': rows,
         'sources': sorted(set(sources.values())), 'analyzed_at': datetime.now(timezone.utc).isoformat()}
 
@@ -333,7 +380,7 @@ def register(app, connect, guard, body, result, fail, transact):
         return {'job_id': job['id'], 'status': job['status'], 'promotion_id': job['promotion_id'],
             'query': json.loads(job['query']), 'preview': json.loads(job['preview']) if job['preview'] else None,
             'message': job['error'] or '', 'receipt': json.loads(job['receipt']) if job['receipt'] else None,
-            'recoverable': bool(job['status'] == 'failed' and job['provider_id'] and job['error'] in LEGACY_SOURCE_ERRORS)}
+            'recoverable': bool(job['status'] == 'failed' and job['provider_id'] and job['error'] in LEGACY_SOURCE_ERRORS + LEGACY_TEXT_ERRORS)}
 
     @app.route('/admin/planning/api/references/settings', methods=['GET', 'PUT', 'DELETE'])
     def reference_settings():
@@ -502,6 +549,7 @@ def register(app, connect, guard, body, result, fail, transact):
                 # Provenance cannot be replaced by the browser; keep original extraction alongside edits.
                 metadata.update(source_url=original['source_url'], source_label=original.get('source_label', ''), evidence=original.get('evidence', ''),
                     reference_title=preview['reference_title'], reference_version=preview['reference_version'],
+                    reference_full_text=preview.get('full_text', {}),
                     imported_at=datetime.now(timezone.utc).isoformat(), import_id=job_id, original=original)
                 sid = secrets.token_urlsafe(24)
                 conn.execute('INSERT INTO planning_subjects(id,promotion_id,name,trainer_id,color,planned_hours) VALUES(?,?,?,?,?,?)',

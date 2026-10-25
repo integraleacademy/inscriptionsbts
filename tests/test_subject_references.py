@@ -27,6 +27,99 @@ def provider_result():
         {'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps(data)}]}]}
 
 
+def test_long_reference_version_is_reviewable_and_preserved(client, app, db, monkeypatch):
+    response = provider_result()
+    data = json.loads(response['output'][1]['content'][0]['text'])
+    version = ('Les textes consultés définissent les unités et leurs coefficients. ' * 25
+               + 'La session 2029 reste à vérifier en cas de modification ultérieure.')
+    data['reference_version'] = version
+    response['output'][1]['content'][0]['text'] = json.dumps(data)
+    jid, job = ready_job(client, app, monkeypatch, db, response)
+    assert job['status'] == 'ready', job['message']
+    preview = job['preview']
+    assert len(preview['reference_version']) <= refs.DETAIL_TEXT['reference_version']
+    assert preview['full_text']['Version du référentiel'] == version
+    imported = call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1')]))
+    assert imported.status_code == 200, imported.json
+    with db() as conn:
+        metadata = refs.details(conn, imported.json['subject_ids'][0])
+    assert metadata['reference_full_text']['Version du référentiel'] == version
+
+
+def test_long_subject_texts_can_be_edited_without_losing_originals(client, app, db, monkeypatch):
+    response = provider_result()
+    data = json.loads(response['output'][1]['content'][0]['text'])
+    limits = {'name': 120, **{field: refs.DETAIL_TEXT[field] for field in (
+        'exam_unit', 'objectives', 'pedagogical_content', 'exam_format', 'source_label', 'evidence', 'review_note')}}
+    raw = data['subjects'][0]
+    for field, limit in limits.items():
+        raw[field] = ('Texte pédagogique complet. ' * (limit // 20 + 1)) + 'Dernière précision à conserver.'
+    data['qualification'] = 'Diplôme ' * 100
+    data['reference_title'] = 'Référentiel ' * 100
+    data['warnings'] = ['Réserve pour la session 2029. ' * 100]
+    response['output'][1]['content'][0]['text'] = json.dumps(data)
+    jid, job = ready_job(client, app, monkeypatch, db, response)
+    assert job['status'] == 'ready', job['message']
+    preview = job['preview']
+    row = preview['subjects'][0]
+    for field, limit in limits.items():
+        assert len(row[field]) <= limit
+        assert row['full_text'][refs.TEXT_LABELS[field]] == raw[field]
+    assert preview['full_text']['Diplôme'] == data['qualification'].strip()
+    assert preview['full_text']['Titre du référentiel'] == data['reference_title'].strip()
+    assert preview['full_text']['Observation 1'] == data['warnings'][0].strip()
+    imported = call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(
+        row_id='1', name='Matière adaptée', objectives='Objectifs adaptés',
+        full_text={'faux': 'Ne pas conserver'}, reference_full_text={'faux': 'Ne pas conserver'})]))
+    assert imported.status_code == 200, imported.json
+    sid = imported.json['subject_ids'][0]
+    with db() as conn:
+        metadata = refs.details(conn, sid)
+    assert metadata['objectives'] == 'Objectifs adaptés'
+    assert metadata['full_text'] == row['full_text']
+    assert metadata['reference_full_text'] == preview['full_text']
+    updated = call(client, '/subjects/'+sid, dict(objectives='Après import', full_text={}), 'PUT')
+    assert updated.status_code == 200, updated.json
+    with db() as conn:
+        assert refs.details(conn, sid)['full_text'] == row['full_text']
+    # Manual inputs still receive the same validation as other subjects.
+    rejected = call(client, '/subjects/'+sid, dict(objectives='x' * 12001), 'PUT')
+    assert rejected.status_code == 400
+
+
+@pytest.mark.parametrize('version', [None, 'Arrêté 2020\x0cVersion consultée\x00 en 2026'])
+def test_pdf_control_characters_and_missing_version_do_not_block_preview(version):
+    response = provider_result()
+    data = json.loads(response['output'][1]['content'][0]['text'])
+    data['reference_version'] = version
+    data['subjects'][0]['objectives'] = 'Première page\x0cDeuxième page\nObjectif suivant'
+    response['output'][1]['content'][0]['text'] = json.dumps(data)
+    preview = refs.extract_preview(response)
+    assert preview['subjects'][0]['objectives'] == 'Première page Deuxième page\nObjectif suivant'
+    if version is None:
+        assert preview['reference_version'] == ''
+        assert any('version du référentiel' in warning for warning in preview['warnings'])
+    else:
+        assert preview['reference_version'] == 'Arrêté 2020 Version consultée  en 2026'
+
+
+def test_previous_version_failure_recovers_long_response_without_new_generation(client, app, db, monkeypatch):
+    jid, _ = ready_job(client, app, monkeypatch, db)
+    with db() as conn:
+        conn.execute("UPDATE planning_reference_jobs SET status='failed',preview=NULL,error=?,created_at=? WHERE id=?",
+            ('Vérifiez la version du référentiel.', time.time()-1800, jid))
+    assert client.get(BASE+'/references/latest').json['job']['recoverable']
+    response = provider_result()
+    data = json.loads(response['output'][1]['content'][0]['text'])
+    data['reference_version'] = 'Version applicable à la session 2029 sous réserve des modifications ultérieures. ' * 30
+    response['output'][1]['content'][0]['text'] = json.dumps(data)
+    with patch.object(refs, 'provider', return_value=response) as provider:
+        recovered = call(client, '/references/'+jid+'/recover')
+    assert recovered.json['status'] == 'ready', recovered.json
+    assert recovered.json['preview']['full_text']['Version du référentiel'] == data['reference_version'].strip()
+    provider.assert_called_once_with(KEY, 'GET', 'resp_test')
+
+
 def ready_job(client, app, monkeypatch, db, response=None, pid='p1'):
     monkeypatch.setenv('OPENAI_API_KEY', KEY)
     with patch.object(refs, 'provider', return_value={'id': 'resp_test', 'status': 'queued'}):

@@ -15,6 +15,10 @@ let analyses=0, recoveries=0;
 const settings=()=>({ok:true,configured,managed_by_server:false,bts_options:{MOS:'BTS Management opérationnel de la sécurité'},suggested_urls:{MOS:URL}});
 const subject=(id,name,optional=false)=>({row_id:id,name,exam_unit:'U'+id,coefficient:3,optional,weekly_hours_first:2,weekly_hours_second:2,objectives:'Objectifs officiels',pedagogical_content:'Contenu officiel',exam_format:'Écrit',source_url:URL,source_label:'Annexe II c',evidence:'Coefficient 3',review_note:''});
 const preview={qualification:'BTS MOS',reference_title:'Référentiel officiel',reference_version:'Test 2028',warnings:['Vérifier les coefficients.'],subjects:[subject('1','Culture générale'),subject('2','Management des ressources humaines'),subject('3','Langue facultative',true),{...subject('4','Matière non confirmée'),importable:false,source_issue:'Source non confirmée'}]};
+const fullVersion='Version consultée. '.repeat(80)+'Réserve finale pour 2029 <img src=x onerror=alert(1)>';
+const fullObjectives='Objectif pédagogique complet. '.repeat(500)+'Dernière précision à conserver.';
+preview.full_text={'Version du référentiel':fullVersion};
+preview.subjects[1].full_text={'Objectifs et compétences':fullObjectives};
 let reloads=0;w.addEventListener('catalog:reload',()=>reloads++);
 w.fetch=async(url,options={})=>{
  const method=options.method||'GET',data=options.body?JSON.parse(options.body):null;
@@ -33,7 +37,7 @@ w.fetch=async(url,options={})=>{
  }
  if(url.endsWith('/references/job-demo/import')){
    imports++;importPayload=data;job.status='imported';
-   catalog.subjects.push({id:'imported',promotion_id:'demo',promotion_name:'BTS MOS',trainer_id:'',trainer_name:'',name:data.subjects[0].name,color:'#2563eb',planned_hours:null,scheduled_minutes:0,planned_minutes:null,budget_configured:false,import_id:'job-demo',...data.subjects[0],source_url:URL});
+   catalog.subjects.push({id:'imported',promotion_id:'demo',promotion_name:'BTS MOS',trainer_id:'',trainer_name:'',name:data.subjects[0].name,color:'#2563eb',planned_hours:null,scheduled_minutes:0,planned_minutes:null,budget_configured:false,import_id:'job-demo',...data.subjects[0],source_url:URL,reference_full_text:preview.full_text,full_text:preview.subjects[1].full_text});
    return response({ok:true,count:data.subjects.length,promotion_id:'demo',message:'Import terminé.'});
  }
  if(url.endsWith('/references/job-demo')){polls++;job={...job,status:'ready',preview};return response(job)}
@@ -61,6 +65,9 @@ w.eval(fs.readFileSync('static/js/subject-references.js','utf8'));
  }else{assert.equal(analyses,0);assert.equal(recoveries,1)}
  assert(!$('reference-review-step').hidden);
  const cards=[...d.querySelectorAll('.reference-subject')];assert.equal(cards.length,4);
+ assert.equal($('reference-complete-text').querySelector('.reference-full-paragraph').textContent,fullVersion);
+ assert.equal(cards[1].querySelector('.reference-full-paragraph').textContent,fullObjectives);
+ assert.equal($('reference-dialog').querySelectorAll('img').length,0);
  const checks=cards.map(c=>c.querySelector('.reference-row-choice input'));
  assert(checks[0].disabled&&!checks[0].checked);assert(checks[1].checked);assert(!checks[2].checked);assert(checks[3].disabled&&!checks[3].checked);
  $('reference-select-all').click();assert(!checks[3].checked);$('reference-select-none').click();checks[1].checked=true;change(checks[1]);
@@ -78,9 +85,11 @@ w.eval(fs.readFileSync('static/js/subject-references.js','utf8'));
  $('reference-bottom-close').click();await wait();
  d.querySelector('[data-catalog-edit="imported"]').click();await wait();
  const form=$('catalog-form');assert(!$('catalog-save').disabled);assert(!form.elements.planned_hours.required);assert(!form.elements.trainer_id.required);
+ const preserved=[...$('catalog-editor').querySelectorAll('.reference-full-paragraph')].map(n=>n.textContent);
+ assert.deepEqual(preserved,[fullVersion,fullObjectives]);assert.equal($('catalog-editor').querySelectorAll('img').length,0);
  assert.equal(form.elements.coefficient.value,'5');form.elements.objectives.value='Après import';submit('catalog-form');await wait();
  assert.equal(editPayload.planned_hours,null);assert.equal(editPayload.objectives,'Après import');assert.equal(editPayload.coefficient,5);
  assert(!$('catalog-editor').open);
- console.log('PASS: complete reference import journey, key isolation, pending/ready states, duplicate and optional selection, edited fields, safe text, drafts, selected-only commit, catalogue refresh and post-import editing.');
+ console.log('PASS: complete reference import journey, key isolation, pending/ready states, duplicate and optional selection, long text preserved before/after import, safe text, drafts, selected-only commit, catalogue refresh and post-import editing.');
  dom.window.close();
 })().catch(error=>{console.error(error);dom.window.close();process.exitCode=1});

@@ -54,3 +54,5 @@
 @media(prefers-reduced-motion:reduce){.reference-spinner{animation:none}}
 
 .reference-source-issue{margin:0;padding:12px 19px;background:#fff7e5;color:#7a4c0d;font-size:12px;line-height:1.7}
+.reference-full-text{margin:14px 0;padding:14px 16px;border:1px solid #dbe7f6;border-radius:10px;background:#f5f8fd;color:#35577c;font-size:12px;line-height:1.8;white-space:normal}
+.reference-full-text>summary{cursor:pointer;font-weight:750;color:#2457a1}.reference-full-text[open]>summary{margin-bottom:14px}.reference-full-text>strong{display:block;margin:15px 0 5px}.reference-full-text .reference-full-paragraph{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow-y:auto;margin:0;font-size:12px;line-height:1.8}
