@@ -60,6 +60,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if request.endpoint == 'trainer_availability' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-availability.css') }}?v=1">{% endif %}
   {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-workload.css') }}?v=1">{% endif %}
   {% if planning_sync_config %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-sync.css') }}?v=1">{% endif %}
+  {% block page_styles %}{% endblock %}
 </head>
 
 {% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}

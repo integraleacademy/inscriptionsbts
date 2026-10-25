@@ -61,7 +61,7 @@ choose('mos_parcours', 'carte_cnaps');
 check(d.querySelector('[data-condition="aps"]').hidden, 'Existing CNAPS card does not require APS');
 choose('mos_parcours', 'autre');
 choose('aps_souhaitee', 'oui');
-d.querySelector('[data-step="6"]').click();
+d.querySelector('[data-group-nav="6"]').click();
 const recap = d.querySelector('.application-step[data-title="Le récapitulatif"]');
 check(!recap.hidden, 'Recap can be opened in admin preview');
 check(recap.textContent.includes('0 € pour l’apprenti') && recap.textContent.includes('Je confirme mon inscription'), 'Funding and admission next steps retained in recap');

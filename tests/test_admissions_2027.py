@@ -359,8 +359,30 @@ def test_all_original_profile_choices_and_form_fields_remain(client):
         assert [attrs['value'] for tag,attrs in parser.elements if tag=='input' and attrs.get('name')==group+'[]']==values
     for name in ['bts','mode','nom','prenom','date_naissance','sexe','pays_naissance','ville_naissance','cp_naissance','nationalite','adresse','cp','ville','num_secu','email','email_confirm','tel','resp_nom','resp_prenom','resp_email','resp_tel','baccalaureat','bac_type','bac_autre','permis_b','entreprise_trouvee','recherches_commencees','cherche_idf','souhaite_accompagnement','projet_pourquoi','projet_objectif','projet_passions','raison_aps','aps_souhaitee','ci','ci2','photo','carte_vitale','cv','lm']:
         assert any(attrs.get('name')==name for tag,attrs in parser.elements), name
-    assert sum('data-step' in attrs for tag,attrs in parser.elements)==7
+    assert sum('data-group-nav' in attrs for tag,attrs in parser.elements)==7
     assert sum('data-suggest' in attrs for tag,attrs in parser.elements)==6
+
+
+def test_preparation_precedes_small_question_groups_without_changing_other_pages(client):
+    from bs4 import BeautifulSoup
+    auth(client)
+    page = BeautifulSoup(client.get('/candidature?preview=1').text, 'html.parser')
+    guide = page.select_one('#application-guide')
+    assert guide is not None and not guide.has_attr('hidden')
+    assert 'Commencer ma pré-inscription' in guide.get_text()
+    assert len(guide.select('[data-prepared]')) == 5
+    for text in ['Ta pièce d’identité', 'Ta photo d’identité', 'Ta carte Vitale', 'Ton CV', 'Ta lettre de motivation', '8 Mo', 'PDF', 'JPG', 'PNG', 'Je confirme mon inscription']:
+        assert text in guide.get_text()
+    assert not guide.select('input[type=file]')  # Preparation does not transmit documents.
+    assert page.select_one('#application-journey').has_attr('hidden')
+    for screen in page.select('.application-step'):
+        names = {field['name'] for field in screen.select('input[name],select[name],textarea[name]')}
+        assert len(names) <= 3, (screen['data-step-id'], names)
+    assert page.select_one('[name=mode]').find_parent('section') != page.select_one('[name=bts]').find_parent('section')
+    assert len({field.find_parent('section')['data-step-id'] for field in page.select('input[type=file]')}) == 5
+    styles = [link['href'] for link in page.select('link[rel=stylesheet]')]
+    assert 'application-journey.css' in styles[-1]
+    assert 'application-journey.css' not in client.get('/login').text
 
 
 @pytest.mark.parametrize('modifications', [

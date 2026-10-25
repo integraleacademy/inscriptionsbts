@@ -1,0 +1,43 @@
+<section id="application-guide" class="preparation-page" aria-labelledby="preparation-title">
+  <div class="preparation-hero">
+    <div class="preparation-copy">
+      <p class="eyebrow">BTS EN ALTERNANCE · RENTRÉE SEPTEMBRE 2027</p>
+      <h1 id="preparation-title" tabindex="-1">Ton prochain chapitre.<br><em>On le prépare ensemble.</em></h1>
+      <p>Avant de commencer ta pré-inscription, prends un moment pour préparer tes documents et découvrir les prochaines étapes.</p>
+      <a class="button button-dark" href="#documents-a-preparer">Je prépare mon dossier <span aria-hidden="true">↓</span></a>
+      <div class="preparation-facts"><span><b>6 BTS</b>pour trouver ta voie</span><span><b>2 ans</b>pour construire la suite</span><span><b>À ton rythme</b>avec un brouillon enregistrable</span></div>
+    </div>
+    <figure class="preparation-visual">
+      <img src="{{ url_for('static',filename='admissions/student-space-illustration.webp') }}" alt="Une étudiante prépare son projet dans un espace de travail lumineux" width="1536" height="1024" fetchpriority="high">
+      <figcaption><span>LE PREMIER PAS VERS TON BTS</span><strong>Un diplôme. De l’expérience.<br>Et ton avenir devant toi.</strong></figcaption>
+    </figure>
+  </div>
+  <ol class="preparation-route" aria-label="Les étapes de ta pré-inscription">
+    <li><span>01</span><div><b>Je prépare</b><small>Mes pièces, au bon format</small></div></li>
+    <li><span>02</span><div><b>Je me présente</b><small>Mon BTS, mon parcours, mon projet</small></div></li>
+    <li><span>03</span><div><b>J’envoie mon dossier</b><small>Après un dernier coup d’œil</small></div></li>
+  </ol>
+  <section id="documents-a-preparer" class="preparation-documents" aria-labelledby="documents-title">
+    <div class="preparation-section-heading"><div><p class="eyebrow">01 / LES DOCUMENTS À PRÉPARER</p><h2 id="documents-title">Tout à portée de main.<br><em>La suite sera plus simple.</em></h2></div><p>Coche les pièces que tu as déjà préparées.<br><span id="preparation-count" role="status">0 / 5 pièces préparées</span></p></div>
+    <div class="preparation-document-list">
+      {% for code,number,title,format,description in [
+        ('identity','01','Ta pièce d’identité','PDF, JPG ou PNG','Carte d’identité : prépare le recto et le verso, dans un seul fichier ou dans deux fichiers séparés. Pour un passeport, prépare la page d’identité avec ta photo. Le verso n’est à ajouter que si nécessaire.'),
+        ('photo','02','Ta photo d’identité','JPG ou PNG','Une photo nette, de face, avec le visage visible sur un fond neutre. Évite les selfies et les filtres. Le fichier doit être une image, pas un PDF.'),
+        ('vitale','03','Ta carte Vitale','PDF','Prépare une copie lisible de ta carte Vitale. Garde aussi ton numéro de sécurité sociale à portée de main : les 15 caractères, clé de contrôle comprise, seront demandés.'),
+        ('cv','04','Ton CV','PDF','Prépare ton CV pour présenter ton parcours à notre équipe.'),
+        ('letter','05','Ta lettre de motivation','PDF','Prépare une lettre qui explique ton envie de rejoindre le BTS choisi.')
+      ] %}
+      <article class="preparation-document"><span class="document-number" aria-hidden="true">{{ number }}</span><div><p class="document-format">{{ format }} · 8 Mo maximum par fichier</p><h3>{{ title }}</h3><p>{{ description }}</p></div><label class="document-ready"><input type="checkbox" data-prepared="{{ code }}"><span>C’est prêt<span class="sr-only"> : {{ title }}</span></span></label></article>
+      {% endfor %}
+    </div>
+    <p class="preparation-checklist-note">Cette checklist t’aide à t’organiser. Tu peux commencer même si tout n’est pas encore prêt ; elle ne valide ni ne transmet tes documents.</p>
+    <details class="application-information-details"><summary>Mes documents sont sur papier : comment créer un PDF ?</summary><div><p>Utilise un scanner ou la fonction de numérisation de ton téléphone. Cadre le document entier, vérifie que toutes les informations sont lisibles et enregistre-le en PDF. Renommer un fichier « .pdf » ne le convertit pas.</p><p>Pour la photo d’identité, conserve le fichier en JPG ou PNG. Chaque fichier doit faire au maximum 8 Mo.</p></div></details>
+  </section>
+  <div class="preparation-before">
+    <div><p class="eyebrow">02 / CE QUI TE SERA DEMANDÉ</p><h2>Quelques questions.<br><em>Une étape à la fois.</em></h2><p>Ton BTS et le format de cours, ton identité, tes coordonnées, ton parcours et ton projet. Les questions complémentaires s’affichent selon ta situation.</p><ul><li>Garde une adresse e-mail et un numéro de téléphone accessibles.</li><li>Si tu es mineur, prépare les coordonnées de ton responsable légal.</li><li>Pour le BTS MOS, nous ferons le point sur ta situation et la carte professionnelle CNAPS.</li></ul><p>Une pièce te manque ? Tu pourras enregistrer tes réponses et recevoir un lien de reprise par e-mail. Les fichiers devront être sélectionnés à nouveau à la reprise.</p></div>
+    <div>{{ information.funding_information() }}<p class="field-hint">Pour le BTS MOS, une éventuelle formation complémentaire APS est distincte du BTS. Son calendrier, son tarif et ses conditions 2027 seront confirmés par l’équipe selon ton parcours.</p></div>
+  </div>
+  <div class="preparation-after"><p class="eyebrow">03 / COMMENT ÇA VA SE PASSER</p>{{ information.next_steps() }}<p>Ta pré-inscription permet à l’équipe d’étudier ton dossier. Elle ne vaut pas encore admission définitive.</p></div>
+  <div class="preparation-start"><div><p class="eyebrow">À TOI DE JOUER</p><h2>Prêt pour <em>la suite ?</em></h2><p>Tu peux revenir à ce guide à tout moment, sans perdre tes réponses.</p></div><button type="button" id="start-application" class="button button-dark" data-start-application>Commencer ma pré-inscription <span aria-hidden="true">→</span></button></div>
+  <noscript><div class="form-error">Active JavaScript pour commencer ta pré-inscription ou contacte notre équipe au 04 22 47 07 68.</div></noscript>
+</section>

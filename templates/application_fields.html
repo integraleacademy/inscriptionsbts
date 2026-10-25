@@ -1,0 +1,17 @@
+{% macro field(label,name,type='text',required=true,autocomplete='',placeholder='') %}
+<label class="field"><span>{{ label }}{% if required %} <span class="required-mark">*</span>{% endif %}</span><input type="{{ type }}" name="{{ name }}" id="{{ name }}" {% if required %}required{% endif %} {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %} placeholder="{{ placeholder }}" {% if name in ['pays_naissance','ville_naissance','cp_naissance','adresse','cp','ville'] %}data-suggest="{{ 'country' if name == 'pays_naissance' else 'address' if name == 'adresse' else 'postcode' if name in ['cp','cp_naissance'] else 'city' }}"{% endif %} {% if name in ['cp','cp_naissance'] %}maxlength="12"{% endif %} {% if type == 'tel' %}inputmode="tel" pattern="0[1-9][0-9]{8}" maxlength="10"{% endif %}></label>
+{% endmacro %}
+{% macro choices(name,options,required=true) %}
+<div class="choice-list">{% for value,label in options %}<label class="choice"><input type="radio" name="{{ name }}" value="{{ value }}" {% if required %}required{% endif %}><span>{{ label }}</span></label>{% endfor %}</div>
+{% endmacro %}
+{% macro screen(id,title,group,heading,hint='',condition='') %}
+<section class="application-step" data-step-id="{{ id }}" data-title="{{ title }}" data-group="{{ group }}" {% if condition %}data-step-condition="{{ condition }}"{% endif %} hidden aria-labelledby="heading-{{ id }}">
+  <p class="eyebrow">{{ ['TON BTS · TA DIRECTION','FAISONS CONNAISSANCE','POUR GARDER LE CONTACT','TON POINT DE DÉPART','CE QUI TE RESSEMBLE','LES PIÈCES DE TON DOSSIER','LE DERNIER COUP D’ŒIL'][group] }}</p>
+  <h2 id="heading-{{ id }}" tabindex="-1">{{ heading|safe }}</h2>
+  {% if hint %}<p class="step-hint">{{ hint }}</p>{% endif %}
+  {{ caller() }}
+</section>
+{% endmacro %}
+{% macro upload(name,label,accept,hint,required=true) %}
+<label class="upload-card{% if name == 'photo' %} upload-photo-card{% endif %}"><span class="upload-icon" aria-hidden="true">↑</span><b>{{ label }}{% if required %} *{% else %} · facultatif{% endif %}</b><small>{{ hint }} · 8 Mo maximum</small>{% if name == 'photo' %}<span class="photo-guide"><img src="{{ url_for('static',filename='photo-exemple.png') }}" alt="Exemples de photos d’identité adaptées et à éviter"><span><strong>Une photo qui te ressemble.</strong>Visage visible, photo nette, fond neutre. Évite les selfies et les filtres.</span></span>{% endif %}<input type="file" name="{{ name }}" accept="{{ accept }}" {% if required %}required{% endif %} data-label="{{ label }}"><span class="file-state" aria-live="polite">Choisir un fichier</span></label>
+{% endmacro %}

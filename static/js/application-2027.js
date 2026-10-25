@@ -3,6 +3,11 @@
   if (!form) return;
   const steps = [...form.querySelectorAll('.application-step')];
   const nav = [...document.querySelectorAll('#step-navigation button')];
+  const guide = document.getElementById('application-guide');
+  const journey = document.getElementById('application-journey');
+  const previewSelect = document.getElementById('preview-step');
+  const activeSteps = () => steps.filter(step => step.dataset.available !== 'false');
+  const positionOfField = name => steps.findIndex(step => step.querySelector(`[name="${name}"]`));
   const previous = document.getElementById('previous-step');
   const next = document.getElementById('next-step');
   const send = document.getElementById('send-application');
@@ -11,7 +16,7 @@
   const notice = document.getElementById('application-notice');
   const preview = form.dataset.preview === 'true';
   const enforce = () => !preview || !!document.getElementById('preview-validation')?.checked;
-  let index = 0, furthest = 0, submitting = false;
+  let index = 0, furthest = 0, submitting = false, started = false;
   // Read checked values even while a conditional field is disabled so returning
   // to MOS restores its dependent panels in the same change event.
   const value = name => form.elements.namedItem(name)?.value || '';
@@ -37,12 +42,24 @@
     const aps = mos && value('mos_parcours') === 'autre';
     const conditions = {mos, aps, 'aps-yes': aps && value('aps_souhaitee') === 'oui', 'aps-no': aps && value('aps_souhaitee') === 'non', minor: !!birth && age < 18, 'bac-other': value('bac_type') === 'Autre', idf: value('cherche_idf') === 'oui'};
     form.querySelectorAll('[data-condition]').forEach(block => { block.hidden = !conditions[block.dataset.condition]; });
-    form.querySelectorAll('[data-condition] input, [data-condition] textarea, [data-condition] select').forEach(input => { input.disabled = !!input.closest('[data-condition][hidden]'); });
+    steps.forEach(step => { step.dataset.available = String(!step.dataset.stepCondition || !!conditions[step.dataset.stepCondition]); });
+    // Hide irrelevant questions from validation and payload, keeping their answers
+    // in memory in case the applicant changes the earlier choice again.
+    form.querySelectorAll('input,select,textarea').forEach(input => {
+      input.disabled = !!input.closest('[data-condition][hidden], [data-available="false"]');
+    });
+    if (previewSelect) {
+      previewSelect.querySelectorAll('option[data-question]').forEach(option => {
+        option.hidden = steps[Number(option.value)].dataset.available === 'false';
+        option.disabled = option.hidden;
+      });
+    }
+    updateProgress();
   }
   function validate(step) {
     normalizeNames();
     conditional();
-    if (!enforce()) return true;
+    if (!enforce() || steps[step].dataset.available === 'false') return true;
     const fields = [...steps[step].querySelectorAll('input,select,textarea')].filter(x => !x.disabled);
     for (const field of fields) {
       field.setCustomValidity('');
@@ -57,13 +74,14 @@
         if (!field.accept.split(',').includes(ext) || file.size > 8 * 1024 * 1024 || file.size === 0) field.setCustomValidity('Vérifie le format et la taille du fichier (8 Mo maximum).');
       }
       if (!field.checkValidity()) {
-        field.classList.add('invalid'); field.setAttribute('aria-invalid','true'); field.reportValidity();
+        field.classList.add('invalid'); field.setAttribute('aria-invalid','true');
+        if (!steps[step].hidden) field.reportValidity();
         showMessage(field.validationMessage); return false;
       }
       field.classList.remove('invalid'); field.removeAttribute('aria-invalid');
     }
     for(const group of steps[step].querySelectorAll('[data-required-group]')) {
-      if(!group.querySelector('input:checked')) {showMessage('Choisis au moins une réponse dans chacune des quatre parties de ton projet.');group.querySelector('input').focus();return false;}
+      if(!group.querySelector('input:checked')) {showMessage('Choisis au moins une réponse pour cette question.');group.querySelector('input').focus();return false;}
     }
     return true;
   }
@@ -79,10 +97,9 @@
   window.verifierNumSecu=nirFeedback;
   function recap() {
     const container = document.getElementById('application-recap'); container.replaceChildren();
-    steps.slice(0,-1).forEach((step,i) => {
-      const block = document.createElement('section'); block.className = 'recap-section';
-      const header = document.createElement('div'); const title = document.createElement('h3'); title.textContent = step.dataset.title;
-      const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'text-link'; edit.textContent = 'Modifier'; edit.addEventListener('click', () => show(i)); header.append(title,edit); block.append(header);
+    const groups = new Map();
+    activeSteps().slice(0,-1).forEach(step => {
+      const i = steps.indexOf(step);
       const dl = document.createElement('dl'); const used = new Set();
       step.querySelectorAll('input,select,textarea').forEach(input => {
         if (input.disabled || !input.name || used.has(input.name) || ((input.type === 'checkbox' || input.type === 'radio') && !input.checked)) return;
@@ -91,35 +108,103 @@
         if (!content) return;
         used.add(input.name);
         const dt = document.createElement('dt'); const dd = document.createElement('dd');
-        dt.textContent = input.type === 'radio' ? ({bts:'Formation',mode:'Format',mos_parcours:'Situation MOS',aps_souhaitee:'Formation APS',entreprise_trouvee:'Entreprise',recherches_commencees:'Recherches',cherche_idf:'Île-de-France',souhaite_accompagnement:'Accompagnement'}[input.name] || input.name) : (input.dataset.label || input.closest('label')?.querySelector('span')?.textContent || input.name.replace('[]',''));
+        dt.textContent = input.type === 'radio' ? ({bts:'Formation',mode:'Format',mos_parcours:'Situation MOS',aps_souhaitee:'Formation APS',permis_b:'Permis B',entreprise_trouvee:'Entreprise',recherches_commencees:'Recherches',cherche_idf:'Île-de-France',souhaite_accompagnement:'Accompagnement'}[input.name] || input.name) : (input.dataset.label || input.closest('label')?.querySelector('span')?.textContent || step.dataset.title);
         dd.textContent = input.name === 'num_secu' ? '•••••••••••' + content.slice(-4) : content;
         dl.append(dt,dd);
-      }); block.append(dl); container.append(block);
+      });
+      if (!dl.childElementCount) return;
+      const group = Number(step.dataset.group);
+      if (!groups.has(group)) {
+        const block = document.createElement('details'); block.className = 'recap-section';
+        const summary = document.createElement('summary'); summary.textContent = nav[group].querySelector('span:nth-child(2)').textContent;
+        block.append(summary); container.append(block); groups.set(group,block);
+      }
+      const question = document.createElement('section'); question.className = 'recap-question';
+      const header = document.createElement('div'); const title = document.createElement('h3'); title.textContent = step.dataset.title;
+      const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'text-link'; edit.textContent = 'Modifier'; edit.setAttribute('aria-label', 'Modifier : '+step.dataset.title); edit.addEventListener('click', () => show(i));
+      header.append(title,edit); question.append(header,dl); groups.get(group).append(question);
     });
   }
+  function updateProgress() {
+    const active = activeSteps(), current = steps[index], position = active.indexOf(current);
+    const group = Number(current.dataset.group);
+    nav.forEach(button => {
+      const chapter = Number(button.dataset.groupNav);
+      const target = steps.findIndex(step => Number(step.dataset.group) === chapter && step.dataset.available !== 'false');
+      button.disabled = enforce() && target > furthest;
+      button.classList.toggle('active', chapter === group);
+      button.classList.toggle('done', chapter < group);
+      if (chapter === group) button.setAttribute('aria-current','step'); else button.removeAttribute('aria-current');
+    });
+    document.getElementById('step-label').textContent = `ÉTAPE ${position+1} SUR ${active.length} · ${nav[group].querySelector('span:nth-child(2)').textContent.toUpperCase()}`;
+    document.getElementById('step-percent').textContent = `${Math.round(position / (active.length - 1) * 100)} %`;
+    document.getElementById('application-progress').value = position;
+    document.getElementById('application-progress').max = active.length - 1;
+    next.hidden = current === active.at(-1); send.hidden = !next.hidden;
+    if (previewSelect && started && !journey.hidden) previewSelect.value = String(index);
+  }
+  function focusHeading(heading, region) {
+    heading.focus({preventScroll:true});
+    region.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+  }
+  function showGuide(focus = true) {
+    journey.hidden = true; guide.hidden = false;
+    document.body.dataset.applicationView = 'guide';
+    if (previewSelect) previewSelect.value = 'guide';
+    const start = document.getElementById('start-application');
+    start.firstChild.textContent = started ? 'Reprendre ma pré-inscription ' : 'Commencer ma pré-inscription ';
+    if (focus) focusHeading(document.getElementById('preparation-title'),guide);
+  }
   function show(step, focus = true) {
-    index = step;
-    document.body.dataset.applicationStep=String(index);
-    document.getElementById('journey-number').textContent=String(index+1).padStart(2,'0');
-    document.querySelectorAll('[data-journey-icon]').forEach((el,i)=>el.hidden=i!==index);
-    const captions=['Un projet. Une direction. Et si la suite commençait ici ?','Derrière chaque dossier, il y a une personnalité. Faisons connaissance.','Garder le lien, pour avancer ensemble jusqu’à la rentrée.','Là où tu en es aujourd’hui. Là où tu aimerais aller demain.','Ce qui t’anime compte autant que ce que tu sais déjà.','Les dernières pièces, pour donner vie à ton inscription.','Tout est là. Ton prochain chapitre peut commencer.'];
-    document.getElementById('journey-caption').textContent=captions[index];
-    document.getElementById('journey-sticker').textContent=['LE DÉBUT DE LA SUITE','ENCHANTÉS DE TE CONNAÎTRE','ON GARDE LE CONTACT','UN PARCOURS QUI T’APPARTIENT','TA DIFFÉRENCE COMPTE','PRESQUE AU BOUT','À TOI DE JOUER'][index];
-    const current=steps[index];current.classList.remove('step-enter');void current.offsetWidth;current.classList.add('step-enter');
+    if (steps[step]?.dataset.available === 'false' || !steps[step]) return;
+    index = step; started = true;
+    guide.hidden = true; journey.hidden = false;
+    document.body.dataset.applicationView = 'form';
+    document.body.dataset.applicationStep = steps[index].dataset.stepId;
+    const current = steps[index];
+    current.classList.remove('step-enter'); void current.offsetWidth; current.classList.add('step-enter');
     furthest = Math.max(furthest,index); error.hidden = true; notice.hidden = true;
     steps.forEach((section,i) => { section.hidden = i !== index; });
-    nav.forEach((button,i) => { button.disabled = !preview && i > furthest; button.classList.toggle('active',i===index); button.classList.toggle('done',i<index); if (i===index) button.setAttribute('aria-current','step'); else button.removeAttribute('aria-current'); });
-    document.getElementById('step-label').textContent = `ÉTAPE ${index+1} SUR ${steps.length} · ${steps[index].dataset.title.toUpperCase()}`;
-    document.getElementById('step-percent').textContent = `${Math.round(index / (steps.length - 1) * 100)} %`;
-    document.getElementById('application-progress').value = index;
-    document.getElementById('application-progress').max = steps.length-1;
-    previous.hidden = index===0; next.hidden = index===steps.length-1; send.hidden = index!==steps.length-1;
-    if (index===steps.length-1) recap();
-    if (focus) { steps[index].querySelector('h2').focus({preventScroll:true}); document.querySelector('.application-main').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'}); }
+    updateProgress();
+    if (current.dataset.stepId === 'recap') recap();
+    if (focus) focusHeading(current.querySelector('h2'),document.querySelector('.application-main'));
   }
-  previous.addEventListener('click', () => show(index-1));
-  next.addEventListener('click', () => { if (validate(index)) show(index+1); });
-  nav.forEach((button,i) => button.addEventListener('click', () => { if(preview || i<=index || validate(index)) show(i); }));
+  function navigateTo(target) {
+    if (target > index && enforce()) {
+      for (const step of activeSteps()) {
+        const position = steps.indexOf(step);
+        if (position >= index && position < target && !validate(position)) {show(position); validate(position); return;}
+      }
+    }
+    show(target);
+  }
+  function advance() {
+    if (!validate(index)) return;
+    const active = activeSteps(), nextStep = active[active.indexOf(steps[index])+1];
+    if (nextStep) show(steps.indexOf(nextStep));
+  }
+  previous.addEventListener('click', () => {
+    const active = activeSteps(), position = active.indexOf(steps[index]);
+    if (position > 0) show(steps.indexOf(active[position-1])); else showGuide();
+  });
+  next.addEventListener('click', advance);
+  nav.forEach(button => button.addEventListener('click', () => {
+    const target = steps.findIndex(step => step.dataset.group === button.dataset.groupNav && step.dataset.available !== 'false');
+    navigateTo(target);
+  }));
+  document.querySelectorAll('[data-start-application]').forEach(button => button.addEventListener('click', () => show(index)));
+  document.getElementById('review-preparation').addEventListener('click', () => showGuide());
+  document.querySelectorAll('[data-prepared]').forEach(input => input.addEventListener('change', () => {
+    document.getElementById('preparation-count').textContent = `${document.querySelectorAll('[data-prepared]:checked').length} / 5 pièces préparées`;
+  }));
+  if (previewSelect) {
+    steps.forEach((step,i) => {
+      const option = document.createElement('option'); option.value = String(i); option.dataset.question = '';
+      option.textContent = step.dataset.title; previewSelect.append(option);
+    });
+    previewSelect.addEventListener('change', () => { if (previewSelect.value === 'guide') showGuide(); else navigateTo(Number(previewSelect.value)); });
+    document.getElementById('preview-validation').addEventListener('change', updateProgress);
+  }
   form.addEventListener('change', event=>{conditional();if(event.target.name==='mode')document.getElementById('infosDistanciel').open=value('mode')==='distanciel';if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
   form.addEventListener('input', event => {
     const input = event.target; input.setCustomValidity?.(''); input.classList.remove('invalid'); input.removeAttribute('aria-invalid');
@@ -130,11 +215,11 @@
   form.querySelectorAll('input[type="file"]').forEach(input => input.addEventListener('change', () => {
     const state = input.closest('label').querySelector('.file-state'); const file = input.files[0]; state.textContent = file ? `${file.name} · ${(file.size/1024/1024).toFixed(1)} Mo` : 'Choisir un fichier'; input.closest('label').classList.toggle('has-file',!!file);
   }));
-  form.addEventListener('keydown', event => { if(event.key==='Enter' && event.target.tagName==='INPUT' && !['file','checkbox','radio','submit'].includes(event.target.type)) { event.preventDefault(); if(index<steps.length-1 && validate(index)) show(index+1); } });
+  form.addEventListener('keydown', event => { if(!event.defaultPrevented && event.key==='Enter' && event.target.tagName==='INPUT' && !['file','checkbox','radio','submit'].includes(event.target.type)) { event.preventDefault(); if(index<steps.length-1) advance(); } });
   save.addEventListener('click', async () => {
     if(form.dataset.preview==='true') return;
     const email = form.elements.email;
-    if(!email.value || !email.checkValidity()) { show(2); email.focus(); showMessage('Indique ton e-mail pour recevoir un lien de reprise.'); return; }
+    if(!email.value || !email.checkValidity()) { show(positionOfField('email')); email.focus(); showMessage('Indique ton e-mail pour recevoir un lien de reprise.'); return; }
     normalizeNames();
     save.disabled=true; save.textContent='Enregistrement…';
     const full_form={}; new FormData(form).forEach((val,key) => { if(val instanceof File) return; if(key.endsWith('[]')) (full_form[key] ||= []).push(val); else full_form[key]=val; });
@@ -143,6 +228,7 @@
   });
   form.addEventListener('submit', async event => {
     event.preventDefault(); if(submitting || form.dataset.preview==='true') return;
+    if(steps[index].dataset.stepId!=='recap') { advance(); return; }
     for(let i=0;i<steps.length;i++){if(!validate(i)){show(i);validate(i);return;}}
     submitting=true;document.body.classList.add('application-sending');send.disabled=true;save.disabled=true;previous.disabled=true;send.textContent='Envoi de ta candidature…';form.setAttribute('aria-busy','true');
     try{const res=await fetch(form.action,{method:'POST',headers:{Accept:'application/json'},body:new FormData(form)}); const type=res.headers.get('content-type') || ''; if(!type.includes('application/json')) throw new Error('L’envoi n’a pas pu être confirmé. Réessaie ou contacte notre équipe.'); const data=await res.json();if(!res.ok || !data.ok)throw new Error(data.error || 'Impossible de transmettre ta candidature.');document.body.classList.remove('application-sending'); if(window.BTSAdmissionCelebration) await window.BTSAdmissionCelebration.show(data.redirect); else window.location.assign(data.redirect);}
@@ -150,6 +236,6 @@
   });
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
-  normalizeNames();conditional();document.getElementById('infosDistanciel').open=value('mode')==='distanciel';show(0,false);nirFeedback();
-  if(saved)showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false);
+  normalizeNames();conditional();document.getElementById('infosDistanciel').open=value('mode')==='distanciel';nirFeedback();
+  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else showGuide(false);
 })();
