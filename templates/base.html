@@ -58,9 +58,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if is_planning_catalog %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-catalog.css') }}?v=1">{% endif %}
   {% if is_portal_planning or is_student_portal or request.endpoint in ['trainer_dashboard', 'trainer_availability', 'admin_trainer_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/portal-planning.css') }}?v=3">{% endif %}
   {% if request.endpoint == 'trainer_availability' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-availability.css') }}?v=1">{% endif %}
-  {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-workload.css') }}?v=2">{% endif %}
+  {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-workload.css') }}?v=3">{% endif %}
   {% if planning_sync_config %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-sync.css') }}?v=1">{% endif %}
-  {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-admin-planning.css') }}?v=1">{% endif %}
+  {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-admin-planning.css') }}?v=2">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-vibrant.css') }}?v=1">
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
