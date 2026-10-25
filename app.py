@@ -6,6 +6,8 @@ from admission_options import PROFILE_GROUPS
 from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
+from candidate_photos import photo_response, register_candidate_photos
+from candidate_workflows import register_candidate_workflows
 from candidate_documents import register_candidate_documents, document_preview_response
 from trainer_access import register_trainer_access
 from company_portal import register_company_portal
@@ -74,6 +76,11 @@ def run_startup_integrity_checks():
         "candidate_access.py",
         "candidate_messages.py",
         "candidate_documents.py",
+        "candidate_photos.py",
+        "certificates.py",
+        "static/js/candidate-photo.js",
+        "static/css/candidate-editor.css",
+        "candidate_workflows.py",
         "trainer_access.py",
         "company_portal.py",
         "company_registry.py",
@@ -185,7 +192,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
@@ -984,6 +991,11 @@ register_place_search(app)
 register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
 register_candidate_messages(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event)
 register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
+register_candidate_photos(app, db, lambda: UPLOAD_DIR, require_admin, log_event)
+candidate_workflow_response = register_candidate_workflows(
+    app, db, lambda *args, **kwargs: send_mail(*args, **kwargs),
+    lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event,
+    lambda status: campaign_rows(status))
 register_daily_login(app)
 register_promotions(app, db, require_admin)
 register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
@@ -1571,6 +1583,51 @@ def admin_candidate_information(cid):
     return jsonify(ok=True)
 
 
+@app.post('/admin/candidat/<cid>/parcours')
+def admin_candidate_mode(cid):
+    from candidate_messages import _equal
+    if not require_admin(): abort(403)
+    if not _equal(request.headers.get('X-CSRF-Token'), session.get('_candidate_message_csrf')):
+        return jsonify(ok=False, error='La session a expiré. Rechargez la fiche.'), 400
+    data = request.get_json(silent=True) or {}
+    mode = data.get('mode')
+    if mode not in ('presentiel', 'distanciel'):
+        return jsonify(ok=False, error='Choisissez Présentiel ou Distanciel.'), 400
+    with closing(db()) as conn:
+        conn.execute('BEGIN IMMEDIATE')
+        row = get_candidat(conn, cid)
+        if not row: abort(404)
+        conn.execute('UPDATE candidats SET mode=?,updated_at=? WHERE id=?', (mode, datetime.now().isoformat(), cid))
+        conn.commit()
+    if row.get('mode') != mode:
+        log_event(row, 'PARCOURS_MODIFIE', {'ancien': row.get('mode'), 'nouveau': mode})
+    return jsonify(ok=True, mode=mode)
+
+
+@app.get('/admin/candidat/<cid>/certificat.pdf')
+def admin_candidate_certificate(cid):
+    return _certificate_pdf_response(cid)
+
+
+def _certificate_pdf_response(cid):
+    from io import BytesIO
+    from certificates import certificate_pdf
+    if not require_admin(): abort(403)
+    with closing(db()) as conn:
+        row = get_candidat(conn, cid)
+    if not row: abort(404)
+    try:
+        content = certificate_pdf(row)
+    except ValueError as exc:
+        return str(exc), 400
+    response = send_file(BytesIO(content), mimetype='application/pdf',
+                         download_name=f'Certificat_scolarite_{cid}_{row["mode"]}.pdf',
+                         as_attachment=request.args.get('download') == '1')
+    response.headers['Cache-Control'] = 'private, no-store'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    return response
+
+
 def campaign_rows(statut=None):
     args = {"rentree": request.args.get("rentree", str(ADMISSION_YEAR))}
     if statut:
@@ -1689,256 +1746,7 @@ def admin_update_field():
 
 @app.route("/admin/update-status", methods=["POST"])
 def admin_update_status():
-    if not require_admin():
-        abort(403)
-
-    data = request.json or {}
-    cid = data.get("id")
-    value = data.get("value")
-
-    conn = db()
-    cur = conn.cursor()
-
-    # 🔽 On récupère l'ancien statut AVANT toute modification
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    found = cur.fetchone()
-    if not found:
-        conn.close()
-        return jsonify(ok=False, error="Candidat introuvable"), 404
-    full_row = dict(found)
-    if value not in {key for key, _, _ in STATUTS}:
-        conn.close()
-        return jsonify(ok=False, error="Statut invalide"), 400
-
-    # 🛑 ANTI-DOUBLON : si le statut est déjà celui demandé → NE RIEN ENVOYER
-    if full_row.get("statut") == value:
-        conn.close()
-        return jsonify({"ok": True, "statut": value})
-
-    # 🕓 Enregistre la date correspondant au statut
-    now_iso = datetime.now().isoformat()
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    if value == "validee":
-        cur.execute(
-            "UPDATE candidats SET statut=?, date_validee=?, updated_at=? WHERE id=?",
-            (value, now_str, now_iso, cid)
-        )
-    elif value == "confirmee":
-        cur.execute(
-            "UPDATE candidats SET statut=?, date_confirmee=?, updated_at=? WHERE id=?",
-            (value, now_str, now_iso, cid)
-        )
-    elif value == "reconfirmee":
-        cur.execute(
-            "UPDATE candidats SET statut=?, date_reconfirmee=?, updated_at=? WHERE id=?",
-            (value, now_str, now_iso, cid)
-        )
-    else:
-        cur.execute(
-            "UPDATE candidats SET statut=?, updated_at=? WHERE id=?",
-            (value, now_iso, cid)
-        )
-
-    conn.commit()
-
-    # 🧹 Suppression badge relance
-    if value in ["confirmee", "reconfirmee", "validee"]:
-        try:
-            cur.execute(
-                "UPDATE candidats SET last_relance=NULL, updated_at=? WHERE id=?",
-                (datetime.now().isoformat(), cid)
-            )
-            conn.commit()
-        except Exception as e:
-            print("⚠️ Erreur suppression badge relance :", e)
-
-    # 🔄 Recharge données fraîches
-    cur.execute(
-        "SELECT statut, date_validee, date_confirmee, date_reconfirmee, last_relance FROM candidats WHERE id=?",
-        (cid,)
-    )
-    row = dict(cur.fetchone())
-
-    # ✉️📱 ENVOIS AUTOMATIQUES SELON STATUT
-    # IMPORTANT : maintenant qu’on est sûr que ce n'est pas un doublon → on envoie
-
-    # 1️⃣ CANDIDATURE VALIDÉE
-    if value == "validee":
-        token = full_row.get("token_confirm")
-        if not token:
-            token = new_token()
-            exp = (datetime.now() + timedelta(days=30)).isoformat()
-            cur.execute(
-                "UPDATE candidats SET token_confirm=?, token_confirm_exp=?, updated_at=? WHERE id=?",
-                (token, exp, datetime.now().isoformat(), cid)
-            )
-            conn.commit()
-            cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-            full_row = dict(cur.fetchone())
-
-        lien_confirmation = make_signed_link("/confirm-inscription", token)
-
-        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
-        slug = full_row.get("slug_public")
-        lien_espace = f"{BASE_URL}/espace/{slug}"
-
-        ctx = get_mail_context(full_row, lien_espace=lien_espace, lien_confirmation=lien_confirmation)
-        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
-
-        html = mail_html("candidature_validee", **ctx)
-        send_mail(full_row["email"], "Votre candidature est validée – Confirmez votre inscription", html)
-
-        tel = (full_row.get("tel", "") or "").replace(" ", "")
-        if tel.startswith("0"):
-            tel = "+33" + tel[1:]
-        sms_msg = sms_text("candidature_validee", prenom=ctx["prenom"], bts_label=ctx["bts_label"],
-                           lien_espace=lien_espace, lien_confirmation=lien_confirmation)
-        send_sms_brevo(tel, sms_msg)
-
-    # 2️⃣ INSCRIPTION CONFIRMÉE
-    elif value == "confirmee":
-        cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-        full_row = dict(cur.fetchone())
-
-        ctx = get_mail_context(full_row)
-        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
-
-        html = mail_html("inscription_confirmee", **ctx)
-        send_mail(full_row["email"], "Inscription confirmée – Intégrale Academy", html)
-
-        tel = (full_row.get("tel", "") or "").replace(" ", "")
-        if tel.startswith("0"):
-            tel = "+33" + tel[1:]
-        sms_msg = sms_text("inscription_confirmee", prenom=ctx["prenom"], bts_label=ctx["bts_label"])
-        send_sms_brevo(tel, sms_msg)
-
-    # 3️⃣ RECONFIRMATION
-    elif value == "reconfirmee":
-        ctx = get_mail_context(full_row)
-        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
-
-        html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
-        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", html)
-
-    # LOG STATUT
-    log_event(full_row, "STATUT_CHANGE", {"statut": value})
-
-    conn.close()
-
-    # Réponse finale
-    return jsonify({
-        "ok": True,
-        **row
-    })
-
-
-
-
-
-
-    # =====================================================
-    # 📩 ENVOIS AUTOMATIQUES SELON STATUT
-    # =====================================================
-
-    # 1️⃣ CANDIDATURE VALIDÉE
-    if value == "validee":
-
-        # 🔐 Token de confirmation
-        token = full_row.get("token_confirm")
-        if not token:
-            token = new_token()
-            exp = (datetime.now() + timedelta(days=30)).isoformat()
-            cur.execute(
-                "UPDATE candidats SET token_confirm=?, token_confirm_exp=?, updated_at=? WHERE id=?",
-                (token, exp, datetime.now().isoformat(), cid)
-            )
-            conn.commit()
-            cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-            full_row = dict(cur.fetchone())
-
-        # 👉 Lien confirmation
-        lien_confirmation = make_signed_link("/confirm-inscription", token)
-
-        # 👉 Lien espace candidat
-        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
-        slug = full_row.get("slug_public")
-        lien_espace = f"{BASE_URL}/espace/{slug}"
-
-        # 🎁 Contexte universel
-        ctx = get_mail_context(full_row, lien_espace=lien_espace, lien_confirmation=lien_confirmation)
-        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
-
-        # ✉ MAIL
-        html = mail_html("candidature_validee", **ctx)
-        send_mail(full_row["email"], "Votre candidature est validée – Confirmez votre inscription", html)
-
-        # 📱 SMS
-        tel = (full_row.get("tel", "") or "").replace(" ", "")
-        if tel.startswith("0"):
-            tel = "+33" + tel[1:]
-        sms_msg = sms_text(
-            "candidature_validee",
-            prenom=ctx["prenom"],
-            bts_label=ctx["bts_label"],
-            lien_espace=lien_espace,
-            lien_confirmation=lien_confirmation,
-        )
-        send_sms_brevo(tel, sms_msg)
-
-
-    # 2️⃣ INSCRIPTION CONFIRMÉE
-    elif value == "confirmee":
-
-        # 🔄 Recharge les données fraîches
-        cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-        full_row = dict(cur.fetchone())
-
-        # 🎁 Contexte complet
-        ctx = get_mail_context(full_row)
-        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
-
-        # ✉ MAIL confirmation
-        html = mail_html("inscription_confirmee", **ctx)
-        send_mail(full_row["email"], "Inscription confirmée – Intégrale Academy", html)
-
-        # 📱 SMS
-        tel = (full_row.get("tel", "") or "").replace(" ", "")
-        if tel.startswith("0"):
-            tel = "+33" + tel[1:]
-        sms_msg = sms_text(
-            "inscription_confirmee",
-            prenom=ctx["prenom"],
-            bts_label=ctx["bts_label"],
-        )
-        send_sms_brevo(tel, sms_msg)
-
-
-
-    # 3️⃣ RECONFIRMATION VALIDÉE
-    elif value == "reconfirmee":
-
-        ctx = get_mail_context(full_row)
-        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
-
-        merci_html = render_template("mail_bienvenue.html", prenom=ctx["prenom"], bts=full_row["bts"])
-        send_mail(full_row["email"], "Bienvenue à Intégrale Academy 🎓", merci_html)
-
-
-    # LOG GENERAL
-    log_event(full_row, "STATUT_CHANGE", {"statut": value})
-
-    conn.close()
-
-    # 🔁 Réponse front
-    return jsonify({
-        "ok": True,
-        "statut": row.get("statut"),
-        "date_validee": row.get("date_validee"),
-        "date_confirmee": row.get("date_confirmee"),
-        "date_reconfirmee": row.get("date_reconfirmee"),
-        "last_relance": row.get("last_relance"),
-    })
+    return candidate_workflow_response("status")
 
 
 
@@ -2110,62 +1918,7 @@ BTS_LABELS = {
 # =====================================================
 @app.route("/admin/generate_certificat/<id>")
 def admin_generate_certificat(id):
-    if not require_admin():
-        abort(403)
-    from docx import Document
-    from datetime import datetime
-    from flask import send_file
-
-    # 📂 chemins
-    template_path = os.path.join("static", "templates", "certificat de scolarité 2026.docx")
-    output_dir = os.path.join(DATA_DIR, "certificats")
-    os.makedirs(output_dir, exist_ok=True)
-
-    # 🧾 récupérer infos candidat
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT nom, prenom, bts, rentree_annee FROM candidats WHERE id = ?", (id,))
-    row = cur.fetchone()
-    conn.close()
-    if not row:
-        return "Candidat introuvable", 404
-
-    nom, prenom, bts, rentree = row
-    full_name = f"{prenom.upper()} {nom.upper()}"
-    date_now = datetime.now().strftime("%d/%m/%Y")
-
-    # 🧩 Nom complet du BTS
-    bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
-
-    # 🔧 valeurs de remplacement
-    replacements = {
-        "{{NOM_PRENOM}}": full_name,
-        "{{FORMATION}}": bts_nom_complet,
-        "{{DATE_AUJOURDHUI}}": date_now,
-        "{{ANNEE_DEBUT}}": str(rentree),
-        "{{ANNEE_FIN}}": str(rentree + 2),
-    }
-
-    # 🧩 ouvrir modèle Word et remplacer les balises dans tous les paragraphes et tables
-    doc = Document(template_path)
-
-    from certificates import personalize_certificate
-    personalize_certificate(doc, replacements, rentree)
-
-    # 💾 sauvegarde du document Word généré
-    output_docx = os.path.join(output_dir, f"certificat_{id}.docx")
-    doc.save(output_docx)
-
-    # 🧩 Log d’action
-    log_event({"id": id}, "DOC_GENERE", {
-        "type": "certificat_scolarite_distanciel",
-        "file": output_docx
-    })
-
-    print(f"✅ Certificat généré pour {full_name}")
-    if request.args.get('preview') == '1':
-        return document_preview_response(output_docx, title="Certificat de scolarité · À distance", download_url=url_for('admin_generate_certificat', id=id))
-    return send_file(output_docx, as_attachment=True)
+    return _certificate_legacy_response(id)
 
 
 # =====================================================
@@ -2173,62 +1926,28 @@ def admin_generate_certificat(id):
 # =====================================================
 @app.route("/admin/generate_certificat_presentiel/<id>")
 def admin_generate_certificat_presentiel(id):
-    if not require_admin():
-        abort(403)
-    from docx import Document
-    from datetime import datetime
-    from flask import send_file
+    return _certificate_legacy_response(id)
 
-    # 📂 chemins
-    template_path = os.path.join("static", "templates", "certificat_scolarite_presentiel.docx")
-    output_dir = os.path.join(DATA_DIR, "certificats")
-    os.makedirs(output_dir, exist_ok=True)
 
-    # 🧾 récupérer infos candidat
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT nom, prenom, bts, rentree_annee FROM candidats WHERE id = ?", (id,))
-    row = cur.fetchone()
-    conn.close()
-    if not row:
-        return "Candidat introuvable", 404
-
-    nom, prenom, bts, rentree = row
-    full_name = f"{prenom.upper()} {nom.upper()}"
-    date_now = datetime.now().strftime("%d/%m/%Y")
-
-    # 🧩 Nom complet du BTS
-    bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
-
-    # 🔧 valeurs de remplacement
-    replacements = {
-        "{{NOM_PRENOM}}": full_name,
-        "{{FORMATION}}": bts_nom_complet,
-        "{{DATE_AUJOURDHUI}}": date_now,
-        "{{ANNEE_DEBUT}}": str(rentree),
-        "{{ANNEE_FIN}}": str(rentree + 2),
-    }
-
-    # 🧩 ouvrir modèle Word et remplacer les balises dans tous les paragraphes et tables
-    doc = Document(template_path)
-
-    from certificates import personalize_certificate
-    personalize_certificate(doc, replacements, rentree)
-
-    # 💾 sauvegarde du document Word généré
-    output_docx = os.path.join(output_dir, f"certificat_presentiel_{id}.docx")
-    doc.save(output_docx)
-
-    # 🧩 Log d’action
-    log_event({"id": id}, "DOC_GENERE", {
-        "type": "certificat_scolarite_presentiel",
-        "file": output_docx
-    })
-
-    print(f"✅ Certificat présentiel généré pour {full_name}")
+def _certificate_legacy_response(cid):
     if request.args.get('preview') == '1':
-        return document_preview_response(output_docx, title="Certificat de scolarité · Présentiel", download_url=url_for('admin_generate_certificat_presentiel', id=id))
-    return send_file(output_docx, as_attachment=True)
+        return _certificate_pdf_response(cid)
+    from io import BytesIO
+    from certificates import certificate_word
+    if not require_admin(): abort(403)
+    with closing(db()) as conn:
+        row = get_candidat(conn, cid)
+    if not row: abort(404)
+    try:
+        out = BytesIO()
+        certificate_word(row).save(out)
+        out.seek(0)
+    except ValueError as exc:
+        return str(exc), 400
+    response = send_file(out, as_attachment=True, download_name=f'Certificat_scolarite_{cid}_{row["mode"]}.docx',
+                         mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 
@@ -2237,99 +1956,17 @@ def admin_generate_certificat_presentiel(id):
 # =====================================================
 # ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ PAR MAIL
 # =====================================================
-@app.route("/admin/send_certificat/<id>")
+@app.route("/admin/send_certificat/<id>", methods=["POST"])
 def admin_send_certificat(id):
-    if not require_admin():
-        abort(403)
-    from flask import jsonify
-    from utils import send_mail
-    import os
-
-    # 📂 Chemins des certificats
-    cert_dir = os.path.join(DATA_DIR, "certificats")
-    cert_path = os.path.join(cert_dir, f"certificat_{id}.docx")
-
-    # 🔍 Vérifier que le fichier existe
-    if not os.path.exists(cert_path):
-        return jsonify({"ok": False, "error": "Le certificat n’a pas encore été généré."}), 404
-
-    # 🧾 Récupérer les infos du candidat
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT prenom, nom, email, bts, rentree_annee FROM candidats WHERE id = ?", (id,))
-    row = cur.fetchone()
-    conn.close()
-
-    if not row:
-        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
-
-    prenom, nom, email, bts, rentree = row
-    bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
-
-    # ✉️ Mail HTML
-    html = mail_html(
-        "certificat",
-        rentree_annee=rentree,
-        prenom=prenom.title(),
-        bts_label=bts_nom_complet
-    )
-    subject = f"Votre certificat de scolarité – {bts_nom_complet} {rentree}-{rentree + 2}"
-
-    try:
-        send_mail(email, subject, html, attachments=[cert_path])
-        log_event({"id": id}, "MAIL_ENVOYE", {"type": "certificat"})
-        print(f"✅ Certificat envoyé à {prenom} {nom} ({email})")
-        return jsonify({"ok": True})
-    except Exception as e:
-        print(f"❌ Erreur envoi certificat à {prenom} {nom} :", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
+    return candidate_workflow_response("certificate", id)
 
 
 # =====================================================
 # ✉️ ENVOI DU CERTIFICAT DE SCOLARITÉ PRÉSENTIEL PAR MAIL
 # =====================================================
-@app.route("/admin/send_certificat_presentiel/<id>")
+@app.route("/admin/send_certificat_presentiel/<id>", methods=["POST"])
 def admin_send_certificat_presentiel(id):
-    if not require_admin():
-        abort(403)
-    from flask import jsonify
-    from utils import send_mail
-    import os
-
-    cert_dir = os.path.join(DATA_DIR, "certificats")
-    cert_path = os.path.join(cert_dir, f"certificat_presentiel_{id}.docx")
-
-    if not os.path.exists(cert_path):
-        return jsonify({"ok": False, "error": "Le certificat présentiel n’a pas encore été généré."}), 404
-
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT prenom, nom, email, bts, rentree_annee FROM candidats WHERE id = ?", (id,))
-    row = cur.fetchone()
-    conn.close()
-
-    if not row:
-        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
-
-    prenom, nom, email, bts, rentree = row
-    bts_nom_complet = BTS_LABELS.get(bts.strip().upper(), bts)
-
-    html = mail_html(
-        "certificat_presentiel",
-        rentree_annee=rentree,
-        prenom=prenom.title(),
-        bts_label=bts_nom_complet
-    )
-    subject = f"Votre certificat de scolarité – Présentiel ({bts_nom_complet} {rentree}-{rentree + 2})"
-
-    try:
-        send_mail(email, subject, html, attachments=[cert_path])
-        log_event({"id": id}, "MAIL_ENVOYE", {"type": "certificat_presentiel"})
-        print(f"✅ Certificat présentiel envoyé à {prenom} {nom} ({email})")
-        return jsonify({"ok": True})
-    except Exception as e:
-        print(f"❌ Erreur envoi certificat présentiel à {prenom} {nom} :", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
+    return candidate_workflow_response("certificate", id)
 
 
 # =====================================================
@@ -2631,84 +2268,7 @@ def admin_files_merge():
 
 @app.route("/admin/files/notify", methods=["POST"])
 def admin_files_notify():
-    if not require_admin():
-        abort(403)
-
-    data = request.json or {}
-    cid = data.get("id")
-    commentaire = (data.get("commentaire") or "").strip()
-
-    if not cid:
-        return jsonify({"ok": False, "error": "ID manquant"}), 400
-
-    conn = db()
-    row = get_candidat(conn, cid)
-    if not row:
-        conn.close()
-        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
-
-    verif = load_verif_docs(row)
-
-    # 🔍 Lister les documents non conformes
-    non_conformes = []
-    for f, v in verif.items():
-        if v.get("etat") == "non_conforme":
-            label = v.get("label", "Pièce justificative")
-            date = v.get("horodatage", "")
-            non_conformes.append(f"{label} – {f} (le {date})")
-
-
-    if not non_conformes:
-        return jsonify({"ok": False, "error": "Aucune pièce non conforme"}), 400
-
-    recap = "\n".join(["• " + n for n in non_conformes])
-
-    # 🧩 Générer un token de remplacement valable 15 jours
-    token = new_token()
-    exp = (datetime.now() + timedelta(days=15)).isoformat()
-    cur = conn.cursor()
-    cur.execute("""
-        UPDATE candidats 
-        SET statut=?, replace_token=?, replace_token_exp=?, replace_meta=?, updated_at=? 
-        WHERE id=?
-    """, (
-        "docs_non_conformes",
-        token,
-        exp,
-        json.dumps({"pieces": non_conformes, "commentaire": commentaire}),
-        datetime.now().isoformat(),
-        cid
-    ))
-    conn.commit()
-    conn.close()
-
-    # ✉️ Envoi du mail au candidat
-    link = make_signed_link("/replace-files", token)
-    html = mail_html(
-        "docs_non_conformes",
-        rentree_annee=candidate_year(row),
-        prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
-        lien_espace=link
-    )
-    send_mail(row.get("email", ""), "Documents non conformes – Intégrale Academy", html)
-
-    # 📱 SMS documents non conformes
-    tel = (row.get("tel", "") or "").replace(" ", "")
-    if tel.startswith("0"):
-        tel = "+33" + tel[1:]
-    msg = sms_text(
-        "docs_non_conformes",
-        rentree_annee=candidate_year(row),
-        prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-    )
-    send_sms_brevo(tel, msg)
-    log_event(row, "SMS_ENVOYE", {"type": "docs_non_conformes", "tel": tel})
-
-    log_event(row, "MAIL_ENVOYE", {"type": "docs_non_conformes", "pieces": non_conformes})
-
-    return jsonify({"ok": True})
+    return candidate_workflow_response("notify")
 
 # =====================================================
 # 📤 PAGE PUBLIQUE – RENVOI DE NOUVELLES PIÈCES
@@ -3349,43 +2909,7 @@ def espace_candidat(slug):
 
 
 def _candidate_photo_response(row):
-    """Only the requested dossier's image, resized and stripped of EXIF metadata."""
-    from io import BytesIO
-    from PIL import Image, ImageOps, UnidentifiedImageError
-    if not row: abort(404)
-    row = dict(row)
-    directory = os.path.realpath(os.path.join(UPLOAD_DIR, row['id']))
-    for stored in parse_list(row.get('fichiers_photo')):
-        if not isinstance(stored, str): continue
-        path = os.path.realpath(stored)
-        # Older imports may retain a former disk prefix or only a filename.
-        # Resolve that same filename strictly inside this dossier's directory.
-        if os.path.commonpath([directory, path]) != directory or not os.path.isfile(path):
-            path = os.path.realpath(os.path.join(directory, os.path.basename(stored)))
-        root = os.path.realpath(UPLOAD_DIR)
-        basename = os.path.basename(stored)
-        flat_legacy = bool(re.fullmatch(r'(?:Photo|PhotoIdentite)_' + re.escape(row['id']) + r'(?:_\d+)?\.[a-zA-Z0-9]+', basename, re.IGNORECASE))
-        if not os.path.isfile(path) and flat_legacy:
-            path = os.path.realpath(os.path.join(root, basename))
-        in_dossier = os.path.commonpath([directory, path]) == directory
-        in_legacy_root = flat_legacy and os.path.dirname(path) == root
-        if not (in_dossier or in_legacy_root) or not os.path.isfile(path):
-            continue
-        try:
-            with Image.open(path) as source:
-                if source.format not in ('JPEG', 'MPO', 'PNG', 'WEBP', 'GIF', 'BMP', 'TIFF'): continue
-                photo = ImageOps.exif_transpose(source)
-                photo.thumbnail((600, 600))
-                out = BytesIO()
-                photo.convert('RGB').save(out, format='JPEG', quality=88)
-            out.seek(0)
-            response = send_file(out, mimetype='image/jpeg')
-            response.headers['Cache-Control'] = 'private, no-store'
-            response.headers['X-Content-Type-Options'] = 'nosniff'
-            return response
-        except (OSError, ValueError, UnidentifiedImageError, Image.DecompressionBombError):
-            continue
-    abort(404)
+    return photo_response(row, UPLOAD_DIR, db)
 
 
 @app.get('/admin/candidat/<cid>/photo')
@@ -3393,7 +2917,7 @@ def admin_candidate_photo(cid):
     if not require_admin(): abort(403)
     with closing(db()) as conn:
         row = get_candidat(conn, cid)
-    return _candidate_photo_response(row)
+    return photo_response(row, UPLOAD_DIR, db, original=request.args.get("original") == "1")
 
 
 @app.get('/espace/<slug>/photo')
@@ -3430,65 +2954,7 @@ def admin_espace_candidat(cid):
 # =====================================================
 @app.route("/admin/reconfirm/<cid>", methods=["POST"])
 def admin_reconfirm(cid):
-    if not require_admin():
-        abort(403)
-
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    row = cur.fetchone()
-    if not row:
-        conn.close()
-        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
-
-    row = dict(row)
-
-    # 🔹 Génération du token de reconfirmation
-    token = new_token()
-    exp = (datetime.now() + timedelta(days=15)).isoformat()
-    cur.execute(
-        "UPDATE candidats SET token_reconfirm=?, token_reconfirm_exp=?, statut=?, updated_at=? WHERE id=?",
-        (token, exp, "reconf_en_cours", datetime.now().isoformat(), cid)
-    )
-    conn.commit()
-    conn.close()
-
-    # 🔗 Lien de reconfirmation (signé)
-    link = make_signed_link("/reconfirm-page", token)
-
-    # ✉️ Mail HTML (utilise ton template)
-    html = mail_html(
-        "reconfirmation",
-        rentree_annee=candidate_year(row),
-        prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
-        lien_espace=link
-    )
-
-    # 🔹 Envoi du mail
-    send_mail(
-        row.get("email", ""),
-        "Reconfirmation de votre inscription – Intégrale Academy",
-        html
-    )
-
-    # 📱 SMS de notification (optionnel)
-    tel = (row.get("tel", "") or "").replace(" ", "")
-    if tel.startswith("0"):
-        tel = "+33" + tel[1:]
-    msg = sms_text(
-        "reconfirmation_demandee",
-        prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
-    )
-    send_sms_brevo(tel, msg)
-
-    # 🧾 Log
-    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation"})
-    log_event(row, "SMS_ENVOYE", {"type": "reconfirmation", "tel": tel})
-    log_event(row, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
-
-    return jsonify({"ok": True})
+    return candidate_workflow_response("reconfirm", cid)
 
 
 # =====================================================
@@ -3581,98 +3047,7 @@ def api_set_portal_status():
 # =====================================================
 @app.route("/admin/resend_mail_sms/<cid>", methods=["POST"])
 def admin_resend_mail_sms(cid):
-    if not require_admin(): abort(403)
-    try:
-        data = request.get_json(force=True)
-        action = data.get("action")
-
-        conn = db()
-        row = conn.execute("SELECT * FROM candidats WHERE id=?", (cid,)).fetchone()
-        if not row:
-            return jsonify(error="Candidat introuvable"), 404
-
-        row = dict(row)
-
-        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
-        slug = row.get("slug_public") or ""
-        prenom = row["prenom"]
-        email = row["email"]
-        tel = row["tel"]
-        bts_label = row["bts"]
-
-        # 🔗 lien principal vers l’espace candidat
-        lien_espace = f"{BASE_URL}/espace/{slug}"
-
-        # =====================================================
-        # 🎯 1. RECONSTRUIRE LE CONTEXTE EXACTEMENT COMME AU PREMIER MAIL
-        # =====================================================
-        from mail_templates import get_mail_context, mail_html
-        from sms_templates import sms_text
-
-        ctx = get_mail_context(row, lien_espace=lien_espace)
-
-        # Nom complet BTS
-        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
-
-        # =====================================================
-        # 🔐 2. AJOUTER le lien de confirmation si "candidature validée"
-        # =====================================================
-        if action == "candidature_validee":
-            token = row.get("token_confirm")
-            if token:
-                lien_confirmation = f"{BASE_URL}/confirm-inscription?token={token}&sig={sign_token(token)}"
-                ctx["lien_confirmation"] = lien_confirmation
-
-        # =====================================================
-        # 📨 3. CHOISIR LE BON TEMPLATE
-        # =====================================================
-        mapping_mail = {
-            "candidature_validee": "candidature_validee",
-            "inscription_confirmee": "inscription_confirmee",
-            "reconfirmation": "reconfirmation",
-            "reconfirmee": "reconfirmation_validee",
-            "docs_non_conformes": "docs_non_conformes",
-        }
-
-        mapping_sms = {
-            "candidature_validee": "candidature_validee",
-            "inscription_confirmee": "inscription_confirmee",
-            "reconfirmation": "reconfirmation_demandee",
-            "reconfirmee": "reconfirmation_validee",
-            "docs_non_conformes": "docs_non_conformes",
-        }
-
-        tpl_mail = mapping_mail.get(action)
-        tpl_sms = mapping_sms.get(action)
-
-        if not tpl_mail:
-            return jsonify(error="Action non reconnue"), 400
-
-        # =====================================================
-        # ✉️ 4. MAIL IDENTIQUE À L’ORIGINAL
-        # =====================================================
-        html_content = mail_html(tpl_mail, **ctx)
-        subject = f"Intégrale Academy – {tpl_mail.replace('_', ' ').capitalize()}"
-        send_mail(email, subject, html_content)
-
-        # =====================================================
-        # 📱 5. SMS IDENTIQUE À L’ORIGINAL
-        # =====================================================
-        tel_formate = (tel or "").replace(" ", "")
-        if tel_formate.startswith("0"):
-            tel_formate = "+33" + tel_formate[1:]
-
-        sms_msg = sms_text(tpl_sms, prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-        send_sms_brevo(tel_formate, sms_msg)
-
-        # LOG
-        log_event({"id": cid}, "RENVOI_MAIL_SMS", {"type": action, "email": email, "tel": tel_formate})
-
-        return jsonify(ok=True)
-
-    except Exception as e:
-        print("❌ Erreur resend_mail_sms :", e)
-        return jsonify(error=str(e)), 500
+    return candidate_workflow_response("resend", cid)
 
 
 
@@ -3681,126 +3056,7 @@ def admin_resend_mail_sms(cid):
 # =====================================================
 @app.route("/admin/relance/<cid>", methods=["POST"])
 def admin_relance(cid):
-    if not require_admin(): abort(403)
-    try:
-        data = request.get_json() or {}
-        action = data.get("action", "").strip()
-
-        con = db()
-        cur = con.cursor()
-        cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-        row = cur.fetchone()
-
-        if not row:
-            return jsonify({"ok": False, "error": "Candidat introuvable"})
-
-        row = dict(row)
-
-        prenom = row["prenom"]
-        email = row["email"]
-        tel = row["tel"]
-        bts_label = row["bts"]
-
-        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
-        slug = row.get("slug_public") or ""
-
-        # ================================================
-        # 🔗 1. Déterminer le lien EXACT comme dans le mail initial
-        # ================================================
-        if action == "candidature_validee":
-            token = row.get("token_confirm")
-            lien_action = f"{BASE_URL}/confirm-inscription?token={token}&sig={sign_token(token)}"
-
-        elif action == "reconfirmation":
-            token = row.get("token_reconfirm")
-            lien_action = f"{BASE_URL}/reconfirm-page?token={token}&sig={sign_token(token)}"
-
-        elif action == "docs_non_conformes":
-            token = row.get("replace_token")
-            lien_action = f"{BASE_URL}/replace-files?token={token}&sig={sign_token(token)}"
-
-        else:
-            # Default → Espace candidat
-            lien_action = f"{BASE_URL}/espace/{slug}"
-
-        # ================================================
-        # 🎯 2. Charger le même contexte que le mail original
-        # ================================================
-        from mail_templates import get_mail_context, mail_html
-        from sms_templates import sms_text
-        from utils import send_mail, send_sms_brevo
-
-        ctx = get_mail_context(row, lien_espace=lien_action)
-
-        # Nom complet BTS
-        ctx["bts_label"] = BTS_LABELS.get(ctx["bts_label"], ctx["bts_label"])
-
-        # Cas particulier : si relance candidature validée → lien de confirmation nécessaire
-        if action == "candidature_validee":
-            ctx["lien_confirmation"] = lien_action
-
-        # ================================================
-        # ✉️ 3. Mappage des templates
-        # ================================================
-        mapping = {
-            "candidature_validee": "relance_candidature_validee",
-            "reconfirmation": "relance_reconfirmation",
-            "docs_non_conformes": "relance_docs_non_conformes",
-        }
-
-        mail_tpl = mapping.get(action)
-        if not mail_tpl:
-            return jsonify({"ok": False, "error": "Action relance inconnue"})
-
-        # ================================================
-        # ✉️ 4. MAIL IDENTIQUE AU MAIL ORIGINAL
-        # ================================================
-        mail_html_content = mail_html(mail_tpl, **ctx)
-
-        mail_subject = {
-            "candidature_validee": "Relance – Confirmez votre inscription BTS en alternance",
-            "reconfirmation": "Relance – Reconfirmez votre inscription",
-            "docs_non_conformes": "Relance – Documents à compléter",
-        }.get(action, "Relance – Intégrale Academy")
-
-        mail_id = send_mail(email, mail_subject, mail_html_content)
-
-        # ================================================
-        # 📱 5. SMS IDENTIQUE AU SMS ORIGINAL
-        # ================================================
-        tel_fmt = str(tel).strip().replace(" ", "")
-        if tel_fmt.startswith("0"):
-            tel_fmt = "+33" + tel_fmt[1:]
-
-        sms_id = send_sms_brevo(
-            tel_fmt,
-            sms_text(mail_tpl, prenom=prenom, bts_label=bts_label, lien_espace=lien_action)
-        )
-
-        # ================================================
-        # 📝 6. LOG + date dernière relance
-        # ================================================
-        cur.execute(
-            "INSERT INTO logs (cid, type, payload, created_at) VALUES (?, ?, ?, datetime('now','localtime'))",
-            (cid, "RELANCE_ENVOYEE", f"{action} / mail_id: {mail_id} / sms_id: {sms_id}")
-        )
-        con.commit()
-
-        cur.execute(
-            "UPDATE candidats SET last_relance=?, updated_at=? WHERE id=?",
-            (datetime.now().isoformat(), datetime.now().isoformat(), cid)
-        )
-        con.commit()
-
-        con.close()
-
-        print(f"✅ Relance envoyée à {prenom} ({email})")
-
-        return jsonify({"ok": True})
-
-    except Exception as e:
-        print(f"❌ Erreur RELANCE :", e)
-        return jsonify({"ok": False, "error": str(e)})
+    return candidate_workflow_response("remind", cid)
 
 
 
@@ -3890,45 +3146,7 @@ def admin_count_validated_applications():
 # =====================================================
 @app.route("/admin/relance_all_validated", methods=["POST"])
 def admin_relance_all_validated():
-    if not require_admin():
-        return jsonify(ok=False, error="Non autorisé"), 403
-
-    conn = None
-    try:
-        conn = db()
-        cur = conn.cursor()
-        rows = campaign_rows("validee")
-
-        if not rows:
-            conn.close()
-            return jsonify(ok=False, error="Aucun candidat avec le statut 'Candidature validée'."), 400
-
-        sent_count = 0
-        errors = []
-
-        for row in rows:
-            try:
-                _send_relance_candidature_validee(cur, row)
-                conn.commit()
-                sent_count += 1
-                print(f"✅ Relance candidature validée envoyée à {row['prenom']} ({row['email']})")
-            except Exception as e:
-                conn.rollback()
-                errors.append({"id": row["id"], "error": str(e)})
-                print(f"❌ Erreur relance candidature validée {row['id']}:", e)
-
-        conn.close()
-
-        if sent_count == 0 and errors:
-            return jsonify(ok=False, error="Aucune relance envoyée.", errors=errors), 500
-
-        return jsonify(ok=True, sent=sent_count, errors=errors)
-
-    except Exception as e:
-        if conn:
-            conn.close()
-        print("❌ Erreur relance_all_validated:", e)
-        return jsonify(ok=False, error=str(e)), 500
+    return candidate_workflow_response("bulk-remind")
 
 
 # =====================================================
@@ -3953,68 +3171,7 @@ def admin_count_confirmed():
 # =====================================================
 @app.route("/admin/reconfirm_all", methods=["POST"])
 def admin_reconfirm_all():
-    if not require_admin():
-        return jsonify(ok=False, error="Non autorisé"), 403
-    try:
-        conn = db()
-        cur = conn.cursor()
-
-        # 🔍 On sélectionne uniquement les candidats avec le statut "confirmee"
-        rows = campaign_rows("confirmee")
-
-        if not rows:
-            conn.close()
-            return jsonify(ok=False, error="Aucun candidat avec le statut 'Inscription confirmée'."), 400
-
-        BASE_URL = os.getenv("BASE_URL", "https://inscriptionsbts.onrender.com").rstrip("/")
-        sent_count = 0
-
-        for r in rows:
-            cid = r["id"]
-            prenom = r["prenom"]
-            email = r["email"]
-            tel = (r["tel"] or "").replace(" ", "")
-            bts_label = r["bts"]
-            slug = r["slug_public"]
-
-            # 🔑 Génère un nouveau token de reconfirmation
-            token = new_token()
-            exp = (datetime.now() + timedelta(days=15)).isoformat()
-
-            cur.execute("""
-                UPDATE candidats
-                SET token_reconfirm=?, token_reconfirm_exp=?, statut=?, updated_at=?
-                WHERE id=?
-            """, (token, exp, "reconf_en_cours", datetime.now().isoformat(), cid))
-            conn.commit()
-
-            # 🔗 Lien de reconfirmation (signé)
-            lien_espace = make_signed_link("/reconfirm-page", token)
-
-            # ✉️ Mail de reconfirmation
-            subject = "Reconfirmation d’inscription – Intégrale Academy"
-            html_content = mail_html("reconfirmation", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace, rentree_annee=candidate_year(r))
-            send_mail(email, subject, html_content)
-
-            # 📱 SMS de reconfirmation
-            if tel.startswith("0"):
-                tel = "+33" + tel[1:]
-            sms_msg = sms_text("reconfirmation_demandee", prenom=prenom, bts_label=bts_label, lien_espace=lien_espace)
-            send_sms_brevo(tel, sms_msg)
-
-            log_event({"id": cid}, "MAIL_ENVOYE", {"type": "reconfirmation"})
-            log_event({"id": cid}, "SMS_ENVOYE", {"type": "reconfirmation", "tel": tel})
-            log_event({"id": cid}, "STATUT_CHANGE", {"statut": "reconf_en_cours"})
-
-            sent_count += 1
-            print(f"📤 Reconfirmation envoyée à {prenom} ({email})")
-
-        conn.close()
-        return jsonify(ok=True, sent=sent_count)
-
-    except Exception as e:
-        print("❌ Erreur send_reconfirmation_all:", e)
-        return jsonify(error=str(e)), 500
+    return candidate_workflow_response("bulk-reconfirm")
 
 
 # =====================================================
@@ -4094,8 +3251,9 @@ def check_brevo_health():
 
 
 # 🚀 Démarrage du monitoring Brevo
-monitor_thread = threading.Thread(target=check_brevo_health, daemon=True)
-monitor_thread.start()
+if os.getenv('BREVO_HEALTH_MONITOR', '1') == '1':
+    monitor_thread = threading.Thread(target=check_brevo_health, daemon=True)
+    monitor_thread.start()
 
 @app.route("/brevo/status")
 def brevo_status():
@@ -4128,43 +3286,7 @@ def admin_stats():
 # =====================================================
 @app.route("/admin/send_mail_aps/<cid>", methods=["POST"])
 def admin_send_mail_aps(cid):
-    if not require_admin():
-        return jsonify({"ok": False, "error": "Non autorisé"}), 403
-
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))
-    row = cur.fetchone()
-    conn.close()
-
-    if not row:
-        return jsonify({"ok": False, "error": "Candidat introuvable"}), 404
-
-    row = dict(row)
-
-    try:
-        html = mail_html(
-            "demande_aps",
-            prenom=row.get("prenom", ""),
-            bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
-            aps_session=row.get("aps_session", ""),
-            rentree_annee=candidate_year(row),
-            lien_espace="https://cnapsv5-1.onrender.com/"
-        )
-
-        send_mail(
-            row.get("email", ""),
-            "🛡️ Formation APS – Documents CNAPS à envoyer",
-            html
-        )
-
-        log_event(row, "MAIL_ENVOYE", {"type": "aps"})
-
-        return jsonify({"ok": True})
-
-    except Exception as e:
-        print("❌ Erreur envoi mail APS :", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
+    return candidate_workflow_response("aps", cid)
 
 from flask import send_from_directory
 

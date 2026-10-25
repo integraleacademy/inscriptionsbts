@@ -70,6 +70,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
   {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
+{% if request.endpoint in ['admin_candidate_sheet', 'admin'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-editor.css') }}?v=1">{% endif %}
 </head>
 
 <body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
@@ -129,7 +130,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% elif is_trainer_space or is_trainer_admin %}
     <script src="{{ url_for('static', filename='js/trainer-space.js') }}?v=4" defer></script>
   {% elif request.endpoint in ['admin', 'admin_candidate_sheet'] %}
-    <script src="{{ url_for('static', filename='js/bts-management.js') }}?v=3" defer></script>
+    <script src="{{ url_for('static', filename='js/bts-management.js') }}?v=4" defer></script>
   {% elif is_admin_settings %}
     {# Dedicated settings script is loaded by the page. #}
   {% elif is_company_space %}
@@ -141,6 +142,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% else %}
     <script src="{{ url_for('static', filename='js/main_front.js') }}" defer></script>
   {% endif %}
+  {% if request.endpoint == 'admin_candidate_sheet' %}<script src="{{ url_for('static', filename='js/candidate-photo.js') }}?v=1" defer></script>{% endif %}
   {% if request.endpoint in ['admin_candidate_sheet', 'espace_candidat', 'student_dashboard'] %}<script src="{{ url_for('static', filename='js/candidate-refinement.js') }}?v=4" defer></script>{% endif %}
   {% if request.endpoint == 'admin_candidate_sheet' %}<script src="{{ url_for('static', filename='js/candidate-promotion.js') }}?v=1" defer></script>{% endif %}
   {% if request.endpoint == 'trainer_availability' %}<script src="{{ url_for('static', filename='js/trainer-availability.js') }}?v=2" defer></script>{% endif %}

@@ -1,0 +1,116 @@
+/* Candidate record: a compact reading layout using the administration palette. */
+body.academy-ui.candidate-sheet-page :is(h1,h2,h3,h4,p,input,select,textarea,button,.btn) { font-family:Manrope,Arial,sans-serif; }
+body.academy-ui.candidate-sheet-page .sheet-header { padding:22px 25px; gap:20px; border-radius:18px; }
+body.academy-ui.candidate-sheet-page .sheet-identity { gap:20px; }
+body.academy-ui.candidate-sheet-page .sheet-identity h1 { font-size:30px; margin-bottom:12px; letter-spacing:-.7px; }
+body.academy-ui.candidate-sheet-page .candidate-avatar.large { width:88px; height:110px; border-radius:13px; border-width:4px; }
+body.academy-ui.candidate-sheet-page .sheet-portrait-controls { flex-shrink:0; display:grid; justify-items:center; gap:7px; }
+.photo-crop-open,.mode-edit-link { color:#285dcc; border:0; background:none; font:600 11px/1.4 Manrope,Arial,sans-serif; padding:3px 0; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+.mode-edit-link { margin-left:auto; }
+body.academy-ui.candidate-sheet-page .sheet-header-actions { padding-top:15px; }
+body.academy-ui.candidate-sheet-page .sheet-overview { gap:12px; }
+body.academy-ui.candidate-sheet-page .sheet-overview>div { padding:12px 16px; border-radius:12px; gap:12px; }
+body.academy-ui.candidate-sheet-page .sheet-overview b { font-size:12px; }
+body.academy-ui.candidate-sheet-page .sheet-course-badge { padding:12px 22px; font-size:13px; }
+body.academy-ui.candidate-sheet-page .sheet-course-badge strong { font-size:25px; }
+body.academy-ui.candidate-sheet-page .sheet-tabs { margin:20px 0 22px; padding:6px; }
+body.academy-ui.candidate-sheet-page .sheet-tabs button { padding:12px; font-size:12px; }
+body.academy-ui.candidate-sheet-page .sheet-layout { grid-template-columns:minmax(0,1fr) 290px; gap:20px; }
+body.academy-ui.candidate-sheet-page .sheet-card { padding:21px; margin-bottom:16px; border-radius:15px; }
+body.academy-ui.candidate-sheet-page .sheet-card h2 { font-size:17px; line-height:1.4; margin:0 0 8px; }
+body.academy-ui.candidate-sheet-page .sheet-card h3 { font-size:13px; margin:0 0 17px; color:#253852; }
+body.academy-ui.candidate-sheet-page .sheet-section-heading h2 { font-size:19px; }
+body.academy-ui.candidate-sheet-page .sheet-section-heading { margin-bottom:16px; }
+body.academy-ui.candidate-sheet-page .sheet-fields { grid-template-columns:repeat(3,minmax(0,1fr)); gap:17px 22px; }
+body.academy-ui.candidate-sheet-page .sheet-training-card .sheet-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+body.academy-ui.candidate-sheet-page .sheet-training-card .sheet-section-heading { margin-bottom:0; }
+body.academy-ui.candidate-sheet-page .sheet-field { gap:5px; }
+body.academy-ui.candidate-sheet-page .sheet-field>span { font-size:11px; line-height:1.4; color:#66758b; }
+body.academy-ui.candidate-sheet-page .sheet-field :is(input,select,textarea) { font-size:13px; line-height:1.5; padding:9px 10px; min-height:38px; }
+body.academy-ui.candidate-sheet-page .sheet-field :is(input,select):disabled { font-size:13px; min-height:24px; padding:0; color:#263750; -webkit-text-fill-color:#263750; }
+body.academy-ui.candidate-sheet-page .sheet-fields .sheet-field { padding-bottom:10px; border-bottom:1px solid #edf0f5; }
+body.academy-ui.candidate-sheet-page .sheet-side-column .sheet-card-icon { width:34px; height:34px; margin-bottom:10px; border-radius:10px; }
+body.academy-ui.candidate-sheet-page .sheet-side-column .status-helper { font-size:11px; line-height:1.6; margin:7px 0 14px; }
+body.academy-ui.candidate-sheet-page .sheet-side-column .btn { padding:9px 12px; font-size:11px; min-height:36px; }
+body.academy-ui.candidate-sheet-page .sheet-side-column .sheet-labels { gap:11px; margin-top:14px; padding-top:14px; }
+body.academy-ui.candidate-sheet-page .sheet-side-column .sheet-labels label { font-size:11px; }
+.certificate-current { display:flex; align-items:flex-start; gap:18px; padding:20px; background:#f5f8ff; border:1px solid #dce6f8; border-radius:12px; }
+.certificate-current>div { min-width:0; }
+.certificate-current-icon { display:grid; place-items:center; width:42px; height:48px; background:#e5edff; color:#3565d9; border-radius:10px; flex-shrink:0; }
+.certificate-current p { font-size:12px; color:#65758e; margin:0 0 15px; line-height:1.6; }
+.certificate-actions { display:flex; flex-wrap:wrap; gap:9px; }
+.certificate-actions .btn { font-size:11px; }
+.sheet-information-extras { display:grid; grid-template-columns:1.2fr 1fr; gap:16px; }
+body.academy-ui.candidate-sheet-page .sheet-information-extras .note-card { background:#f5f8ff; border-color:#dce6f8; }
+body.academy-ui.candidate-sheet-page .sheet-information-extras .sheet-key-dates { background:white; border-color:#dce3ed; }
+body.academy-ui.candidate-sheet-page .sheet-information-extras .sheet-card-icon { display:none; }
+body.academy-ui.candidate-sheet-page .sheet-information-extras .status-helper { margin:10px 0; font-size:11px; line-height:1.5; }
+body.academy-ui.candidate-sheet-page .sheet-information-extras textarea { min-height:80px; }
+body.academy-ui.candidate-sheet-page .sheet-information-extras .sheet-key-dates dl { gap:14px 10px; font-size:11px; }
+.management-dialog.is-preview { width:min(1120px,calc(100vw - 32px)); max-width:none; }
+.management-dialog { max-height:calc(100svh - 32px); font-family:Manrope,Arial,sans-serif; }
+.management-dialog[open] { display:flex; flex-direction:column; overflow:hidden; }
+.management-dialog>header,.management-dialog>footer { flex-shrink:0; background:white; }
+.management-dialog #management-dialog-body { min-height:0; overflow:auto; }
+.management-dialog>footer { margin-top:16px; padding-top:16px; }
+.workflow-preview { margin-top:22px; border-top:1px solid #dce3ed; padding-top:18px; }
+.workflow-preview h3 { margin:18px 0 12px; font-size:17px; color:#172d50; }
+.workflow-panels { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+.workflow-panels>section { min-width:0; background:#f6f8fc; padding:16px; border:1px solid #dce3ed; border-radius:12px; }
+.workflow-panels>section:only-child { grid-column:1/-1; }
+.workflow-panels h4 { font-size:13px; color:#285dcc; margin:0 0 12px; }
+.workflow-panels p,.workflow-panels small { font-size:11px; line-height:1.6; overflow-wrap:anywhere; color:#465a78; }
+.workflow-panels iframe { width:100%; height:420px; background:white; display:block; border:1px solid #dce3ed; border-radius:8px; margin-top:14px; }
+.workflow-panels pre { margin:14px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; font:13px/1.8 Manrope,Arial,sans-serif; color:#263750; }
+.workflow-note,.workflow-warning { font-size:12px; line-height:1.6; color:#526987; padding:12px 0 0; }
+.workflow-warning { color:#985900; }
+.photo-crop-dialog { width:min(690px,calc(100vw - 28px)); max-height:calc(100svh - 28px); overflow:auto; padding:0; border:1px solid #dce3ed; border-radius:18px; color:#263750; background:white; font-family:Manrope,Arial,sans-serif; }
+.photo-crop-dialog::backdrop { background:#15274499; backdrop-filter:blur(3px); }
+.photo-crop-dialog>header { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; padding:20px 23px; border-bottom:1px solid #e3e9f3; }
+.photo-crop-dialog h2 { font-size:21px; line-height:1.4; margin:0 0 6px; }
+.photo-crop-dialog header p { margin:0; color:#65758e; font-size:12px; line-height:1.6; }
+.photo-crop-dialog header button { background:#f1f5fc; color:#536782; border:0; border-radius:7px; font-size:23px; width:32px; height:32px; cursor:pointer; padding:0; }
+.photo-crop-layout { display:grid; grid-template-columns:minmax(0,300px) minmax(0,1fr); gap:24px; padding:23px; align-items:center; }
+.photo-crop-stage { width:100%; aspect-ratio:4/5; position:relative; border:2px solid #3565d9; border-radius:10px; overflow:hidden; background:#e8edf5; }
+#photo-crop-canvas { width:100%; height:100%; display:block; cursor:grab; touch-action:none; }
+#photo-crop-canvas:active { cursor:grabbing; }
+#photo-crop-canvas:focus-visible { outline:4px solid #ffbf38; outline-offset:-4px; }
+.photo-crop-grid { position:absolute; inset:0; pointer-events:none; background:linear-gradient(to right,transparent 33.1%,#fff6 33.2%,#fff6 33.5%,transparent 33.6%,transparent 66.3%,#fff6 66.4%,#fff6 66.7%,transparent 66.8%),linear-gradient(to bottom,transparent 33.1%,#fff6 33.2%,#fff6 33.5%,transparent 33.6%,transparent 66.3%,#fff6 66.4%,#fff6 66.7%,transparent 66.8%); }
+.photo-crop-tools { display:grid; gap:13px; }
+.photo-crop-tools label { display:flex; justify-content:space-between; font-size:12px; color:#263750; }
+.photo-crop-tools input[type=range] { width:100%; min-height:30px; padding:0; margin:0; accent-color:#3565d9; box-shadow:none; }
+.photo-crop-tools p { font-size:11px; line-height:1.7; color:#65758e; margin:3px 0; }
+.photo-crop-tools .btn { font-size:11px; padding:10px; white-space:normal; }
+.photo-crop-dialog>footer { display:flex; gap:10px; justify-content:flex-end; padding:16px 23px; border-top:1px solid #e3e9f3; position:sticky; bottom:0; background:white; }
+.photo-crop-dialog>p { margin:0; padding:0 23px 15px; font-size:12px; }
+#photo-crop-error { color:#b33c30; }
+.photo-crop-dialog :disabled { opacity:.5; cursor:wait; }
+@media(max-width:1200px) {
+  body.academy-ui.candidate-sheet-page .sheet-fields { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  body.academy-ui.candidate-sheet-page .sheet-layout { grid-template-columns:minmax(0,1fr) 260px; gap:16px; }
+  body.academy-ui.candidate-sheet-page .sheet-card { padding:18px; }
+}
+@media(max-width:850px) {
+  body.academy-ui.candidate-sheet-page .sheet-layout { grid-template-columns:1fr; }
+  body.academy-ui.candidate-sheet-page .sheet-identity h1 { font-size:25px; }
+  .workflow-panels { grid-template-columns:1fr; }
+}
+@media(max-width:580px) {
+  .sheet-information-extras { grid-template-columns:1fr; gap:0; }
+  body.academy-ui.candidate-sheet-page .sheet-header { padding:18px; }
+  body.academy-ui.candidate-sheet-page .candidate-avatar.large { width:72px; height:90px; }
+  body.academy-ui.candidate-sheet-page .sheet-identity { gap:13px; }
+  body.academy-ui.candidate-sheet-page .sheet-identity h1 { font-size:23px; }
+  body.academy-ui.candidate-sheet-page .sheet-fields { grid-template-columns:1fr; gap:12px; }
+  body.academy-ui.candidate-sheet-page .sheet-training-card .sheet-fields { grid-template-columns:1fr; }
+  body.academy-ui.candidate-sheet-page .sheet-section-heading { flex-wrap:wrap; }
+  .photo-crop-open { font-size:9px; }
+  .mode-edit-link { margin-left:0; }
+  .certificate-current { padding:14px; gap:12px; }
+  .certificate-current-icon { display:none; }
+  .photo-crop-layout { grid-template-columns:1fr; padding:18px; gap:18px; }
+  .photo-crop-stage { width:min(220px,100%); justify-self:center; }
+  .photo-crop-tools { grid-template-columns:1fr 1fr; gap:10px; }
+  .photo-crop-tools label,.photo-crop-tools input,.photo-crop-tools p,#photo-crop-reset { grid-column:1/-1; }
+  .photo-crop-dialog .btn { font-size:11px; }
+}

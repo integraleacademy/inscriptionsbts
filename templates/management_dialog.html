@@ -1,4 +1,4 @@
-<dialog id="management-dialog" class="management-dialog" aria-labelledby="management-dialog-title">
+<dialog id="management-dialog" class="management-dialog" data-message-csrf="{{ candidate_message_csrf() }}" aria-labelledby="management-dialog-title">
   <header><h2 id="management-dialog-title"></h2><button type="button" data-dialog-cancel aria-label="Fermer">×</button></header>
   <div id="management-dialog-body"></div><p id="management-dialog-error" role="alert" hidden></p>
   <footer><button type="button" class="btn" data-dialog-cancel>Annuler</button><button type="button" class="btn primary" id="management-dialog-confirm">Confirmer</button></footer>

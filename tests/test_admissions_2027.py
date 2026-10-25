@@ -7,6 +7,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 os.environ.setdefault('INTEGRITY_CHECK', '0')
+os.environ.setdefault('BREVO_HEALTH_MONITOR', '0')
 os.environ.setdefault('DATA_DIR', tempfile.mkdtemp(prefix='bts-campaign-bootstrap-'))
 import pytest
 import app as application
@@ -245,21 +246,22 @@ def test_ypareo_mos_never_reuses_previous_campaign(monkeypatch):
 
 
 def test_certificates_follow_each_candidates_cohort(client):
-    from docx import Document
+    from pypdf import PdfReader
     seed(2026,'previous');seed(2027,'current');auth(client)
     for cid,year in [('previous',2026),('current',2027)]:
         for path in ['generate_certificat','generate_certificat_presentiel']:
-            response=client.get(f'/admin/{path}/{cid}')
+            response=client.get(f'/admin/{path}/{cid}?preview=1')
             assert response.status_code==200
-            doc=Document(io.BytesIO(response.data))
-            text=' '.join(p.text for p in doc.paragraphs)+' '.join(p.text for t in doc.tables for r in t.rows for c in r.cells for p in c.paragraphs)
+            doc=PdfReader(io.BytesIO(response.data))
+            assert len(doc.pages)==1
+            text=doc.pages[0].extract_text()
             assert str(year) in text and str(year+2) in text, text
-            assert f"Certificat de scolarité {year}-{year+2}" in text
+            assert 'Certificat de scolarité' in text and f"Promotion {year}-{year+2}" in text
             assert '{{' not in text
             if year == 2027:
                 assert '6000€' not in text
                 assert 'septembre 2026' not in text
-                assert '2025, 100 %' in text  # A historical result must remain historical.
+                assert 'Contrat d’apprentissage' not in text  # The PDF is the certificate itself.
             response.close()
 
 
@@ -492,7 +494,8 @@ def test_candidate_sheet_retains_legacy_profiles_and_atomic_edits(client):
     assert any(log['type']=='FICHE_MODIFIEE' for log in logs)
     assert client.get('/admin/candidat/missing').status_code==404
     assert client.post('/admin/update-status',json={'id':'sheet','value':'bad'}).status_code==400
-    assert client.post('/admin/update-status',json={'id':'missing','value':'validee'}).status_code==404
+    with client.session_transaction() as state: token=state['_candidate_message_csrf']
+    assert client.post('/admin/update-status',json={'id':'missing','value':'validee','preview':True},headers={'X-CSRF-Token':token}).status_code==404
     assert client.post('/admin/ypareo-neo/sheet').status_code==404
     assert client.post('/admin/update-field',json={'id':'sheet','field':'label_ypareo','value':True}).status_code==400
 
@@ -543,11 +546,15 @@ def test_pdf_zip_and_single_candidate_actions_remain_available(client,tmp_path):
 def test_status_notification_is_preserved_without_duplicate_send(client,monkeypatch):
     seed(2027,'notification-test','preinscription');auth(client)
     mail=[];sms=[]
-    monkeypatch.setattr(application,'send_mail',lambda *a,**k:mail.append(a))
-    monkeypatch.setattr(application,'send_sms_brevo',lambda *a,**k:sms.append(a))
+    monkeypatch.setattr(application,'send_mail',lambda *a,**k:mail.append(a) or 'test-mail-id')
+    monkeypatch.setattr(application,'send_sms_brevo',lambda *a,**k:sms.append(a) or 'test-sms-id')
     with application.db() as conn:conn.execute("UPDATE candidats SET tel='0600000000' WHERE id='notification-test'")
+    client.get('/admin/candidat/notification-test')
+    with client.session_transaction() as state: headers={'X-CSRF-Token':state['_candidate_message_csrf']}
     for _ in range(2):
-        result=client.post('/admin/update-status',json={'id':'notification-test','value':'validee'})
+        payload={'id':'notification-test','value':'validee'}
+        preview=client.post('/admin/update-status',json={**payload,'preview':True},headers=headers)
+        result=client.post('/admin/update-status',json={**payload,'preview_token':preview.json['preview_token']},headers=headers)
         assert result.status_code==200
     assert len(mail)==1 and len(sms)==1
     assert 'septembre 2027' in mail[0][2]
@@ -681,16 +688,18 @@ def test_admin_print_opens_inline_and_missing_person_is_404(client):
     assert client.get('/admin/print/no-such-person').status_code == 404
 
 
-def test_certificate_readable_preview_keeps_original_available(client):
+def test_certificate_preview_is_inline_pdf_and_can_be_downloaded(client):
+    from pypdf import PdfReader
     seed(2027, 'certificate-preview')
     auth(client)
     for route in ['generate_certificat', 'generate_certificat_presentiel']:
         response = client.get(f'/admin/{route}/certificate-preview?preview=1')
         assert response.status_code == 200
-        assert response.mimetype == 'text/html'
-        assert '2027' in response.text and '2029' in response.text
-        assert 'Télécharger l’original' in response.text
+        assert response.mimetype == 'application/pdf'
+        text=PdfReader(io.BytesIO(response.data)).pages[0].extract_text()
+        assert '2027' in text and '2029' in text
         assert 'attachment' not in response.headers.get('Content-Disposition', '')
+        assert client.get(f'/admin/{route}/certificate-preview?download=1').headers['Content-Disposition'].startswith('attachment;')
 
 
 def test_old_upload_links_require_admin_and_forward_private_viewer(client, tmp_path):
