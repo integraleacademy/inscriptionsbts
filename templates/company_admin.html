@@ -1,11 +1,40 @@
 {% extends 'base.html' %}
 {% from 'ui_icons.html' import icon %}
-{% block body_class %}company-page{% endblock %}
+{% from '_company_admin_ui.html' import access_badge %}
+{% block body_class %}company-page company-admin-page{% endblock %}
 {% block content %}
-<div class="co-shell"><header class="co-heading"><div><span class="co-kicker">RELATIONS ENTREPRISES</span><h1>Les entreprises <em>partenaires.</em></h1><p>Créez leur accès et rattachez les alternants qu’elles accueillent.</p></div><a class="co-button" href="/admin/assiduite">{{ icon('clock') }} Absences et retards</a></header>
-{% if error %}<div class="co-notice error" role="alert">{{ error }}</div>{% endif %}
-<details class="co-panel co-create" {% if error %}open{% endif %}><summary>+ Ajouter une entreprise</summary><form method="post" class="co-form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% include '_company_fields.html' %}<div class="co-full"><button class="co-button primary">Créer l’espace entreprise</button><small class="co-muted">L’invitation sera envoyée à votre demande, depuis la fiche entreprise.</small></div></form></details>
-<section class="co-panel"><div class="co-section-heading"><h2>{{ companies|length }} entreprise{{ 's' if companies|length != 1 else '' }}</h2><a href="/entreprise/connexion" target="_blank" rel="noopener">Page de connexion ↗</a></div>
-{% if companies %}<div class="co-table-wrap"><table class="co-table"><thead><tr><th>Entreprise</th><th>Contact</th><th>Alternants</th><th>Accès</th><th></th></tr></thead><tbody>{% for company in companies %}<tr><td data-label="Entreprise"><strong>{{ company.name }}</strong></td><td data-label="Contact">{{ company.contact }}<small>{{ company.email }}</small></td><td data-label="Alternants">{{ company.student_count }}</td><td data-label="Accès"><span class="co-badge {{ 'muted' if not company.active else 'blue' }}">{{ 'Désactivé' if not company.active else 'Activé' if company.activated else 'Invitation envoyée' if company.invited_at else 'À inviter' }}</span></td><td data-label="Fiche"><a class="co-button small" href="{{ url_for('admin_company_detail', company_id=company.id) }}">Ouvrir la fiche</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="co-empty">{{ icon('briefcase') }}<h3>Votre première entreprise partenaire.</h3><p>Ajoutez ses coordonnées, rattachez ses alternants et envoyez son invitation.</p></div>{% endif %}
-</section></div>
+<div class="ca-workspace">
+  <header class="ca-page-heading">
+    <div><p class="ca-eyebrow">RELATIONS ENTREPRISES</p><h1>Vos entreprises <em>partenaires.</em></h1><p>Les bons contacts. Un suivi clair. Des alternants bien accompagnés.</p></div>
+    <div class="ca-heading-actions"><a class="ca-button secondary" href="{{ url_for('company_login') }}" target="_blank" rel="noopener">{{ icon('globe') }}<span>Voir l’espace entreprise</span></a><a class="ca-button primary" href="{{ url_for('admin_companies', view='create') }}">{{ icon('plus') }}<span>Ajouter une entreprise</span></a></div>
+  </header>
+  <section class="ca-metrics" aria-label="Votre réseau en chiffres">
+    <article><span class="ca-metric-icon">{{ icon('briefcase') }}</span><div><span>Entreprises partenaires</span><strong>{{ stats.total }}</strong></div></article>
+    <article><span class="ca-metric-icon">{{ icon('person') }}</span><div><span>Alternants rattachés</span><strong>{{ stats.students }}</strong></div></article>
+    <article><span class="ca-metric-icon amber">{{ icon('shield') }}</span><div><span>Accès à activer</span><strong>{{ stats.pending }}</strong></div><a class="ca-metric-link" href="{{ url_for('admin_companies', access='awaiting') }}">Voir les comptes à activer</a></article>
+  </section>
+  <section class="ca-card ca-directory" aria-labelledby="company-directory-heading">
+    <div class="ca-card-heading"><div><h2 id="company-directory-heading">Votre réseau d’entreprises <span class="ca-count">{{ result_count }}</span></h2><p>Retrouvez une entreprise, son contact ou ses alternants.</p></div><a class="ca-text-link" href="{{ url_for('admin_attendance') }}">{{ icon('clock') }}<span>Absences et retards</span></a></div>
+    <form method="get" class="ca-toolbar" role="search" aria-label="Rechercher une entreprise">
+      <label class="ca-search"><span class="ca-visually-hidden">Nom, contact, ville ou SIRET</span>{{ icon('search') }}<input type="search" name="q" value="{{ query }}" maxlength="200" placeholder="Nom, contact, ville ou SIRET…" autocomplete="off"></label>
+      <label><span class="ca-visually-hidden">État de l’accès</span><select name="access">{% for value,label in [('all','Tous les accès'),('active','Accès activé'),('awaiting','À activer'),('pending','À inviter'),('invited','Invitation envoyée'),('disabled','Accès désactivé')] %}<option value="{{ value }}" {% if access == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label><span class="ca-visually-hidden">Trier les entreprises</span><select name="order">{% for value,label in [('name','Nom : A à Z'),('name_desc','Nom : Z à A'),('students','Nombre d’alternants')] %}<option value="{{ value }}" {% if order == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <button class="ca-button secondary" type="submit">Rechercher</button>
+    </form>
+    {% if query or access != 'all' or order != 'name' %}<div class="ca-filter-summary"><span>{{ result_count }} résultat{{ 's' if result_count != 1 else '' }}{% if query %} pour « {{ query }} »{% endif %}</span><a class="ca-text-link" href="{{ url_for('admin_companies') }}">Effacer les filtres</a></div>{% endif %}
+    {% if companies %}
+    <div class="ca-table-wrap"><table class="ca-table"><thead><tr><th>Entreprise</th><th>Votre contact</th><th>Alternants</th><th>Accès à l’espace</th><th><span class="ca-visually-hidden">Ouvrir la fiche</span></th></tr></thead><tbody>
+      {% for company in companies %}<tr>
+        <td class="ca-company-cell"><div class="ca-company-identity"><span class="ca-avatar" aria-hidden="true">{{ company.initials }}</span><div><a class="ca-company-name" href="{{ url_for('admin_company_detail', company_id=company.id) }}">{{ company.name }}</a><span class="ca-cell-detail">{{ company.city or ('SIRET ' ~ company.siret if company.siret else 'Coordonnées à compléter') }}</span></div></div></td>
+        <td data-label="Contact"><strong class="ca-cell-name">{{ company.contact }}</strong><span class="ca-cell-detail">{{ company.email }}</span></td>
+        <td data-label="Alternants"><span class="ca-student-count">{{ company.student_count }}</span></td>
+        <td data-label="Accès">{{ access_badge(company) }}</td>
+        <td class="ca-table-action"><a class="ca-button row-action" href="{{ url_for('admin_company_detail', company_id=company.id) }}"><span>Voir la fiche</span>{{ icon('arrow') }}</a></td>
+      </tr>{% endfor %}
+    </tbody></table></div>
+    <footer class="ca-list-footer"><span>{{ first_result }}–{{ last_result }} sur {{ result_count }} entreprise{{ 's' if result_count != 1 else '' }}</span>{% if page_count > 1 %}<nav class="ca-pagination" aria-label="Pages des entreprises">{% if current_page > 1 %}<a class="ca-button secondary" href="{{ url_for('admin_companies', q=query, access=access, order=order, page=current_page-1) }}">Page précédente</a>{% endif %}<span>{{ current_page }} / {{ page_count }}</span>{% if current_page < page_count %}<a class="ca-button secondary" href="{{ url_for('admin_companies', q=query, access=access, order=order, page=current_page+1) }}">Page suivante</a>{% endif %}</nav>{% endif %}</footer>
+    {% elif stats.total %}<div class="ca-empty">{{ icon('search') }}<h3>Aucune entreprise ne correspond.</h3><p>Essayez un autre nom ou retirez les filtres.</p><a class="ca-button secondary" href="{{ url_for('admin_companies') }}">Afficher toutes les entreprises</a></div>
+    {% else %}<div class="ca-empty">{{ icon('briefcase') }}<h3>Votre réseau commence ici.</h3><p>Ajoutez une entreprise avec son SIRET, puis rattachez ses alternants.</p><a class="ca-button primary" href="{{ url_for('admin_companies', view='create') }}">{{ icon('plus') }}<span>Ajouter votre première entreprise</span></a></div>{% endif %}
+  </section>
+</div>
 {% endblock %}

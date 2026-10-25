@@ -10,7 +10,9 @@
     const preview = root.querySelector('[data-registry-preview]');
     const importer = root.querySelector('[data-registry-import]');
     const imported = root.querySelector('[data-registry-imported]');
-    const saved = form.querySelector('[data-registry-saved]');
+    const saved = document.querySelector('[data-registry-saved]');
+    const pending = document.querySelector('[data-registry-pending]');
+    const empty = document.querySelector('[data-registry-empty]');
     let timer, controller, sequence = 0, result = null;
     let importedSiret = token.value ? normalize(siret.value) : null;
     let lastSiret = normalize(siret.value);
@@ -21,6 +23,12 @@
       activity_label: 'Activité principale de l’établissement'
     };
     function normalize(value) { return value.replace(/\s/g, ''); }
+    function updateSaved() {
+      const changed = Boolean(token.value) || Boolean(saved && saved.dataset.siret !== normalize(siret.value));
+      if (saved) saved.hidden = changed;
+      if (pending) pending.hidden = !changed;
+      if (empty) empty.hidden = changed;
+    }
     function message(text, error = false) {
       status.textContent = text;
       status.classList.toggle('is-error', error);
@@ -104,7 +112,7 @@
         imported.hidden = true;
         importedSiret = null;
       }
-      if (saved) saved.hidden = saved.dataset.siret !== number;
+      updateSaved();
       message('La recherche démarre après la saisie des 14 chiffres. Vous pouvez aussi remplir la fiche manuellement.');
       if (/^[0-9]{14}$/.test(number)) timer = setTimeout(lookup, 450);
     });
@@ -121,15 +129,16 @@
       });
       token.value = result.token;
       importedSiret = result.fields.siret;
-      form.querySelector('[data-registry-fields]').open = true;
-      if (saved) saved.hidden = true;
+      updateSaved();
       imported.hidden = false;
       importer.textContent = 'Informations importées';
       importer.disabled = true;
       message('Informations importées dans le formulaire. Complétez le contact puis enregistrez la fiche.');
+      form.dispatchEvent(new Event('company:registry-imported', {bubbles: true}));
     });
     form.addEventListener('submit', () => {
       if (importedSiret && importedSiret !== normalize(siret.value)) token.value = '';
     });
+    updateSaved();
   });
 })();

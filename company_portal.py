@@ -17,6 +17,7 @@ import re
 import secrets
 import sqlite3
 import time
+import unicodedata
 from zoneinfo import ZoneInfo
 
 from flask import abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
@@ -31,6 +32,27 @@ PARIS = ZoneInfo('Europe/Paris')
 STATUSES = ('confirmee', 'reconfirmee', 'rentree')
 KINDS = {'absence': 'Absence', 'late': 'Retard'}
 JUSTIFICATIONS = {'pending': 'En attente', 'justified': 'Justifié', 'unjustified': 'Non justifié'}
+COMPANY_TABS = ('overview', 'information', 'registry', 'students', 'access')
+
+
+def company_presentation(company):
+    """Display-only metadata shared by the directory and company file."""
+    if not company['active']:
+        state, label = 'disabled', 'Désactivé'
+    elif company.get('activated'):
+        state, label = 'active', 'Activé'
+    elif company.get('invited_at'):
+        state, label = 'invited', 'Invitation envoyée'
+    else:
+        state, label = 'pending', 'À inviter'
+    words = re.findall(r'\w+', company['name'], flags=re.UNICODE)
+    company.update(access_state=state, access_label=label,
+                   initials=''.join(word[0] for word in words[:2]).upper() or 'E')
+    return company
+
+
+def search_key(value):
+    return ''.join(c for c in unicodedata.normalize('NFKD', value.casefold()) if not unicodedata.combining(c))
 
 
 def today():
@@ -268,7 +290,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
         company = dict(row)
         company['activated'] = bool(company.pop('password_hash'))
         company['registry'] = saved_registry(company['registry_data'])
-        return company
+        return company_presentation(company)
 
     def version_check(current):
         if request.form.get('version') != str(current['version']):
@@ -295,6 +317,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             return redirect(url_for('login'))
         admin_guard()
         error = ''
+        creating = request.args.get('view') == 'create' or request.method == 'POST'
         with closing(db_connect()) as conn:
             ensure_company_schema(conn)
             if request.method == 'POST':
@@ -312,15 +335,47 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                 except sqlite3.IntegrityError:
                     conn.rollback()
                     error = 'Cette adresse e-mail possède déjà un espace entreprise.'
-            companies = [dict(row) for row in conn.execute('''SELECT e.id,e.name,e.contact,e.email,e.active,e.invited_at,
-                (e.password_hash IS NOT NULL) AS activated,(SELECT COUNT(*) FROM company_students s WHERE s.company_id=e.id) AS student_count
-                FROM companies e ORDER BY e.name''')]
-        return page('company_admin.html', title='Entreprises · Intégrale Academy', companies=companies, error=error), 400 if error else 200
+            companies = [company_presentation(dict(row)) for row in conn.execute('''SELECT e.id,e.name,e.contact,e.email,e.phone,e.siret,e.city,e.active,e.invited_at,
+                (e.password_hash IS NOT NULL) AS activated,(SELECT COUNT(*) FROM company_students s
+                  JOIN candidats c ON c.id=s.candidate_id WHERE s.company_id=e.id
+                  AND lower(trim(c.statut)) IN (?,?,?) AND (s.end_date IS NULL OR s.end_date>=?)) AS student_count
+                FROM companies e ORDER BY e.name''', (*STATUSES, today().isoformat()))]
+        if creating:
+            return page('company_create.html', title='Nouvelle entreprise · Intégrale Academy', error=error), 400 if error else 200
+        stats = dict(total=len(companies), students=sum(c['student_count'] for c in companies),
+                     pending=sum(c['access_state'] in ('pending', 'invited') for c in companies))
+        query = request.args.get('q', '').strip()[:200]
+        access = request.args.get('access', 'all')
+        order = request.args.get('order', 'name')
+        if access not in ('all', 'active', 'invited', 'pending', 'awaiting', 'disabled') or order not in ('name', 'name_desc', 'students'):
+            abort(400, 'Choisissez un filtre valide.')
+        if query:
+            terms = search_key(query).split()
+            companies = [c for c in companies if all(term in search_key(' '.join(c.get(key) or '' for key in ('name','contact','email','phone','siret','city'))) for term in terms)]
+        if access == 'awaiting':
+            companies = [c for c in companies if c['access_state'] in ('pending', 'invited')]
+        elif access != 'all':
+            companies = [c for c in companies if c['access_state'] == access]
+        companies.sort(key=lambda c: (-c['student_count'], search_key(c['name'])) if order == 'students' else search_key(c['name']), reverse=order == 'name_desc')
+        total = len(companies)
+        pages = max(1, (total+19)//20)
+        requested_page = request.args.get('page', '1')
+        if not re.fullmatch(r'[0-9]{1,6}', requested_page):
+            abort(400, 'Numéro de page invalide.')
+        current_page = min(pages, max(1, int(requested_page)))
+        start = (current_page-1)*20
+        return page('company_admin.html', title='Entreprises · Intégrale Academy', companies=companies[start:start+20],
+                    stats=stats, query=query, access=access, order=order, result_count=total,
+                    current_page=current_page, page_count=pages, first_result=start+1 if total else 0,
+                    last_result=min(start+20,total))
 
     @app.route('/admin/entreprises/<company_id>', methods=['GET', 'POST'])
     def admin_company_detail(company_id):
         admin_guard()
         error = ''
+        selected_tab = request.args.get('tab', 'overview')
+        if selected_tab not in COMPANY_TABS:
+            abort(400, 'Cet onglet n’existe pas.')
         with closing(db_connect()) as conn:
             ensure_company_schema(conn)
             conn.commit()
@@ -339,7 +394,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                     audit(conn, 'company_updated', company_id)
                     conn.commit()
                     flash('Coordonnées enregistrées.' + (' Envoyez une nouvelle invitation à la nouvelle adresse.' if changed_email else ''), 'success')
-                    return redirect(url_for('admin_company_detail', company_id=company_id), code=303)
+                    return redirect(url_for('admin_company_detail', company_id=company_id, tab='information'), code=303)
                 except ValueError as exc:
                     error = str(exc)
                     conn.rollback()
@@ -352,7 +407,25 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             available = [dict(row) for row in conn.execute('''SELECT c.id,c.nom,c.prenom,c.bts,c.rentree_annee FROM candidats c
                 WHERE lower(trim(c.statut)) IN (?,?,?) AND NOT EXISTS (SELECT 1 FROM company_students s WHERE s.candidate_id=c.id)
                 ORDER BY c.nom,c.prenom''', STATUSES)]
-        return page('company_detail.html', title=company['name']+' · Entreprise', company=company, students=students, available=available, error=error, today=today().isoformat()), 400 if error else 200
+        day = today().isoformat()
+        for student in students:
+            if (student['statut'] or '').strip().lower() not in STATUSES:
+                student['link_state'], student['link_label'] = 'ended', 'Inscription non confirmée'
+            elif student['end_date'] and student['end_date'] < day:
+                student['link_state'], student['link_label'] = 'ended', 'Terminé'
+            elif student['start_date'] > day:
+                student['link_state'], student['link_label'] = 'future', 'À venir'
+            else:
+                student['link_state'], student['link_label'] = 'current', 'En cours'
+        edit_id, remove_id = request.args.get('edit', ''), request.args.get('remove', '')
+        if any(value and value not in {s['id'] for s in students} for value in (edit_id, remove_id)):
+            abort(404)
+        return page('company_detail.html', title=company['name']+' · Entreprise', company=company,
+                    students=students, available=available, error=error, today=day,
+                    selected_tab='information' if error else selected_tab, edit_id=edit_id, remove_id=remove_id,
+                    show_link_form=request.args.get('add') == '1' or not students,
+                    confirm_status=request.args.get('confirm') == 'status',
+                    current_students=[s for s in students if s['link_state'] != 'ended']), 400 if error else 200
 
     @app.post('/admin/entreprises/<company_id>/statut')
     def admin_company_status(company_id):
@@ -368,7 +441,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             audit(conn, 'company_status_changed', company_id)
             conn.commit()
         flash('Statut du compte modifié. Les anciennes sessions et invitations sont révoquées.', 'success')
-        return redirect(url_for('admin_company_detail', company_id=company_id), code=303)
+        return redirect(url_for('admin_company_detail', company_id=company_id, tab='access'), code=303)
 
     @app.post('/admin/entreprises/<company_id>/invitation')
     def admin_company_invite(company_id):
@@ -387,7 +460,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             conn.commit()
         sent = deliver(company, token, digest, ttl)
         flash('Invitation envoyée à '+company['email']+'.' if sent else 'L’e-mail n’a pas pu être envoyé. Réessayez plus tard.', 'success' if sent else 'error')
-        return redirect(url_for('admin_company_detail', company_id=company_id), code=303)
+        return redirect(url_for('admin_company_detail', company_id=company_id, tab='access'), code=303)
 
     @app.post('/admin/entreprises/<company_id>/alternants')
     def admin_company_link(company_id):
@@ -421,7 +494,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             audit(conn, 'student_linked:'+company_id, candidate_id)
             conn.commit()
         flash('Rattachement enregistré. Le planning et les absences sont visibles sur cette période.', 'success')
-        return redirect(url_for('admin_company_detail', company_id=company_id), code=303)
+        return redirect(url_for('admin_company_detail', company_id=company_id, tab='students'), code=303)
 
     @app.post('/admin/entreprises/<company_id>/alternants/<candidate_id>/retirer')
     def admin_company_unlink(company_id, candidate_id):
@@ -435,7 +508,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             audit(conn, 'student_unlinked:'+company_id, candidate_id)
             conn.commit()
         flash('Rattachement retiré. L’entreprise n’a plus accès à cet alternant.', 'success')
-        return redirect(url_for('admin_company_detail', company_id=company_id), code=303)
+        return redirect(url_for('admin_company_detail', company_id=company_id, tab='students'), code=303)
 
     @app.route('/entreprise/connexion', methods=['GET', 'POST'])
     def company_login():

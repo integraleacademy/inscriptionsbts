@@ -231,4 +231,21 @@ intégré imagegen puis encodée en WebP pour le site.
 
 Consigne de génération :
 
-> Use case: illustration-story. Asset type: a landscape illustration for the employer login of Intégrale Academy, matching its existing student and trainer illustrations. Generate a standalone full-bleed illustration, 3:2 landscape. Scene: in a bright welcoming modern French office with big blue-framed windows, trees and potted plants, an adult woman mentor in a terracotta blazer and an adult male apprentice in a teal shirt review a weekly schedule together at a pale wooden desk with an open laptop and notebooks. They smile naturally, engaged in the task, both with anatomically correct hands. Style: polished hand-drawn editorial anime illustration with precise dark contour lines, softly shaded solid colours, warm daylight, balanced teal, sky blue, cream and ochre, like a contemporary illustrated campus workbook. Medium shot, both faces and desk clearly visible, calm professional welcoming mood. No text, no typography, no logo, no watermark, no UI, no outer border. This is one image to place within a login page.
+Révision : redessin de l’illustration entreprise à partir des références directes
+`daily/trainer-sun.webp` et `daily/student-sun.webp`, sans modifier ces dernières.
+
+> Use case: style-transfer. Edit target = image 1 (the employer mentor and apprentice at a desk). Style references = image 2 (the trainer at a planning board) and image 3 (students collaborating). Redraw image 1 completely in EXACTLY the same visual language as references 2 and 3, so it feels painted by their same illustrator for the same educational series. The two references are the authoritative style: simple rounded friendly cartoon facial features, large expressive eyes, short clean bold contours, broad flat colour areas and sparse crisp cel shading, simple grouped hair shapes, uncluttered fabric folds, bright clean blues and greens, sunny cream and pale wood, clearly drawn plants/windows. Remove the target's fine realistic hair strands, narrow realistic eyes, sculpted faces, detailed folds, blurred photographic background, depth-of-field and glossy rendering. Keep the business story: an adult female tutor and adult male apprentice smiling as they review a weekly plan at a wooden office desk, with a laptop, notebooks, green plants and blue-framed windows. Loosen the crop a little to match the spacious medium composition of the reference illustrations. Both characters should look clearly adult but have the rounded simplified warmth of reference 3; anatomically correct hands. Full-bleed standalone landscape 3:2 illustration. No text, logos, UI, watermark, outer border, or written labels. The final must match references 2 and 3 much more closely than the original image 1.
+
+### Administration des entreprises
+
+L’annuaire propose une recherche (nom, contact, ville, SIRET), des filtres d’accès,
+un tri et une pagination de 20 entreprises. La création dispose de sa propre page.
+Les fiches se répartissent en cinq onglets : vue d’ensemble, coordonnées, données
+officielles, alternants et accès. Les onglets fonctionnent avec des liens directs
+et préservent les champs saisis lors des changements d’onglet en JavaScript.
+L’import SIRET reste explicite, signé et limité aux données de l’entreprise.
+
+Tests complémentaires : `tests/test_company_workspace.py` (routes, filtres,
+comptages, pagination, autorisations et validation), `tests/company_admin_frontend.cjs`
+(jsdom, prend une fiche entreprise rendue ; clavier, historique, conservation
+des champs et protection des modifications non enregistrées).

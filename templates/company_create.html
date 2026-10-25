@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% from 'ui_icons.html' import icon %}
+{% block body_class %}company-page company-admin-page{% endblock %}
+{% block content %}
+<div class="ca-workspace ca-editor-workspace">
+  <a class="ca-back" href="{{ url_for('admin_companies') }}">{{ icon('arrow-left') }}<span>Toutes les entreprises</span></a>
+  <header class="ca-page-heading"><div><p class="ca-eyebrow">NOUVEAU PARTENAIRE</p><h1>Une nouvelle <em>entreprise.</em></h1><p>Retrouvez ses informations avec son SIRET, puis indiquez votre contact.</p></div><span class="ca-step-label">{{ icon('briefcase') }} Fiche entreprise</span></header>
+  {% if error %}<div class="ca-notice error" role="alert">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ url_for('admin_companies', view='create') }}" class="ca-editor-form" data-company-edit-form {% if error %}data-dirty-on-load{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {% include '_company_fields.html' %}
+    <footer class="ca-savebar"><div><strong>Tout est prêt ?</strong><p>L’invitation sera envoyée depuis l’onglet Accès, quand vous le déciderez.</p><span data-save-state aria-live="polite"></span></div><div class="ca-actions"><a class="ca-button secondary" href="{{ url_for('admin_companies') }}">Annuler</a><button class="ca-button primary" type="submit">{{ icon('check') }}<span>Créer l’entreprise</span></button></div></footer>
+  </form>
+</div>
+{% endblock %}

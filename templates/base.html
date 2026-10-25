@@ -70,6 +70,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
   {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
+  {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-admin.css') }}?v=1">{% endif %}
 {% if request.endpoint in ['admin_candidate_sheet', 'admin'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-editor.css') }}?v=2">{% endif %}
 </head>
 
@@ -134,7 +135,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% elif is_admin_settings %}
     {# Dedicated settings script is loaded by the page. #}
   {% elif is_company_space %}
-    {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<script src="{{ url_for('static', filename='js/company-registry.js') }}?v=1" defer></script>{% endif %}
+    {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<script src="{{ url_for('static', filename='js/company-admin.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/company-registry.js') }}?v=2" defer></script>{% endif %}
   {% elif 'admin' in request.path or 'parcoursup' in request.path %}
     <script src="{{ url_for('static', filename='js/main_admin.js') }}"></script>
   {% elif request.path.startswith('/replace-files') or request.path.startswith('/espace/') or request.path == '/login' or request.path == '/' or request.path == '/candidature' or request.path.startswith('/reprendre/') %}

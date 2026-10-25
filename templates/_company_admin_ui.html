@@ -1,0 +1,2 @@
+{% macro access_badge(company) -%}<span class="ca-status {{ company.access_state }}"><span aria-hidden="true"></span>{{ company.access_label }}</span>{%- endmacro %}
+{% macro date_fr(value) -%}{% if value and value|length >= 10 %}{{ value[8:10] }}/{{ value[5:7] }}/{{ value[:4] }}{% else %}Non renseignée{% endif %}{%- endmacro %}

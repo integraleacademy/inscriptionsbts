@@ -1,0 +1,44 @@
+// node tests/company_admin_frontend.cjs rendered-company-profile.html
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const {JSDOM} = require('jsdom');
+const dom = new JSDOM(fs.readFileSync(process.argv[2],'utf8'), {url:'https://school.example.test/admin/entreprises/e1',runScripts:'outside-only'});
+const w=dom.window,d=w.document;
+w.eval(fs.readFileSync(path.join(__dirname,'../static/js/company-admin.js'),'utf8'));
+const tab=key=>d.querySelector(`[data-company-tab="${key}"]`);
+const panel=key=>d.querySelector(`[data-company-panel="${key}"]`);
+const selected=key=>{
+ assert.equal(tab(key).getAttribute('aria-selected'),'true');
+ assert.deepEqual([...d.querySelectorAll('[data-company-panel]')].filter(p=>!p.hidden).map(p=>p.dataset.companyPanel),[key]);
+};
+selected('overview');
+tab('information').click(); selected('information');
+assert.equal(new URL(w.location).searchParams.get('tab'),'information');
+const form=d.querySelector('[data-company-edit-form]'), contact=form.elements.namedItem('contact');
+contact.value='Saisie à conserver';contact.dispatchEvent(new w.Event('input',{bubbles:true}));
+assert.match(form.querySelector('[data-save-state]').textContent,/non enregistrées/);
+tab('students').click();selected('students');
+tab('students').dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}));
+selected('access');assert.equal(d.activeElement,tab('access'));
+tab('access').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Home',bubbles:true,cancelable:true}));selected('overview');
+d.querySelector('[data-company-tab-link="information"]').click();selected('information');
+assert.equal(contact.value,'Saisie à conserver');
+w.history.replaceState(null,'','?tab=registry');w.dispatchEvent(new w.PopStateEvent('popstate'));selected('registry');
+contact.dispatchEvent(new w.Event('invalid',{bubbles:false,cancelable:true}));selected('information');
+const toggle=d.querySelector('[data-co-toggle]'), details=d.getElementById(toggle.dataset.coToggle);
+toggle.click();assert.equal(details.hidden,false);assert.equal(toggle.getAttribute('aria-expanded'),'true');
+toggle.click();assert.equal(details.hidden,true);
+let confirmations=0;
+w.confirm=()=>{confirmations++;return false;};
+const invitation=d.querySelector('form[action$="/invitation"]');
+assert.equal(invitation.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true})),false);
+assert.equal(confirmations,1);
+const unload=new w.Event('beforeunload',{cancelable:true});w.dispatchEvent(unload);assert.equal(unload.defaultPrevented,true);
+// Imports update programmatic field values through an explicit event.
+contact.value='Import programmatique';form.dispatchEvent(new w.Event('company:registry-imported',{bubbles:true}));
+assert.match(form.querySelector('[data-save-state]').textContent,/non enregistrées/);
+assert.equal(form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true})),true);
+const leaving=new w.Event('beforeunload',{cancelable:true});w.dispatchEvent(leaving);assert.equal(leaving.defaultPrevented,false);
+console.log('Company tabs: keyboard, history, values preserved, invalid fields revealed, details toggle, dirty-state and unrelated-action protection passed.');
+dom.window.close();
