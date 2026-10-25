@@ -5,6 +5,7 @@ Werkzeug==3.0.3
 python-dotenv==1.0.1
 
 reportlab==4.2.5
+pypdf==6.10.0
 WeasyPrint==61.2
 pydyf==0.10.0
 Babel==2.15.0

@@ -86,7 +86,7 @@ def test_certificate_tracks_mode_and_sends_exact_previewed_pdf(editor):
         preview_url = data['dossiers'][0]['files'][0]['url']
         pdf = client.get(preview_url)
         assert pdf.mimetype == 'application/pdf'
-        reader = PdfReader(io.BytesIO(pdf.data)); assert len(reader.pages) == 1
+        reader = PdfReader(io.BytesIO(pdf.data)); assert len(reader.pages) == 3
         content = reader.pages[0].extract_text()
         assert expected in content and excluded not in content and '{{' not in content
         assert '2027-2029' in content and '01/09/2027' in content
@@ -107,7 +107,7 @@ def test_certificate_word_and_long_name_pdf_use_current_mode(editor, mode, uai):
         conn.execute("UPDATE candidats SET prenom=?,nom=?,bts='NDRC',mode=? WHERE id='editor'",
                      ('Alexandre Jean-François', 'DE LA ROCHE SAINT-PIERRE', mode))
     pdf = PdfReader(io.BytesIO(client.get('/admin/candidat/editor/certificat.pdf').data))
-    assert len(pdf.pages) == 1
+    assert len(pdf.pages) == 3
     content = pdf.pages[0].extract_text()
     assert uai in content and 'SAINT-PIERRE' in content and '2027-2029' in content
     for route in ('generate_certificat', 'generate_certificat_presentiel'):
@@ -225,3 +225,51 @@ def test_photo_rotation_stale_source_invalid_crop_and_auth(editor):
     assert Image.open(io.BytesIO(client.get('/admin/candidat/editor/photo').data)).size == (600,600)
     with client.session_transaction() as state: state.clear()
     assert client.post('/admin/candidat/editor/photo-crop',json=crop,headers=headers).status_code == 403
+
+
+def test_precise_straightening_matches_saved_portrait_and_rejects_empty_corners(editor):
+    from PIL import ImageDraw
+    client, headers, _ = editor
+    path = make_photo()
+    source = Image.new('RGB', (1000, 1000), 'blue')
+    ImageDraw.Draw(source).rectangle((450,100,550,900), fill='red')
+    source.rotate(-27, resample=Image.Resampling.BICUBIC, fillcolor='blue').save(path)
+    original = path.read_bytes()
+    source_hash = client.get('/admin/candidat/editor/photo?original=1').headers['X-Photo-Source']
+    crop = dict(version=2, rotation=0, straighten=-27, cx=.5, cy=.5, width=.4, height=.5, source_hash=source_hash)
+    assert client.post('/admin/candidat/editor/photo-crop',json=crop,headers=headers).status_code == 200
+    result = Image.open(io.BytesIO(client.get('/admin/candidat/editor/photo').data))
+    assert result.size == (400,500)
+    for position in ((200,60),(200,440)):
+        assert result.getpixel(position)[0] > 240
+        assert result.getpixel((60,position[1]))[2] > 240
+    restored = json.loads(client.get('/admin/candidat/editor/photo?original=1').headers['X-Photo-Crop'])
+    assert restored['straighten'] == -27 and restored['version'] == 2
+    assert path.read_bytes() == original
+    for bad in ({'straighten':46}, {'straighten':True}, {'cx':.02}, {'width':1,'height':1.25}, {'cx':float('inf')}):
+        assert client.post('/admin/candidat/editor/photo-crop',json={**crop,**bad},headers=headers).status_code == 400
+
+
+@pytest.mark.parametrize('mode', ['presentiel', 'distanciel'])
+@pytest.mark.parametrize('bts', ['MOS','MCO','NDRC','PI','CI','CG'])
+def test_original_certificate_model_all_courses_annexes_and_future_cohort(mode, bts):
+    import hashlib
+    from certificates import certificate_pdf
+    root = Path(application.__file__).parent
+    for year in (2026,2027,2028):
+        data = certificate_pdf(dict(mode=mode,bts=bts,prenom='Élodie',nom='DUPONT',rentree_annee=year))
+        reader = PdfReader(io.BytesIO(data))
+        assert len(reader.pages) == 3
+        text = '\n'.join(page.extract_text() for page in reader.pages)
+        assert 'ÉLODIE DUPONT' in text and '{{' not in text and '00/00/0000' not in text
+        assert f'{year}-{year+2}' in text and 'Confirmation d’inscription' in text and 'Contrat d’apprentissage' in text
+        assert 'SERVICE SCOLARITÉ' not in text
+        if year >= 2027: assert '6000€' not in text and 'septembre 2026' not in text
+        base_year = 2026 if year == 2026 else 2027
+        manifest = json.loads((root/'assets/certificates/manifest.json').read_text())
+        template = manifest['templates'][f'{mode}-{bts}-{base_year}']
+        model = PdfReader(root/'assets/certificates'/template['file'])
+        # Original header, footer QR, stamps and signatures survive every overlay.
+        for page, original in zip(reader.pages, model.pages[template['start']:template['start']+3]):
+            original_images = {hashlib.sha256(image.data).hexdigest() for image in original.images}
+            assert original_images <= {hashlib.sha256(image.data).hexdigest() for image in page.images}

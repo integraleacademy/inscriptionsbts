@@ -114,3 +114,7 @@ body.academy-ui.candidate-sheet-page .sheet-information-extras .sheet-key-dates 
   .photo-crop-tools label,.photo-crop-tools input,.photo-crop-tools p,#photo-crop-reset { grid-column:1/-1; }
   .photo-crop-dialog .btn { font-size:11px; }
 }
+.photo-zoom-buttons { display:flex; gap:8px; }
+.photo-zoom-buttons .btn { flex:1; font-size:19px; padding:3px; min-height:32px; }
+.photo-crop-tools .photo-crop-hint { margin:-6px 0 2px; }
+@media(max-width:580px) { .photo-zoom-buttons { grid-column:1/-1; } }

@@ -197,7 +197,10 @@ def register_candidate_workflows(app, db_connect, send_mail, send_sms, log_event
         if not _equal(request.headers.get('X-CSRF-Token') or data.get('csrf_token'), session.get('_candidate_message_csrf')):
             return jsonify(ok=False, error='La session a expiré. Rechargez la page.'), 400
         input_data = {key: value for key, value in data.items() if key not in ('preview', 'preview_token', 'csrf_token')}
-        request_hash = _hash(_json([kind, cid, input_data, request.args.get('rentree')]))
+        request_key = [kind, cid, input_data, request.args.get('rentree')]
+        if kind == 'certificate':
+            request_key.append('original-word-model-v1')
+        request_hash = _hash(_json(request_key))
         owner = _hash(_csrf_token())
         if data.get('preview') is True:
             try:

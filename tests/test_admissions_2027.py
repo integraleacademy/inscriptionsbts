@@ -253,15 +253,15 @@ def test_certificates_follow_each_candidates_cohort(client):
             response=client.get(f'/admin/{path}/{cid}?preview=1')
             assert response.status_code==200
             doc=PdfReader(io.BytesIO(response.data))
-            assert len(doc.pages)==1
-            text=doc.pages[0].extract_text()
+            assert len(doc.pages)==3
+            text='\n'.join(page.extract_text() for page in doc.pages)
             assert str(year) in text and str(year+2) in text, text
-            assert 'Certificat de scolarité' in text and f"Promotion {year}-{year+2}" in text
+            assert 'Certificat de scolarité' in text and f"{year}-{year+2}" in text
             assert '{{' not in text
             if year == 2027:
                 assert '6000€' not in text
                 assert 'septembre 2026' not in text
-                assert 'Contrat d’apprentissage' not in text  # The PDF is the certificate itself.
+                assert 'Contrat d’apprentissage' in text  # Keep the annexes from the original Word bundle.
             response.close()
 
 

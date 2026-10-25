@@ -51,6 +51,24 @@ def validate_crop(data, image):
     rotation = data.get('rotation', 0)
     if isinstance(rotation, bool) or rotation not in (0, 90, 180, 270):
         raise ValueError('Rotation invalide.')
+    if data.get('version') == 2:
+        values = {}
+        for key in ('cx', 'cy', 'width', 'height', 'straighten'):
+            value = data.get(key)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise ValueError('Cadrage invalide.')
+            values[key] = float(value)
+        iw, ih = image.size
+        w, h = values['width'] * iw, values['height'] * ih
+        if not -45 <= values['straighten'] <= 45 or w < 20 or h < 20 or abs(w / h - .8) > .02:
+            raise ValueError('Angle ou dimensions du cadrage invalides.')
+        angle = math.radians(rotation + values['straighten'])
+        half_w = (abs(math.cos(angle)) * w + abs(math.sin(angle)) * h) / 2
+        half_h = (abs(math.sin(angle)) * w + abs(math.cos(angle)) * h) / 2
+        cx, cy = values['cx'] * iw, values['cy'] * ih
+        if cx < half_w - .01 or cx > iw - half_w + .01 or cy < half_h - .01 or cy > ih - half_h + .01:
+            raise ValueError('Le cadre doit rester dans la photo.')
+        return dict(version=2, rotation=rotation, **values)
     values = []
     for key in ('x', 'y', 'width', 'height'):
         value = data.get(key)
@@ -64,6 +82,25 @@ def validate_crop(data, image):
     if w * iw < 20 or h * ih < 20 or abs((w * iw) / (h * ih) - .8) > .02:
         raise ValueError('Le cadrage doit être un portrait suffisamment grand.')
     return dict(x=x, y=y, width=w, height=h, rotation=rotation)
+
+
+def render_crop(photo, crop):
+    if crop.get('version') != 2:
+        photo = photo.rotate(-crop['rotation'], expand=True)
+        w, h = photo.size
+        return photo.crop((round(crop['x'] * w), round(crop['y'] * h),
+                           round((crop['x'] + crop['width']) * w), round((crop['y'] + crop['height']) * h)))
+    iw, ih = photo.size
+    w, h = crop['width'] * iw, crop['height'] * ih
+    out_h = max(20, round(min(600, h)))
+    out_w = round(out_h * .8)
+    angle = math.radians(crop['rotation'] + crop['straighten'])
+    a, b = math.cos(angle) * w / out_w, math.sin(angle) * h / out_h
+    d, e = -math.sin(angle) * w / out_w, math.cos(angle) * h / out_h
+    c = crop['cx'] * iw - a * out_w / 2 - b * out_h / 2
+    f = crop['cy'] * ih - d * out_w / 2 - e * out_h / 2
+    return photo.transform((out_w, out_h), Image.Transform.AFFINE, (a,b,c,d,e,f),
+                           resample=Image.Resampling.BICUBIC, fillcolor='white')
 
 
 def photo_response(row, upload_dir, db_connect, *, original=False):
@@ -82,10 +119,7 @@ def photo_response(row, upload_dir, db_connect, *, original=False):
             pass
     if crop and not original:
         try:
-            photo = photo.rotate(-crop['rotation'], expand=True)
-            w, h = photo.size
-            photo = photo.crop((round(crop['x'] * w), round(crop['y'] * h),
-                                round((crop['x'] + crop['width']) * w), round((crop['y'] + crop['height']) * h)))
+            photo = render_crop(photo, crop)
         except (ValueError, TypeError, KeyError):
             pass
     photo.thumbnail((2400, 2400) if original else (600, 600))

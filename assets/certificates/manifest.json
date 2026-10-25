@@ -1,0 +1,2511 @@
+{
+  "version": 1,
+  "sources": {
+    "presentiel": {
+      "path": "static/templates/certificat_scolarite_presentiel.docx",
+      "sha256": "f43d0dfa4831d6093ed706219ae1dd7cac094d1033f983039c03711e2e004266"
+    },
+    "distanciel": {
+      "path": "static/templates/certificat de scolarité 2026.docx",
+      "sha256": "fd386003ea5f44b22b59e8b586fb3c7764006ed560ee654b72cc939514f3ef34"
+    }
+  },
+  "templates": {
+    "presentiel-MCO-2026": {
+      "file": "models.pdf",
+      "start": 0,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO) __YEAR__-__END_YEAR__",
+          "x": 102.0999984741211,
+          "y": 412.7507629394531,
+          "width": 399.26200103759766,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 332.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 345.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 444.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 546.9007568359375,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-MOS-2026": {
+      "file": "models.pdf",
+      "start": 3,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS) __YEAR__-__END_YEAR__",
+          "x": 93.75,
+          "y": 412.7507629394531,
+          "width": 415.9620056152344,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 332.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 345.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 444.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 546.9007568359375,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-PI-2026": {
+      "file": "models.pdf",
+      "start": 6,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS PROFESSIONS IMMOBILIÈRES (PI) __YEAR__-__END_YEAR__",
+          "x": 157.39999389648438,
+          "y": 412.7507629394531,
+          "width": 288.6620178222656,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.00079345703125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 331.6507568359375,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 430.7007751464844,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 546.9007568359375,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-NDRC-2026": {
+      "file": "models.pdf",
+      "start": 9,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "__YEAR__-__END_YEAR__",
+          "x": 273.1000061035156,
+          "y": 426.55078125,
+          "width": 57.31201171875,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 458.4507751464844,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 512.750732421875,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 332.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 345.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 444.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 546.9007568359375,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-CG-2026": {
+      "file": "models.pdf",
+      "start": 12,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS COMPTABILITÉ ET GESTION (CG) __YEAR__-__END_YEAR__",
+          "x": 160.10000610351562,
+          "y": 412.7507629394531,
+          "width": 283.2619934082031,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.00079345703125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 331.6507568359375,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 430.7007751464844,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 546.9007568359375,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-CI-2026": {
+      "file": "models.pdf",
+      "start": 15,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS COMMERCE INTERNATIONAL (CI) __YEAR__-__END_YEAR__",
+          "x": 159.75,
+          "y": 412.7507629394531,
+          "width": 283.9620056152344,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.00079345703125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 331.6507568359375,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 430.7007751464844,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 546.9007568359375,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-MCO-2027": {
+      "file": "models.pdf",
+      "start": 18,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO) __YEAR__-__END_YEAR__",
+          "x": 102.0999984741211,
+          "y": 412.7507629394531,
+          "width": 399.26200103759766,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 332.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 345.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 444.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 534.250732421875,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-MOS-2027": {
+      "file": "models.pdf",
+      "start": 21,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS) __YEAR__-__END_YEAR__",
+          "x": 93.75,
+          "y": 412.7507629394531,
+          "width": 415.9620056152344,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 332.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 345.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 444.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 534.250732421875,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-PI-2027": {
+      "file": "models.pdf",
+      "start": 24,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS PROFESSIONS IMMOBILIÈRES (PI) __YEAR__-__END_YEAR__",
+          "x": 157.39999389648438,
+          "y": 412.7507629394531,
+          "width": 288.6620178222656,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.00079345703125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 331.6507568359375,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 430.7007751464844,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 534.250732421875,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-NDRC-2027": {
+      "file": "models.pdf",
+      "start": 27,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "__YEAR__-__END_YEAR__",
+          "x": 273.1000061035156,
+          "y": 426.55078125,
+          "width": 57.31201171875,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 458.4507751464844,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 512.750732421875,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 332.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 345.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 444.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 534.250732421875,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-CG-2027": {
+      "file": "models.pdf",
+      "start": 30,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS COMPTABILITÉ ET GESTION (CG) __YEAR__-__END_YEAR__",
+          "x": 160.10000610351562,
+          "y": 412.7507629394531,
+          "width": 283.2619934082031,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.00079345703125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 331.6507568359375,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 430.7007751464844,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 534.250732421875,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "presentiel-CI-2027": {
+      "file": "models.pdf",
+      "start": 33,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 156.4007568359375,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 352.85076904296875,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS COMMERCE INTERNATIONAL (CI) __YEAR__-__END_YEAR__",
+          "x": 159.75,
+          "y": 412.7507629394531,
+          "width": 283.9620056152344,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 444.6507568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 222.05799865722656,
+          "y": 498.9507751464844,
+          "width": 59.98799133300781,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 191.80078125,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.00079345703125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 331.6507568359375,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 430.7007751464844,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 534.250732421875,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-MCO-2026": {
+      "file": "models.pdf",
+      "start": 36,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO) __YEAR__-__END_YEAR__",
+          "x": 102.0999984741211,
+          "y": 397.7007751464844,
+          "width": 399.26200103759766,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 333.60076904296875,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 346.2507629394531,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 445.30078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 547.7008056640625,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-MOS-2026": {
+      "file": "models.pdf",
+      "start": 39,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS) __YEAR__-__END_YEAR__",
+          "x": 93.75,
+          "y": 397.7007751464844,
+          "width": 415.9620056152344,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 333.60076904296875,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 346.2507629394531,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 445.30078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 547.7008056640625,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-PI-2026": {
+      "file": "models.pdf",
+      "start": 42,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS PROFESSIONS IMMOBILIÈRES (PI) __YEAR__-__END_YEAR__",
+          "x": 157.39999389648438,
+          "y": 397.7007751464844,
+          "width": 288.6620178222656,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 332.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 431.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 547.7008056640625,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-NDRC-2026": {
+      "file": "models.pdf",
+      "start": 45,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "__YEAR__-__END_YEAR__",
+          "x": 273.1000061035156,
+          "y": 411.5007629394531,
+          "width": 57.31201171875,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 443.4007568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 497.7007751464844,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 333.60076904296875,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 346.2507629394531,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 445.30078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 547.7008056640625,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-CG-2026": {
+      "file": "models.pdf",
+      "start": 48,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS COMPTABILITÉ ET GESTION (CG) __YEAR__-__END_YEAR__",
+          "x": 160.10000610351562,
+          "y": 397.7007751464844,
+          "width": 283.2619934082031,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 332.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 431.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 547.7008056640625,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-CI-2026": {
+      "file": "models.pdf",
+      "start": 51,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS COMMERCE INTERNATIONAL (CI) __YEAR__-__END_YEAR__",
+          "x": 159.75,
+          "y": 397.7007751464844,
+          "width": 283.9620056152344,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 332.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 431.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 547.7008056640625,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-MCO-2027": {
+      "file": "models.pdf",
+      "start": 54,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS MANAGEMENT COMMERCIAL OPÉRATIONNEL (MCO) __YEAR__-__END_YEAR__",
+          "x": 102.0999984741211,
+          "y": 397.7007751464844,
+          "width": 399.26200103759766,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 333.60076904296875,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 346.2507629394531,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 445.30078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 535.05078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-MOS-2027": {
+      "file": "models.pdf",
+      "start": 57,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS MANAGEMENT OPÉRATIONNEL DE LA SÉCURITÉ (MOS) __YEAR__-__END_YEAR__",
+          "x": 93.75,
+          "y": 397.7007751464844,
+          "width": 415.9620056152344,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 333.60076904296875,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 346.2507629394531,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 445.30078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 535.05078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-PI-2027": {
+      "file": "models.pdf",
+      "start": 60,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS PROFESSIONS IMMOBILIÈRES (PI) __YEAR__-__END_YEAR__",
+          "x": 157.39999389648438,
+          "y": 397.7007751464844,
+          "width": 288.6620178222656,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 332.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 431.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 535.05078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-NDRC-2027": {
+      "file": "models.pdf",
+      "start": 63,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "__YEAR__-__END_YEAR__",
+          "x": 273.1000061035156,
+          "y": 411.5007629394531,
+          "width": 57.31201171875,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 443.4007568359375,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 497.7007751464844,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 333.60076904296875,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 346.2507629394531,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 445.30078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 535.05078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-CG-2027": {
+      "file": "models.pdf",
+      "start": 66,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS COMPTABILITÉ ET GESTION (CG) __YEAR__-__END_YEAR__",
+          "x": 160.10000610351562,
+          "y": 397.7007751464844,
+          "width": 283.2619934082031,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 332.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 431.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 535.05078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    },
+    "distanciel-CI-2027": {
+      "file": "models.pdf",
+      "start": 69,
+      "pages": 3,
+      "fields": [
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Certificat de scolarité __YEAR__-__END_YEAR__",
+          "x": 160.6999969482422,
+          "y": 157.20074462890625,
+          "width": 273.95994567871094,
+          "size": 18.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "name",
+          "x": 227.10000610351562,
+          "y": 337.80078125,
+          "width": 141.23202514648438,
+          "size": 16.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "BTS COMMERCE INTERNATIONAL (CI) __YEAR__-__END_YEAR__",
+          "x": 159.75,
+          "y": 397.7007751464844,
+          "width": 283.9620056152344,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 0,
+          "field": "text",
+          "text": "Du 01/09/__YEAR__ au 31/07/__END_YEAR__.",
+          "x": 70.94999694824219,
+          "y": 429.60076904296875,
+          "width": 161.8918914794922,
+          "size": 12.0,
+          "style": "Regular"
+        },
+        {
+          "page": 0,
+          "field": "date",
+          "x": 151.47398376464844,
+          "y": 483.9007568359375,
+          "width": 59.987945556640625,
+          "size": 12.0,
+          "style": "Bold"
+        },
+        {
+          "page": 1,
+          "field": "date",
+          "x": 460.1000061035156,
+          "y": 192.60076904296875,
+          "width": 59.952056884765625,
+          "size": 12.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "La rentrée scolaire se déroulera en septembre __YEAR__ ",
+          "x": 70.94999694824219,
+          "y": 319.80078125,
+          "width": 268.3560028076172,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "précise de la rentrée courant juillet / août __YEAR__).  ",
+          "x": 70.94999694824219,
+          "y": 332.4507751464844,
+          "width": 238.9199676513672,
+          "size": 11.0,
+          "style": "Italic"
+        },
+        {
+          "page": 1,
+          "field": "text",
+          "text": "Vous recevrez courant juillet / août __YEAR__ par mail votre identifiant et votre mot de passe pour ",
+          "x": 70.94999694824219,
+          "y": 431.5007629394531,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        },
+        {
+          "page": 2,
+          "field": "text",
+          "text": "Vous aurez jusqu’au mois de décembre __YEAR__ pour trouver une entreprise d’accueil et signer ",
+          "x": 70.94999694824219,
+          "y": 535.05078125,
+          "width": 456.64698791503906,
+          "size": 11.0,
+          "style": "Regular"
+        }
+      ]
+    }
+  }
+}
