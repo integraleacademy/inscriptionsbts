@@ -11,64 +11,98 @@ body.academy-ui.daily-login-page{
   background:var(--daily-bg);color:var(--daily-ink)
 }
 body.academy-ui.daily-login-page main#main-content.container{
-  width:100%;max-width:none;margin:0;padding:32px clamp(18px,3vw,56px);box-sizing:border-box
+  width:100%;max-width:1168px;margin:0 auto;padding:24px;box-sizing:border-box
 }
 .academy-ui.daily-login-page :is(.access-shell,.trainer-login-shell){
-  width:100%;max-width:none;margin:0;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
-  background:var(--daily-paper);border:1px solid var(--daily-edge);border-radius:28px;
+  width:100%;max-width:none;margin:0;grid-template-columns:minmax(0,.96fr) minmax(0,1.04fr);
+  background:var(--daily-paper);border:1px solid var(--daily-edge);border-radius:24px;
   box-shadow:0 22px 60px #2632220d;overflow:hidden
 }
 .academy-ui.daily-login-page :is(.access-story,.trainer-login-story){
-  display:flex;flex-direction:column;min-width:0;padding:clamp(28px,3vw,56px);
+  display:flex;flex-direction:column;justify-content:center;min-width:0;padding:28px;
   color:var(--daily-ink);background:linear-gradient(150deg,var(--daily-secondary),var(--daily-soft))
 }
 .academy-ui.daily-login-page #main-content :is(.access-story,.trainer-login-story) h1{
-  color:var(--daily-ink);font-size:clamp(44px,4.2vw,72px);line-height:1.02;letter-spacing:-.045em
+  color:var(--daily-ink);font-size:clamp(32px,3.2vw,40px);line-height:1.06;letter-spacing:-.045em;
+  margin:14px 0 12px
 }
 .academy-ui.daily-login-page :is(.access-story,.trainer-login-story) h1 em{color:var(--daily-accent)}
 .academy-ui.daily-login-page :is(.access-story,.trainer-login-story)>p,
 .academy-ui.daily-login-page :is(.access-kicker,.trainer-kicker){color:var(--daily-muted)}
-.academy-ui.daily-login-page .access-story>p{max-width:460px}
+.academy-ui.daily-login-page :is(.access-story,.trainer-login-story)>p:not(.trainer-kicker){
+  max-width:460px;font-size:13px;line-height:1.6;margin:0 0 16px
+}
+.academy-ui.daily-login-page :is(.access-kicker,.trainer-kicker){font-size:9px;line-height:1.6}
+.academy-ui.daily-login-page .trainer-login-story>.trainer-kicker{margin:0}
 .academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual){
+  display:flex;flex-direction:column;flex:none;align-self:center;width:100%;max-width:360px;min-height:0;height:auto;
+  margin:0 0 16px;border:6px solid var(--daily-paper);border-radius:16px;overflow:hidden;
   background:var(--daily-paper);border-color:var(--daily-paper);box-shadow:0 15px 30px #30392b15;
-  margin-top:10px;transform:rotate(-1deg)
+  transform:rotate(-1deg)
 }
-.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) img{object-position:center;object-fit:cover}
-.academy-ui.daily-login-page .student-login-illustration{min-height:310px;margin-bottom:26px}
-.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) figcaption{color:var(--daily-accent);line-height:1.45;text-align:center}
+.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) img{
+  position:static;display:block;width:100%;height:auto;min-height:0;max-height:none;
+  object-position:center;object-fit:contain;border-radius:10px;aspect-ratio:3/2
+}
+.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) figcaption{
+  position:static;display:flex;align-items:center;justify-content:center;gap:8px;padding:9px 4px 3px;
+  color:var(--daily-accent);font-size:11px;line-height:1.45;text-align:center
+}
 .academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) figcaption svg{color:var(--daily-accent)}
-.academy-ui.daily-login-page :is(.student-login-topics>span,.trainer-story-tags>span){color:var(--daily-muted);background:var(--daily-paper);border-color:var(--daily-edge);border-radius:30px;padding:7px 10px}
+.academy-ui.daily-login-page :is(.student-login-topics,.trainer-story-tags){justify-content:flex-start;gap:8px}
+.academy-ui.daily-login-page :is(.student-login-topics>span,.trainer-story-tags>span){color:var(--daily-muted);background:var(--daily-paper);border-color:var(--daily-edge);border-radius:30px;padding:5px 8px;font-size:10px}
 .academy-ui.daily-login-page :is(.access-form-panel,.trainer-login-form){
-  min-width:0;padding:clamp(30px,4vw,68px);background:var(--daily-paper);color:var(--daily-ink)
+  min-width:0;padding:28px 32px;background:var(--daily-paper);color:var(--daily-ink)
 }
-.academy-ui.daily-login-page #main-content :is(.access-form-panel,.trainer-login-form) h2{color:var(--daily-ink);font-size:clamp(30px,2.7vw,46px);line-height:1.15}
-.academy-ui.daily-login-page :is(.access-form-panel,.trainer-login-form)>p{color:var(--daily-muted)}
-.academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) label{color:var(--daily-ink)}
-.academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:not([type=hidden]){color:var(--daily-ink);background:#fff;border-color:var(--daily-edge);box-shadow:none}
+.academy-ui.daily-login-page #main-content :is(.access-form-panel,.trainer-login-form) h2{
+  color:var(--daily-ink);font-size:28px;line-height:1.18;margin:10px 0 12px;letter-spacing:-.04em
+}
+.academy-ui.daily-login-page :is(.access-form-panel,.trainer-login-form)>p{
+  color:var(--daily-muted);max-width:none;font-size:13px;line-height:1.6;margin:0 0 18px
+}
+.academy-ui.daily-login-page :is(.access-form,.trainer-auth-form){margin:0;gap:14px}
+.academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) label{color:var(--daily-ink);font-size:12px;line-height:1.5;gap:6px}
+.academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:not([type=hidden]){
+  color:var(--daily-ink);background:#fff;border-color:var(--daily-edge);box-shadow:none;
+  min-height:44px;padding:10px 12px;font-size:14px;line-height:1.5;border-radius:10px
+}
 .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:focus{outline:3px solid var(--daily-soft);outline-offset:2px;border-color:var(--daily-accent)}
-.academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary){background:var(--daily-accent)!important;color:#fff!important;border-color:var(--daily-accent)!important;box-shadow:none}
+.academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary){background:var(--daily-accent)!important;color:#fff!important;border-color:var(--daily-accent)!important;box-shadow:none;min-height:44px;padding:11px 16px;margin:0;font-size:14px;line-height:1.5;border-radius:10px}
 .academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary):hover{filter:brightness(.91)}
 .academy-ui.daily-login-page :is(.access-submit,.trainer-button.primary):focus-visible{outline:3px solid var(--daily-accent);outline-offset:4px}
 .academy-ui.daily-login-page :is(.access-forgot,.trainer-forgot,.access-help a,.trainer-login-help a){color:var(--daily-accent)}
-.academy-ui.daily-login-page :is(.access-first,.trainer-access-note){background:var(--daily-secondary);border-color:var(--daily-edge);border-left:3px solid var(--daily-accent);color:var(--daily-ink)}
+.academy-ui.daily-login-page :is(.access-forgot,.trainer-forgot){margin-top:10px;font-size:12px;line-height:1.5}
+.academy-ui.daily-login-page :is(.access-first,.trainer-access-note){background:var(--daily-secondary);border-color:var(--daily-edge);border-left:3px solid var(--daily-accent);color:var(--daily-ink);margin:16px 0 0;padding:12px 14px;border-radius:12px}
 .academy-ui.daily-login-page :is(.access-first,.trainer-access-note) :is(p,small,b,strong,svg){color:var(--daily-muted)}
-.academy-ui.daily-login-page :is(.access-help,.trainer-login-help){border-color:var(--daily-edge);color:var(--daily-muted)}
-.academy-ui.daily-login-page :is(.access-back,.trainer-back){color:var(--daily-muted)}
+.academy-ui.daily-login-page :is(.access-first,.trainer-access-note) b{font-size:12px}
+.academy-ui.daily-login-page :is(.access-first,.trainer-access-note) p{font-size:12px;line-height:1.5;margin:6px 0}
+.academy-ui.daily-login-page .access-first small{display:block;font-size:11px;line-height:1.5}
+.academy-ui.daily-login-page :is(.access-help,.trainer-login-help){display:flex;flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;border-color:var(--daily-edge);color:var(--daily-muted);margin-top:16px;padding-top:12px;font-size:12px;line-height:1.5}
+.academy-ui.daily-login-page :is(.access-help,.trainer-login-help) a{font-size:13px;white-space:nowrap}
+.academy-ui.daily-login-page :is(.access-back,.trainer-back){color:var(--daily-muted);margin-top:12px;font-size:12px;line-height:1.5}
 .academy-ui.daily-login-page .access-form-panel .access-kicker::before{background:var(--daily-accent)}
-.academy-ui.daily-login-page .footer-signature{max-width:none;background:transparent;color:var(--daily-muted);padding-inline:clamp(18px,3vw,56px)}
-@media(min-width:1700px){
-  .academy-ui.daily-login-page .student-login-illustration{min-height:430px}
-  .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form){margin-top:34px;gap:24px}
-  .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:not([type=hidden]){min-height:56px}
+.academy-ui.daily-login-page .footer-signature{max-width:1120px;margin:0 auto;background:transparent;color:var(--daily-muted);padding:12px 24px;font-size:11px}
+/* Compact laptop heights without fixed panels or clipped error messages. */
+@media(min-width:901px) and (max-height:800px){
+  body.academy-ui.daily-login-page main#main-content.container{padding-block:16px}
+  .academy-ui.daily-login-page :is(.access-story,.trainer-login-story,.access-form-panel,.trainer-login-form){padding:22px 28px}
+  .academy-ui.daily-login-page #main-content :is(.access-story,.trainer-login-story) h1{font-size:34px;margin-block:12px}
+  .academy-ui.daily-login-page #main-content :is(.access-form-panel,.trainer-login-form) h2{font-size:26px}
+  .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form){gap:12px}
+  .academy-ui.daily-login-page :is(.access-first,.trainer-access-note){margin-top:12px}
+  .academy-ui.daily-login-page :is(.access-help,.trainer-login-help){margin-top:12px;padding-top:10px}
 }
-@media(max-width:760px){
-  body.academy-ui.daily-login-page main#main-content.container{padding:20px 14px}
+@media(max-width:900px){
+  body.academy-ui.daily-login-page main#main-content.container{max-width:600px;padding:16px}
   .academy-ui.daily-login-page :is(.access-shell,.trainer-login-shell){grid-template-columns:1fr;border-radius:22px}
-  .academy-ui.daily-login-page :is(.access-story,.trainer-login-story){padding:27px}
-  .academy-ui.daily-login-page #main-content :is(.access-story,.trainer-login-story) h1{font-size:42px}
-  .academy-ui.daily-login-page :is(.access-form-panel,.trainer-login-form){padding:30px 26px}
-  .academy-ui.daily-login-page .student-login-illustration{min-height:0;height:240px}
-  .academy-ui.daily-login-page .trainer-login-visual img{height:230px}
-  .academy-ui.daily-login-page :is(.student-login-topics,.trainer-story-tags){gap:7px;justify-content:flex-start}
+  .academy-ui.daily-login-page :is(.access-form-panel,.trainer-login-form){grid-row:1;padding:24px}
+  .academy-ui.daily-login-page :is(.access-story,.trainer-login-story){grid-row:2;padding:24px}
+  .academy-ui.daily-login-page #main-content :is(.access-story,.trainer-login-story) h1{font-size:30px}
+  .academy-ui.daily-login-page #main-content :is(.access-form-panel,.trainer-login-form) h2{font-size:26px}
+  .academy-ui.daily-login-page :is(.access-form,.trainer-auth-form) input:not([type=hidden]){font-size:16px}
+}
+@media(max-width:380px){
+  .academy-ui.daily-login-page :is(.access-story,.trainer-login-story,.access-form-panel,.trainer-login-form){padding:20px}
+  .academy-ui.daily-login-page #main-content :is(.access-form-panel,.trainer-login-form) h2{font-size:24px}
 }
 @media(prefers-reduced-motion:reduce){.academy-ui.daily-login-page *{scroll-behavior:auto!important}}

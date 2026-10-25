@@ -13,7 +13,7 @@
     </figure>
     <div class="student-login-topics" aria-label="Ton espace étudiant"><span>{{ icon('person') }} Tes informations</span><span>{{ icon('file') }} Tes documents</span><span>{{ icon('book') }} Ton parcours</span></div>
   </aside>
-  <div class="access-form-panel"><span class="access-kicker">HEUREUX DE TE RETROUVER</span><h2>Bienvenue<br>dans ton espace.</h2><p>Connecte-toi avec ton nom de famille et ton mot de passe.</p>
+  <div class="access-form-panel"><span class="access-kicker">HEUREUX DE TE RETROUVER</span><h2>Bienvenue dans ton espace.</h2><p>Connecte-toi avec ton nom de famille et ton mot de passe.</p>
   {% if reset_done %}<div class="access-success" role="status">Ton mot de passe a été modifié. Tu peux maintenant te connecter.</div>{% endif %}
   {% if error %}<div class="access-error" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="{{ url_for('candidate_login') }}" class="access-form">
