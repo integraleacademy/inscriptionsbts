@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% from 'ui_icons.html' import icon %}
+{% block body_class %}company-page{% endblock %}
+{% block content %}
+<div class="co-shell"><header class="co-heading"><div><span class="co-kicker">RELATIONS ENTREPRISES</span><h1>Les entreprises <em>partenaires.</em></h1><p>Créez leur accès et rattachez les alternants qu’elles accueillent.</p></div><a class="co-button" href="/admin/assiduite">{{ icon('clock') }} Absences et retards</a></header>
+{% if error %}<div class="co-notice error" role="alert">{{ error }}</div>{% endif %}
+<details class="co-panel co-create" {% if error %}open{% endif %}><summary>+ Ajouter une entreprise</summary><form method="post" class="co-form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% include '_company_fields.html' %}<div class="co-full"><button class="co-button primary">Créer l’espace entreprise</button><small class="co-muted">L’invitation sera envoyée à votre demande, depuis la fiche entreprise.</small></div></form></details>
+<section class="co-panel"><div class="co-section-heading"><h2>{{ companies|length }} entreprise{{ 's' if companies|length != 1 else '' }}</h2><a href="/entreprise/connexion" target="_blank" rel="noopener">Page de connexion ↗</a></div>
+{% if companies %}<div class="co-table-wrap"><table class="co-table"><thead><tr><th>Entreprise</th><th>Contact</th><th>Alternants</th><th>Accès</th><th></th></tr></thead><tbody>{% for company in companies %}<tr><td data-label="Entreprise"><strong>{{ company.name }}</strong></td><td data-label="Contact">{{ company.contact }}<small>{{ company.email }}</small></td><td data-label="Alternants">{{ company.student_count }}</td><td data-label="Accès"><span class="co-badge {{ 'muted' if not company.active else 'blue' }}">{{ 'Désactivé' if not company.active else 'Activé' if company.activated else 'Invitation envoyée' if company.invited_at else 'À inviter' }}</span></td><td data-label="Fiche"><a class="co-button small" href="{{ url_for('admin_company_detail', company_id=company.id) }}">Ouvrir la fiche</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="co-empty">{{ icon('briefcase') }}<h3>Votre première entreprise partenaire.</h3><p>Ajoutez ses coordonnées, rattachez ses alternants et envoyez son invitation.</p></div>{% endif %}
+</section></div>
+{% endblock %}

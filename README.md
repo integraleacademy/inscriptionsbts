@@ -112,3 +112,48 @@ aucun crédit API. Le parcours navigateur simulé est couvert par
 `tests/subject_references_frontend.cjs` (jsdom ; rendu automatique de la vraie page et catalogue de test associé).
 
 Les paramètres OpenAI se trouvent dans **Paramètres → OpenAI** (`/admin/parametres`). La clé existante est conservée. Les résultats asynchrones demandent la liste complète des sources à chaque récupération ; une matière non sourcée reste visible mais ne bloque pas les autres. Les textes générés trop longs sont abrégés dans les champs, avec leur version intégrale consultable avant et après l’import. Les anciennes analyses bloquées par le contrôle des sources ou des textes peuvent être récupérées en rouvrant l’import dans la même session, pendant 24 heures, sans nouvelle génération.
+
+
+## Espace entreprise et assiduité
+
+- **Connexion → Espace entreprise** (`/entreprise/connexion`) : compte distinct
+  de l’étudiant, du formateur et de l’équipe. Onglets **Mes alternants**,
+  **Planning**, **Absences et retards** ; affichage adapté au mobile.
+- Dans **Entreprises** (`/admin/entreprises`), créer l’entreprise et son contact,
+  rattacher les étudiants confirmés, définir la période de rattachement et le
+  tuteur, puis cliquer sur **Envoyer l’invitation**. La création et le rattachement
+  n’envoient aucun e-mail. Une adresse correspond à un compte entreprise.
+- L’activation permet de choisir un mot de passe (12 caractères minimum). Les
+  liens sont à usage unique : 72 h pour l’activation, 30 min pour un compte déjà
+  activé. Récupération de mot de passe, limitation des tentatives, jetons CSRF,
+  sessions de 8 h liées à la version du compte et pages privées sans traceurs.
+  Changer l’e-mail exige une nouvelle invitation. Désactiver le compte révoque
+  immédiatement ses sessions et invitations. Aucune configuration supplémentaire
+  à `SECRET_KEY`, `BASE_URL` et l’envoi de mail existants n’est nécessaire.
+- Un étudiant ne peut être rattaché qu’à une entreprise à la fois. Pour le
+  transférer, retirer l’ancien rattachement puis créer le nouveau avec sa date
+  de début. Le retrait coupe immédiatement la visibilité. La date de fin ferme
+  l’accès à l’alternant à son expiration. Les inscriptions annulées sont exclues.
+- Le planning provient de la promotion actuellement affectée : cours, matières,
+  salles, formateurs, jours école/entreprise, vacances et fermetures. Export PDF
+  hebdomadaire. Les jours et événements hors période de rattachement sont masqués,
+  y compris dans les exports. Aucun horaire de travail en entreprise n’est déduit.
+- **Absences et retards** (`/admin/assiduite`) permet à l’équipe de saisir un
+  événement constaté, sa date, son créneau et son justificatif (en attente,
+  justifié, non justifié), puis de le corriger ou le retirer. Le registre est
+  initialement vide ; il ne constitue ni un système d’émargement ni un taux de
+  présence. Les créneaux en double, chevauchants, inversés ou futurs sont rejetés.
+  Les mises à jour concurrentes sont détectées. L’historique technique conserve
+  les corrections ; les justificatifs médicaux et motifs privés ne sont pas
+  recueillis dans ce registre ni exposés à l’entreprise.
+- Le compte entreprise peut filtrer le relevé mensuel par alternant et l’exporter
+  en CSV (UTF-8, point-virgule, cellules protégées contre les formules). Les accès
+  sont revérifiés côté serveur pour chaque page et chaque téléchargement.
+- Schéma SQLite additif, sans modification des comptes ou dossiers existants :
+  `companies`, `company_students`, `company_tokens`, `company_requests`,
+  `student_attendance`, `company_audit`. Données conservées sur le disque existant.
+
+Validation : `python -m pytest -q tests/test_company_portal.py`. Les e-mails sont
+simulés dans les tests, avec vérifications de cloisonnement entre entreprises,
+CSRF, activation/récupération, révocation, limites temporelles, exports,
+chevauchements et corrections du registre.

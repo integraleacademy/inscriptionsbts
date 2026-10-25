@@ -42,7 +42,7 @@ const {JSDOM} = require('jsdom');
   check(menu.open, 'The native focus transition to a link must not close the menu before its click');
   links[0].dispatchEvent(new w.FocusEvent('focusout', {bubbles: true, relatedTarget: d.querySelector('#start-application')}));
   check(!menu.open, 'A focus destination outside the menu closes it');
-  check(links.map(link => link.pathname).join(',') === '/espace/connexion,/formateur/connexion,/login', 'Each choice uses the existing authenticated entry point');
+  check(links.map(link => link.pathname).join(',') === '/espace/connexion,/formateur/connexion,/entreprise/connexion,/login', 'Each choice uses the existing authenticated entry point');
   check(links.every(link => !link.hasAttribute('target')), 'Space selection stays in the current tab');
   dom.window.close();
   console.log(`${checks} shared header checks passed`);

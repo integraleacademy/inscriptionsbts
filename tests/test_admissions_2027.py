@@ -402,7 +402,7 @@ def test_preparation_precedes_small_question_groups_without_changing_other_pages
 
 
 @pytest.mark.parametrize('path', ['/', '/candidature?preview=1', '/login', '/espace/connexion', '/formateur/connexion', '/admin', '/admin/formateurs'])
-def test_shared_header_offers_all_three_spaces(client, path, monkeypatch):
+def test_shared_header_offers_all_four_spaces(client, path, monkeypatch):
     from bs4 import BeautifulSoup
     monkeypatch.setattr(application.app, 'secret_key', 'integration-test-secret-for-shared-header')
     if path.startswith('/admin') or 'preview=1' in path:
@@ -416,7 +416,7 @@ def test_shared_header_offers_all_three_spaces(client, path, monkeypatch):
     menu = header.select_one('[data-account-menu]')
     assert menu is not None and not menu.has_attr('open')
     assert menu.select_one('summary').get_text(strip=True) == 'Connexion'
-    assert [link['href'] for link in menu.select('nav a')] == ['/espace/connexion', '/formateur/connexion', '/login']
+    assert [link['href'] for link in menu.select('nav a')] == ['/espace/connexion', '/formateur/connexion', '/entreprise/connexion', '/login']
     assert not header.select('a[href^="tel:"]')
     assert 'Mon espace étudiant' not in header.get_text()
     assert page.select_one('link[href*="academy-header.css"]')

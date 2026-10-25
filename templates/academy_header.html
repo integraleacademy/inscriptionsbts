@@ -9,7 +9,7 @@
       <summary class="academy-account-toggle" aria-controls="academy-account-panel">{{ icon('person') }}<span>Connexion</span><span class="academy-account-chevron" aria-hidden="true"></span></summary>
       <nav id="academy-account-panel" class="academy-account-panel" aria-label="Choisir un espace">
         <p>CHOISISSEZ VOTRE ESPACE</p>
-        {% for href,label,description,symbol in [('/espace/connexion','Espace étudiant','Mon dossier et ma scolarité','person'),('/formateur/connexion','Espace formateur','Mes cours et mes étudiants','book'),('/login','Espace équipe','La gestion des BTS','briefcase')] %}
+        {% for href,label,description,symbol in [('/espace/connexion','Espace étudiant','Mon dossier et ma scolarité','person'),('/formateur/connexion','Espace formateur','Mes cours et mes étudiants','book'),('/entreprise/connexion','Espace entreprise','Mes alternants et leur suivi','briefcase'),('/login','Espace équipe','La gestion des BTS','briefcase')] %}
         <a href="{{ href }}"><span class="academy-account-icon">{{ icon(symbol) }}</span><span><strong>{{ label }}</strong><small>{{ description }}</small></span><span class="academy-account-arrow" aria-hidden="true">↗</span></a>
         {% endfor %}
       </nav>

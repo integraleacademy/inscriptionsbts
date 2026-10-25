@@ -8,6 +8,7 @@ from candidate_access import register_candidate_access, get_authenticated_studen
 from candidate_messages import register_candidate_messages
 from candidate_documents import register_candidate_documents, document_preview_response
 from trainer_access import register_trainer_access
+from company_portal import register_company_portal
 from daily_login import register_daily_login
 from promotions import register_promotions, ensure_promotions_schema, get_candidate_promotion, list_promotions
 from planning import register_planning
@@ -74,6 +75,15 @@ def run_startup_integrity_checks():
         "candidate_messages.py",
         "candidate_documents.py",
         "trainer_access.py",
+        "company_portal.py",
+        "templates/company_auth.html",
+        "templates/company_admin.html",
+        "templates/company_detail.html",
+        "templates/company_dashboard.html",
+        "templates/company_attendance.html",
+        "templates/_company_fields.html",
+        "templates/_company_attendance_table.html",
+        "static/css/company-space.css",
         "templates/trainer_admin.html",
         "templates/trainer_login.html",
         "templates/trainer_password.html",
@@ -168,7 +178,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
@@ -972,6 +982,7 @@ register_promotions(app, db, require_admin)
 register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
 register_planning(app, db, require_admin)
 register_planning_portal(app, db)
+register_company_portal(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
 register_trainer_availability(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
 register_admin_trainer_planning(app, db, require_admin)
 register_planning_sync(app, db, require_admin)

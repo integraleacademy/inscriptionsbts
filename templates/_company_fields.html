@@ -1,0 +1,5 @@
+<label>Nom de l’entreprise<input name="name" value="{{ request.form.get('name', company.name if company is defined else '') }}" maxlength="150" autocomplete="organization" required></label>
+<label>Nom du contact<input name="contact" value="{{ request.form.get('contact', company.contact if company is defined else '') }}" maxlength="150" autocomplete="name" required></label>
+<label>E-mail de connexion<input type="email" name="email" value="{{ request.form.get('email', company.email if company is defined else '') }}" maxlength="254" autocomplete="email" required></label>
+<label>Téléphone <span class="co-muted">(facultatif)</span><input type="tel" name="phone" value="{{ request.form.get('phone', company.phone if company is defined else '') }}" maxlength="40" autocomplete="tel"></label>
+<label>SIRET <span class="co-muted">(facultatif)</span><input name="siret" value="{{ request.form.get('siret', company.siret if company is defined else '') }}" inputmode="numeric" pattern="[0-9 ]{14,18}" maxlength="18"></label>
