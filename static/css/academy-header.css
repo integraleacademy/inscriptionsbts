@@ -1,0 +1,77 @@
+/* One header for the public pages and all three portals. Independent of page themes. */
+#academy-header {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 84px;
+  height: auto;
+  max-width: none;
+  margin: 0;
+  padding: 14px clamp(20px, 3.2vw, 52px);
+  background: linear-gradient(110deg, #40536e, #243248);
+  color: #fff;
+  border: 0;
+  position: relative;
+  z-index: 110;
+  font-family: Manrope, Arial, sans-serif;
+}
+#academy-header *, #academy-header *::before, #academy-header *::after { box-sizing: border-box; }
+#academy-header .academy-header-identity,
+#academy-header .academy-header-actions { display: flex; align-items: center; gap: 22px; min-width: 0; }
+#academy-header .academy-header-actions { margin-left: auto; flex-shrink: 0; }
+#academy-header .academy-header-brand { display: inline-flex; align-items: center; gap: 13px; padding: 0; margin: 0; border: 0; background: transparent; text-decoration: none; min-width: 0; }
+#academy-header .academy-sigle { position: relative; display: block; flex-shrink: 0; width: 54.6px; height: 52px; overflow: hidden; }
+#academy-header .academy-sigle img { position: absolute; inset: 0 auto auto 0; display: block; width: auto; height: 100%; max-width: none; margin: 0; padding: 0; border: 0; border-radius: 0; }
+#academy-header .academy-wordmark { display: flex; align-items: center; gap: .38em; font: 800 17px/1.1 Manrope, Arial, sans-serif; letter-spacing: 1px; white-space: nowrap; color: #fff; }
+#academy-header .academy-wordmark > span { font: inherit; letter-spacing: inherit; color: inherit; }
+#academy-header .academy-wordmark > span:last-child { color: #ffd56a; }
+#academy-header .academy-preview-link { color: #e1e9f5; font-size: 11px; text-decoration: none; padding: 9px 0; }
+#academy-header .academy-preview-link:hover { color: #fff; text-decoration: underline; }
+#academy-header .menu-toggle { width: 38px; min-width: 38px; height: 38px; min-height: 38px; padding: 8px; margin: 0; border: 1px solid #ffffff45; border-radius: 10px; background: #ffffff0d; color: #fff; }
+#academy-header .menu-toggle:hover { background: #ffffff20; }
+#academy-header .academy-account { position: relative; margin: 0; padding: 0; border: 0; background: transparent; }
+#academy-header .academy-account-toggle { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 12px 18px; border: 1px solid #f0cd80; border-radius: 100px; background: #f0cd80; color: #172b46; font: 750 13px/1.4 Manrope, Arial, sans-serif; list-style: none; cursor: pointer; user-select: none; }
+#academy-header .academy-account-toggle::-webkit-details-marker { display: none; }
+#academy-header .academy-account-toggle .ui-icon { width: 18px; height: 18px; color: inherit; }
+#academy-header .academy-account-toggle:hover,
+#academy-header .academy-account[open] .academy-account-toggle { background: #ffe0a0; border-color: #ffe0a0; }
+#academy-header .academy-account-chevron { width: 7px; height: 7px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: translateY(-2px) rotate(45deg); margin-left: 3px; }
+#academy-header .academy-account[open] .academy-account-chevron { transform: translateY(2px) rotate(225deg); }
+#academy-header .academy-account-panel { position: absolute; top: calc(100% + 13px); right: 0; width: min(320px, calc(100vw - 32px)); padding: 12px; border: 1px solid #e0e7f0; border-radius: 18px; background: #fff; color: #172b46; box-shadow: 0 18px 50px #172b462b; text-align: left; }
+#academy-header .academy-account-panel > p { font: 800 9px/1.5 Manrope, Arial, sans-serif; letter-spacing: 1.1px; color: #627086; padding: 7px 10px 12px; margin: 0; }
+#academy-header .academy-account-panel > a { display: flex; align-items: center; gap: 12px; width: 100%; margin: 0; padding: 13px 10px; border: 0; border-radius: 10px; background: transparent; color: #172b46; text-decoration: none; }
+#academy-header .academy-account-panel > a:hover,
+#academy-header .academy-account-panel > a:focus-visible { background: #edf4ff; }
+#academy-header .academy-account-panel strong { display: block; color: #172b46; font-size: 13px; font-weight: 800; line-height: 1.5; }
+#academy-header .academy-account-panel small { display: block; color: #68768a; font-size: 11px; line-height: 1.6; margin-top: 2px; }
+#academy-header .academy-account-icon { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 11px; background: #edf3fc; color: #345e94; }
+#academy-header .academy-account-icon .ui-icon { width: 21px; height: 21px; }
+#academy-header .academy-account-panel > a:nth-of-type(2) .academy-account-icon { background: #f0edf9; color: #6e5690; }
+#academy-header .academy-account-panel > a:nth-of-type(3) .academy-account-icon { background: #faf1db; color: #8b672c; }
+#academy-header .academy-account-arrow { margin-left: auto; color: #627086; font-size: 17px; }
+#academy-header :is(a, summary, button):focus-visible { outline: 3px solid #ffd56a; outline-offset: 4px; }
+#academy-header .academy-account-panel a:focus-visible { outline-color: #245dc0; outline-offset: -2px; }
+@media (max-width: 1100px) {
+  #academy-header .academy-preview-link { display: none; }
+}
+@media (max-width: 760px) {
+  #academy-header { min-height: 76px; padding: 12px 18px; gap: 12px; }
+  body.academy-ui.workspace-page #academy-header { padding: 12px 18px !important; position: sticky; top: 0; }
+  #academy-header .academy-header-identity { gap: 12px; }
+  #academy-header .academy-header-brand { gap: 10px; }
+  #academy-header .academy-sigle { width: 42px; height: 40px; }
+  #academy-header .academy-wordmark { flex-direction: column; align-items: flex-start; gap: 4px; font-size: 12px; letter-spacing: .7px; }
+  #academy-header .academy-account-toggle { padding: 11px 14px; font-size: 12px; gap: 8px; }
+  #academy-header .academy-account-toggle .ui-icon { display: none; }
+}
+@media (max-width: 390px) {
+  #academy-header { padding-inline: 14px; gap: 8px; }
+  body.academy-ui.workspace-page #academy-header { padding-inline: 14px !important; }
+  #academy-header .academy-header-identity, #academy-header .academy-header-brand { gap: 8px; }
+  #academy-header .academy-sigle { width: 35.7px; height: 34px; }
+  #academy-header .academy-wordmark { font-size: 10px; letter-spacing: .5px; }
+  #academy-header .menu-toggle { width: 32px; min-width: 32px; height: 36px; min-height: 36px; padding: 6px; }
+  #academy-header .academy-account-toggle { padding-inline: 12px; }
+}

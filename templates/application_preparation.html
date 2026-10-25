@@ -19,14 +19,17 @@
     <div class="preparation-start">
       <p class="eyebrow">À TON RYTHME</p><h2>Prêt à <em>te lancer ?</em></h2>
       <ol class="preparation-route" aria-label="Les étapes de ta pré-inscription"><li><span>01</span>Tu complètes ton dossier.</li><li><span>02</span>Notre équipe étudie ta candidature.</li><li><span>03</span>Tu reçois une réponse par e-mail et SMS.</li></ol>
-      <button type="button" id="start-application" class="button button-dark" data-start-application>Commencer ma pré-inscription <span aria-hidden="true">→</span></button>
+      <button type="button" id="start-application" class="button preparation-cta" data-start-application>Commencer ma pré-inscription <span aria-hidden="true">→</span></button>
       <p class="preparation-resume">Une pièce manque ? Tu peux commencer et enregistrer tes réponses pour revenir plus tard.</p>
     </div>
   </div>
-  <details class="application-information-details preparation-more"><summary>Une question avant de commencer ?</summary><div>
-    <h3>Les informations à garder à portée de main</h3><p>Ton e-mail, ton téléphone et ton numéro de sécurité sociale (15 caractères, clé comprise). Si tu es mineur, prépare aussi les coordonnées de ton responsable légal.</p>
-    <h3>Les documents et le brouillon</h3><p>Pour une carte d’identité, les deux faces peuvent être dans un seul fichier ou deux fichiers séparés. Pour créer un PDF, utilise un scanner ou la fonction de numérisation de ton téléphone. Renommer un fichier « .pdf » ne le convertit pas.</p><p>La checklist sert à t’organiser ; elle ne transmet pas tes documents. Tu peux revoir ce guide pendant la saisie. En cas de reprise du brouillon, les fichiers devront être sélectionnés à nouveau.</p>
-    {{ information.next_steps() }}
-  </div></details>
-  <noscript><div class="form-error">Active JavaScript pour commencer ta pré-inscription ou contacte notre équipe au 04 22 47 07 68.</div></noscript>
+  <aside class="preparation-adviser" aria-labelledby="preparation-adviser-title">
+    <div class="preparation-adviser-avatar"><img src="{{ url_for('static', filename='admissions/aurelie.webp') }}" width="384" height="384" alt="Memoji d’Aurélie BAYARD-CHAUSSEZ" loading="lazy"></div>
+    <div class="preparation-adviser-copy"><p class="adviser-kicker">TA RESPONSABLE BTS</p><h2 id="preparation-adviser-title">Aurélie <span>BAYARD-CHAUSSEZ</span></h2><p>Un doute sur ton dossier ou ton choix de BTS ?<br>Aurélie est là pour t’aider.</p></div>
+    <div class="preparation-adviser-links">
+      <a href="tel:+33487830615"><span class="adviser-contact-icon">{{ icon('phone') }}</span><span><small>Ligne directe</small><strong>04 87 83 06 15</strong></span><span class="adviser-contact-arrow" aria-hidden="true">↗</span></a>
+      <a href="mailto:aurelie@integraleacademy.com"><span class="adviser-contact-icon">{{ icon('mail') }}</span><span><small>Lui écrire</small><strong>aurelie@<wbr>integraleacademy.com</strong></span><span class="adviser-contact-arrow" aria-hidden="true">↗</span></a>
+    </div>
+  </aside>
+  <noscript><div class="form-error">Active JavaScript pour commencer ta pré-inscription ou contacte Aurélie au 04 87 83 06 15.</div></noscript>
 </section>

@@ -378,9 +378,16 @@ def test_preparation_precedes_small_question_groups_without_changing_other_pages
     for image in illustrations:
         assert image.get('alt')
         assert (Path(application.app.root_path) / image['src'].lstrip('/')).is_file()
-    assert not guide.select_one('.preparation-more').has_attr('open')
-    for text in ['Ta pièce d’identité', 'Ta photo d’identité', 'Ta carte Vitale', 'Ton CV', 'Ta lettre de motivation', '8 Mo', 'PDF', 'JPG', 'PNG', 'Je confirme mon inscription']:
+    assert guide.select_one('.preparation-more') is None
+    adviser = guide.select_one('.preparation-adviser')
+    assert adviser is not None and 'Aurélie' in adviser.get_text()
+    assert adviser.select_one('a[href="tel:+33487830615"]')
+    assert adviser.select_one('a[href="mailto:aurelie@integraleacademy.com"]')
+    assert (Path(application.app.root_path) / adviser.select_one('img')['src'].lstrip('/')).is_file()
+    for text in ['Ta pièce d’identité', 'Ta photo d’identité', 'Ta carte Vitale', 'Ton CV', 'Ta lettre de motivation', '8 Mo', 'PDF', 'JPG', 'PNG']:
         assert text in guide.get_text()
+    assert 'Je confirme mon inscription' in page.select_one('[data-step-id=recap]').get_text()
+    assert 'ne le convertit pas' in page.select_one('[data-step-id=carte-vitale]').get_text()
     assert not guide.select('input[type=file]')  # Preparation does not transmit documents.
     assert page.select_one('#application-journey').has_attr('hidden')
     for screen in page.select('.application-step'):
@@ -389,8 +396,35 @@ def test_preparation_precedes_small_question_groups_without_changing_other_pages
     assert page.select_one('[name=mode]').find_parent('section') != page.select_one('[name=bts]').find_parent('section')
     assert len({field.find_parent('section')['data-step-id'] for field in page.select('input[type=file]')}) == 5
     styles = [link['href'] for link in page.select('link[rel=stylesheet]')]
-    assert 'application-journey.css' in styles[-1]
+    assert 'application-journey.css' in styles[-2]
+    assert 'academy-header.css' in styles[-1]
     assert 'application-journey.css' not in client.get('/login').text
+
+
+@pytest.mark.parametrize('path', ['/', '/candidature?preview=1', '/login', '/espace/connexion', '/formateur/connexion', '/admin', '/admin/formateurs'])
+def test_shared_header_offers_all_three_spaces(client, path, monkeypatch):
+    from bs4 import BeautifulSoup
+    monkeypatch.setattr(application.app, 'secret_key', 'integration-test-secret-for-shared-header')
+    if path.startswith('/admin') or 'preview=1' in path:
+        auth(client)
+    response = client.get(path)
+    assert response.status_code == 200
+    page = BeautifulSoup(response.text, 'html.parser')
+    headers = page.select('#academy-header')
+    assert len(headers) == 1
+    header = headers[0]
+    menu = header.select_one('[data-account-menu]')
+    assert menu is not None and not menu.has_attr('open')
+    assert menu.select_one('summary').get_text(strip=True) == 'Connexion'
+    assert [link['href'] for link in menu.select('nav a')] == ['/espace/connexion', '/formateur/connexion', '/login']
+    assert not header.select('a[href^="tel:"]')
+    assert 'Mon espace étudiant' not in header.get_text()
+    assert page.select_one('link[href*="academy-header.css"]')
+    assert page.select_one('script[src*="academy-header.js"]')
+    if path.startswith('/admin'):
+        assert header.select_one('.menu-toggle')['aria-controls'] == 'workspace-sidebar'
+        assert page.select_one('#workspace-sidebar')
+        assert header.select_one('a[href="/candidature?preview=1"]')
 
 
 @pytest.mark.parametrize('modifications', [

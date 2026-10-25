@@ -207,8 +207,12 @@ def test_only_exact_assigned_pairs_and_confirmed_statuses_reach_template(access)
     assert {row['nom'] for row in context['students']}=={'ALLOWED','RECONFIRMED'}
     expected={'nom','prenom','bts','mode','email','tel','numero_dossier','rentree_annee','statut','promotion_id','promotion_name','promotion_niveau','promotion_date_debut','promotion_date_fin','promotion_needs_setup'}
     assert all(set(row)==expected for row in context['students'])
-    for forbidden in [b'PRIVATE-',b'cross-one@example',b'cross-two@example',b'pending@example',b'validated@example',b'reconfirming@example',b'cancelled@example',b'other@example',b'/admin/candidat/',b'/espace/']:
+    for forbidden in [b'PRIVATE-',b'cross-one@example',b'cross-two@example',b'pending@example',b'validated@example',b'reconfirming@example',b'cancelled@example',b'other@example',b'/admin/candidat/']:
         assert forbidden not in response.data
+    # The shared header may link to the public sign-in page, never a student's private dossier.
+    from bs4 import BeautifulSoup
+    student_links = BeautifulSoup(response.text, 'html.parser').select('a[href^="/espace/"]')
+    assert all(link['href'] == '/espace/connexion' for link in student_links)
     assert context['selected_bts']=='MCO' and context['selected_year']==2026
 
 
