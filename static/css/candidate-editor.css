@@ -1,4 +1,12 @@
 /* Candidate record: a compact reading layout using the administration palette. */
+.student-card-section .sheet-section-heading p { font-size:12px; line-height:1.6; color:#65758e; margin:0; }
+.student-card-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,2fr); gap:14px; }
+.student-card-fields .sheet-field { min-width:0; }
+.student-card-fields :is(input,select) { width:100%; min-width:0; box-sizing:border-box; }
+.student-card-help,.student-card-missing { font-size:12px; line-height:1.7; color:#65758e; margin:14px 0; }
+.student-card-missing { color:#985900; }
+@media(max-width:1100px) { .student-card-fields { grid-template-columns:repeat(2,minmax(0,1fr)); } .student-card-fields>.sheet-field:last-child { grid-column:1/-1; } }
+@media(max-width:580px) { .student-card-form .certificate-actions { flex-direction:column; } .student-card-form .btn { width:100%; justify-content:center; white-space:normal; } }
 body.academy-ui.candidate-sheet-page :is(h1,h2,h3,h4,p,input,select,textarea,button,.btn) { font-family:Manrope,Arial,sans-serif; }
 body.academy-ui.candidate-sheet-page .sheet-header { padding:22px 25px; gap:20px; border-radius:18px; }
 body.academy-ui.candidate-sheet-page .sheet-identity { gap:20px; }

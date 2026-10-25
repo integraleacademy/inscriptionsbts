@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+{% block body_class %}admin-page{% endblock %}
+{% block content %}
+<section class="card" style="max-width:640px;margin:40px auto;padding:28px">
+  <h1>Carte étudiante</h1><p role="alert">{{ error }}</p>
+  <a class="btn primary" href="{{ url_for('admin_candidate_sheet', cid=row.id, rentree=row.rentree_annee) }}#documents">Retour à la fiche de {{ row.prenom }} {{ row.nom }}</a>
+</section>
+{% endblock %}

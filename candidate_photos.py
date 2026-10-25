@@ -103,7 +103,8 @@ def render_crop(photo, crop):
                            resample=Image.Resampling.BICUBIC, fillcolor='white')
 
 
-def photo_response(row, upload_dir, db_connect, *, original=False):
+def load_candidate_portrait(row, upload_dir, db_connect, *, original=False):
+    """Share the current, source-checked crop with the sheet and printed cards."""
     if not row:
         abort(404)
     row = dict(row)
@@ -122,6 +123,11 @@ def photo_response(row, upload_dir, db_connect, *, original=False):
             photo = render_crop(photo, crop)
         except (ValueError, TypeError, KeyError):
             pass
+    return photo, source_hash, crop
+
+
+def photo_response(row, upload_dir, db_connect, *, original=False):
+    photo, source_hash, crop = load_candidate_portrait(row, upload_dir, db_connect, original=original)
     photo.thumbnail((2400, 2400) if original else (600, 600))
     out = io.BytesIO()
     photo.save(out, 'JPEG', quality=92)

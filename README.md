@@ -137,6 +137,28 @@ aucun crédit API. Le parcours navigateur simulé est couvert par
 Les paramètres OpenAI se trouvent dans **Paramètres → OpenAI** (`/admin/parametres`). La clé existante est conservée. Les résultats asynchrones demandent la liste complète des sources à chaque récupération ; une matière non sourcée reste visible mais ne bloque pas les autres. Les textes générés trop longs sont abrégés dans les champs, avec leur version intégrale consultable avant et après l’import. Les anciennes analyses bloquées par le contrôle des sources ou des textes peuvent être récupérées en rouvrant l’import dans la même session, pendant 24 heures, sans nouvelle génération.
 
 
+## Carte étudiante depuis une fiche BTS
+
+Dans **Fiche candidat → Documents → Carte étudiante**, prévisualiser ou générer
+le PDF avec l’identité, la date de naissance et la photo cadrée de la fiche.
+Les dates proposées couvrent l’année scolaire courante dans la promotion de
+deux ans de l’étudiant ; elles restent modifiables avant chaque génération.
+L’adresse de l’établissement suit le parcours : Puget pour le présentiel,
+Paris pour le distanciel, comme les certificats de scolarité.
+
+Le modèle fourni `Carte Etudiante-Bureautique.pdf` est conservé sans modification
+dans `assets/student_cards/carte_etudiante_original.pdf`. Les champs proviennent
+du modèle de saisie numérique fourni en parallèle. Le PDF est statique et prêt
+à imprimer, sans formulaire interactif, et la signature du titulaire est laissée
+vierge. Deux formats sont disponibles : A4 de deux pages avec repères de découpe
+(100 %, recto verso sur le bord long), ou deux faces au format original 86 × 54 mm.
+La photo enregistrée est insérée sans recadrage supplémentaire. La génération
+est réservée aux administrateurs, sans envoi ni modification de l’étiquette
+« Carte étudiante envoyée ». Aucun PDF nominatif n’est stocké dans les fichiers
+publics. Les informations ou photos manquantes sont signalées avant impression.
+
+Validation : `python -m pytest -q tests/test_student_cards.py tests/test_candidate_editor.py`.
+
 ## Espace entreprise et assiduité
 
 - **Connexion → Espace entreprise** (`/entreprise/connexion`) : compte distinct

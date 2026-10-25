@@ -9,6 +9,7 @@ from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
 from candidate_workflows import register_candidate_workflows
 from candidate_documents import register_candidate_documents, document_preview_response
+from student_cards import register_student_cards, student_card_dates
 from trainer_access import register_trainer_access
 from company_portal import register_company_portal
 from daily_login import register_daily_login
@@ -77,6 +78,10 @@ def run_startup_integrity_checks():
         "candidate_messages.py",
         "candidate_documents.py",
         "candidate_photos.py",
+        "student_cards.py",
+        "assets/student_cards/carte_etudiante_original.pdf",
+        "templates/_candidate_student_card.html",
+        "templates/student_card_error.html",
         "certificates.py",
         "assets/certificates/manifest.json",
         "assets/certificates/models.pdf",
@@ -1005,6 +1010,7 @@ register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy
 register_candidate_messages(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event)
 register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
 register_candidate_photos(app, db, lambda: UPLOAD_DIR, require_admin, log_event)
+register_student_cards(app, db, lambda: UPLOAD_DIR, require_admin)
 candidate_workflow_response = register_candidate_workflows(
     app, db, lambda *args, **kwargs: send_mail(*args, **kwargs),
     lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event,
@@ -1561,7 +1567,7 @@ def admin_candidate_sheet(cid):
     year = candidate_year(row)
     columns = {"qualites": "projet_qualites", "motivation": "projet_motivation", "valeurs": "projet_recherche", "travail": "projet_travail"}
     profile_display = {g["name"]: [dict(g["options"]).get(v, v) for v in (parse_list(row.get(columns[g["name"]])) or [v.strip() for v in (row.get(columns[g["name"]]) or "").split(",") if v.strip()])] for g in PROFILE_GROUPS}
-    return render_template("candidate_sheet.html", current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year)
+    return render_template("candidate_sheet.html", current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
 
 
 @app.post("/admin/candidat/<cid>/informations")
