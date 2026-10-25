@@ -54,6 +54,29 @@
     catch (failure) { formError(form, failure.message); }
     finally { busyDialog(dialog, false); }
   }
+  function setPlanningFullscreen(enabled) {
+    state.fullscreen = !!enabled; document.body.classList.toggle('planning-is-fullscreen', state.fullscreen);
+    $('planning-fullscreen').setAttribute('aria-pressed', String(state.fullscreen));
+    $('planning-fullscreen-label').textContent = state.fullscreen ? 'Quitter le plein écran' : 'Plein écran';
+    $('planning-fullscreen').title = state.fullscreen ? 'Quitter le plein écran (Échap)' : 'Agrandir le planning sur tout l’écran';
+    if (!state.fullscreen) { state.nativeFullscreen = false; $('planning-fullscreen').focus({preventScroll: true}); }
+  }
+  async function togglePlanningFullscreen() {
+    if (state.fullscreen) {
+      setPlanningFullscreen(false);
+      if (document.fullscreenElement) { try { await document.exitFullscreen(); } catch (_) { /* The in-page mode has already closed. */ } }
+      return;
+    }
+    setPlanningFullscreen(true);
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      try { await document.documentElement.requestFullscreen(); state.nativeFullscreen = true; }
+      catch (_) { /* In-page fullscreen is retained where the browser disallows its native API. */ }
+    }
+    $('planning-fullscreen').focus({preventScroll: true});
+  }
+  $('planning-fullscreen').addEventListener('click', togglePlanningFullscreen);
+  document.addEventListener('fullscreenchange', () => { if (state.nativeFullscreen && !document.fullscreenElement) setPlanningFullscreen(false); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && state.fullscreen && !document.querySelector('dialog[open]')) { event.preventDefault(); togglePlanningFullscreen(); } });
   function populate(select, items, label, blank = null, selected = '') {
     select.replaceChildren(); if (blank !== null) select.add(new Option(blank, ''));
     for (const item of items || []) select.add(new Option(label(item), String(item.id)));
@@ -67,24 +90,50 @@
     return [...new Set(warnings)];
   }
   function courseName(course) { return course.title || course.display_subject_name || course.subject_name || state.data?.subjects?.find(subject => String(subject.id) === String(course.subject_id))?.name || 'Cours'; }
-  async function loadState({initial = false} = {}) {
+  async function loadState({initial = false, fromSync = false} = {}) {
     const id = promotionId(); const seq = ++state.loadSeq; state.loading = true; state.slotCheckSeq++; state.availabilitySeq++; state.availabilityReady = false; state.availability.clear();
     $('planning-selected').hidden = !id; $('planning-unselected').hidden = !!id; $('planning-export-open').disabled = !id;
-    if (!id) { state.data = null; state.loading = false; app.setAttribute('aria-busy', 'false'); return; }
+    if (!id) { state.data = null; state.loading = false; app.setAttribute('aria-busy', 'false'); return true; }
     app.setAttribute('aria-busy', 'true'); $('planning-save-state').textContent = 'Chargement du planning…';
     try {
       const result = await request('/state?' + new URLSearchParams({promotion_id: id, start: state.week, end: addDays(state.week, 6)}));
-      if (seq !== state.loadSeq || id !== promotionId()) return;
-      state.data = result; state.year = null;
+      if (seq !== state.loadSeq || id !== promotionId()) return false;
+      // Recheck after every background fetch: editing can begin while the request is in flight.
+      if (fromSync && !planningSyncSafe({ignoreLoading: true})) return false;
+      let syncedYear = null;
+      if (fromSync && state.view === 'year') {
+        const annual = result.promotion;
+        syncedYear = await request('/state?' + new URLSearchParams({promotion_id: id, start: annual.date_debut || state.week.slice(0, 4) + '-01-01', end: annual.date_fin || state.week.slice(0, 4) + '-12-31'}));
+        if (seq !== state.loadSeq || id !== promotionId() || !planningSyncSafe({ignoreLoading: true})) return false;
+      }
+      state.data = result; state.year = syncedYear;
       const promotion = result.promotion;
       if (initial && promotion.date_debut && promotion.date_fin && (today() < promotion.date_debut || today() > promotion.date_fin)) { state.week = monday(promotion.date_debut); return loadState(); }
       if (!(result.subjects || []).some(subject => String(subject.id) === state.subject)) state.subject = '';
       renderPromotion(); renderSharedRows($('planning-quick-shared'), state.quickShared, promotionId(), onQuickSharedChange); renderSubjects(); renderCalendar(); renderRules(); renderSlotSelection();
       if (state.view === 'year') await renderYear();
       if (state.subject) await loadAvailability(); if (state.slot) await checkSelectedSlot();
-    } catch (failure) { if (seq === state.loadSeq) { state.data = null; $('planning-selected').hidden = true; notice(failure.message, true); } }
+      return true;
+    } catch (failure) { if (seq === state.loadSeq) { if (!fromSync) { state.data = null; $('planning-selected').hidden = true; } notice(failure.message, true); } return false; }
     finally { if (seq === state.loadSeq) { state.loading = false; app.setAttribute('aria-busy', 'false'); $('planning-save-state').textContent = 'Chaque action est enregistrée'; } }
   }
+  function planningSyncSafe({ignoreLoading = false} = {}) {
+    return (ignoreLoading || !state.loading) && !state.busy && !state.quickBusy && !state.paintBusy && !state.paintDraft.size && !state.slotFormDirty && !document.activeElement?.closest('#planning-slot-form') && !state.slotGesture && !state.paintGesture && !state.dragCourse && !document.querySelector('dialog[open]');
+  }
+  async function refreshChangedPlanning() {
+    clearTimeout(state.syncTimer); if (!state.syncPending) return;
+    if (!planningSyncSafe()) { state.syncTimer = setTimeout(refreshChangedPlanning, 2000); return; }
+    const version = state.syncVersion || 0, applied = await loadState({fromSync: true});
+    if (applied && version === (state.syncVersion || 0)) { state.syncPending = false; $('planning-sync-notice').hidden = true; }
+    else { state.syncPending = true; state.syncTimer = setTimeout(refreshChangedPlanning, state.data ? 2000 : 10000); }
+  }
+  window.addEventListener('academy:planning-changed', event => {
+    event.preventDefault(); state.syncVersion = (state.syncVersion || 0) + 1; state.syncPending = true; $('planning-sync-notice').hidden = false; refreshChangedPlanning();
+  });
+  $('planning-sync-refresh').addEventListener('click', () => {
+    if (!planningSyncSafe()) { notice('Terminez ou annulez l’action en cours avant d’actualiser. Vos modifications ne seront pas perdues.'); return; }
+    state.syncPending = true; refreshChangedPlanning();
+  });
   function renderPromotion() {
     const {promotion, subjects = [], courses = []} = state.data;
     const details = $('planning-promotion-details'); details.replaceChildren(el('b', '', promotion.nom), el('span', '', 'BTS ' + promotion.bts + ' · ' + (promotion.niveau ? (Number(promotion.niveau) === 1 ? '1re année' : '2e année') : 'Niveau à compléter') + (promotion.date_debut && promotion.date_fin ? ' · ' + formatDate(promotion.date_debut) + ' au ' + formatDate(promotion.date_fin, {day: 'numeric', month: 'long', year: 'numeric'}) : ' · Dates à compléter dans Promotions')));
@@ -174,7 +223,7 @@
   }
   function clearSlot() { state.slot = null; state.slotAnchor = null; state.slotGesture = null; state.slotChecks.clear(); state.slotCheckSeq++; renderSlotSelection(); renderSubjects(); renderAvailability(); }
   function renderSlotSelection() {
-    const slot = state.slot, form = $('planning-slot-form');
+    const slot = state.slot, form = $('planning-slot-form'); state.slotFormDirty = false;
     if (slot) { form.elements.date.value = slot.date; form.elements.start.value = slot.start; form.elements.end.value = slot.end === '24:00' ? '23:59' : slot.end; }
     else { form.elements.date.value = state.week; form.elements.start.value = '08:00'; form.elements.end.value = '12:00'; }
     $('planning-slot-summary').textContent = slot ? formatDate(slot.date, {weekday: 'long', day: 'numeric', month: 'long'}) + ' · ' + slot.start + ' – ' + slot.end + ' · ' + minuteLabel(minutes(slot.end) - minutes(slot.start)) + ' sélectionnées. Cliquez sur une matière verte pour créer le cours.' : 'Glissez dans une journée pour sélectionner plusieurs heures, ou utilisez les champs ci-dessus.';
@@ -305,17 +354,18 @@
     }
   }
   document.addEventListener('pointermove', event => {
-    if (!state.slotGesture && !state.paintGesture && !state.batch?.dateGesture) return;
+    if (!state.slotGesture && !state.paintGesture && !state.batch?.dateGesture && !state.batch?.weekGesture) return;
     const target = document.elementFromPoint(event.clientX, event.clientY);
+    const batchWeek = target?.closest('[data-batch-week]'); if (batchWeek && !batchWeek.disabled) extendBatchWeek(batchWeek.dataset.batchWeek);
     const batchDay = target?.closest('[data-batch-date]'); if (batchDay && !batchDay.disabled) extendBatchDate(batchDay.dataset.batchDate);
     const cell = target?.closest('[data-paint-date]'); if (cell && !cell.disabled) extendPaint(cell.dataset.paintDate);
     const slot = target?.closest('.planning-slot'); if (slot) extendSlot(slot.dataset.date, slot.dataset.start);
   });
   document.addEventListener('pointerup', () => {
     if (state.slotGesture) { const gesture = state.slotGesture; state.slotGesture = null; if (!gesture.moved) setSlot(gesture.date, gesture.start, timeString(Math.min(state.gridEnd, minutes(gesture.start) + Number($('planning-duration').value)))); else checkSelectedSlot(); }
-    state.paintGesture = null; if (state.batch) state.batch.dateGesture = null; setTimeout(() => { if (state.batch) state.batch.dateClickSuppressed = false; state.slotClickSuppressed = false; state.paintClickSuppressed = false; }, 0);
+    state.paintGesture = null; if (state.batch) { state.batch.dateGesture = null; state.batch.weekGesture = null; } setTimeout(() => { if (state.batch) { state.batch.dateClickSuppressed = false; state.batch.weekClickSuppressed = false; } state.slotClickSuppressed = false; state.paintClickSuppressed = false; }, 0);
   });
-  document.addEventListener('pointercancel', () => { if (state.batch) { state.batch.dateGesture = null; state.batch.dateClickSuppressed = false; } state.slotGesture = null; state.paintGesture = null; state.slotClickSuppressed = false; state.paintClickSuppressed = false; if (state.slot) checkSelectedSlot(); });
+  document.addEventListener('pointercancel', () => { if (state.batch) { state.batch.dateGesture = null; state.batch.dateClickSuppressed = false; state.batch.weekGesture = null; state.batch.weekClickSuppressed = false; } state.slotGesture = null; state.paintGesture = null; state.slotClickSuppressed = false; state.paintClickSuppressed = false; if (state.slot) checkSelectedSlot(); });
   function annualDay(date) { return (state.year?.days || []).find(day => day.date === date); }
   function paintDate(date, kind = state.paintKind) {
     const original = annualDay(date); if (!original || isPublicHoliday(original) || original.locked) return;
@@ -534,44 +584,107 @@
     }
     updateBatchDates();
   }
+  function batchWeekProblem(week) {
+    const batch = state.batch, promotion = batch?.calendar?.promotion;
+    if (!promotion || week < monday(promotion.date_debut) || week > monday(promotion.date_fin)) return 'En dehors des dates de la promotion.';
+    if (week === batch.sourceWeek) return 'Semaine source : elle ne peut pas être dupliquée sur elle-même.';
+    return '';
+  }
+  function updateBatchWeeks() {
+    const batch = state.batch; if (!batch) return;
+    const weeks = [...(batch.weeks || [])].sort();
+    $('planning-batch-week-count').textContent = weeks.length + ' semaine' + (weeks.length !== 1 ? 's' : '') + ' sélectionnée' + (weeks.length !== 1 ? 's' : '');
+    $('planning-batch-week-selected').textContent = weeks.length ? weeks.map(week => 'Du ' + formatDate(week, {day: 'numeric', month: 'short'}) + ' au ' + formatDate(addDays(week, 6), {day: 'numeric', month: 'short', year: 'numeric'})).join(' · ') : 'Choisissez les semaines dans le calendrier.';
+    $('planning-batch-week-clear').disabled = !weeks.length;
+    $('planning-batch-week-months').querySelectorAll('[data-batch-week]').forEach(cell => { const selected = batch.weeks.has(cell.dataset.batchWeek); cell.classList.toggle('is-selected', selected); cell.setAttribute('aria-pressed', String(selected)); });
+    if (batch.mode === 'weeks') $('planning-batch-preview').disabled = batch.calendarLoading || !batch.calendar || !weeks.length;
+  }
+  function setBatchWeek(week, selected) {
+    const batch = state.batch; if (!batch || batch.mode !== 'weeks' || $('planning-batch-dialog').dataset.busy || batchWeekProblem(week)) return;
+    if (selected) batch.weeks.add(week); else batch.weeks.delete(week);
+    invalidateBatch(); updateBatchWeeks();
+  }
+  function batchWeekClick(week) { if (!state.batch?.weekClickSuppressed) setBatchWeek(week, !state.batch.weeks.has(week)); }
+  function beginBatchWeek(week, event) {
+    if (event.button !== 0 || !state.batch || $('planning-batch-dialog').dataset.busy || batchWeekProblem(week)) return;
+    event.preventDefault(); event.currentTarget.focus({preventScroll: true}); state.batch.weekClickSuppressed = true;
+    state.batch.weekGesture = {selected: !state.batch.weeks.has(week)}; setBatchWeek(week, state.batch.weekGesture.selected);
+  }
+  function extendBatchWeek(week) { if (state.batch?.weekGesture) setBatchWeek(week, state.batch.weekGesture.selected); }
+  function batchWeekKey(week, event) {
+    const shifts = {ArrowUp: -7, ArrowDown: 7, ArrowLeft: -7, ArrowRight: 7}; if (!(event.key in shifts)) return;
+    let next = addDays(week, shifts[event.key]);
+    for (let step = 0; step < 160; step++, next = addDays(next, shifts[event.key])) {
+      const target = $('planning-batch-week-months').querySelector('[data-batch-week="' + next + '"]');
+      if (!target) return; if (!target.disabled) { event.preventDefault(); target.focus(); return; }
+    }
+  }
+  function renderBatchWeekCalendar() {
+    const container = $('planning-batch-week-months'), batch = state.batch; container.replaceChildren();
+    $('planning-batch-week-loading').hidden = !batch?.calendarLoading;
+    $('planning-batch-week-retry').hidden = !!batch?.calendar || !!batch?.calendarLoading;
+    if (!batch?.calendar) { updateBatchWeeks(); return; }
+    const promotion = batch.calendar.promotion, map = new Map((batch.calendar.days || []).map(day => [day.date, day]));
+    const cursor = parseDate(promotion.date_debut); cursor.setDate(1); const last = parseDate(promotion.date_fin);
+    for (let index = 0; cursor <= last && index < 36; index++, cursor.setMonth(cursor.getMonth() + 1)) {
+      const year = cursor.getFullYear(), month = cursor.getMonth(), block = el('article', 'planning-batch-month planning-week-month');
+      block.append(el('h3', '', cursor.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'})));
+      const header = el('div', 'planning-batch-weekdays'); header.append(el('span', '', 'Sem.')); for (const day of ['L', 'M', 'M', 'J', 'V', 'S', 'D']) header.append(el('span', '', day)); block.append(header);
+      for (let week = monday(dateString(cursor)); week <= dateString(new Date(year, month + 1, 0, 12)); week = addDays(week, 7)) {
+        const reason = batchWeekProblem(week), label = 'Semaine du ' + formatDate(week, {day: 'numeric', month: 'long', year: 'numeric'}) + ' au ' + formatDate(addDays(week, 6));
+        const row = button('', 'planning-batch-week', () => batchWeekClick(week)); row.dataset.batchWeek = week; row.disabled = !!reason;
+        row.setAttribute('aria-pressed', 'false'); row.setAttribute('aria-label', label + (reason ? ' · ' + reason : '')); row.title = reason || label;
+        const check = el('span', 'planning-batch-week-check', '✓'); check.setAttribute('aria-hidden', 'true'); row.append(check);
+        for (let day = 0; day < 7; day++) { const date = addDays(week, day), info = map.get(date), value = parseDate(date), cell = el('span', 'kind-' + (info?.kind || 'outside') + (value.getMonth() !== month ? ' is-adjacent' : ''), value.getDate()); cell.title = formatDate(date) + ' · ' + (info?.label || kinds[info?.kind] || 'Hors promotion'); cell.setAttribute('aria-hidden', 'true'); row.append(cell); }
+        if (!reason) { row.addEventListener('pointerdown', event => beginBatchWeek(week, event)); row.addEventListener('pointerenter', () => extendBatchWeek(week)); row.addEventListener('keydown', event => batchWeekKey(week, event)); }
+        block.append(row);
+      }
+      container.append(block);
+    }
+    updateBatchWeeks();
+  }
   async function loadBatchDateCalendar(batch) {
-    if (!batch?.course || batch.calendarLoading) return;
-    const promotion = catalogPromotions().find(item => String(item.id) === String(batch.course.promotion_id));
-    if (!promotion?.date_debut || !promotion?.date_fin) { formError($('planning-batch-form'), 'Complétez les dates de cette promotion avant de dupliquer le cours.'); return; }
-    batch.calendarLoading = true; renderBatchDateCalendar();
+    if (!batch || batch.calendarLoading) return;
+    const id = batch.course?.promotion_id || batch.promotionId;
+    const promotion = catalogPromotions().find(item => String(item.id) === String(id));
+    if (!promotion?.date_debut || !promotion?.date_fin) { formError($('planning-batch-form'), 'Complétez les dates de cette promotion avant de dupliquer les cours.'); return; }
+    batch.calendarLoading = true; renderBatchDateCalendar(); renderBatchWeekCalendar();
     try {
-      const calendar = await request('/state?' + new URLSearchParams({promotion_id: batch.course.promotion_id, start: promotion.date_debut, end: promotion.date_fin}));
+      const calendar = await request('/state?' + new URLSearchParams({promotion_id: id, start: promotion.date_debut, end: promotion.date_fin}));
       if (state.batch !== batch) return; batch.calendar = calendar;
     } catch (failure) { if (state.batch === batch) formError($('planning-batch-form'), failure.message); }
-    finally { if (state.batch === batch) { batch.calendarLoading = false; renderBatchDateCalendar(); } }
+    finally { if (state.batch === batch) { batch.calendarLoading = false; renderBatchDateCalendar(); renderBatchWeekCalendar(); } }
   }
   function setBatchMode(mode) {
     if (!state.batch || $('planning-batch-dialog').dataset.busy) return;
-    state.batch.mode = state.batch.course ? (mode === 'repeat' ? 'repeat' : 'dates') : 'duplicate';
+    state.batch.mode = state.batch.course ? (mode === 'repeat' ? 'repeat' : 'dates') : 'weeks';
     const form = $('planning-batch-form');
-    for (const [field, active] of [['repeat', state.batch.mode === 'repeat'], ['duplicate', state.batch.mode === 'duplicate']]) {
+    for (const [field, active] of [['repeat', state.batch.mode === 'repeat']]) {
       const section = $('planning-batch-' + field + '-fields'); section.hidden = !active; section.querySelectorAll('input,select').forEach(input => { input.disabled = !active; });
     }
-    $('planning-batch-dates-fields').hidden = state.batch.mode !== 'dates'; $('planning-batch-mode-switch').hidden = !state.batch.course;
+    $('planning-batch-weeks-fields').hidden = state.batch.mode !== 'weeks'; $('planning-batch-dates-fields').hidden = state.batch.mode !== 'dates'; $('planning-batch-mode-switch').hidden = !state.batch.course;
     $('planning-batch-mode-dates').setAttribute('aria-pressed', String(state.batch.mode === 'dates')); $('planning-batch-mode-repeat').setAttribute('aria-pressed', String(state.batch.mode === 'repeat'));
-    form.elements.start_date.required = form.elements.end_date.required = state.batch.mode === 'repeat'; form.elements.target_start.required = state.batch.mode === 'duplicate';
-    invalidateBatch(); updateBatchDates();
+    form.elements.start_date.required = form.elements.end_date.required = state.batch.mode === 'repeat';
+    invalidateBatch(); updateBatchDates(); updateBatchWeeks();
   }
   function openBatch(course = null) {
     if (!state.data || state.loading) return; if (!course && !state.data.courses?.length) { notice('Cette semaine ne contient aucun cours à dupliquer.'); return; }
-    state.batch = {mode: course ? 'dates' : 'duplicate', course, preview: null, dates: new Set(), calendar: null, calendarLoading: false}; const form = $('planning-batch-form'); form.reset();
+    state.batch = {mode: course ? 'dates' : 'weeks', course, sourceWeek: state.week, promotionId: promotionId(), preview: null, dates: new Set(), weeks: new Set(), calendar: null, calendarLoading: false}; const form = $('planning-batch-form'); form.reset();
     const promotion = catalogPromotions().find(item => String(item.id) === String(course?.promotion_id || promotionId())) || state.data.promotion;
     for (const input of form.querySelectorAll('input[type=date]')) { input.min = promotion.date_debut || ''; input.max = promotion.date_fin || ''; }
-    form.elements.start_date.value = course ? addDays(course.date, 7) : state.week; form.elements.end_date.value = promotion.date_fin || addDays(state.week, 35); form.elements.target_start.value = addDays(state.week, 7);
+    form.elements.start_date.value = course ? addDays(course.date, 7) : state.week; form.elements.end_date.value = promotion.date_fin || addDays(state.week, 35);
     setWeekdays(form, course ? [(parseDate(course.date).getDay() + 6) % 7] : []);
     $('planning-batch-source').textContent = course ? courseName(course) + ' · ' + course.start + ' – ' + course.end + ' · ' + (course.trainer_name || 'Formateur affecté') + ' · ' + (course.room_name || 'Salle à affecter') : 'Dupliquer tous les cours du ' + formatDate(state.week) + ' au ' + formatDate(addDays(state.week, 6)) + '. Le décalage conserve les jours et les horaires.';
-    setBatchMode(state.batch.mode); renderBatchDateCalendar(); openDialog('planning-batch-dialog', course ? $('planning-batch-mode-dates') : form.elements.target_start);
-    if (course) loadBatchDateCalendar(state.batch);
+    $('planning-batch-title').innerHTML = course ? 'Répéter les <em>bons créneaux.</em>' : 'Dupliquer vos <em>semaines.</em>';
+    setBatchMode(state.batch.mode); renderBatchDateCalendar(); renderBatchWeekCalendar(); openDialog('planning-batch-dialog', course ? $('planning-batch-mode-dates') : $('planning-batch-week-clear'));
+    loadBatchDateCalendar(state.batch);
   }
   function invalidateBatch() { if (state.batch) state.batch.preview = null; $('planning-batch-results').hidden = true; $('planning-batch-commit').disabled = true; $('planning-batch-skip').checked = false; }
   $('planning-batch-mode-dates').addEventListener('click', () => setBatchMode('dates'));
   $('planning-batch-mode-repeat').addEventListener('click', () => setBatchMode('repeat'));
   $('planning-batch-date-clear').addEventListener('click', () => { if (state.batch && !$('planning-batch-dialog').dataset.busy) { state.batch.dates.clear(); invalidateBatch(); updateBatchDates(); } });
+  $('planning-batch-week-clear').addEventListener('click', () => { if (state.batch && !$('planning-batch-dialog').dataset.busy) { state.batch.weeks.clear(); invalidateBatch(); updateBatchWeeks(); } });
+  $('planning-batch-week-retry').addEventListener('click', () => loadBatchDateCalendar(state.batch));
   $('planning-batch-date-retry').addEventListener('click', () => loadBatchDateCalendar(state.batch));
   $('planning-batch-form').addEventListener('input', event => { if (!event.target.closest('#planning-batch-results')) invalidateBatch(); });
   function batchPreviewPayload(form) {
@@ -582,7 +695,10 @@
     } else if (batch.mode === 'repeat') {
       const course = batch.course; Object.assign(data, {start_date: form.elements.start_date.value, end_date: form.elements.end_date.value, weekdays: selectedWeekdays(form), interval_weeks: Number(form.elements.interval_weeks.value), template: {subject_id: course.subject_id, trainer_id: course.trainer_id, room_id: course.room_id || null, start: course.start, end: course.end, title: course.title || '', shared: course.shared || []}});
       if (!data.weekdays.length) throw Error('Sélectionnez au moins un jour à répéter.');
-    } else Object.assign(data, {source_start: state.week, source_end: addDays(state.week, 6), target_start: form.elements.target_start.value});
+    } else if (batch.mode === 'weeks') {
+      if (batch.calendarLoading || !batch.calendar || !batch.weeks.size) throw Error('Choisissez au moins une semaine dans le calendrier.');
+      Object.assign(data, {promotion_id: batch.promotionId, source_start: batch.sourceWeek, target_weeks: [...batch.weeks].sort()});
+    }
     return data;
   }
   $('planning-batch-form').addEventListener('submit', async event => {
@@ -601,7 +717,8 @@
       const detail = el('span'); detail.append(el('b', '', formatDate(course.date, {weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'}) + ' · ' + course.start + ' – ' + course.end), el('small', '', item.valid ? courseName(course) + ' · Disponible' : recoverable ? 'Décochez une autre occurrence pour libérer le volume nécessaire, puis sélectionnez celle-ci.' : (item.conflicts || []).map(conflict => conflict.message).join(' · ')));
       if (!item.valid) conflicts++; label.append(checkbox, detail); container.append(label);
     }
-    $('planning-batch-summary').textContent = (preview.items || []).length + ' occurrence(s) vérifiée(s) · ' + conflicts + ' en conflit'; $('planning-batch-conflict-consent').hidden = conflicts === 0; $('planning-batch-skip').checked = false; $('planning-batch-results').hidden = false; updateBatchCommit();
+    $('planning-batch-results-help').textContent = state.batch?.mode === 'weeks' ? 'Les cours cochés seront dupliqués. Les cours bloqués sont automatiquement exclus, sans empêcher la copie des autres. Si un nouveau blocage apparaît avant l’enregistrement, le cours concerné sera également laissé de côté.' : 'Seules les occurrences cochées seront créées. Aucun conflit n’est forcé. Décochez une occurrence pour libérer son volume et choisir une autre date. Les conflits de calendrier, de formateur ou de salle restent bloqués.';
+    $('planning-batch-summary').textContent = (preview.items || []).length + ' cours vérifié(s) · ' + ((preview.items || []).length - conflicts) + ' disponible(s) · ' + conflicts + ' à laisser de côté'; $('planning-batch-conflict-consent').hidden = conflicts === 0; $('planning-batch-skip').checked = false; $('planning-batch-results').hidden = false; updateBatchCommit();
   }
   function batchBudgetStatus(preview, selectedKeys) {
     const totals = new Map(), limits = new Map();
@@ -617,18 +734,32 @@
     const budget = batchBudgetStatus(preview, selectedKeys);
     for (const input of inputs) { const item = preview?.items?.find(item => String(item.key) === input.value); if (item && input.dataset.budgetEligible === '1') input.disabled = !input.checked && !budget.canAdd(item); }
     const excludedConflicts = preview?.items?.some(item => !item.valid && !selectedKeys.has(String(item.key)));
-    $('planning-batch-conflict-consent').hidden = !excludedConflicts;
-    $('planning-batch-commit').disabled = !preview || selectedKeys.size === 0 || !budget.withinBudget || (!!excludedConflicts && !$('planning-batch-skip').checked);
+    $('planning-batch-conflict-consent').hidden = !excludedConflicts || state.batch?.mode === 'weeks';
+    $('planning-batch-commit').disabled = !preview || selectedKeys.size === 0 || !budget.withinBudget || (state.batch?.mode !== 'weeks' && !!excludedConflicts && !$('planning-batch-skip').checked);
     $('planning-batch-commit').textContent = 'Créer ' + selectedKeys.size + ' occurrence' + (selectedKeys.size !== 1 ? 's' : '') + ' sélectionnée' + (selectedKeys.size !== 1 ? 's' : '');
   }
   $('planning-batch-skip').addEventListener('change', updateBatchCommit);
   $('planning-batch-commit').addEventListener('click', async () => {
     const preview = state.batch?.preview, dialog = $('planning-batch-dialog'), form = $('planning-batch-form'); if (!preview || dialog.dataset.busy || $('planning-batch-commit').disabled) return;
     const selected_keys = [...$('planning-batch-items').querySelectorAll('input:checked:not(:disabled)')].map(input => input.value); busyDialog(dialog, true); formError(form, '');
-    try { const result = await request('/courses/batch', {method: 'POST', data: {preview_token: preview.preview_token, selected_keys}}); dialog.close(); if ($('planning-course-dialog').open) $('planning-course-dialog').close(); notice(result.message || 'Les occurrences sélectionnées ont été créées.'); await loadState(); }
+    try { const result = await request('/courses/batch', {method: 'POST', data: {preview_token: preview.preview_token, selected_keys}}); const weeksMode = state.batch?.mode === 'weeks'; dialog.close(); if ($('planning-course-dialog').open) $('planning-course-dialog').close(); notice(result.message || 'Les occurrences sélectionnées ont été créées.'); await loadState(); if (weeksMode) showBatchReport(preview, selected_keys, result); }
     catch (failure) { formError(form, failure.message + '\nVérifiez à nouveau les créneaux avant de réessayer.'); invalidateBatch(); }
     finally { busyDialog(dialog, false); updateBatchCommit(); }
   });
+  function batchReportData(preview, selectedKeys, result) {
+    const selected = new Set(selectedKeys.map(String)), skipped = new Map();
+    for (const item of preview.items || []) if (!item.valid && !selected.has(String(item.key))) skipped.set(String(item.key), item);
+    for (const item of result.skipped || []) skipped.set(String(item.key), item);
+    return {created: Number(result.count ?? result.summary?.created ?? result.course_ids?.length ?? 0), skipped: [...skipped.values()]};
+  }
+  function showBatchReport(preview, selectedKeys, result) {
+    const report = batchReportData(preview, selectedKeys, result), summary = $('planning-batch-report-summary'); summary.replaceChildren();
+    for (const [value, label] of [[report.created, 'cours créé' + (report.created !== 1 ? 's' : '')], [report.skipped.length, 'cours laissé' + (report.skipped.length !== 1 ? 's' : '') + ' de côté']]) { const card = el('div'); card.append(el('strong', '', value), el('span', '', label)); summary.append(card); }
+    const list = $('planning-batch-report-items'); list.replaceChildren();
+    if (report.skipped.length) { list.append(el('h3', '', 'Les cours qui demandent votre attention')); for (const item of report.skipped) { const course = item.course || {}, row = el('article', 'planning-batch-report-item'); row.append(el('b', '', (course.date ? formatDate(course.date, {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'}) : 'Date à vérifier') + ' · ' + (course.start || '') + ' – ' + (course.end || '')), el('span', '', courseName(course)), el('p', '', (item.conflicts || []).map(issue => issue.message).join(' · ') || 'Ce cours n’a pas pu être dupliqué.')); list.append(row); } }
+    else list.append(el('p', 'planning-batch-report-success', 'Tous les cours sélectionnés ont été dupliqués. Vous pouvez continuer à organiser vos semaines.'));
+    openDialog('planning-batch-report-dialog');
+  }
   function renderRooms() {
     const list = $('planning-rooms-list'); list.replaceChildren();
     for (const room of state.data.rooms || []) {
@@ -650,6 +781,7 @@
   const goToWeek = date => navigatePlanning(() => { clearSlot(); state.quickShared = []; state.week = monday(date); selectView('week'); loadState(); });
   $('planning-prev').addEventListener('click', () => goToWeek(addDays(state.week, -7))); $('planning-next').addEventListener('click', () => goToWeek(addDays(state.week, 7))); $('planning-today').addEventListener('click', () => goToWeek(today())); $('planning-date').addEventListener('change', event => { if (event.target.value) goToWeek(event.target.value); });
   $('planning-subject-search').addEventListener('input', renderSubjects); $('planning-subject-new').addEventListener('click', () => openSubject()); $('planning-duration').addEventListener('change', loadAvailability); $('planning-room').addEventListener('change', () => { state.availabilitySeq++; state.availabilityReady = false; if (state.slot) checkSelectedSlot(); else loadAvailability(); }); $('planning-selection-clear').addEventListener('click', () => { state.subject = ''; state.availabilitySeq++; state.availability.clear(); state.availabilityReady = false; renderSubjects(); renderAvailability(); });
+  $('planning-slot-form').addEventListener('input', () => { state.slotFormDirty = true; $('planning-slot-clear').hidden = false; });
   $('planning-slot-form').addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget; if (!form.reportValidity()) return; if (form.elements.start.value >= form.elements.end.value) { notice('Choisissez une heure de fin après l’heure de début.', true); return; } setSlot(form.elements.date.value, form.elements.start.value, form.elements.end.value); });
   $('planning-slot-clear').addEventListener('click', () => { if (!state.quickBusy) clearSlot(); });
   $('planning-quick-shared-add').addEventListener('click', () => { if (state.quickBusy) return; state.quickShared.push({promotion_id: '', subject_id: ''}); renderSharedRows($('planning-quick-shared'), state.quickShared, promotionId(), onQuickSharedChange); onQuickSharedChange(); });

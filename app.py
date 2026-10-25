@@ -12,6 +12,8 @@ from daily_login import register_daily_login
 from promotions import register_promotions, ensure_promotions_schema, get_candidate_promotion, list_promotions
 from planning import register_planning
 from planning_portal import register_planning_portal, get_portal_today
+from planning_sync import register_planning_sync
+from trainer_availability import register_trainer_availability
 from legacy_links import snapshot_legacy_links, verify_legacy_link
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
 from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
@@ -83,6 +85,17 @@ def run_startup_integrity_checks():
         "planning.py",
         "planning_holidays.py",
         "planning_portal.py",
+        "planning_sync.py",
+        "trainer_availability.py",
+        "trainer_workload.py",
+        "templates/trainer_availability.html",
+        "templates/trainer_detail.html",
+        "static/css/trainer-availability.css",
+        "static/js/trainer-availability.js",
+        "static/css/trainer-workload.css",
+        "static/js/trainer-workload.js",
+        "static/css/planning-sync.css",
+        "static/js/planning-sync.js",
         "templates/portal_planning.html",
         "templates/_portal_today.html",
         "templates/_portal_course.html",
@@ -145,7 +158,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "promotions.py", "planning.py", "planning_portal.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "trainer_access.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
@@ -983,6 +996,8 @@ register_promotions(app, db, require_admin)
 register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
 register_planning(app, db, require_admin)
 register_planning_portal(app, db)
+register_trainer_availability(app, db)
+register_planning_sync(app, db, require_admin)
 
 
 @app.route("/ouverture.ics")

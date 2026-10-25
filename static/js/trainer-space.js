@@ -62,6 +62,7 @@
       $('trainer-account-save').textContent = account ? 'Enregistrer les modifications' : 'Créer le compte';
       $('trainer-existing-actions').hidden = !account; $('trainer-new-guidance').hidden = !!account;
       if (account) {
+        $('trainer-view-profile').href = '/admin/formateurs/' + encodeURIComponent(account.id);
         $('trainer-editor-state').textContent = account.active ? (account.activated ? 'Compte actif' : 'Activation en attente') : 'Compte désactivé';
         $('trainer-editor-state').className = 'trainer-account-state ' + (account.active ? 'active' : 'disabled');
         $('trainer-toggle-status').textContent = account.active ? 'Désactiver le compte' : 'Réactiver le compte';
@@ -197,6 +198,9 @@
       $('trainer-account-count').textContent = count + ' compte' + (count !== 1 ? 's' : '') + (query ? ' trouvé' + (count !== 1 ? 's' : '') : '');
       if ($('trainer-search-empty')) $('trainer-search-empty').hidden = count !== 0;
     });
+    const requestedEditor = new URLSearchParams(location.search).get('edit');
+    const requestedAccount = config.accounts.find(account => String(account.id) === requestedEditor);
+    if (requestedAccount) openEditor(requestedAccount, [...document.querySelectorAll('[data-edit-trainer]')].find(button => button.dataset.editTrainer === String(requestedAccount.id)));
     try { const message = sessionStorage.getItem('trainer-admin-notice'); if (message) { $('trainer-admin-notice').textContent = message; $('trainer-admin-notice').hidden = false; sessionStorage.removeItem('trainer-admin-notice'); } } catch (_) { /* Storage is optional. */ }
   }
   const rosterRows = [...document.querySelectorAll('[data-student-row]')];

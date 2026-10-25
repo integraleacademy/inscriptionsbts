@@ -20,6 +20,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from promotions import (BTS_LABELS, ensure_promotion_schema, list_promotions,
                         get_trainer_promotions, replace_trainer_promotions)
+from trainer_workload import (WorkloadError, ensure_workload_schema,
+                              get_trainer_workload, save_hourly_rate)
 
 SESSION_TTL = 8 * 60 * 60
 ACTIVATION_TTL = 72 * 60 * 60
@@ -301,6 +303,50 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         except sqlite3.IntegrityError:
             return admin_reply(False,'Cette adresse e-mail est déjà associée à un compte formateur.',409)
         return admin_reply(True,'Informations enregistrées. Envoyez une nouvelle invitation à la nouvelle adresse e-mail.' if email_changed else 'Informations et affectations enregistrées.')
+
+    @app.get('/admin/formateurs/<trainer_id>')
+    def admin_trainer_detail(trainer_id):
+        if not require_admin() and 'login' in app.view_functions:
+            return go('login', next=request.full_path.rstrip('?'))
+        admin_guard()
+        from zoneinfo import ZoneInfo
+        month = request.args.get('month', datetime.now(ZoneInfo('Europe/Paris')).strftime('%Y-%m'))
+        if len(request.args.getlist('month')) > 1 or any(key != 'month' for key in request.args):
+            abort(400, 'Sélectionnez un seul mois.')
+        with closing(db_connect()) as conn:
+            _schema(conn)
+            ensure_workload_schema(conn)
+            row = conn.execute('SELECT id,nom,prenom,email,active,password_hash,invited_at FROM trainers WHERE id=?', (trainer_id,)).fetchone()
+            if not row:
+                abort(404)
+            trainer = {key: row[key] for key in ('id', 'nom', 'prenom', 'email', 'active', 'invited_at')}
+            trainer.update(activated=bool(row['password_hash']), assignments=get_assignments(conn, trainer_id))
+            try:
+                workload = get_trainer_workload(conn, trainer_id, month)
+            except WorkloadError as error:
+                abort(error.status, str(error))
+            conn.commit()
+        return page('trainer_detail.html', title=trainer['prenom']+' '+trainer['nom']+' · Fiche formateur', trainer=trainer, workload=workload)
+
+    @app.post('/admin/formateurs/<trainer_id>/tarif')
+    def admin_trainer_hourly_rate(trainer_id):
+        admin_guard()
+        check_csrf()
+        data = payload()
+        revision = data.get('expected_revision')
+        if isinstance(revision, str) and re.fullmatch(r'\d{1,10}', revision):
+            revision = int(revision)
+        try:
+            with closing(db_connect()) as conn:
+                _schema(conn)
+                ensure_workload_schema(conn)
+                conn.commit()
+                conn.execute('BEGIN IMMEDIATE')
+                save_hourly_rate(conn, trainer_id, data.get('effective_date'), data.get('hourly_rate'), revision)
+                conn.commit()
+        except WorkloadError as error:
+            return secure(app.make_response((jsonify(ok=False, message=str(error)), error.status)))
+        return secure(app.make_response(jsonify(ok=True, message='Tarif enregistré. Les estimations ont été recalculées à partir de sa date d’effet.')))
 
     @app.post('/admin/formateurs/<trainer_id>/status')
     def admin_trainer_status(trainer_id):

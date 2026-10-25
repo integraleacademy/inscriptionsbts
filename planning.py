@@ -708,7 +708,27 @@ def register_planning(app,db_connect,require_admin):
 
     def batch_items(conn,payload):
         promotion=_promotion(conn,payload.get('promotion_id'),True);mode=payload.get('mode');items=[]
-        if mode=='dates':
+        if mode=='weeks':
+            source_start=_iso(payload.get('source_start'),'source_start')
+            if source_start.weekday()!=0:raise PlanningError('La semaine source doit commencer un lundi.')
+            try:source_end=source_start+timedelta(days=6)
+            except OverflowError:raise PlanningError('Les dates de duplication dépassent les limites du calendrier.')
+            chosen=payload.get('target_weeks')
+            if not isinstance(chosen,list) or not 1<=len(chosen)<=MAX_BATCH:raise PlanningError(f'Choisissez entre 1 et {MAX_BATCH} semaines.')
+            weeks=[_iso(day,'target_weeks') for day in chosen]
+            if len(set(weeks))!=len(weeks):raise PlanningError('Chaque semaine doit être sélectionnée une seule fois.')
+            if any(day.weekday()!=0 for day in weeks):raise PlanningError('Chaque semaine sélectionnée doit commencer un lundi.')
+            if source_start in weeks:raise PlanningError('Choisissez d’autres semaines que la semaine source.')
+            source=_load_courses(conn,source_start.isoformat(),source_end.isoformat(),promotion['id'])
+            if not source:raise PlanningError('La semaine source ne contient aucun cours à dupliquer.')
+            if len(source)*len(weeks)>MAX_BATCH:raise PlanningError(f'La sélection dépasse {MAX_BATCH} cours. Sélectionnez moins de semaines.')
+            for week in sorted(weeks):
+                for item in source:
+                    try:target_day=(week+timedelta(days=(_iso(item['date'])-source_start).days)).isoformat()
+                    except OverflowError:raise PlanningError('Les dates de duplication dépassent les limites du calendrier.')
+                    items.append({**{key:item[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title','shared')},
+                                  'date':target_day,'_source_course_id':item['id'],'_source_version':item['version'],'_source_date':item['date']})
+        elif mode=='dates':
             chosen=payload.get('dates')
             if not isinstance(chosen,list) or not 1<=len(chosen)<=MAX_BATCH:raise PlanningError(f'Choisissez entre 1 et {MAX_BATCH} dates.')
             dates=[_iso(day).isoformat() for day in chosen]
@@ -750,7 +770,7 @@ def register_planning(app,db_connect,require_admin):
                 try:target_day=(_iso(item['date'])+offset).isoformat()
                 except OverflowError:raise PlanningError('Les dates de duplication dépassent les limites du calendrier.')
                 items.append({**{key:item[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title','shared')},'date':target_day})
-        else:raise PlanningError('Choisissez des dates, une récurrence ou une duplication.')
+        else:raise PlanningError('Choisissez des dates, des semaines, une récurrence ou une duplication.')
         if not items or len(items)>MAX_BATCH:raise PlanningError(f'Choisissez entre 1 et {MAX_BATCH} occurrences.')
         return items
 
@@ -761,6 +781,22 @@ def register_planning(app,db_connect,require_admin):
             payload=body()
             with closing(connect()) as conn:
                 items=batch_items(conn,payload);preview=[];normalized=[]
+                if payload.get('mode')=='weeks':
+                    accepted=[]
+                    for index,item in enumerate(items):
+                        try:
+                            course=_course(conn,item)
+                            issues=_conflicts(conn,course,pool=_load_courses(conn,course['date'],course['date'])+accepted,pending=accepted)
+                        except PlanningError as error:course=item;issues=error.conflicts or [dict(type='invalid_course',message=str(error),date=item.get('date'))]
+                        if not issues:accepted.append(course)
+                        preview.append(dict(key=str(index),course=course,conflicts=issues,valid=not issues,
+                                            source_course_id=item['_source_course_id'],source_date=item['_source_date']))
+                    source_versions={item['_source_course_id']:item['_source_version'] for item in items}
+                    token=serializer.dumps(dict(items=items,mode='weeks',promotion_id=payload['promotion_id'],source_start=payload['source_start'],
+                                                source_versions=source_versions,binding=hashlib.sha256(csrf().encode()).hexdigest()))
+                    valid=sum(item['valid'] for item in preview)
+                    return result(items=preview,mode='weeks',partial=True,preview_token=token,
+                                  summary=dict(total=len(preview),valid=valid,conflicts=len(preview)-valid))
                 for index,item in enumerate(items):
                     try:
                         course=_course(conn,item);issues=_conflicts(conn,course);normalized.append((index,course))
@@ -792,6 +828,33 @@ def register_planning(app,db_connect,require_admin):
             if preview.get('binding')!=hashlib.sha256(csrf().encode()).hexdigest():raise PlanningError('Cet aperçu appartient à une autre session. Générez un nouvel aperçu.',status=409)
             selected=payload.get('selected_keys')
             if not isinstance(selected,list) or not selected or len(selected)>MAX_BATCH or len(set(map(str,selected)))!=len(selected):raise PlanningError('Cochez explicitement les occurrences à programmer.')
+            for key in selected:
+                if not isinstance(key,str) or len(key)>4 or not re.fullmatch(r'0|[1-9][0-9]*',key) or int(key)>=len(preview['items']):raise PlanningError('La sélection de cours est invalide.')
+            if preview.get('mode')=='weeks':
+                # A changed source week requires a fresh preview. It must never be
+                # treated as an ordinary destination conflict and silently skipped.
+                source_start=_iso(preview['source_start']);source_end=source_start+timedelta(days=6)
+                current_sources={item['id']:item['version'] for item in _load_courses(conn,source_start.isoformat(),source_end.isoformat(),preview['promotion_id'])}
+                if current_sources!=preview['source_versions']:
+                    raise PlanningError('La semaine source a été modifiée entre-temps. Générez un nouvel aperçu. Aucun cours n’a été ajouté.',
+                                        [dict(type='stale_source_week')],409)
+                courses=[];skipped=[];created_keys=[]
+                # Always use preview chronology, not client checkbox order, so
+                # scarce annual hours go to the earliest chosen occurrences.
+                for key in sorted(selected,key=int):
+                    item=preview['items'][int(key)]
+                    try:
+                        course=_course(conn,item)
+                        issues=_conflicts(conn,course,pool=_load_courses(conn,course['date'],course['date'])+courses,pending=courses)
+                    except PlanningError as error:course=item;issues=error.conflicts or [dict(type='invalid_course',message=str(error),date=item.get('date'))]
+                    if issues:
+                        skipped.append(dict(key=key,course=course,conflicts=issues,source_course_id=item['_source_course_id'],source_date=item['_source_date']))
+                    else:courses.append(course);created_keys.append(key)
+                ids=[persist(conn,course) for course in courses]
+                message=f'{len(ids)} cours programmé(s).'
+                if skipped:message+=f' {len(skipped)} cours non dupliqué(s) en raison de conflits.'
+                return dict(course_ids=ids,count=len(ids),created_keys=created_keys,skipped_count=len(skipped),skipped=skipped,
+                            summary=dict(total=len(selected),created=len(ids),skipped=len(skipped)),message=message)
             courses=[];issues=[];checked_sources={}
             for key in selected:
                 if not isinstance(key,str) or len(key)>4 or not re.fullmatch(r'0|[1-9][0-9]*',key) or int(key)>=len(preview['items']):raise PlanningError('La sélection de cours est invalide.')

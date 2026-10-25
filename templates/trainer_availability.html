@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% from 'ui_icons.html' import icon %}
+{% block body_class %}trainer-availability-page{% endblock %}
+{% block content %}
+<div class="ta-app" data-trainer-availability>
+  <script type="application/json" id="trainer-availability-config">{{ availability|tojson }}</script>
+  <a class="ta-back" href="{{ availability.home_url }}">← Mon espace formateur</a>
+  <header class="ta-heading">
+    <div><p class="ta-kicker">INTÉGRALE ACADEMY · ÉQUIPE PÉDAGOGIQUE</p><h1>Mes <em>indisponibilités.</em></h1><p>Quelques dates à réserver ? Indiquez-les ici pour que votre planning en tienne compte.</p></div>
+    <a class="ta-button" href="{{ availability.planning_url }}">{{ icon('clock') }} Voir mon planning</a>
+  </header>
+  <div class="ta-notice" id="ta-notice" role="status" aria-live="polite" hidden></div>
+  <noscript><div class="ta-notice ta-error">Activez JavaScript pour sélectionner des dates et enregistrer vos indisponibilités.</div></noscript>
+  <section class="ta-calendar-card" aria-labelledby="ta-calendar-title">
+    <div class="ta-toolbar">
+      <div class="ta-year-navigation"><button type="button" class="ta-icon-button" id="ta-previous" aria-label="Année précédente">‹</button><div><p class="ta-kicker">VOTRE ANNÉE, EN UN COUP D’ŒIL</p><h2 id="ta-calendar-title">{{ availability.year }}</h2></div><button type="button" class="ta-icon-button" id="ta-next" aria-label="Année suivante">›</button></div>
+      <div class="ta-tools" role="group" aria-label="Que souhaitez-vous indiquer ?"><button type="button" class="ta-tool is-active" data-ta-action="unavailable" aria-pressed="true"><i class="ta-dot unavailable"></i>Indisponible</button><button type="button" class="ta-tool" data-ta-action="available" aria-pressed="false"><i class="ta-dot available"></i>De nouveau disponible</button></div>
+    </div>
+    <div class="ta-help"><span>{{ icon('calendar') }}</span><p id="ta-instructions">Cliquez sur les jours où vous êtes indisponible, ou faites glisser pour en sélectionner plusieurs. Vos choix seront appliqués après enregistrement.</p></div>
+    <div class="ta-legend"><span><i class="ta-dot available"></i>Disponible</span><span><i class="ta-dot unavailable"></i>Votre indisponibilité</span><span><i class="ta-dot admin"></i>Blocage de l’équipe</span><span><i class="ta-dot holiday"></i>Jour férié</span><span><i class="ta-dot lesson"></i>Cours prévu</span></div>
+    <div class="ta-months" id="ta-months" aria-describedby="ta-instructions"></div>
+    <div class="ta-loading" id="ta-loading" role="status" hidden>Chargement de votre calendrier…</div>
+    <div class="ta-savebar">
+      <div><strong id="ta-selection-count" aria-live="polite">Aucun jour sélectionné</strong><p id="ta-selection-hint">Les cours déjà programmés vous seront signalés avant toute suppression.</p></div>
+      <div class="ta-save-actions"><button type="button" class="ta-button subtle" id="ta-clear" disabled>Effacer la sélection</button><button type="button" class="ta-button primary" id="ta-save" disabled>Enregistrer mes dates</button></div>
+    </div>
+  </section>
+  <p class="ta-footer">{{ icon('shield') }} Seules vos indisponibilités personnelles peuvent être retirées ici. Pour modifier un blocage de l’équipe pédagogique, contactez l’école.</p>
+</div>
+<dialog id="ta-confirm-dialog" class="ta-dialog" aria-labelledby="ta-confirm-title" aria-describedby="ta-confirm-description">
+  <div class="ta-dialog-shell">
+    <button type="button" id="ta-close-dialog" class="ta-dialog-close" aria-label="Fermer sans enregistrer">×</button>
+    <div class="ta-dialog-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 3 10 18H2L12 3Z" stroke-linejoin="round"/><path d="M12 9v5" stroke-linecap="round"/><circle cx="12" cy="17.5" r=".7" fill="currentColor" stroke="none"/></svg></div>
+    <p class="ta-kicker" id="ta-confirm-eyebrow">VÉRIFIONS ENSEMBLE</p>
+    <h2 id="ta-confirm-title">Confirmer vos dates</h2>
+    <p id="ta-confirm-description"></p>
+    <div class="ta-confirm-summary" id="ta-confirm-summary"></div>
+    <div class="ta-conflict-courses" id="ta-conflict-courses"></div>
+    <p class="ta-delete-note" id="ta-delete-note" hidden>Cette suppression concerne aussi les cours communs à plusieurs promotions. Les plannings et les compteurs d’heures seront mis à jour pour tout le monde.</p>
+    <div class="ta-dialog-error" id="ta-dialog-error" role="alert" hidden></div>
+    <div class="ta-dialog-actions"><button type="button" class="ta-button" id="ta-cancel-dialog">Revenir au calendrier</button><button type="button" class="ta-button primary" id="ta-confirm">Confirmer et enregistrer</button></div>
+  </div>
+</dialog>
+{% endblock %}
