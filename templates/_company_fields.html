@@ -1,5 +1,37 @@
-<label>Nom de l’entreprise<input name="name" value="{{ request.form.get('name', company.name if company is defined else '') }}" maxlength="150" autocomplete="organization" required></label>
-<label>Nom du contact<input name="contact" value="{{ request.form.get('contact', company.contact if company is defined else '') }}" maxlength="150" autocomplete="name" required></label>
-<label>E-mail de connexion<input type="email" name="email" value="{{ request.form.get('email', company.email if company is defined else '') }}" maxlength="254" autocomplete="email" required></label>
-<label>Téléphone <span class="co-muted">(facultatif)</span><input type="tel" name="phone" value="{{ request.form.get('phone', company.phone if company is defined else '') }}" maxlength="40" autocomplete="tel"></label>
-<label>SIRET <span class="co-muted">(facultatif)</span><input name="siret" value="{{ request.form.get('siret', company.siret if company is defined else '') }}" inputmode="numeric" pattern="[0-9 ]{14,18}" maxlength="18"></label>
+{% macro field_value(name) %}{{ request.form.get(name, company[name] if company is defined else '') }}{% endmacro %}
+<div class="co-registry-search co-full" data-company-registry data-lookup-url="{{ url_for('admin_company_registry') }}">
+  <div class="co-registry-heading"><span class="co-registry-icon">{{ icon('briefcase') }}</span><div><h3>Retrouvez l’entreprise avec son SIRET</h3><p>Les informations publiques de l’Annuaire des entreprises, en quelques secondes.</p></div></div>
+  <label for="company-siret">Numéro SIRET <span class="co-muted">(facultatif)</span></label>
+  <div class="co-siret-row"><input id="company-siret" name="siret" value="{{ field_value('siret') }}" inputmode="numeric" pattern="[0-9\s]{14,20}" maxlength="20" placeholder="Ex. : 130 025 265 00013" autocomplete="off" aria-describedby="company-registry-status"><button type="button" class="co-button" data-registry-search>{{ icon('search') }} Rechercher</button></div>
+  <p id="company-registry-status" class="co-registry-status" data-registry-status role="status" aria-live="polite">La recherche démarre après la saisie des 14 chiffres. Vous pouvez aussi remplir la fiche manuellement.</p>
+  <section class="co-registry-preview" data-registry-preview hidden aria-label="Résultat de la recherche SIRET">
+    <div class="co-section-heading"><h3 data-registry-name></h3><span class="co-badge blue">Établissement trouvé</span></div>
+    <p data-registry-address></p><p class="co-muted" data-registry-identity></p>
+    <div class="co-notice warning" data-registry-warning hidden></div>
+    <details class="co-registry-details"><summary>Voir toutes les informations disponibles</summary><dl class="co-registry-data" data-registry-data></dl></details>
+    <p class="co-muted">L’import remplit les informations de l’entreprise. Le contact, son e-mail et son téléphone restent à compléter ci-dessous.</p>
+    <div class="co-actions"><button type="button" class="co-button primary" data-registry-import>Importer ces informations</button><a data-registry-source target="_blank" rel="noopener noreferrer">Voir la fiche officielle ↗</a></div>
+  </section>
+  <input type="hidden" name="registry_token" value="{{ request.form.get('registry_token', '') }}">
+  <p class="co-registry-imported" data-registry-imported role="status" {% if not request.form.get('registry_token') %}hidden{% endif %}>Informations importées dans le formulaire. Enregistrez la fiche pour les conserver.</p>
+</div>
+<label class="co-full">Nom de l’entreprise<input name="name" value="{{ field_value('name') }}" maxlength="150" autocomplete="organization" required></label>
+<details class="co-full co-registry-fields" data-registry-fields {% if company is defined and company.address %}open{% endif %}>
+  <summary>Informations administratives et adresse</summary>
+  <div class="co-form-grid">
+    {% for name, label, maximum in registry_fields %}<label {% if name in ['address', 'legal_name', 'trade_name'] %}class="co-full"{% endif %}>{{ label }}<input name="{{ name }}" value="{{ field_value(name) }}" maxlength="{{ maximum }}" {% if name == 'postal_code' %}autocomplete="postal-code"{% elif name == 'city' %}autocomplete="address-level2"{% elif name == 'address' %}autocomplete="street-address"{% endif %}></label>{% endfor %}
+  </div>
+</details>
+{% if company is defined and company.registry %}
+<details class="co-full co-registry-details co-registry-saved" data-registry-saved data-siret="{{ company.siret }}">
+  <summary>Informations officielles importées</summary>
+  <p class="co-muted">{{ company.registry.source }} · Consultation du {{ company.registry.fetched_at[:10] }}. Les champs ci-dessus restent modifiables.</p>
+  {% for warning in company.registry.warnings %}<p class="co-notice warning">{{ warning }}</p>{% endfor %}
+  <dl class="co-registry-data">{% for item in company.registry.details %}<div><dt>{{ item.label }}</dt><dd>{{ item.value }}</dd></div>{% endfor %}</dl>
+  <a href="{{ company.registry.source_url }}" target="_blank" rel="noopener noreferrer">Consulter la fiche officielle ↗</a>
+</details>
+{% endif %}
+<div class="co-full co-contact-heading"><h3>Contact et accès à l’espace entreprise</h3><p class="co-muted">Indiquez les coordonnées de la personne qui suivra les alternants.</p></div>
+<label>Nom du contact<input name="contact" value="{{ field_value('contact') }}" maxlength="150" autocomplete="name" required></label>
+<label>E-mail de connexion<input type="email" name="email" value="{{ field_value('email') }}" maxlength="254" autocomplete="email" required></label>
+<label>Téléphone <span class="co-muted">(facultatif)</span><input type="tel" name="phone" value="{{ field_value('phone') }}" maxlength="40" autocomplete="tel"></label>

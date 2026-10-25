@@ -11,6 +11,7 @@ from io import BytesIO, StringIO
 import csv
 import hashlib
 import hmac
+import json
 import os
 import re
 import secrets
@@ -18,11 +19,13 @@ import sqlite3
 import time
 from zoneinfo import ZoneInfo
 
-from flask import abort, flash, redirect, render_template, request, send_file, session, url_for
+from flask import abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 from branded_email import render_branded_email
 from planning import ensure_planning_schema
 from planning_portal import get_portal_week, _requested_day
+from company_registry import (EDITABLE_FIELDS, RegistryError, lookup_company,
+                              normalize_siret, preview_token, read_preview, saved_registry)
 
 PARIS = ZoneInfo('Europe/Paris')
 STATUSES = ('confirmee', 'reconfirmee', 'rentree')
@@ -72,6 +75,11 @@ def ensure_company_schema(conn):
             actor TEXT NOT NULL, created_at TEXT NOT NULL)''',
     ):
         conn.execute(sql)
+    # Additive migration: existing accounts, passwords and grants are untouched.
+    columns = {row[1] for row in conn.execute('PRAGMA table_info(companies)')}
+    for name in [field[0] for field in EDITABLE_FIELDS] + ['registry_data']:
+        if name not in columns:
+            conn.execute(f"ALTER TABLE companies ADD COLUMN {name} TEXT NOT NULL DEFAULT ''")
 
 
 def linked_students(conn, company_id):
@@ -161,7 +169,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
         return response
 
     def page(template, **context):
-        return render_template(template, csrf_token=csrf(), **context)
+        return render_template(template, csrf_token=csrf(), registry_fields=EDITABLE_FIELDS, **context)
 
     def audit(conn, action, target):
         conn.execute('INSERT INTO company_audit(action,target_id,actor,created_at) VALUES(?,?,?,?)',
@@ -226,10 +234,10 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             conn.commit()
         return bool(sent)
 
-    def company_fields():
+    def company_fields(current=None):
         values = {key: request.form.get(key, '').strip() for key in ('name', 'contact', 'email', 'phone', 'siret')}
         values['email'] = values['email'].lower()
-        values['siret'] = values['siret'].replace(' ', '')
+        values['siret'] = normalize_siret(values['siret']) if values['siret'] else ''
         if not values['name'] or not values['contact'] or max(len(values['name']), len(values['contact'])) > 150:
             raise ValueError('Indiquez le nom de l’entreprise et le contact (150 caractères maximum).')
         if len(values['email']) > 254 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', values['email']):
@@ -238,6 +246,19 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             raise ValueError('Vérifiez le téléphone et le SIRET (14 chiffres, facultatif).')
         if any(ord(c) < 32 for value in values.values() for c in value):
             raise ValueError('Les coordonnées contiennent un caractère invalide.')
+        for name, label, maximum in EDITABLE_FIELDS:
+            value = request.form.get(name, current.get(name, '') if current else '').strip()
+            if len(value) > maximum or any(ord(c) < 32 for c in value):
+                raise ValueError(f'Vérifiez le champ « {label} » ({maximum} caractères maximum).')
+            values[name] = value
+        token = request.form.get('registry_token', '').strip()
+        if token:
+            registry = read_preview(app.secret_key, token, values['siret'])
+            values['registry_data'] = json.dumps(registry, ensure_ascii=False)
+        elif current and current['siret'] == values['siret']:
+            values['registry_data'] = current['registry_data']
+        else:
+            values['registry_data'] = ''
         return values
 
     def admin_company(conn, company_id):
@@ -246,11 +267,27 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
             abort(404)
         company = dict(row)
         company['activated'] = bool(company.pop('password_hash'))
+        company['registry'] = saved_registry(company['registry_data'])
         return company
 
     def version_check(current):
         if request.form.get('version') != str(current['version']):
             abort(409, 'Cette fiche a été modifiée. Rechargez-la avant de réessayer.')
+
+    @app.get('/admin/entreprises/recherche-siret')
+    def admin_company_registry():
+        admin_guard()
+        try:
+            if len(request.args.getlist('siret')) != 1:
+                raise RegistryError('Saisissez un seul SIRET composé de 14 chiffres.', 400)
+            siret = normalize_siret(request.args['siret'])
+            data = lookup_company(siret)
+            return jsonify(**data, token=preview_token(app.secret_key, data))
+        except RegistryError as exc:
+            response = jsonify(error=str(exc))
+            if exc.status == 429:
+                response.headers['Retry-After'] = '60'
+            return response, exc.status
 
     @app.route('/admin/entreprises', methods=['GET', 'POST'])
     def admin_companies():
@@ -264,7 +301,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                 try:
                     values = company_fields()
                     cid = secrets.token_urlsafe(24)
-                    conn.execute('INSERT INTO companies(id,name,contact,email,phone,siret,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)',
+                    conn.execute('INSERT INTO companies(id,'+','.join(values)+',created_at,updated_at) VALUES('+','.join('?' for _ in range(len(values)+3))+')',
                                  (cid, *values.values(), now_iso(), now_iso()))
                     audit(conn, 'company_created', cid)
                     conn.commit()
@@ -292,9 +329,9 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                 company = admin_company(conn, company_id)
                 version_check(company)
                 try:
-                    values = company_fields()
+                    values = company_fields(company)
                     changed_email = values['email'] != company['email']
-                    conn.execute('UPDATE companies SET name=?,contact=?,email=?,phone=?,siret=?,version=version+1,updated_at=? WHERE id=?',
+                    conn.execute('UPDATE companies SET '+','.join(key+'=?' for key in values)+',version=version+1,updated_at=? WHERE id=?',
                                  (*values.values(), now_iso(), company_id))
                     if changed_email:
                         conn.execute('UPDATE companies SET password_hash=NULL,invited_at=NULL WHERE id=?', (company_id,))

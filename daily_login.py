@@ -17,6 +17,10 @@ SCENES = {
         ('Une étudiante révise avec ses fiches de cours.', 'Un peu de curiosité, beaucoup de possibilités.'),
         ('Trois étudiants construisent un projet autour d’un tableau.', 'Construire, apprendre, partager.'),
     ),
+    'company': ((
+        'Une tutrice et un alternant préparent leur semaine dans un bureau lumineux.',
+        'Faire grandir les talents, ensemble.',
+    ),) * 7,
     'trainer': (
         ('Un formateur anime un cours devant un groupe d’étudiants.', 'Transmettre et donner envie.'),
         ('Une formatrice prépare ses supports pédagogiques à son bureau.', 'Préparer les réussites de demain.'),
@@ -37,12 +41,14 @@ def login_scene(role, now=None):
         current = current.replace(tzinfo=timezone.utc)
     day = current.astimezone(PARIS).weekday()
     alt, caption = SCENES[role][day]
-    return dict(role=role, day=DAYS[day], tone=TONES[(day + (3 if role == 'trainer' else 0)) % 7],
-                image=f'admissions/daily/{role}-{DAYS[day]}.webp', alt=alt, caption=caption)
+    return dict(role=role, day=DAYS[day], tone=TONES[(day + {'student': 0, 'trainer': 3, 'company': 4}[role]) % 7],
+                image=('admissions/company-space-illustration.webp' if role == 'company' else f'admissions/daily/{role}-{DAYS[day]}.webp'), alt=alt, caption=caption)
 
 
 def register_daily_login(app):
     @app.context_processor
     def daily_login_context():
-        role = {'candidate_login': 'student', 'trainer_login': 'trainer'}.get(request.endpoint)
+        role = {'candidate_login': 'student', 'trainer_login': 'trainer',
+                'company_login': 'company', 'company_forgot_password': 'company',
+                'company_password': 'company'}.get(request.endpoint)
         return {'daily_login': login_scene(role) if role else None}

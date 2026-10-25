@@ -1,6 +1,7 @@
 {% from "ui_icons.html" import icon %}
 {% set student_auth_endpoints = ['candidate_login', 'candidate_verify', 'student_change_password', 'student_forgot_password', 'student_reset_password', 'student_logout'] %}
 {% set is_student_auth = request.endpoint in student_auth_endpoints %}
+{% set is_company_auth = request.endpoint in ['company_login', 'company_forgot_password', 'company_password'] %}
 {% set is_company_space = request.path.startswith('/entreprise') or request.path.startswith('/admin/entreprises') or request.path.startswith('/admin/assiduite') %}
 {% set is_trainer_space = request.path.startswith('/formateur') %}
 {% set is_trainer_admin = request.path.startswith('/admin/formateurs') %}
@@ -53,7 +54,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-refinement.css') }}?v=4">
   {% if is_student_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-access.css') }}?v=4">{% endif %}
   {% if request.endpoint == 'candidate_login' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-login.css') }}?v=1">{% endif %}
-  {% if is_trainer_space or is_trainer_admin or is_promotions_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-space.css') }}?v=2">{% endif %}
+  {% if is_trainer_space or is_trainer_admin or is_promotions_admin or is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-space.css') }}?v=2">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-neutral.css') }}?v=1">
   {% if is_trainer_admin or is_promotions_admin or request.endpoint in ['trainer_dashboard', 'admin_candidate_sheet'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/promotions.css') }}?v=1">{% endif %}
   {% if daily_login %}<link rel="stylesheet" href="{{ url_for('static', filename='css/daily-login.css') }}?v=3">{% endif %}
@@ -65,7 +66,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if planning_sync_config %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-sync.css') }}?v=1">{% endif %}
   {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-admin-planning.css') }}?v=2">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-vibrant.css') }}?v=1">
-  {% if is_company_space %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-space.css') }}?v=1">{% endif %}
+  {% if is_company_space and not is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-space.css') }}?v=2">{% endif %}
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
   {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
@@ -132,7 +133,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% elif is_admin_settings %}
     {# Dedicated settings script is loaded by the page. #}
   {% elif is_company_space %}
-    {# Company forms use server-side navigation and validation. #}
+    {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<script src="{{ url_for('static', filename='js/company-registry.js') }}?v=1" defer></script>{% endif %}
   {% elif 'admin' in request.path or 'parcoursup' in request.path %}
     <script src="{{ url_for('static', filename='js/main_admin.js') }}"></script>
   {% elif request.path.startswith('/replace-files') or request.path.startswith('/espace/') or request.path == '/login' or request.path == '/' or request.path == '/candidature' or request.path.startswith('/reprendre/') %}

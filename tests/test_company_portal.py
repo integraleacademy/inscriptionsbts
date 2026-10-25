@@ -54,6 +54,8 @@ def env(tmp_path, monkeypatch):
     def send(*args):
         mails.append(args)
         return not app.config.get('MAIL_FAIL',False)
+    from daily_login import register_daily_login
+    register_daily_login(app)
     portal.register_company_portal(app, db, send, lambda: bool(session.get('admin_ok')))
     monkeypatch.setattr(portal, 'today', lambda:date(2026,10,25))
     monkeypatch.setenv('BASE_URL','https://school.example.test')

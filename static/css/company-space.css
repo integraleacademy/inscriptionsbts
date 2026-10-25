@@ -11,3 +11,24 @@ body.academy-ui.company-page .co-auth{margin-top:0}
 
 .company-page .co-heading>div{min-width:0;overflow-wrap:anywhere}.company-page .co-panel{overflow-wrap:anywhere}
 @media(max-width:650px){.company-page .co-filters>label{flex-basis:100%}.company-page .co-table-wrap{overflow:visible}.company-page .co-table{display:block;min-width:0}.company-page .co-table thead{display:none}.company-page .co-table tbody{display:grid;gap:12px}.company-page .co-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));padding:6px;border:1px solid #dce3eb;border-radius:10px}.company-page .co-table td{display:block;min-width:0;padding:8px;border:0;font-size:12px}.company-page .co-table td:before{content:attr(data-label);display:block;margin-bottom:5px;color:#64748b;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}.company-page .co-table td:last-child:nth-child(odd){grid-column:1/-1}}
+
+/* Registry preview and editable company information. */
+.co-registry-search{background:#f1f6fb;border:1px solid #d1dfed;border-radius:14px;padding:22px}
+.co-registry-heading{display:flex;gap:13px;align-items:flex-start;margin-bottom:18px}
+.co-registry-icon{display:grid;place-items:center;flex:none;width:42px;height:42px;background:#e0ebf7;border-radius:12px;color:#225997}
+.co-registry-icon .ui-icon{width:23px;height:23px}
+.co-registry-heading h3,.co-contact-heading h3{margin:0 0 5px;font-size:16px;color:#233d58}
+.co-registry-heading p,.co-contact-heading p{margin:0;font-size:13px;line-height:1.6}
+.co-siret-row{display:flex;gap:10px;margin-top:8px}.co-siret-row input{flex:1;min-width:0;letter-spacing:.06em;font-variant-numeric:tabular-nums}.co-siret-row button{flex:none}
+.co-registry-status{font-size:12px;line-height:1.7;color:#50627a;margin:10px 0 0}.co-registry-status.is-error{color:#a13c2d}
+.co-registry-preview{margin-top:18px;padding:20px;background:#fff;border:1px solid #c5d6e7;border-radius:11px}
+.co-registry-preview h3{font-size:18px;margin:0;color:#203d5a}.co-registry-preview p{font-size:13px;line-height:1.65;margin:9px 0}
+.co-registry-preview .co-actions{margin-top:16px;gap:16px}.co-registry-preview .co-actions a{font-size:12px}
+.co-registry-details,.co-registry-fields{border:1px solid #d7e1ec;border-radius:10px;padding:14px 16px;background:#fff}
+.co-registry-details summary,.co-registry-fields summary{cursor:pointer;font-size:13px;font-weight:700;color:#38536f}
+.co-registry-fields>.co-form-grid{margin-top:18px}.co-registry-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 24px;margin:12px 0}
+.co-registry-data>div{padding:10px 0;border-bottom:1px solid #e7edf4;min-width:0}.co-registry-data dt{font-size:11px;color:#64748b;margin-bottom:4px}.co-registry-data dd{font-size:13px;color:#243b53;margin:0;overflow-wrap:anywhere;line-height:1.5}
+.co-registry-imported{padding:12px 14px;border:1px solid #aad3bb;border-radius:9px;background:#eaf6ed;color:#24553b;font-size:13px;line-height:1.6;margin:14px 0 0}
+.co-notice.warning{background:#fff5dd;border-color:#e4c57e;color:#805315}.co-contact-heading{border-top:1px solid #dce4ed;padding-top:20px;margin-top:4px}
+.co-registry-search [hidden],.co-registry-saved[hidden]{display:none!important}
+@media(max-width:650px){.co-registry-search{padding:16px}.co-registry-heading{gap:10px}.co-registry-heading h3{font-size:15px}.co-registry-icon{width:32px;height:32px}.co-siret-row{flex-wrap:wrap}.co-siret-row input{flex-basis:100%;width:100%}.co-siret-row button{width:100%}.co-registry-preview{padding:15px}.co-registry-data{grid-template-columns:1fr}.co-registry-preview .co-actions{align-items:stretch;flex-direction:column}.co-registry-details,.co-registry-fields{padding:13px}.co-registry-preview h3{font-size:16px}}

@@ -1,28 +1,38 @@
 {% extends 'base.html' %}
 {% from 'ui_icons.html' import icon %}
-{% block body_class %}company-page{% endblock %}
+{% block body_class %}trainer-space-page trainer-auth-page company-auth-page{% endblock %}
 {% block content %}
-<section class="co-auth">
-  <aside class="co-auth-story"><span class="co-kicker">INTÉGRALE ACADEMY · ENTREPRISES</span><h1>Accompagner<br>leurs talents.<br><em>Ensemble.</em></h1><p>Un espace commun pour suivre le parcours de vos alternants, au quotidien.</p><div class="co-auth-features"><span>{{ icon('person') }} Vos alternants</span><span>{{ icon('clock') }} Leur planning</span><span>{{ icon('file') }} Leur assiduité</span></div><div class="co-partnership">{{ icon('briefcase') }}<p><strong>Le lien entre l’école et votre entreprise.</strong><br>Des informations à jour, au même endroit.</p></div></aside>
-  <div class="co-auth-form">
+<section class="trainer-login-shell" aria-labelledby="company-login-title">
+  <aside class="trainer-login-story">
+    <p class="trainer-kicker">INTÉGRALE ACADEMY · ESPACE ENTREPRISE</p>
+    <h1 id="company-login-title">Accompagner.<br>Partager.<br><em>Faire grandir.</em></h1>
+    <p>Votre espace pour suivre vos alternants, leur planning et leur assiduité.</p>
+    <figure class="trainer-login-visual">
+      <img src="{{ url_for('static', filename='admissions/company-space-illustration.webp') }}" width="1536" height="1024" alt="Une tutrice et un alternant préparent leur semaine dans un bureau lumineux." fetchpriority="high">
+      <figcaption>{{ icon('briefcase') }} Faire grandir les talents, ensemble.</figcaption>
+    </figure>
+    <div class="trainer-story-tags"><span>Vos alternants</span><span>Leur planning</span><span>Leur assiduité</span></div>
+  </aside>
+  <div class="trainer-login-form">
   {% if mode == 'login' %}
-    <span class="co-kicker">VOTRE ESPACE ENTREPRISE</span><h2>Heureux de vous retrouver.</h2><p>Connectez-vous avec l’adresse e-mail communiquée à l’école.</p>
-    {% if reset_done %}<div class="co-notice success" role="status">Votre mot de passe est enregistré. Vous pouvez vous connecter.</div>{% endif %}
-    {% if error %}<div class="co-notice error" role="alert">{{ error }}</div>{% endif %}
-    <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Adresse e-mail<input type="email" name="email" value="{{ email }}" maxlength="254" autocomplete="username" required></label><label>Mot de passe<input type="password" name="password" maxlength="128" autocomplete="current-password" required></label><button class="co-button primary">Me connecter</button></form>
-    <a href="{{ url_for('company_forgot_password') }}">Mot de passe oublié ?</a><div class="co-notice"><strong>Première connexion ?</strong><br>Ouvrez l’invitation envoyée par Intégrale Academy pour choisir votre mot de passe.</div>
+    <span class="trainer-kicker">HEUREUX DE VOUS RETROUVER</span><h2>Bienvenue dans votre espace.</h2><p>Connectez-vous avec l’adresse e-mail communiquée à l’école et votre mot de passe.</p>
+    {% if reset_done %}<div class="trainer-feedback success" role="status">Votre mot de passe est enregistré. Vous pouvez vous connecter.</div>{% endif %}
+    {% if error %}<div class="trainer-feedback error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" class="trainer-auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Adresse e-mail<input type="email" name="email" value="{{ email }}" maxlength="254" autocomplete="username" placeholder="prenom@entreprise.fr" required></label><label>Mot de passe<input type="password" name="password" maxlength="128" autocomplete="current-password" placeholder="Votre mot de passe" required></label><button class="trainer-button primary">Me connecter</button></form>
+    <a class="trainer-forgot" href="{{ url_for('company_forgot_password') }}">Mot de passe oublié ?</a><div class="trainer-access-note">{{ icon('shield') }}<div><b>Première connexion ?</b><p>Ouvrez le lien d’activation envoyé par l’équipe Intégrale Academy pour choisir votre mot de passe.</p></div></div>
   {% elif mode == 'forgot' %}
-    <span class="co-kicker">RETROUVER VOTRE ACCÈS</span><h2>Un nouveau mot de passe.</h2>
-    {% if sent %}<div class="co-notice success" role="status">Si un compte actif correspond à cette adresse, un lien vous a été envoyé. Pensez à vérifier vos courriers indésirables.</div>{% else %}<p>Renseignez l’adresse e-mail de votre compte entreprise.</p>{% endif %}
-    <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Adresse e-mail<input name="email" type="email" autocomplete="email" maxlength="254" required></label><button class="co-button primary">Recevoir un lien</button></form>
+    <span class="trainer-kicker">RETROUVER VOTRE ACCÈS</span><h2>Un nouveau mot de passe.</h2>
+    {% if sent %}<div class="trainer-feedback success" role="status">Si un compte actif correspond à cette adresse, un lien vous a été envoyé. Pensez à vérifier vos courriers indésirables.</div>{% else %}<p>Renseignez l’adresse e-mail de votre compte entreprise.</p>{% endif %}
+    <form method="post" class="trainer-auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Adresse e-mail<input name="email" type="email" autocomplete="email" maxlength="254" required></label><button class="trainer-button primary">Recevoir un lien</button></form>
   {% else %}
-    <span class="co-kicker">VOTRE ACCÈS PERSONNEL</span><h2>Choisissez votre mot de passe.</h2>
-    {% if not valid %}<div class="co-notice error" role="alert">Ce lien a expiré ou a déjà été utilisé.</div><a href="{{ url_for('company_forgot_password') }}">Recevoir un nouveau lien</a>{% else %}
-    <p>Utilisez au moins 12 caractères, avec au moins une lettre.</p>{% if error %}<div class="co-notice error" role="alert">{{ error }}</div>{% endif %}
-    <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Nouveau mot de passe<input name="new_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label><label>Confirmez le mot de passe<input name="confirm_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label><button class="co-button primary">Enregistrer mon mot de passe</button></form>{% endif %}
+    <span class="trainer-kicker">VOTRE ACCÈS PERSONNEL</span><h2>Choisissez votre mot de passe.</h2>
+    {% if not valid %}<div class="trainer-feedback error" role="alert">Ce lien a expiré ou a déjà été utilisé.</div><a href="{{ url_for('company_forgot_password') }}">Recevoir un nouveau lien</a>{% else %}
+    <p>Utilisez au moins 12 caractères, avec au moins une lettre.</p>{% if error %}<div class="trainer-feedback error" role="alert">{{ error }}</div>{% endif %}
+    <form method="post" class="trainer-auth-form"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label>Nouveau mot de passe<input name="new_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label><label>Confirmez le mot de passe<input name="confirm_password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required></label><button class="trainer-button primary">Enregistrer mon mot de passe</button></form>{% endif %}
   {% endif %}
-  {% if mode != 'login' %}<a href="{{ url_for('company_login') }}">Revenir à la connexion</a>{% endif %}
-  <div class="co-help"><span>Besoin d’aide ?</span><a href="tel:+33422470768">04 22 47 07 68</a></div>
+  {% if mode != 'login' %}<a class="trainer-back" href="{{ url_for('company_login') }}">Revenir à la connexion</a>{% endif %}
+  <div class="trainer-login-help"><span>Besoin d’aide pour accéder à votre compte ?</span><a href="tel:+33422470768">04 22 47 07 68</a></div>
+  <a class="trainer-back" href="/">Revenir à l’accueil</a>
   </div>
 </section>
 {% endblock %}

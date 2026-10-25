@@ -180,3 +180,55 @@ Validation : `python -m pytest -q tests/test_company_portal.py`. Les e-mails son
 simulés dans les tests, avec vérifications de cloisonnement entre entreprises,
 CSRF, activation/récupération, révocation, limites temporelles, exports,
 chevauchements et corrections du registre.
+
+### Recherche et import d’une entreprise par SIRET
+
+Dans **Ajouter une entreprise**, ou dans **Informations et coordonnées de
+l’entreprise** sur une fiche existante, saisir les 14 chiffres du SIRET. Après
+l’aperçu, **Importer ces informations** remplit les champs ; **Créer l’espace
+entreprise** ou **Enregistrer** conserve les données. Aucun envoi d’invitation
+n’est déclenché par la recherche ou l’import. Le contact, l’e-mail de connexion
+et le téléphone doivent être saisis par l’équipe.
+
+La recherche côté serveur utilise l’[API publique de l’Annuaire des entreprises](https://recherche-entreprises.api.gouv.fr/docs/),
+sans clé ni abonnement supplémentaire. Seul le SIRET est envoyé. L’établissement
+doit correspondre exactement ; l’adresse du siège ne remplace jamais celle d’un
+établissement secondaire. Une fermeture est signalée. Les données non diffusables
+ne sont pas importées. Une indisponibilité laisse la saisie manuelle accessible.
+
+L’import comprend les données administratives disponibles : nom, raison sociale,
+enseigne, SIREN/SIRET, adresse, forme juridique, activité APE/NAF et libellé,
+état administratif, dates de création, effectifs et année de référence, TVA,
+conventions collectives, dirigeants (noms et fonctions), siège et informations
+d’organisme de formation lorsqu’elles existent. Les champs d’identification et
+d’adresse restent modifiables. Un relevé des informations officielles conserve
+la source et la date de consultation. Il est supprimé si le SIRET change sans
+nouvel import. Les dates de naissance des dirigeants ne sont pas recueillies.
+
+La prévisualisation signée expire après deux heures. Les données ne sont
+enregistrées qu’avec le formulaire, soumis aux protections administrateur, CSRF
+et version existantes. La migration ajoute des colonnes à `companies` sans
+modifier les comptes, mots de passe ou rattachements.
+
+`reference_data/company_nomenclatures.json` contient les libellés publics de
+l’[Annuaire des entreprises](https://github.com/annuaire-entreprises-data-gouv-fr/site/tree/main/src/utils/helpers/formatting/metadata)
+(catégories juridiques, NAF rév. 2 et NAF 2025 ; consultés le 25 octobre 2026).
+Les codes inconnus restent affichés. La NAF 2025 est utilisée pour les libellés
+de l’activité principale à partir de 2027.
+
+Tests : `tests/test_company_registry.py` (API simulée, établissement exact,
+permissions, erreurs et persistance) et `tests/company_registry_frontend.cjs`
+(jsdom, prend le chemin d’une page admin rendue ; recherche différée, réponse
+obsolète, import explicite et conservation du contact).
+
+### Présentation de l’accès entreprise
+
+Les pages de connexion, récupération et activation utilisent les composants
+et les thèmes quotidiens des accès étudiant/formateur (`daily-login.css`).
+L’illustration dédiée est enregistrée dans
+`static/admissions/company-space-illustration.webp`, générée avec l’outil
+intégré imagegen puis encodée en WebP pour le site.
+
+Consigne de génération :
+
+> Use case: illustration-story. Asset type: a landscape illustration for the employer login of Intégrale Academy, matching its existing student and trainer illustrations. Generate a standalone full-bleed illustration, 3:2 landscape. Scene: in a bright welcoming modern French office with big blue-framed windows, trees and potted plants, an adult woman mentor in a terracotta blazer and an adult male apprentice in a teal shirt review a weekly schedule together at a pale wooden desk with an open laptop and notebooks. They smile naturally, engaged in the task, both with anatomically correct hands. Style: polished hand-drawn editorial anime illustration with precise dark contour lines, softly shaded solid colours, warm daylight, balanced teal, sky blue, cream and ochre, like a contemporary illustrated campus workbook. Medium shot, both faces and desk clearly visible, calm professional welcoming mood. No text, no typography, no logo, no watermark, no UI, no outer border. This is one image to place within a login page.
