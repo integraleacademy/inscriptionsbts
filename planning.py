@@ -27,6 +27,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from promotions import ensure_promotion_schema, list_promotions
 from planning_holidays import public_holiday_name
 import subject_references
+import subject_catalog
 
 KINDS={'school','company','holiday','closed'}
 MAX_BATCH=500
@@ -68,6 +69,7 @@ def ensure_planning_schema(conn):
             conn.execute('INSERT OR IGNORE INTO planning_course_groups(course_id,promotion_id,subject_id) SELECT id,promotion_id,subject_id FROM planning_courses')
             conn.execute('INSERT INTO planning_migrations(name) VALUES(?)',('shared_courses_v1',))
         subject_references.schema(conn)
+        subject_catalog.schema(conn)
         conn.execute('RELEASE SAVEPOINT planning_schema')
     except Exception:
         conn.execute('ROLLBACK TO SAVEPOINT planning_schema');conn.execute('RELEASE SAVEPOINT planning_schema');raise
@@ -251,14 +253,16 @@ def _annual_hours(value):
 
 def _subjects(conn,promotion_id=None):
     if not _has_table(conn,'trainers'):return []
-    sql='''SELECT s.*,t.nom,t.prenom,p.nom AS promotion_name FROM planning_subjects s
+    sql='''SELECT s.*,t.nom,t.prenom,p.nom AS promotion_name,p.bts AS diploma_code FROM planning_subjects s
         LEFT JOIN trainers t ON t.id=s.trainer_id JOIN promotions p ON p.id=s.promotion_id'''
     args=[]
     if promotion_id:sql+=' WHERE s.promotion_id=?';args.append(promotion_id)
     items=[]
     for row in conn.execute(sql+' ORDER BY p.nom,s.name',args):
         item=dict(row);item['trainer_name']=f"{item.pop('prenom') or ''} {item.pop('nom') or ''}".strip()
-        item.update(subject_references.details(conn,item['id']))
+        item['catalog_subject_id']=subject_catalog.linked_subject(conn,item['id'])
+        item.update(subject_catalog.diploma_details(conn,item['catalog_subject_id'],item['diploma_code'])
+            if item['catalog_subject_id'] else subject_references.details(conn,item['id']))
         item['scheduled_minutes']=_subject_minutes(conn,item['id']);item['scheduled_hours']=item['scheduled_minutes']/60
         item['planned_minutes']=_budget_minutes(item['planned_hours']);item['budget_configured']=item['planned_minutes'] is not None
         item['remaining_minutes']=max(0,item['planned_minutes']-item['scheduled_minutes']) if item['budget_configured'] else None
@@ -273,6 +277,7 @@ def get_planning_catalog(conn):
         for row in conn.execute('SELECT id,nom,prenom,email,active FROM trainers WHERE active=1 ORDER BY nom,prenom'):
             item=dict(row);item['promotion_ids']=[grant[0] for grant in conn.execute('SELECT promotion_id FROM trainer_promotions WHERE trainer_id=?',(item['id'],))];trainers.append(item)
     return dict(promotions=list_promotions(conn),subjects=_subjects(conn),trainers=trainers,
+                subject_catalog=subject_catalog.subjects(conn),diplomas=subject_catalog.BTS_LABELS,
                 rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms ORDER BY name')])
 
 
@@ -335,6 +340,8 @@ def _course(conn,data,existing=None):
         promotion=_promotion(conn,group['promotion_id'],ready=True)
         matched=conn.execute('SELECT name,color FROM planning_subjects WHERE id=? AND promotion_id=?',(group['subject_id'],group['promotion_id'])).fetchone()
         if not matched:raise PlanningError('Chaque matière doit appartenir à la promotion sélectionnée.')
+        catalog_id=subject_catalog.linked_subject(conn,group['subject_id'])
+        if catalog_id:subject_catalog.available(conn,catalog_id,promotion['bts'])
         if not _has_table(conn,'trainers') or not conn.execute('SELECT 1 FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE t.id=? AND t.active=1 AND a.promotion_id=?',(trainer_id,group['promotion_id'])).fetchone():raise PlanningError('Le formateur de la séance doit être actif et affecté à chacune des promotions participantes.')
         group.update(promotion_name=promotion['nom'],subject_name=matched['name'],color=matched['color'])
     room_id=merged.get('room_id')
@@ -419,6 +426,12 @@ def validate_promotion_change(conn,promotion_id,data):
     current=conn.execute('SELECT * FROM promotions WHERE id=?',(promotion_id,)).fetchone()
     if not current:return []
     merged=dict(current);merged.update(data);issues=[]
+    if merged.get('bts')!=current['bts'] and _has_table(conn,'planning_subject_catalog_links'):
+        for row in conn.execute('''SELECT s.id,s.name FROM planning_subjects s
+            LEFT JOIN planning_subject_catalog_links l ON l.planning_subject_id=s.id
+            LEFT JOIN planning_subject_diplomas d ON d.subject_id=l.subject_id AND d.diploma_code=?
+            WHERE s.promotion_id=? AND d.subject_id IS NULL''',(merged.get('bts'),promotion_id)):
+            issues.append(dict(type='subject_diploma',subject_id=row['id'],message='La matière « '+row['name']+' » n’est pas rattachée au nouveau diplôme. Modifiez ses diplômes dans Matières avant de changer cette promotion.'))
     courses=_load_courses(conn,promotion_id=promotion_id)
     for course in courses:
         if not merged.get('date_debut') or not merged.get('date_fin') or not merged['date_debut']<=course['date']<=merged['date_fin']:
@@ -678,7 +691,8 @@ def register_planning(app,db_connect,require_admin):
             if request.method=='DELETE':
                 reject([dict(type='subject_used',message='Cette matière comporte encore des cours. Supprimez ou réaffectez ces cours avant de la retirer.')] if conn.execute('SELECT 1 FROM planning_courses c WHERE c.subject_id=? OR EXISTS(SELECT 1 FROM planning_course_groups g WHERE g.course_id=c.id AND g.subject_id=?) LIMIT 1',(subject_id,subject_id)).fetchone() else [])
                 conn.execute('DELETE FROM planning_subject_details WHERE subject_id=?',(subject_id,))
-                conn.execute('DELETE FROM planning_subjects WHERE id=?',(subject_id,));return dict(message='Matière supprimée.')
+                conn.execute('DELETE FROM planning_subject_catalog_links WHERE planning_subject_id=?',(subject_id,))
+                conn.execute('DELETE FROM planning_subjects WHERE id=?',(subject_id,));return dict(message='Matière retirée de ce planning. Sa fiche reste dans le catalogue des diplômes.')
             metadata=subject_references.details(conn,subject_id) if old else {}
             imported=bool(metadata.get('import_id'))
             data=dict(old or {});data.update(payload);promotion=_promotion(conn,data.get('promotion_id'),not imported)
@@ -687,18 +701,38 @@ def register_planning(app,db_connect,require_admin):
             trainer_id=data.get('trainer_id')
             if not isinstance(trainer_id,str):raise PlanningError('Choisissez un formateur valide.')
             if not (imported and trainer_id=='') and (not _has_table(conn,'trainers') or not conn.execute('SELECT 1 FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE t.id=? AND t.active=1 AND a.promotion_id=?',(trainer_id,promotion['id'])).fetchone()):raise PlanningError('Choisissez un formateur actif affecté à cette promotion.')
+            catalog_id=subject_catalog.linked_subject(conn,subject_id) if old else payload.get('catalog_subject_id')
+            if old and 'catalog_subject_id' in payload and payload['catalog_subject_id']!=catalog_id:
+                raise PlanningError('La matière d’une préparation existante ne peut pas être remplacée. Ajoutez une nouvelle préparation.')
+            master=subject_catalog.available(conn,catalog_id,promotion['bts']) if catalog_id else None
+            # New clients choose a catalogue entry. Legacy clients may still create
+            # a named subject; it is immediately attached to this diploma's catalogue.
+            if payload.get('catalog_subject_id') and master:
+                data.update(name=master['name'],color=master['color'])
             name=_text(data.get('name',''),'le nom de la matière',120,True);color=data.get('color','#626b4e')
             if not isinstance(color,str) or not re.fullmatch('#[0-9a-fA-F]{6}',color):raise PlanningError('La couleur de la matière doit être au format #RRGGBB.')
             hours=None if imported and data.get('planned_hours') in (None,'') else _annual_hours(data.get('planned_hours'))
             used=_subject_minutes(conn,subject_id) if subject_id else 0
             reject([dict(type='subject_budget',subject_id=subject_id,planned_minutes=_budget_minutes(hours),scheduled_minutes=used,message='Le volume annuel ne peut pas être inférieur aux heures déjà planifiées.')] if used and used>(_budget_minutes(hours) or 0) else [])
             sid=subject_id or secrets.token_urlsafe(24)
+            if not catalog_id:
+                match=conn.execute('SELECT c.id FROM planning_subject_catalog c JOIN planning_subject_diplomas d ON d.subject_id=c.id WHERE c.name_key=? AND d.diploma_code=?',(subject_references.normal(name),promotion['bts'])).fetchone()
+                catalog_id=match['id'] if match else subject_catalog.import_subject(conn,name,promotion['bts'],subject_references.validate_details(payload),color)
+                master=subject_catalog.find(conn,catalog_id)
+                name,color=master['name'],master['color']
+            if not old and conn.execute('''SELECT 1 FROM planning_subject_catalog_links l JOIN planning_subjects s ON s.id=l.planning_subject_id
+                WHERE l.subject_id=? AND s.promotion_id=?''',(catalog_id,promotion['id'])).fetchone():
+                raise PlanningError('Cette matière est déjà préparée dans le planning de cette promotion.',status=409)
+            if old and (name!=master['name'] or color!=master['color'] or any(key in payload for key in (*subject_references.DETAIL_TEXT,*subject_references.DETAIL_NUMBERS,'optional'))):
+                subject_catalog.save(conn,dict(name=name,color=color,diploma_details={promotion['bts']:payload}),catalog_id)
             conn.execute('INSERT INTO planning_subjects(id,promotion_id,name,trainer_id,color,planned_hours) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,trainer_id=excluded.trainer_id,color=excluded.color,planned_hours=excluded.planned_hours',(sid,promotion['id'],name,trainer_id,color,hours))
-            subject_references.save_details(conn,sid,payload,metadata)
+            if not old:subject_catalog.link_allocation(conn,sid,catalog_id)
+            subject_references.save_details(conn,sid,payload,metadata or subject_catalog.diploma_details(conn,catalog_id,promotion['bts']))
             return dict(subject=next(item for item in _subjects(conn,promotion['id']) if item['id']==sid),message='Matière enregistrée. Les cours existants conservent leur formateur.')
         return transact(operation)
 
     subject_references.register(app,connect,guard,body,result,fail,transact)
+    subject_catalog.register(app,connect,guard,result,fail,transact)
 
     @app.post('/admin/planning/api/courses')
     def planning_course_create():

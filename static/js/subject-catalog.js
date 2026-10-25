@@ -1,0 +1,201 @@
+/* One subject definition, several diplomas, independent timetable allocations. */
+(() => {
+  'use strict';
+  const root = document.querySelector('.catalog-app[data-kind="subjects"]');
+  if (!root) return;
+  const $ = id => document.getElementById(id), form = $('catalog-form'), editor = $('catalog-editor'), confirm = $('catalog-confirm');
+  const state = {data: null, loading: true, sequence: 0, editing: null, drafts: {}, detail: ''};
+  const textFields = ['exam_unit', 'objectives', 'pedagogical_content', 'exam_format', 'review_note'];
+  const numberFields = ['coefficient', 'weekly_hours_first', 'weekly_hours_second'];
+  const normal = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr');
+  const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+  const safeColor = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#2563eb';
+  const compare = (a, b) => a.localeCompare(b, 'fr', {sensitivity: 'base', numeric: true});
+  const number = value => new Intl.NumberFormat('fr-FR', {maximumFractionDigits: 2}).format(value);
+  function alert(id, message) { $(id).textContent = message || ''; $(id).hidden = !message; }
+  async function api(path, method = 'GET', data) {
+    const response = await fetch('/admin/planning/api' + path, {method, credentials: 'same-origin',
+      headers: {Accept: 'application/json', ...(method !== 'GET' ? {'Content-Type': 'application/json', 'X-CSRF-Token': root.dataset.csrf} : {})},
+      ...(method !== 'GET' ? {body: JSON.stringify(data || {})} : {})});
+    const result = await response.json().catch(() => { throw new Error('La connexion a expiré. Rechargez la page avant de réessayer.'); });
+    if (!response.ok || result.ok === false) throw new Error(result.message || 'Cette action n’a pas abouti.');
+    return result;
+  }
+  function busy(dialog, value) {
+    dialog.dataset.busy = value ? '1' : '';
+    dialog.setAttribute('aria-busy', String(value));
+    dialog.querySelectorAll('button,input,select,textarea').forEach(input => {
+      if (value) { input.dataset.previousDisabled = String(input.disabled); input.disabled = true; }
+      else if (input.dataset.previousDisabled !== undefined) { input.disabled = input.dataset.previousDisabled === 'true'; delete input.dataset.previousDisabled; }
+    });
+  }
+  function show(dialog) { dialog._opener = document.activeElement; dialog.showModal(); }
+  for (const dialog of [editor, confirm]) {
+    dialog.querySelectorAll('[data-catalog-close]').forEach(button => button.addEventListener('click', () => { if (!dialog.dataset.busy) dialog.close(); }));
+    dialog.addEventListener('cancel', event => { if (dialog.dataset.busy) event.preventDefault(); });
+    dialog.addEventListener('close', () => dialog._opener?.isConnected && dialog._opener.focus());
+  }
+  function loading(value) {
+    state.loading = value; root.setAttribute('aria-busy', String(value));
+    root.querySelectorAll('[data-catalog-create],[data-catalog-edit]').forEach(button => { button.disabled = value || !state.data; });
+  }
+  function filterUrl() {
+    const url = new URL(location.href), code = $('catalog-diploma-filter').value, sort = $('catalog-sort').value;
+    url.searchParams.delete('promotion_id');
+    if (code) url.searchParams.set('diploma', code); else url.searchParams.delete('diploma');
+    if (sort !== 'name') url.searchParams.set('sort', sort); else url.searchParams.delete('sort');
+    history.replaceState(null, '', url);
+  }
+  async function load(message = '') {
+    const sequence = ++state.sequence; loading(true); $('catalog-load-error').hidden = true;
+    try {
+      const data = await api('/catalog');
+      if (sequence !== state.sequence) return;
+      if (!Array.isArray(data.subject_catalog) || !data.diplomas) throw new Error('Le catalogue reçu est incomplet. Rechargez la page.');
+      state.data = data;
+      const select = $('catalog-diploma-filter');
+      const selected = select.value || root.dataset.selectedDiploma || data.promotions?.find(p => p.id === root.dataset.legacyPromotion)?.bts || '';
+      select.replaceChildren(new Option('Tous les diplômes', ''));
+      for (const [code, label] of Object.entries(data.diplomas)) { const option = new Option('BTS ' + code, code); option.title = label; select.add(option); }
+      select.value = selected; root.dataset.selectedDiploma = ''; root.dataset.legacyPromotion = '';
+      filterUrl(); render(); alert('catalog-notice', message);
+    } catch (error) {
+      if (sequence !== state.sequence) return;
+      state.data = null; $('catalog-grid').replaceChildren(); $('catalog-empty').hidden = true; $('catalog-load-error').hidden = false;
+      $('catalog-count').textContent = 'Catalogue indisponible';
+      for (const key of ['one', 'two', 'three']) $('catalog-stat-' + key).textContent = '—';
+      alert('catalog-notice', (message ? message + ' ' : '') + error.message);
+    } finally { if (sequence === state.sequence) loading(false); }
+  }
+  function card(item, filter) {
+    const article = node('article', 'catalog-subject-card subject-catalog-card'); article.style.setProperty('--catalog-accent', safeColor(item.color));
+    const tags = node('div', 'subject-diploma-tags');
+    for (const code of item.diploma_codes) { const tag = node('span', 'subject-diploma-tag' + (code === filter ? ' selected' : ''), 'BTS ' + code); tag.title = state.data.diplomas[code] || code; tags.append(tag); }
+    article.append(tags, node('h3', '', item.name));
+    const curricula = node('ul', 'subject-curricula');
+    for (const code of item.diploma_codes.filter(code => !filter || code === filter)) {
+      const data = item.diploma_details[code] || {}, row = node('li');
+      const info = [data.exam_unit, data.coefficient !== null && data.coefficient !== undefined ? 'Coefficient ' + number(data.coefficient) : 'Coefficient à renseigner', data.optional ? 'Facultative' : ''].filter(Boolean).join(' · ');
+      row.append(node('b', '', 'BTS ' + code), node('span', '', info)); curricula.append(row);
+    }
+    article.append(curricula, node('p', 'subject-catalog-use', item.planning_count ? 'Préparée dans ' + item.planning_count + ' planning' + (item.planning_count > 1 ? 's' : '') + '.' : 'Disponible pour les plannings des diplômes cochés.'));
+    const actions = node('div', 'catalog-card-actions'), edit = node('button', 'catalog-button', 'Modifier la matière'); edit.type = 'button'; edit.dataset.catalogEdit = item.id;
+    edit.setAttribute('aria-label', 'Modifier la matière ' + item.name); edit.addEventListener('click', () => openEditor(item));
+    const planning = node('a', 'catalog-text-link', 'Préparer les cours'); planning.href = '/admin/planning?catalog_subject_id=' + encodeURIComponent(item.id);
+    actions.append(edit, planning); article.append(actions); return article;
+  }
+  function render() {
+    if (!state.data) return;
+    const filter = $('catalog-diploma-filter').value, query = normal($('catalog-search').value).trim(), sort = $('catalog-sort').value;
+    const items = state.data.subject_catalog.filter(item => (!filter || item.diploma_codes.includes(filter)) && normal([
+      item.name, ...item.diploma_codes.map(code => 'BTS ' + code + ' ' + state.data.diplomas[code]), ...Object.values(item.diploma_details).map(data => data.exam_unit || '')
+    ].join(' ')).includes(query));
+    items.sort((a, b) => {
+      if (sort === 'name-desc') return compare(b.name, a.name);
+      if (sort === 'shared' && a.diploma_codes.length !== b.diploma_codes.length) return b.diploma_codes.length - a.diploma_codes.length;
+      if (sort === 'diploma') { const diff = compare(a.diploma_codes.join(' '), b.diploma_codes.join(' ')); if (diff) return diff; }
+      return compare(a.name, b.name);
+    });
+    $('catalog-stat-one').textContent = number(items.length);
+    $('catalog-stat-two').textContent = number(new Set(items.flatMap(item => item.diploma_codes)).size);
+    $('catalog-stat-three').textContent = number(items.filter(item => item.diploma_codes.length > 1).length);
+    $('catalog-count').textContent = items.length + ' matière' + (items.length > 1 ? 's' : '') + ' affichée' + (items.length > 1 ? 's' : '');
+    $('catalog-grid').replaceChildren(...items.map(item => card(item, filter))); $('catalog-empty').hidden = !!items.length;
+    $('catalog-empty-title').textContent = state.data.subject_catalog.length ? 'Aucune matière pour ces filtres.' : 'Tout commence par une matière.';
+    $('catalog-empty-text').textContent = state.data.subject_catalog.length ? 'Modifiez la recherche ou le diplôme pour retrouver vos matières.' : 'Créez une matière et cochez ses diplômes, ou importez un référentiel officiel.';
+  }
+  const checkedCodes = () => [...$('catalog-diploma-choices').querySelectorAll('input:checked')].map(input => input.value);
+  function editable(data) {
+    const result = {};
+    for (const key of textFields) result[key] = data[key] || '';
+    for (const key of numberFields) result[key] = data[key] ?? null;
+    result.optional = !!data.optional; return result;
+  }
+  function saveDetail() {
+    if (!state.detail) return;
+    const values = {};
+    for (const key of textFields) values[key] = form.elements[key].value;
+    for (const key of numberFields) values[key] = form.elements[key].value === '' ? null : Number(form.elements[key].value);
+    values.optional = form.elements.optional.checked;
+    state.drafts[state.detail] = {...(state.drafts[state.detail] || {}), ...values};
+  }
+  function renderDetail() {
+    const item = state.drafts[state.detail] || {};
+    for (const key of [...textFields, ...numberFields]) form.elements[key].value = item[key] ?? '';
+    form.elements.optional.checked = !!item.optional;
+    const source = $('subject-reference-provenance'); source.replaceChildren(); source.hidden = !item.source_url;
+    if (item.source_url) {
+      try {
+        const url = new URL(item.source_url);
+        if (url.protocol !== 'https:') { source.hidden = true; return; }
+        const link = node('a', '', item.source_label || 'Consulter la source officielle'); link.href = url.href; link.target = '_blank'; link.rel = 'noopener noreferrer'; source.append(link);
+        for (const value of [item.reference_title, item.reference_version, item.evidence]) if (value) source.append(node('p', '', value));
+        const full = {...(item.reference_full_text || {}), ...(item.full_text || {})};
+        if (Object.keys(full).length) {
+          const details = node('details', 'reference-full-text'); details.append(node('summary', '', 'Textes intégraux conservés à l’import'));
+          for (const [label, value] of Object.entries(full)) details.append(node('strong', '', label), node('p', 'reference-full-paragraph', value));
+          source.append(details);
+        }
+      } catch (_) { source.hidden = true; }
+    }
+  }
+  function updateDiplomas() {
+    saveDetail(); const codes = checkedCodes(), select = $('catalog-detail-diploma');
+    if (!codes.includes(state.detail)) state.detail = codes.includes($('catalog-diploma-filter').value) ? $('catalog-diploma-filter').value : codes[0] || '';
+    select.replaceChildren(...codes.map(code => new Option('BTS ' + code, code))); select.value = state.detail;
+    $('catalog-diploma-programme').hidden = !codes.length; renderDetail();
+  }
+  function openEditor(item = null) {
+    if (state.loading || !state.data) return;
+    state.editing = item; state.drafts = JSON.parse(JSON.stringify(item?.diploma_details || {})); state.detail = '';
+    form.reset(); alert('catalog-form-error', ''); $('catalog-delete').hidden = !item;
+    $('catalog-editor-title').textContent = item ? 'Modifier la matière' : 'Ajouter une matière';
+    $('catalog-save').textContent = item ? 'Enregistrer les modifications' : 'Créer la matière'; form.elements.name.value = item?.name || '';
+    const choices = $('catalog-diploma-choices'); choices.replaceChildren();
+    for (const [code, label] of Object.entries(state.data.diplomas)) {
+      const wrap = node('label', 'subject-diploma-choice'), input = node('input'); input.type = 'checkbox'; input.name = 'diploma_codes'; input.value = code;
+      input.checked = item ? item.diploma_codes.includes(code) : $('catalog-diploma-filter').value === code;
+      wrap.title = label; wrap.append(input, document.createTextNode('BTS ' + code)); input.addEventListener('change', updateDiplomas); choices.append(wrap);
+    }
+    form.elements.color.querySelector('[data-existing-color]')?.remove();
+    const color = safeColor(item?.color);
+    if (![...form.elements.color.options].some(option => option.value === color)) { const option = new Option('Couleur actuelle', color); option.dataset.existingColor = '1'; form.elements.color.add(option); }
+    form.elements.color.value = color; updateDiplomas(); $('subject-reference-fields').open = true;
+    show(editor); form.elements.name.focus();
+  }
+  $('catalog-detail-diploma').addEventListener('change', () => { saveDetail(); state.detail = $('catalog-detail-diploma').value; renderDetail(); });
+  form.addEventListener('submit', async event => {
+    event.preventDefault(); if (editor.dataset.busy) return; alert('catalog-form-error', '');
+    const codes = checkedCodes();
+    if (!codes.length) { alert('catalog-form-error', 'Cochez au moins un diplôme pour cette matière.'); $('catalog-diploma-choices').querySelector('input')?.focus(); return; }
+    if (!form.reportValidity()) return; saveDetail(); busy(editor, true);
+    try {
+      const payload = {name: form.elements.name.value.trim(), color: form.elements.color.value, diploma_codes: codes,
+        diploma_details: Object.fromEntries(codes.map(code => [code, editable(state.drafts[code] || {})])), ...(state.editing ? {version: state.editing.version} : {})};
+      const result = await api('/subject-catalog' + (state.editing ? '/' + encodeURIComponent(state.editing.id) : ''), state.editing ? 'PUT' : 'POST', payload);
+      editor.close(); await load(result.message);
+    } catch (error) { alert('catalog-form-error', error.message); }
+    finally { busy(editor, false); }
+  });
+  $('catalog-delete').addEventListener('click', () => {
+    if (!state.editing || editor.dataset.busy) return;
+    alert('catalog-confirm-error', ''); $('catalog-confirm-text').textContent = 'Supprimer « ' + state.editing.name + ' » du catalogue et de ses diplômes ? Une matière utilisée dans un planning ne peut pas être supprimée.';
+    show(confirm);
+  });
+  $('catalog-confirm-action').addEventListener('click', async () => {
+    if (!state.editing || confirm.dataset.busy) return; busy(confirm, true);
+    try { const result = await api('/subject-catalog/' + encodeURIComponent(state.editing.id), 'DELETE'); confirm.close(); editor.close(); await load(result.message); }
+    catch (error) { alert('catalog-confirm-error', error.message); }
+    finally { busy(confirm, false); }
+  });
+  root.querySelectorAll('[data-catalog-create]').forEach(button => button.addEventListener('click', () => openEditor()));
+  $('catalog-search').addEventListener('input', render);
+  for (const id of ['catalog-diploma-filter', 'catalog-sort']) $(id).addEventListener('change', () => { filterUrl(); render(); });
+  $('catalog-retry').addEventListener('click', () => load());
+  window.addEventListener('catalog:reload', event => {
+    if (event.detail?.diploma_code) { $('catalog-diploma-filter').value = event.detail.diploma_code; root.dataset.selectedDiploma = event.detail.diploma_code; filterUrl(); }
+    load(event.detail?.message || 'Catalogue actualisé.');
+  });
+  const sort = new URL(location.href).searchParams.get('sort'); if (['name', 'name-desc', 'diploma', 'shared'].includes(sort)) $('catalog-sort').value = sort;
+  load();
+})();

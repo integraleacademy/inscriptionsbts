@@ -6,11 +6,11 @@
     <section id="reference-source-step">
       <p class="reference-intro">Retrouvez les enseignements, les coefficients et le programme d’un BTS à partir de ses textes officiels. Vous gardez la main sur chaque matière avant l’import.</p>
       <form id="reference-search-form">
-        <div class="catalog-form-row"><label class="catalog-field">Promotion destinataire<select id="reference-promotion" required><option value="">Choisir une promotion</option></select></label><label class="catalog-field">Session d’examen<input id="reference-exam-year" type="number" min="2000" max="2100" required><small>Pour rechercher la version applicable du référentiel.</small></label></div>
+        <div class="catalog-form-row"><label class="catalog-field">Diplôme destinataire<select id="reference-diploma-code" required><option value="">Choisir un diplôme</option></select><small>Les matières seront disponibles pour les plannings de ce BTS.</small></label><label class="catalog-field">Session d’examen<input id="reference-exam-year" type="number" min="2000" max="2100" required><small>Pour rechercher la version applicable du référentiel.</small></label></div>
         <label class="catalog-field">BTS recherché<input id="reference-qualification" maxlength="200" required placeholder="Ex. BTS Management opérationnel de la sécurité"></label>
         <label class="catalog-field">Lien du référentiel officiel <span class="reference-optional">facultatif</span><input id="reference-url" type="url" maxlength="2000" placeholder="https://www.legifrance.gouv.fr/…"><small>Légifrance, ministère, académie ou France compétences. Sans lien, l’assistant recherche les sources officielles du BTS.</small></label>
         <div class="reference-connection"><div><strong id="reference-connection-state">Vérification de la disponibilité…</strong><p>Seuls le BTS, la session d’examen et le lien officiel sont utilisés pour cette recherche.</p></div><a class="catalog-button" id="reference-settings-link" href="/admin/parametres">Ouvrir les paramètres</a></div>
-        <div class="reference-search-actions"><span>Une analyse peut prendre quelques minutes.</span><button type="submit" class="catalog-button primary" id="reference-analyze">Rechercher et analyser</button></div>
+        <div class="reference-search-actions"><span>Une analyse peut prendre quelques minutes.</span><button type="submit" class="catalog-button primary" id="reference-analyze" disabled>Rechercher et analyser</button></div>
       </form>
     </section>
     <section id="reference-progress-step" hidden aria-live="polite"><div class="reference-spinner" aria-hidden="true"></div><h3>Lecture du référentiel en cours…</h3><p>L’assistant recherche les textes officiels, les annexes et les éventuelles modifications.</p><p class="reference-help">Vous pouvez fermer cette fenêtre et revenir : l’analyse continuera en arrière-plan.</p><button class="catalog-button" id="reference-retry-poll" type="button" hidden>Reprendre le suivi</button></section>
@@ -22,7 +22,7 @@
       <div class="reference-selection-bar"><div><button type="button" class="catalog-button" id="reference-select-all">Tout cocher</button><button type="button" class="catalog-button" id="reference-select-none">Tout décocher</button></div><strong id="reference-selection-count" aria-live="polite"></strong></div>
       <div id="reference-subjects"></div>
       <label class="reference-check reference-reviewed"><input id="reference-reviewed" type="checkbox"> J’ai vérifié les matières sélectionnées, leur version et les informations à importer.</label>
-      <p class="reference-help">Le formateur et le volume annuel peuvent être complétés plus tard. Les matières existantes restent inchangées.</p>
+      <p class="reference-help">Vous pourrez rattacher une matière à d’autres diplômes depuis sa fiche. Les formateurs et volumes annuels se règlent ensuite dans les plannings.</p>
     </section>
     <section id="reference-done-step" hidden aria-live="polite"><span class="reference-success-icon" aria-hidden="true">✓</span><h3 id="reference-success-title"></h3><p>Les matières sont disponibles dans votre catalogue. Leurs objectifs, contenus et sources restent modifiables depuis « Modifier la matière ».</p></section>
   </div>

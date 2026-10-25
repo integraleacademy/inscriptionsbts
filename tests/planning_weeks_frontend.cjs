@@ -24,6 +24,8 @@ const subject={id:'s1',promotion_id:'p1',name:'Prévention',trainer_id:'t1',plan
 const days=Array.from({length:31},(_,i)=>{const date=`2027-05-${String(i+1).padStart(2,'0')}`;return {date,kind:['2027-05-06','2027-05-17'].includes(date)?'public_holiday':'school',label:date==='2027-05-17'?'Lundi de Pentecôte':''};});
 const course={id:'c1',version:3,date:'2027-05-03',start:'08:00',end:'10:00',subject_id:'s1',promotion_id:'p1',trainer_id:'t1',room_id:'r1',subject_name:'Prévention',groups:[{subject_id:'s1',promotion_id:'p1'}]};
 a.state.data={promotion,subjects:[subject],catalog:{promotions:[promotion],subjects:[subject]},courses:[course]};
+// Match loadState's visible workspace so focus tests exercise real inputs.
+$('planning-selected').hidden=false;$('planning-unselected').hidden=true;
 a.state.week='2027-05-03';
 a.state.batch={mode:'weeks',sourceWeek:'2027-05-03',promotionId:'p1',course:null,calendar:{promotion,days},dates:new w.Set(),weeks:new w.Set(),calendarLoading:false};
 a.setBatchMode('weeks');a.renderBatchWeekCalendar();

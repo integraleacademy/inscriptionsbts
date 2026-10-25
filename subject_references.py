@@ -363,7 +363,8 @@ def extract_preview(response):
 
 
 def register(app, connect, guard, body, result, fail, transact):
-    from planning import PlanningError, _promotion, _text, _annual_hours, _subjects
+    from planning import PlanningError, _promotion, _text
+    import subject_catalog
 
     def binding():
         return hashlib.sha256(session.get('_planning_csrf', '').encode()).hexdigest()
@@ -377,7 +378,7 @@ def register(app, connect, guard, body, result, fail, transact):
         return dict(row)
 
     def public_job(job):
-        return {'job_id': job['id'], 'status': job['status'], 'promotion_id': job['promotion_id'],
+        return {'job_id': job['id'], 'status': job['status'], 'diploma_code': json.loads(job['query']).get('bts_code'),
             'query': json.loads(job['query']), 'preview': json.loads(job['preview']) if job['preview'] else None,
             'message': job['error'] or '', 'receipt': json.loads(job['receipt']) if job['receipt'] else None,
             'recoverable': bool(job['status'] == 'failed' and job['provider_id'] and job['error'] in LEGACY_SOURCE_ERRORS + LEGACY_TEXT_ERRORS)}
@@ -419,23 +420,24 @@ def register(app, connect, guard, body, result, fail, transact):
         try:
             payload = body()
             with closing(connect()) as conn:
-                promotion = _promotion(conn, payload.get('promotion_id'))
-                if not promotion['active']:
-                    raise PlanningError('Choisissez une promotion active.')
+                # Accept an older open form, but import into the diploma catalogue.
+                legacy_promotion = _promotion(conn, payload['promotion_id']) if 'diploma_code' not in payload and payload.get('promotion_id') else None
+                code = payload.get('diploma_code', legacy_promotion['bts'] if legacy_promotion else None)
+                subject_catalog.diploma_codes([code])
                 key = api_key(app, conn)
-                qualification = clean_text(payload.get('qualification', BTS_LABELS.get(promotion['bts'], promotion['bts'])), 'le BTS recherché', 200, True)
+                qualification = clean_text(payload.get('qualification', BTS_LABELS[code]), 'le BTS recherché', 200, True)
                 source_url = official_url(payload.get('source_url', ''))
                 exam_year = payload.get('exam_year')
                 if isinstance(exam_year, bool) or not isinstance(exam_year, int) or not 2000 <= exam_year <= 2100:
                     raise PlanningError('Renseignez une session d’examen valide.')
-                query = dict(qualification=qualification, bts_code=promotion['bts'], session_examen=exam_year, source_url=source_url,
+                query = dict(qualification=qualification, bts_code=code, session_examen=exam_year, source_url=source_url,
                     date_consultation=datetime.now(timezone.utc).date().isoformat())
                 conn.execute('BEGIN IMMEDIATE')
                 conn.execute('DELETE FROM planning_reference_jobs WHERE created_at<?', (time.time()-7*MAX_AGE,))
                 pending = conn.execute("SELECT * FROM planning_reference_jobs WHERE binding=? AND status IN ('starting','queued','in_progress') AND created_at>? ORDER BY created_at DESC LIMIT 1", (binding(), time.time()-1200)).fetchone()
                 if pending:
                     conn.commit()
-                    if pending['query'] == json.dumps(query, ensure_ascii=False) and pending['promotion_id'] == promotion['id']:
+                    if pending['query'] == json.dumps(query, ensure_ascii=False):
                         return result(public_job(dict(pending)), 202)
                     raise PlanningError('Une analyse est déjà en cours. Attendez son résultat avant d’en lancer une autre.', status=409)
                 count = conn.execute('SELECT count(*) FROM planning_reference_jobs WHERE binding=? AND created_at>?', (binding(), time.time()-3600)).fetchone()[0]
@@ -443,7 +445,7 @@ def register(app, connect, guard, body, result, fail, transact):
                     raise PlanningError('La limite de 20 analyses par heure est atteinte. Réutilisez un aperçu existant ou réessayez plus tard.', status=429)
                 job_id = secrets.token_urlsafe(24)
                 conn.execute('INSERT INTO planning_reference_jobs(id,binding,promotion_id,query,status,created_at) VALUES(?,?,?,?,?,?)',
-                    (job_id, binding(), promotion['id'], json.dumps(query, ensure_ascii=False), 'starting', time.time()))
+                    (job_id, binding(), '', json.dumps(query, ensure_ascii=False), 'starting', time.time()))
                 conn.commit()
             response = provider(key, payload=response_payload(query))
             provider_id = response.get('id', '')
@@ -511,17 +513,15 @@ def register(app, connect, guard, body, result, fail, transact):
                 raise PlanningError('Attendez la fin de l’analyse avant de sélectionner les matières.', status=409)
             if payload.get('reviewed') is not True:
                 raise PlanningError('Vérifiez les matières et leurs sources avant de valider l’import.')
-            promotion = _promotion(conn, job['promotion_id'])
-            if not promotion['active']:
-                raise PlanningError('Cette promotion est désormais archivée.', status=409)
-            if promotion['bts'] != json.loads(job['query'])['bts_code']:
-                raise PlanningError('Le BTS de la promotion a changé. Relancez l’analyse.', status=409)
+            code = json.loads(job['query'])['bts_code']
+            subject_catalog.diploma_codes([code])
             selected = payload.get('subjects')
             if not isinstance(selected, list) or not 1 <= len(selected) <= 40:
                 raise PlanningError('Cochez au moins une matière à importer.')
             preview = json.loads(job['preview'])
             originals = {item['row_id']: item for item in preview['subjects']}
-            existing = {normal(row[0]) for row in conn.execute('SELECT name FROM planning_subjects WHERE promotion_id=?', (promotion['id'],))}
+            existing = {row[0] for row in conn.execute('''SELECT c.name_key FROM planning_subject_catalog c
+                JOIN planning_subject_diplomas d ON d.subject_id=c.id WHERE d.diploma_code=?''', (code,))}
             seen = set()
             imported = []
             for row in selected:
@@ -533,15 +533,8 @@ def register(app, connect, guard, body, result, fail, transact):
                     raise PlanningError('La source de « ' + original['name'] + ' » n’a pas été confirmée. Décochez cette matière.', status=422)
                 name = _text(row.get('name', original['name']), 'le nom de la matière', 120, True)
                 if normal(name) in existing:
-                    raise PlanningError('« ' + name + ' » existe déjà dans cette promotion. Décochez-la ou modifiez son nom. Aucune matière n’a été importée.', status=409)
+                    raise PlanningError('« ' + name + ' » existe déjà pour le BTS '+code+'. Décochez-la ou modifiez son nom. Aucune matière n’a été importée.', status=409)
                 existing.add(normal(name))
-                trainer_id = row.get('trainer_id', '')
-                if not isinstance(trainer_id, str) or len(trainer_id) > 128:
-                    raise PlanningError('Choisissez un formateur valide.')
-                if trainer_id and not conn.execute('SELECT 1 FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE t.id=? AND t.active=1 AND a.promotion_id=?', (trainer_id, promotion['id'])).fetchone():
-                    raise PlanningError('Choisissez un formateur actif affecté à la promotion.')
-                hours = row.get('planned_hours')
-                hours = None if hours in (None, '') else _annual_hours(hours)
                 color = row.get('color', '#2563eb')
                 if not isinstance(color, str) or not re.fullmatch('#[0-9a-fA-F]{6}', color):
                     raise PlanningError('La couleur est invalide.')
@@ -551,13 +544,10 @@ def register(app, connect, guard, body, result, fail, transact):
                     reference_title=preview['reference_title'], reference_version=preview['reference_version'],
                     reference_full_text=preview.get('full_text', {}),
                     imported_at=datetime.now(timezone.utc).isoformat(), import_id=job_id, original=original)
-                sid = secrets.token_urlsafe(24)
-                conn.execute('INSERT INTO planning_subjects(id,promotion_id,name,trainer_id,color,planned_hours) VALUES(?,?,?,?,?,?)',
-                    (sid, promotion['id'], name, trainer_id, color, hours))
-                save_details(conn, sid, {}, metadata)
+                sid = subject_catalog.import_subject(conn, name, code, metadata, color)
                 imported.append(sid)
-            receipt = dict(count=len(imported), subject_ids=imported, promotion_id=promotion['id'],
-                message=f'{len(imported)} matière(s) importée(s). Vous pouvez compléter les formateurs et volumes annuels à votre rythme.')
+            receipt = dict(count=len(imported), subject_ids=imported, diploma_code=code,
+                message=f'{len(imported)} matière(s) importée(s) pour le BTS {code}. Elles sont disponibles pour préparer les plannings de ce diplôme.')
             conn.execute("UPDATE planning_reference_jobs SET status='imported',receipt=? WHERE id=?", (json.dumps(receipt, ensure_ascii=False), job_id))
             return receipt
         return transact(operation)

@@ -97,7 +97,7 @@ def test_planning_catalog_pages_share_admin_navigation_and_secure_assets(connect
     for path in ('/admin/matieres', '/admin/salles'):
         page = client.get(path)
         assert page.status_code == 200
-        assert 'js/planning-catalog.js' in page.text
+        assert ('js/subject-catalog.js' if path == '/admin/matieres' else 'js/planning-catalog.js') in page.text
         assert 'css/planning-catalog.css' in page.text
         assert 'js/main_admin.js' not in page.text
         assert 'googletagmanager.com' not in page.text

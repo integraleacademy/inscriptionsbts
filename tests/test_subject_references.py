@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 import subject_references as refs
+import subject_catalog
 from planning import PlanningError
 from test_planning import db, app, client, call, admin, BASE
 
@@ -42,7 +43,7 @@ def test_long_reference_version_is_reviewable_and_preserved(client, app, db, mon
     imported = call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1')]))
     assert imported.status_code == 200, imported.json
     with db() as conn:
-        metadata = refs.details(conn, imported.json['subject_ids'][0])
+        metadata = subject_catalog.diploma_details(conn, imported.json['subject_ids'][0], 'MCO')
     assert metadata['reference_full_text']['Version du référentiel'] == version
 
 
@@ -74,16 +75,16 @@ def test_long_subject_texts_can_be_edited_without_losing_originals(client, app, 
     assert imported.status_code == 200, imported.json
     sid = imported.json['subject_ids'][0]
     with db() as conn:
-        metadata = refs.details(conn, sid)
+        metadata = subject_catalog.diploma_details(conn, sid, 'MCO')
     assert metadata['objectives'] == 'Objectifs adaptés'
     assert metadata['full_text'] == row['full_text']
     assert metadata['reference_full_text'] == preview['full_text']
-    updated = call(client, '/subjects/'+sid, dict(objectives='Après import', full_text={}), 'PUT')
+    updated = call(client, '/subject-catalog/'+sid, dict(diploma_details={'MCO':dict(objectives='Après import', full_text={})}), 'PUT')
     assert updated.status_code == 200, updated.json
     with db() as conn:
-        assert refs.details(conn, sid)['full_text'] == row['full_text']
+        assert subject_catalog.diploma_details(conn, sid, 'MCO')['full_text'] == row['full_text']
     # Manual inputs still receive the same validation as other subjects.
-    rejected = call(client, '/subjects/'+sid, dict(objectives='x' * 12001), 'PUT')
+    rejected = call(client, '/subject-catalog/'+sid, dict(diploma_details={'MCO':dict(objectives='x' * 12001)}), 'PUT')
     assert rejected.status_code == 400
 
 
@@ -300,18 +301,20 @@ def test_selected_edited_import_without_teacher_or_hours(client, app, db, monkey
     result = call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1', name='Expression et culture', coefficient=4, objectives='Adapté par le responsable.')]))
     assert result.status_code == 200, result.json
     sid = result.json['subject_ids'][0]
-    item = next(s for s in client.get(BASE+'/catalog').json['subjects'] if s['id'] == sid)
-    assert item['trainer_id'] == '' and item['planned_hours'] is None and not item['budget_configured']
-    assert item['name'] == 'Expression et culture' and item['coefficient'] == 4
+    subject = next(s for s in client.get(BASE+'/catalog').json['subject_catalog'] if s['id'] == sid)
+    assert subject['diploma_codes'] == ['MCO'] and subject['planning_count'] == 0
+    assert subject['name'] == 'Expression et culture'
+    item = subject['diploma_details']['MCO']
+    assert item['coefficient'] == 4
     assert item['objectives'] == 'Adapté par le responsable.' and item['source_url'] == URL
     assert item['original']['coefficient'] == 3
     again = call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1')]))
     assert again.json['subject_ids'] == [sid]
-    # Metadata remains editable even while assignments are incomplete.
-    update = call(client, '/subjects/'+sid, dict(objectives='Objectif corrigé', coefficient=2), 'PUT')
+    # Curriculum belongs to the diploma, independently of timetable preparations.
+    update = call(client, '/subject-catalog/'+sid, dict(diploma_details={'MCO':dict(objectives='Objectif corrigé', coefficient=2)}), 'PUT')
     assert update.status_code == 200, update.json
-    assert update.json['subject']['objectives'] == 'Objectif corrigé'
-    assert update.json['subject']['coefficient'] == 2
+    assert update.json['subject']['diploma_details']['MCO']['objectives'] == 'Objectif corrigé'
+    assert update.json['subject']['diploma_details']['MCO']['coefficient'] == 2
 
 
 def test_preview_bound_to_admin_session(client, app, db, monkeypatch):
@@ -335,10 +338,12 @@ def test_atomic_reject_of_duplicate_and_invalid_selection(client, app, db, monke
         assert call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=selected)).status_code == 400
 
 
-def test_review_required_and_foreign_trainer_rejected(client, app, db, monkeypatch):
+def test_review_required_and_legacy_assignment_fields_do_not_create_allocation(client, app, db, monkeypatch):
     jid, _ = ready_job(client, app, monkeypatch, db)
     assert call(client, '/references/'+jid+'/import', dict(subjects=[dict(row_id='1')])).status_code == 400
-    assert call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1', trainer_id='unassigned')])).status_code == 400
+    assert call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1', trainer_id='unassigned', planned_hours=200)])).status_code == 200
+    with db() as conn:
+        assert conn.execute('SELECT count(*) FROM planning_subjects').fetchone()[0] == 4
 
 
 def test_import_to_undated_promotion_and_assign_later(client, app, db, monkeypatch):
@@ -346,7 +351,9 @@ def test_import_to_undated_promotion_and_assign_later(client, app, db, monkeypat
     result = call(client, '/references/'+jid+'/import', dict(reviewed=True, subjects=[dict(row_id='1', planned_hours=120, trainer_id='t1')]))
     assert result.status_code == 200
     sid = result.json['subject_ids'][0]
-    assert call(client, '/subjects/'+sid, dict(coefficient=4), 'PUT').status_code == 200
+    assert call(client, '/subject-catalog/'+sid, dict(diploma_details={'MCO':dict(coefficient=4)}), 'PUT').status_code == 200
+    with db() as conn:
+        assert conn.execute('SELECT count(*) FROM planning_subjects').fetchone()[0] == 4
 
 
 def test_invalid_numbers_rejected_and_rollback(client, app, db, monkeypatch):

@@ -28,7 +28,7 @@ async function scenario(action) {
     renderSubjects() { renders++; }, renderCalendar() { renders++; },
     renderRules() { renders++; }, renderSlotSelection() { renders++; state.slotFormDirty = false; },
     onQuickSharedChange() {}, notice() {}, renderYear: async () => {},
-    loadAvailability: async () => {}, checkSelectedSlot: async () => {},
+    loadAvailability: async () => {}, checkSelectedSlot: async () => {}, openRequestedSubject() {},
     setTimeout: () => 1, clearTimeout() {},
   };
   vm.createContext(sandbox);

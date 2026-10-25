@@ -72,9 +72,30 @@ Le parcours a également été vérifié dans Chromium à 1440 et 390 px,
 avec candidature complète, erreurs de validation, mineur/responsable légal,
 reprise, suivi candidat, filtres, actualisation et menus d’administration.
 
+## Catalogue de matières par diplôme
+
+Une matière possède une fiche commune et peut être rattachée à plusieurs diplômes
+(par exemple MOS et MCO). La page **Matières** permet de rechercher, filtrer par
+diplôme et trier par nom, diplôme ou nombre de diplômes. Les coefficients,
+objectifs, contenus, horaires scolaires et sources sont enregistrés séparément
+pour chaque BTS dans la même fiche.
+
+Les tables `planning_subject_catalog` et `planning_subject_diplomas` portent ce
+catalogue. La migration regroupe les anciens libellés identiques, reprend leurs
+diplômes et leurs métadonnées, et conserve les données originales. Les anciennes
+lignes de `planning_subjects` deviennent les préparations des plannings, liées
+au catalogue par `planning_subject_catalog_links` : leurs identifiants,
+formateurs, volumes annuels et cours sont inchangés. Une préparation reste propre
+à sa promotion, et n’est pas créée automatiquement à l’import d’un référentiel.
+
+Dans un planning, **Préparer une matière du catalogue** propose les matières du
+BTS de la promotion. Le formateur et le volume annuel se règlent ici, indépendamment
+des autres promotions. Une matière utilisée dans un planning ne peut pas être
+supprimée du catalogue ni détachée du diplôme concerné.
+
 ## Importer les matières depuis un référentiel officiel
 
-Dans **Matières → Importer un référentiel**, choisir la promotion et la session
+Dans **Matières → Importer un référentiel**, choisir le diplôme et la session
 d’examen, puis laisser l’assistant rechercher le BTS ou fournir un lien officiel
 (Légifrance, ministère, académie, France compétences). L’analyse OpenAI s’effectue
 en arrière-plan ; l’aperçu est disponible pendant 24 heures dans la même session
@@ -99,13 +120,15 @@ retournée par la recherche ; les informations proposées restent à vérifier.
 L’aperçu permet de cocher/décocher les matières et de modifier leurs noms,
 coefficients, unités, objectifs, contenus, modalités d’examen et horaires
 hebdomadaires. Les épreuves facultatives et les doublons sont décochés par défaut.
-Les formateurs et volumes annuels sont facultatifs lors de l’import, à compléter
-avant la planification. Les horaires scolaires ne sont jamais convertis en
+Les formateurs et volumes annuels se règlent dans chaque planning, après l’import.
+Les horaires scolaires ne sont jamais convertis en
 volumes annuels d’apprentissage. Les données sont ajoutées uniquement lors de la
 validation de la sélection, dans une transaction atomique et idempotente ; les
-matières existantes ne sont pas écrasées. Les métadonnées et l’extraction originale
-sont conservées à part dans `planning_subject_details`, sans migration destructive
-de `planning_subjects`. Elles restent éditables dans la fiche matière.
+matières existantes ne sont pas écrasées. Une matière déjà présente pour un autre
+diplôme est réutilisée et reçoit les informations du BTS analysé. Les métadonnées
+et l’extraction originale sont conservées dans `planning_subject_diplomas` ; les
+anciennes copies restent dans `planning_subject_details`. Elles restent éditables
+par diplôme dans la fiche matière.
 
 Les tests `tests/test_subject_references.py` simulent OpenAI et ne consomment
 aucun crédit API. Le parcours navigateur simulé est couvert par

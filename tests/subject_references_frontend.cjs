@@ -32,16 +32,16 @@ w.fetch=async(url,options={})=>{
  if(url.endsWith('/references/job-demo/recover')){assert.equal(method,'POST');recoveries++;job={...job,status:'ready',preview};return response(job)}
  if(url.endsWith('/references/analyze')){
    analyses++;
-   assert.equal(data.source_url,URL);assert.equal(data.exam_year,2028);assert.equal(data.promotion_id,'demo');
-   job={ok:true,job_id:'job-demo',status:'queued',promotion_id:'demo',query:{}};return response(job);
+   assert.equal(data.source_url,URL);assert.equal(data.exam_year,2028);assert.equal(data.diploma_code,'MOS');assert(!('promotion_id' in data));
+   job={ok:true,job_id:'job-demo',status:'queued',diploma_code:'MOS',query:{bts_code:'MOS'}};return response(job);
  }
  if(url.endsWith('/references/job-demo/import')){
    imports++;importPayload=data;job.status='imported';
-   catalog.subjects.push({id:'imported',promotion_id:'demo',promotion_name:'BTS MOS',trainer_id:'',trainer_name:'',name:data.subjects[0].name,color:'#2563eb',planned_hours:null,scheduled_minutes:0,planned_minutes:null,budget_configured:false,import_id:'job-demo',...data.subjects[0],source_url:URL,reference_full_text:preview.full_text,full_text:preview.subjects[1].full_text});
-   return response({ok:true,count:data.subjects.length,promotion_id:'demo',message:'Import terminé.'});
+   catalog.subject_catalog.push({id:'imported',name:data.subjects[0].name,color:'#2563eb',version:1,planning_count:0,diploma_codes:['MOS'],diploma_details:{MOS:{import_id:'job-demo',...data.subjects[0],source_url:URL,reference_full_text:preview.full_text,full_text:preview.subjects[1].full_text}}});
+   return response({ok:true,count:data.subjects.length,diploma_code:'MOS',message:'Import terminé.'});
  }
  if(url.endsWith('/references/job-demo')){polls++;job={...job,status:'ready',preview};return response(job)}
- if(url.endsWith('/subjects/imported')&&method==='PUT'){editPayload=data;return response({ok:true,message:'Matière mise à jour.'})}
+ if(url.endsWith('/subject-catalog/imported')&&method==='PUT'){editPayload=data;return response({ok:true,message:'Matière mise à jour.'})}
  throw new Error('Unexpected request '+method+' '+url);
 };
 function response(data){return {ok:true,json:async()=>data}}
@@ -49,7 +49,7 @@ const wait=()=>new Promise(r=>setTimeout(r,15));
 const input=(el,value)=>{el.value=value;el.dispatchEvent(new w.Event('input',{bubbles:true}))};
 const change=el=>el.dispatchEvent(new w.Event('change',{bubbles:true}));
 const submit=id=>$(id).dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
-w.eval(fs.readFileSync('static/js/planning-catalog.js','utf8'));
+w.eval(fs.readFileSync('static/js/subject-catalog.js','utf8'));
 w.eval(fs.readFileSync('static/js/subject-references.js','utf8'));
 (async()=>{
  await wait();$('reference-open').click();await wait();
@@ -57,7 +57,7 @@ w.eval(fs.readFileSync('static/js/subject-references.js','utf8'));
  assert.equal($('reference-url').value,URL);assert.equal($('reference-exam-year').value,'2028');assert($('reference-analyze').disabled);assert(!$('reference-settings-link').hidden);
  assert(!$('reference-key'));assert(!$('reference-settings'));assert.equal($('reference-settings-link').getAttribute('href'),'/admin/parametres');
  $('reference-close').click();configured=true;
- if(recovering)job={ok:true,job_id:'job-demo',status:'failed',promotion_id:'demo',query:{},recoverable:true};
+ if(recovering)job={ok:true,job_id:'job-demo',status:'failed',diploma_code:'MOS',query:{bts_code:'MOS'},recoverable:true};
  $('reference-open').click();await wait();assert(!$('reference-analyze').disabled);
  if(!recovering){
    submit('reference-search-form');await wait();assert(!$('reference-progress-step').hidden);assert.equal(catalog.subjects.length,1);
@@ -80,15 +80,15 @@ w.eval(fs.readFileSync('static/js/subject-references.js','utf8'));
  input(cards[1].querySelector('[data-field="objectives"]'),'<img src=x onerror=alert(1)>');assert.equal(d.querySelectorAll('.reference-subject img').length,0);
  $('reference-reviewed').checked=true;change($('reference-reviewed'));$('reference-import').click();await wait();
  assert.equal(imports,1);assert.equal(importPayload.subjects.length,1);assert.equal(importPayload.subjects[0].name,'Management adapté');assert.equal(importPayload.subjects[0].coefficient,5);
- assert.equal(importPayload.subjects[0].planned_hours,null);assert.equal(importPayload.subjects[0].trainer_id,'');assert(importPayload.reviewed);assert.equal(reloads,1);assert(!$('reference-done-step').hidden);
+ assert(!('planned_hours' in importPayload.subjects[0]));assert(!('trainer_id' in importPayload.subjects[0]));assert(importPayload.reviewed);assert.equal(reloads,1);assert(!$('reference-done-step').hidden);
  assert.equal(w.sessionStorage.getItem('bts-reference-draft:job-demo'),null);
  $('reference-bottom-close').click();await wait();
  d.querySelector('[data-catalog-edit="imported"]').click();await wait();
- const form=$('catalog-form');assert(!$('catalog-save').disabled);assert(!form.elements.planned_hours.required);assert(!form.elements.trainer_id.required);
+ const form=$('catalog-form');assert(!$('catalog-save').disabled);assert(!form.elements.planned_hours);assert(!form.elements.trainer_id);assert(!form.elements.promotion_id);
  const preserved=[...$('catalog-editor').querySelectorAll('.reference-full-paragraph')].map(n=>n.textContent);
  assert.deepEqual(preserved,[fullVersion,fullObjectives]);assert.equal($('catalog-editor').querySelectorAll('img').length,0);
  assert.equal(form.elements.coefficient.value,'5');form.elements.objectives.value='Après import';submit('catalog-form');await wait();
- assert.equal(editPayload.planned_hours,null);assert.equal(editPayload.objectives,'Après import');assert.equal(editPayload.coefficient,5);
+ assert.deepEqual(editPayload.diploma_codes,['MOS']);assert.equal(editPayload.diploma_details.MOS.objectives,'Après import');assert.equal(editPayload.diploma_details.MOS.coefficient,5);
  assert(!$('catalog-editor').open);
  console.log('PASS: complete reference import journey, key isolation, pending/ready states, duplicate and optional selection, long text preserved before/after import, safe text, drafts, selected-only commit, catalogue refresh and post-import editing.');
  dom.window.close();

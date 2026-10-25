@@ -115,7 +115,7 @@
       if (state.subject) await loadAvailability(); if (state.slot) await checkSelectedSlot();
       return true;
     } catch (failure) { if (seq === state.loadSeq) { if (!fromSync) { state.data = null; $('planning-selected').hidden = true; } notice(failure.message, true); } return false; }
-    finally { if (seq === state.loadSeq) { state.loading = false; app.setAttribute('aria-busy', 'false'); $('planning-save-state').textContent = 'Chaque action est enregistrée'; } }
+    finally { if (seq === state.loadSeq) { state.loading = false; app.setAttribute('aria-busy', 'false'); $('planning-save-state').textContent = 'Chaque action est enregistrée'; openRequestedSubject(); } }
   }
   function planningSyncSafe({ignoreLoading = false} = {}) {
     return (ignoreLoading || !state.loading) && !state.busy && !state.quickBusy && !state.paintBusy && !state.paintDraft.size && !state.slotFormDirty && !document.activeElement?.closest('#planning-slot-form') && !state.slotGesture && !state.paintGesture && !state.dragCourse && !document.querySelector('dialog[open]');
@@ -206,7 +206,10 @@
       const status = problem || (state.slot ? check?.status === 'available' ? 'Ajouter sur ce créneau' : check?.reason || 'Vérification des disponibilités…' : 'Sélectionnez un créneau pour l’ajouter'); card.append(choose, el('p', 'planning-subject-result', status));
       const edit = button(budget.configured ? 'Modifier' : 'Définir le volume annuel', 'planning-text-button', () => openSubject(subject)); edit.setAttribute('aria-label', 'Modifier la matière ' + subject.name); card.append(edit); container.append(card);
     }
-    if (!container.children.length) container.append(el('p', 'planning-palette-empty', state.data?.subjects?.length ? 'Aucune matière pour cette recherche.' : 'Créez votre première matière pour commencer à composer le planning.'));
+    if (!container.children.length) container.append(el('p', 'planning-palette-empty', state.data?.subjects?.length ? 'Aucune matière pour cette recherche.' : 'Choisissez une matière du catalogue, son formateur et son volume annuel pour préparer ce planning.'));
+    const prepared = new Set((state.data?.subjects || []).map(item => item.catalog_subject_id));
+    const available = (state.data?.catalog?.subject_catalog || []).filter(item => item.diploma_codes.includes(state.data?.promotion?.bts) && !prepared.has(item.id));
+    if (available.length) container.append(button('Préparer une matière du catalogue (' + available.length + ')', 'planning-button planning-full', () => openSubject()));
     $('planning-selection-clear').hidden = !state.subject;
   }
   async function chooseSubject(id, dragging = false) {
@@ -457,16 +460,32 @@
     if (!exceptions.children.length) exceptions.append(el('p', 'planning-muted', 'Aucune exception.'));
   }
   const trainerName = trainer => trainer.name || trainer.trainer_name || [trainer.prenom, trainer.nom].filter(Boolean).join(' ');
-  function openSubject(subject = null) {
+  function openSubject(subject = null, requested = '') {
     if (!state.data || state.loading || state.quickBusy) return; state.subjectEdit = subject; const form = $('planning-subject-form'); form.reset();
-    form.elements.name.value = subject?.name || ''; form.elements.planned_hours.value = subject?.planned_hours ?? ''; form.elements.color.value = safeColor(subject?.color);
-    if (!form.elements.color.value) { form.elements.color.add(new Option('Couleur actuelle', safeColor(subject?.color))); form.elements.color.value = safeColor(subject?.color); }
+    const code = state.data.promotion.bts, prepared = new Set((state.data.subjects || []).map(item => item.catalog_subject_id));
+    const entries = (state.data.catalog?.subject_catalog || []).filter(item => item.diploma_codes.includes(code) && (subject ? item.id === subject.catalog_subject_id : !prepared.has(item.id)));
+    populate(form.elements.catalog_subject_id, entries, item => item.name, 'Choisir une matière', subject?.catalog_subject_id || requested);
+    form.elements.catalog_subject_id.disabled = !!subject;
+    form.elements.planned_hours.value = subject?.planned_hours ?? '';
+    $('planning-subject-diploma-help').textContent = 'Matières rattachées au BTS ' + code + '. Les autres diplômes se gèrent depuis le catalogue.';
+    $('planning-subject-catalog-link').href = '/admin/matieres?diploma=' + encodeURIComponent(code);
     populate(form.elements.trainer_id, state.data.trainers || [], trainerName, 'Choisir un formateur', subject?.trainer_id);
-    $('planning-subject-delete').hidden = !subject; openDialog('planning-subject-dialog', form.elements.name);
-    if (!state.data.trainers?.length) formError(form, 'Aucun formateur n’est affecté à cette promotion. Ajoutez une affectation depuis la page Formateurs.');
+    form.querySelector('button[type=submit]').disabled = !entries.length || !state.data.trainers?.length;
+    $('planning-subject-delete').hidden = !subject; openDialog('planning-subject-dialog', subject ? form.elements.trainer_id : form.elements.catalog_subject_id);
+    if (!entries.length) formError(form, 'Toutes les matières de ce BTS sont déjà préparées, ou son catalogue est vide. Ajoutez une matière depuis le catalogue.');
+    else if (!state.data.trainers?.length) formError(form, 'Aucun formateur n’est affecté à cette promotion. Ajoutez une affectation depuis la page Formateurs.');
+  }
+  function openRequestedSubject() {
+    const requested = new URL(location.href).searchParams.get('catalog_subject_id');
+    if (!requested || !state.data || !planningSyncSafe()) return;
+    const entry = (state.data.catalog?.subject_catalog || []).find(item => item.id === requested);
+    if (!entry || !entry.diploma_codes.includes(state.data.promotion.bts)) { notice('Choisissez une promotion correspondant aux diplômes de cette matière.'); return; }
+    const existing = (state.data.subjects || []).find(item => item.catalog_subject_id === requested);
+    const url = new URL(location.href); url.searchParams.delete('catalog_subject_id'); history.replaceState(null, '', url);
+    openSubject(existing || null, requested);
   }
   $('planning-subject-form').addEventListener('submit', event => {
-    event.preventDefault(); const form = event.currentTarget; const data = {promotion_id: promotionId(), name: form.elements.name.value.trim(), trainer_id: form.elements.trainer_id.value, color: form.elements.color.value, planned_hours: form.elements.planned_hours.value === '' ? null : Number(form.elements.planned_hours.value)};
+    event.preventDefault(); const form = event.currentTarget; const data = {promotion_id: promotionId(), catalog_subject_id: form.elements.catalog_subject_id.value, trainer_id: form.elements.trainer_id.value, planned_hours: form.elements.planned_hours.value === '' ? null : Number(form.elements.planned_hours.value)};
     saveForm(form, () => request('/subjects' + (state.subjectEdit ? '/' + encodeURIComponent(state.subjectEdit.id) : ''), {method: state.subjectEdit ? 'PUT' : 'POST', data}), 'Matière enregistrée.');
   });
   function dateLimits(form) { const promotion = state.data.promotion; for (const input of form.querySelectorAll('input[type=date]')) { input.min = promotion.date_debut || ''; input.max = promotion.date_fin || ''; } }
@@ -524,7 +543,7 @@
       finally { busyDialog(dialog, false); }
     };
   }
-  $('planning-subject-delete').addEventListener('click', () => { if (state.subjectEdit) confirmAction('Supprimer la matière « ' + state.subjectEdit.name + ' » ? Une matière déjà utilisée dans un cours ne peut pas être supprimée.', () => request('/subjects/' + encodeURIComponent(state.subjectEdit.id), {method: 'DELETE'}), 'Matière supprimée.', 'planning-subject-dialog'); });
+  $('planning-subject-delete').addEventListener('click', () => { if (state.subjectEdit) confirmAction('Retirer « ' + state.subjectEdit.name + ' » de ce planning ? Les cours existants doivent d’abord être réaffectés. La fiche reste dans le catalogue des diplômes.', () => request('/subjects/' + encodeURIComponent(state.subjectEdit.id), {method: 'DELETE'}), 'Matière retirée de ce planning.', 'planning-subject-dialog'); });
   $('planning-period-delete').addEventListener('click', () => { if (state.ruleEdit) confirmAction('Supprimer cette période ? Les jours concernés retrouveront le rythme des autres règles, ou deviendront non définis. Les cours existants seront vérifiés avant toute modification.', () => request('/calendar/rules/' + encodeURIComponent(state.ruleEdit.id), {method: 'DELETE'}), 'Période supprimée.', 'planning-period-dialog'); });
   $('planning-exception-delete').addEventListener('click', () => { if (state.exceptionEdit) confirmAction('Retirer cette exception ? La journée retrouvera le rythme habituel de la promotion.', () => request('/calendar/exceptions/' + encodeURIComponent(promotionId()) + '/' + encodeURIComponent(state.exceptionEdit.date), {method: 'DELETE'}), 'Exception retirée.', 'planning-exception-dialog'); });
   $('planning-course-delete').addEventListener('click', () => { if (state.courseEdit) confirmAction('Supprimer le cours « ' + courseName(state.courseEdit) + ' » du ' + formatDate(state.courseEdit.date) + ' à ' + state.courseEdit.start + ' ? Cette suppression concerne uniquement ce créneau.', () => request('/courses/' + encodeURIComponent(state.courseEdit.id), {method: 'DELETE', data: {version: state.courseEdit.version}}), 'Cours supprimé.', 'planning-course-dialog'); });
