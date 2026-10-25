@@ -21,6 +21,8 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from planning import PlanningError, _clock, _iso, _load_courses, _unavailability, ensure_planning_schema
 from planning_holidays import public_holiday_name
 from trainer_access import get_authenticated_trainer
+from trainer_notifications import (ensure_notification_schema, enqueue_availability_notification,
+                                   register_notification_worker)
 
 MAX_DATES = 740
 PREVIEW_TTL = 15 * 60
@@ -32,6 +34,7 @@ def _now_paris():
 
 def ensure_trainer_availability_schema(conn):
     ensure_planning_schema(conn)
+    ensure_notification_schema(conn)
     conn.execute('''CREATE TABLE IF NOT EXISTS planning_trainer_owned_absences(
         block_id TEXT PRIMARY KEY,trainer_id TEXT NOT NULL,date TEXT NOT NULL,
         UNIQUE(trainer_id,date))''')
@@ -119,7 +122,8 @@ def get_trainer_availability_state(conn, trainer_id, year):
                 revision=_revision(conn, trainer_id), days=days)
 
 
-def register_trainer_availability(app, db_connect):
+def register_trainer_availability(app, db_connect, send_mail=None):
+    notify = register_notification_worker(app, db_connect, send_mail)
     serializer = URLSafeTimedSerializer(app.secret_key, salt='trainer-day-availability-v1')
 
     def secure(response):
@@ -304,8 +308,18 @@ def register_trainer_availability(app, db_connect):
                     added.append(day)
             conn.execute('''INSERT INTO planning_trainer_availability_versions(trainer_id,version) VALUES(?,1)
                 ON CONFLICT(trainer_id) DO UPDATE SET version=version+1''', (trainer['id'],))
+            notification_id = enqueue_availability_notification(conn, trainer, action, added, removed,
+                [dict(_course_summary(course), duration_minutes=course['end_min']-course['start_min'],
+                      room_name=course.get('room_name') or '') for course in courses], preview['reason'], _revision(conn,trainer['id']))
             conn.commit()
-            return result(dict(ok=True, removed_count=len(courses), added_dates=added, removed_dates=removed,
+            # Delivery starts only after the complete availability/course transaction.
+            # A transport problem must never undo the confirmed scheduling change.
+            if notification_id:
+                try:
+                    notify(notification_id)
+                except Exception:
+                    app.logger.warning('Availability saved; notification remains queued for retry.')
+            return result(dict(ok=True, notification_queued=bool(notification_id), removed_count=len(courses), added_dates=added, removed_dates=removed,
                 message=(f'Indisponibilités enregistrées. {len(courses)} cours supprimé(s) ; tous les plannings et volumes horaires sont mis à jour.'
                          if courses else 'Vos disponibilités ont été enregistrées.')))
         except PlanningError as error:

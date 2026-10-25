@@ -21,7 +21,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from promotions import (BTS_LABELS, ensure_promotion_schema, list_promotions,
                         get_trainer_promotions, replace_trainer_promotions)
 from trainer_workload import (WorkloadError, ensure_workload_schema,
-                              get_trainer_workload, save_hourly_rate)
+                              get_trainer_workload, get_trainer_annual_workload, save_hourly_rate, MONTHS, _month_bounds)
 
 SESSION_TTL = 8 * 60 * 60
 ACTIVATION_TTL = 72 * 60 * 60
@@ -310,23 +310,86 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
             return go('login', next=request.full_path.rstrip('?'))
         admin_guard()
         from zoneinfo import ZoneInfo
-        month = request.args.get('month', datetime.now(ZoneInfo('Europe/Paris')).strftime('%Y-%m'))
-        if len(request.args.getlist('month')) > 1 or any(key != 'month' for key in request.args):
-            abort(400, 'Sélectionnez un seul mois.')
+        now = datetime.now(ZoneInfo('Europe/Paris'))
+        allowed = {'tab', 'month', 'month_number', 'year', 'date'}
+        if set(request.args) - allowed or any(len(values) != 1 for _, values in request.args.lists()):
+            abort(400, 'Sélectionnez une seule période.')
+        tab = request.args.get('tab', 'accounting')
+        if tab not in ('accounting', 'planning', 'availability', 'account'):
+            abort(400, 'Choisissez un onglet de la fiche.')
+        raw_month = request.args.get('month')
+        if raw_month is None and tab == 'planning' and re.fullmatch(r'\d{4}-\d{2}-\d{2}', request.args.get('date', '')):
+            raw_month = request.args['date'][:7]
+        raw_year = request.args.get('year', raw_month[:4] if raw_month else str(now.year))
+        if not re.fullmatch(r'\d{4}', raw_year) or not 1900 <= int(raw_year) <= 2200:
+            abort(400, 'Sélectionnez une année comprise entre 1900 et 2200.')
+        year = int(raw_year)
+        raw_number = request.args.get('month_number')
+        if raw_number is not None:
+            if raw_month is not None or not re.fullmatch(r'0[1-9]|1[0-2]', raw_number):
+                abort(400, 'Sélectionnez un seul mois valide.')
+            month = f'{year:04d}-{raw_number}'
+        else:
+            month = raw_month or f'{year:04d}-{now.month:02d}'
+        try:
+            selected_month, _ = _month_bounds(month)
+        except WorkloadError as error:
+            abort(error.status, str(error))
+        if selected_month.year != year:
+            abort(400, 'Le mois sélectionné doit appartenir à cette année.')
+        selected_date = request.args.get('date')
+        if selected_date is not None:
+            from datetime import date
+            try:
+                if not re.fullmatch(r'\d{4}-\d{2}-\d{2}', selected_date):
+                    raise ValueError
+                day = date.fromisoformat(selected_date)
+                if not 1900 <= day.year <= 2200:
+                    raise ValueError
+            except ValueError:
+                abort(400, 'Sélectionnez une date valide.')
         with closing(db_connect()) as conn:
             _schema(conn)
             ensure_workload_schema(conn)
+            if tab == 'availability':
+                from trainer_availability import ensure_trainer_availability_schema
+                from trainer_notifications import ensure_notification_schema
+                ensure_trainer_availability_schema(conn)
+                ensure_notification_schema(conn)
+            conn.commit()
+            conn.execute('BEGIN')
             row = conn.execute('SELECT id,nom,prenom,email,active,password_hash,invited_at FROM trainers WHERE id=?', (trainer_id,)).fetchone()
             if not row:
                 abort(404)
             trainer = {key: row[key] for key in ('id', 'nom', 'prenom', 'email', 'active', 'invited_at')}
             trainer.update(activated=bool(row['password_hash']), assignments=get_assignments(conn, trainer_id))
-            try:
-                workload = get_trainer_workload(conn, trainer_id, month)
-            except WorkloadError as error:
-                abort(error.status, str(error))
+            years = set(range(now.year-3,now.year+5)) | set(range(year-2,year+3))
+            for item in trainer['assignments']:
+                for key in ('date_debut','date_fin'):
+                    value = item.get(key) or ''
+                    if re.fullmatch(r'\d{4}-\d{2}-\d{2}',value):
+                        years.add(int(value[:4]))
+            for item in conn.execute('SELECT substr(date,1,4) AS year FROM planning_courses WHERE trainer_id=? UNION SELECT substr(effective_date,1,4) AS year FROM trainer_hourly_rates WHERE trainer_id=?',(trainer_id,trainer_id)):
+                if str(item['year']).isdigit(): years.add(int(item['year']))
+            context = dict(trainer=trainer, active_tab=tab, selected_year=year, selected_month=month,
+                           selected_month_number=selected_month.month, selected_date=selected_date,
+                           month_options=[dict(number=number, name=name) for number,name in enumerate(MONTHS,1)],
+                           year_options=sorted(value for value in years if 1900<=value<=2200))
+            if tab == 'accounting':
+                context['workload'] = get_trainer_workload(conn, trainer_id, month)
+                context['annual_workload'] = get_trainer_annual_workload(conn, trainer_id, year)
+            elif tab == 'planning':
+                from trainer_admin_planning import get_admin_trainer_planning
+                context['trainer_planning'] = get_admin_trainer_planning(conn, trainer_id, selected_date or (selected_month.isoformat() if any(key in request.args for key in ('month','month_number','year')) else now.date().isoformat()))
+            elif tab == 'availability':
+                from trainer_admin_planning import get_admin_trainer_availability
+                context['trainer_availability'] = get_admin_trainer_availability(conn, trainer_id, year)
+            else:
+                current = {item['id'] for item in trainer['assignments']}
+                context['account_promotions'] = [item for item in list_promotions(conn) if item['active'] or item['id'] in current]
+                context['account_promotion_ids'] = current
             conn.commit()
-        return page('trainer_detail.html', title=trainer['prenom']+' '+trainer['nom']+' · Fiche formateur', trainer=trainer, workload=workload)
+        return page('trainer_detail.html', title=trainer['prenom']+' '+trainer['nom']+' · Fiche formateur', **context)
 
     @app.post('/admin/formateurs/<trainer_id>/tarif')
     def admin_trainer_hourly_rate(trainer_id):

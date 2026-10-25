@@ -780,7 +780,17 @@ def register_planning(app,db_connect,require_admin):
         try:
             payload=body()
             with closing(connect()) as conn:
+                # The UI must use the same budget snapshot as this preview,
+                # never a catalog that was loaded before another planning edit.
+                conn.execute('BEGIN')
                 items=batch_items(conn,payload);preview=[];normalized=[]
+                subject_ids=set()
+                for item in items:
+                    if isinstance(item.get('subject_id'),str):subject_ids.add(item['subject_id'])
+                    for group in item.get('shared',[]) if isinstance(item.get('shared'),list) else []:
+                        if isinstance(group,dict) and isinstance(group.get('subject_id'),str):subject_ids.add(group['subject_id'])
+                budgets=[{key:subject[key] for key in ('id','name','planned_minutes','scheduled_minutes','remaining_minutes','planned_hours','budget_configured')}
+                         for subject in _subjects(conn) if subject['id'] in subject_ids]
                 if payload.get('mode')=='weeks':
                     accepted=[]
                     for index,item in enumerate(items):
@@ -795,7 +805,7 @@ def register_planning(app,db_connect,require_admin):
                     token=serializer.dumps(dict(items=items,mode='weeks',promotion_id=payload['promotion_id'],source_start=payload['source_start'],
                                                 source_versions=source_versions,binding=hashlib.sha256(csrf().encode()).hexdigest()))
                     valid=sum(item['valid'] for item in preview)
-                    return result(items=preview,mode='weeks',partial=True,preview_token=token,
+                    return result(items=preview,budgets=budgets,mode='weeks',partial=True,preview_token=token,
                                   summary=dict(total=len(preview),valid=valid,conflicts=len(preview)-valid))
                 for index,item in enumerate(items):
                     try:
@@ -817,7 +827,7 @@ def register_planning(app,db_connect,require_admin):
                     else:accepted.append(course)
             token=serializer.dumps(dict(items=items,binding=hashlib.sha256(csrf().encode()).hexdigest()))
             valid=sum(item['valid'] for item in preview)
-            return result(items=preview,preview_token=token,summary=dict(total=len(preview),valid=valid,conflicts=len(preview)-valid))
+            return result(items=preview,budgets=budgets,preview_token=token,summary=dict(total=len(preview),valid=valid,conflicts=len(preview)-valid))
         except PlanningError as error:return fail(error)
 
     @app.post('/admin/planning/api/courses/batch')

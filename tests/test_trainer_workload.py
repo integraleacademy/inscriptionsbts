@@ -178,8 +178,10 @@ def test_fiche_real_template_has_hours_rates_and_existing_account_actions(worklo
     assert response.status_code == 200
     text = response.get_data(as_text=True)
     assert 'Volume mensuel total' in text and 'Montant partiellement chiffré' in text
-    assert 'Compte &amp; indisponibilités' in text
-    assert '/admin/formateurs?edit=t1' in text
+    assert 'Rubriques de la fiche formateur' in text
+    assert 'tab=account' in text and 'tab=planning' in text and 'tab=availability' in text
+    assert 'ANNÉE CIVILE 2027' in text
+    assert 'trainer-profile-form' not in text
     assert 'ne s’additionnent pas' in text
     assert 'ne constituent pas une validation de présence' in text
     assert 'no-store' in response.headers['Cache-Control']

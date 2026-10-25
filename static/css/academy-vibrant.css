@@ -1,0 +1,216 @@
+/* Academy colour refresh. Loaded last; layout, visibility and status rules stay
+   with their components. Forest, emerald and honey replace the grey/olive wash. */
+:root {
+  --academy-ink: #19392f;
+  --academy-muted: #576b61;
+  --academy-paper: #f5f4ec;
+  --academy-card: #fffef9;
+  --academy-line: #cfddd2;
+  --academy-soft: #e8f2e8;
+  --academy-olive: #126b50;
+  --academy-olive-hover: #0b513d;
+  --academy-olive-soft: #def1e5;
+  --academy-ochre: #956010;
+  --academy-ochre-soft: #fff0c9;
+  --academy-gold: #f2c15b;
+  --academy-success: #166444;
+  --academy-success-soft: #dff2e4;
+  --academy-danger: #a2372e;
+  --academy-danger-soft: #ffe6df;
+  --academy-terracotta: #ac4b2d;
+  --academy-terracotta-soft: #fce7da;
+}
+body.academy-ui:not(.waiting-page):not(.daily-login-page):not(.application-page) {
+  background: radial-gradient(ellipse at 100% 0, #e5f1df 0, transparent 48%), #f5f4ec;
+}
+.academy-ui:not(.application-page) ::selection { color: #19392f; background: #f2d17e; }
+.academy-ui:not(.application-page) :focus-visible { outline-color: #ad781c; }
+
+/* The navigation is the strongest brand anchor, with a clear current section. */
+body.academy-ui.workspace-page .workspace-sidebar {
+  background: linear-gradient(165deg, #103d30, #155941 68%, #103d30);
+  color: #f5f2df;
+  box-shadow: 3px 0 20px #123e3012;
+}
+.academy-ui.workspace-page .workspace-sidebar nav a,
+.academy-ui.workspace-page .sidebar-bottom a { color: #e2f0df; }
+.academy-ui.workspace-page .workspace-sidebar nav a:is(:hover,.active) {
+  background: #f4d17a1c; color: #fffdf3;
+}
+.academy-ui.workspace-page .workspace-sidebar nav a.active {
+  box-shadow: inset 4px 0 #f2c15b;
+  background: #f4d17a26;
+}
+.academy-ui.workspace-page .nav-caption,
+.academy-ui.workspace-page .sidebar-bottom small { color: #b9d9c1; }
+.academy-ui.workspace-page .sidebar-bottom p { color: #f2c15b; }
+.academy-ui.workspace-page .workspace-topbar { background: #fffef9; border-bottom-color: #cbded0; }
+.academy-ui.workspace-page .menu-toggle { color: #126b50; background: #def1e5; border-color: #c0ddcb; }
+.academy-ui.workspace-page .workspace-title { color: #134e3b; }
+.academy-ui.workspace-page :is(input,select,textarea) { accent-color: #126b50; }
+.academy-ui.workspace-page :is(input,select,textarea):focus { border-color: #15805d; }
+
+/* Candidate directory: give the campaign and metrics distinct visual weight. */
+.academy-ui.workspace-page :is(.directory-campaign,.campaign-banner) {
+  background: linear-gradient(115deg, #e0f2e3, #f9edc5);
+  border-color: #bad4bc; color: #194a35;
+  box-shadow: 0 9px 24px #1f563608;
+}
+.academy-ui.workspace-page :is(.directory-campaign span,.campaign-banner b) { color: #146444; }
+.academy-ui.workspace-page .directory-metrics > a { background: #fffef9; border-color: #d1e1d3; }
+.academy-ui.workspace-page .directory-metrics > a::before { background: #c38b24; }
+.academy-ui.workspace-page .directory-metrics :is(.metric-confirmee,.metric-reconfirmee)::before { background: #16865d; }
+.academy-ui.workspace-page .directory-metrics :is(.metric-annulee,.metric-docs_non_conformes)::before { background: #bd4738; }
+.academy-ui.workspace-page .directory-metrics strong { color: #0d6245; }
+.academy-ui.workspace-page :is(.directory-table th,.admin-table th,.trainer-table th) {
+  background: #e4f1e6; color: #315b44;
+}
+.academy-ui.workspace-page .directory-table .candidate-avatar { color: #126b50; background: #d8efdf; }
+.academy-ui.workspace-page .directory-table tr:nth-child(3n + 2) .candidate-avatar { color: #895c15; background: #ffe9ac; }
+.academy-ui.workspace-page .directory-table tr:nth-child(3n + 3) .candidate-avatar { color: #a3452a; background: #f9ddca; }
+.academy-ui.workspace-page :is(.directory-table tbody tr:hover,.admin-table tbody tr:hover,.trainer-table tbody tr:hover) { background: #eff7ed; }
+
+/* Candidate cards and student home: clean cards with coloured information blocks. */
+.academy-ui.candidate-sheet-page .sheet-header { background: linear-gradient(115deg,#fffef9 45%,#e6f4e5); border-color: #bad7bf; }
+.academy-ui.candidate-sheet-page .sheet-header::before { background: linear-gradient(90deg,#16865d 0 36%,#e8b342 36% 70%,#bb613e 70%); }
+.academy-ui.candidate-sheet-page .sheet-overview > div { background: #e3f3e6; border-color: #c9e2cb; }
+.academy-ui.candidate-sheet-page .sheet-overview > div:nth-child(2) { background: #fff1cf; border-color: #ead5a7; }
+.academy-ui.candidate-sheet-page .sheet-overview > div:nth-child(3) { background: #fce8dc; border-color: #eed0ba; }
+.academy-ui.candidate-sheet-page .sheet-tabs button:is(.active,:hover) { background: #dff1e3; color: #126b50; }
+.academy-ui.candidate-sheet-page .sheet-tabs button.active::after { background: #16865d; }
+.academy-ui.candidate-sheet-page .sheet-card.status-card { background: linear-gradient(140deg,#d4eed9,#f4f9e8); border-color: #b8d6b8; }
+.academy-ui.candidate-sheet-page .sheet-card-kicker { color: #1c704c !important; }
+.academy-ui.candidate-sheet-page .sheet-card-icon { background: #c9e9d1; color: #126b50; }
+.academy-ui.candidate-sheet-page .note-card { background: #fff4d7; border-color: #e9cf98; }
+.academy-ui :is(.sheet-course-badge.tone-mos,.trainer-group-tag.group-mos,.sheet-course-badge.tone-ci,.trainer-group-tag.group-ci) { background: #dff1e5; color: #126b50; border-color: #badbc6; }
+.academy-ui :is(.sheet-course-badge.tone-mco,.trainer-group-tag.group-mco,.sheet-course-badge.tone-pi,.trainer-group-tag.group-pi) { background: #fff0c9; color: #895b12; border-color: #e9cf96; }
+.academy-ui :is(.sheet-course-badge.tone-ndrc,.trainer-group-tag.group-ndrc,.sheet-course-badge.tone-cg,.trainer-group-tag.group-cg) { background: #fce7da; color: #a3472b; border-color: #e6c4ae; }
+.academy-ui.candidate-sheet-page .communication-grid button { color: #126b50; background: #dff1e5; border-color: #badbc6; }
+.academy-ui.candidate-sheet-page .communication-grid button:nth-child(2n) { color: #895b12; background: #fff0c9; border-color: #e9cf96; }
+.academy-ui.candidate-sheet-page .communication-grid button:nth-child(3n) { color: #a3472b; background: #fce7da; border-color: #e6c4ae; }
+.academy-ui.candidate-portal-page .candidate-message { background: linear-gradient(115deg,#dcf1e1,#f4f7dc); border-color: #b6d7bb; }
+.academy-ui.candidate-portal-page .candidate-message .portal-section-icon { background: #c3e5cc; color: #126b50; }
+.academy-ui.candidate-portal-page :is(.candidate-message .eyebrow,.candidate-message > div > p:last-child) { color: #256343; }
+
+/* Trainer directory and personal home. */
+.academy-ui .trainer-admin-stats article { background: #e0f2e4; border-color: #bad8c1; }
+.academy-ui .trainer-admin-stats article > span { background: #c6e8cf; color: #126b50; }
+.academy-ui :is(.trainer-avatar,.trainer-dashboard-avatar) { background: #d6eedc; color: #126b50; }
+.academy-ui .trainer-admin-stats b { color: #126b50; }
+.academy-ui .trainer-students-count { background: linear-gradient(140deg,#114b36,#14724e); border-color: #0f6848; }
+.academy-ui .trainer-students-count > span { background: #f2c15b1a; border-color: #f2c15b66; color: #f2c15b; }
+.academy-ui .trainer-students-count p { color: #d4ecd7; }
+.academy-ui .trainer-dashboard-help { background: #fff0cc; border-color: #e8d19c; }
+.academy-ui .trainer-dashboard-help > span { color: #916017; background: #ffe3a0; }
+.academy-ui .trainer-promotion-cards > article { background: #eaf5e9; border-color: #ccdfc9; }
+.academy-ui .trainer-promotion-cards > article:nth-child(2n) { background: #fff2d8; border-color: #eadab4; }
+.academy-ui .trainer-promotion-cards > article:nth-child(3n) { background: #fbeadd; border-color: #ead3c0; }
+.academy-ui .trainer-promotion-card-top span { background: #ffffffb3; color: #285c41; }
+.academy-ui .promotion-card:not(.is-archived) { border-top-color: #16865d; box-shadow: 0 10px 26px #15482b08; }
+
+/* The trainer file has a vivid hero and contrasting figures, not more panels. */
+.academy-ui .trainer-workload { --tw-ink:#19392f; --tw-muted:#576b61; --tw-line:#cfddd2; --tw-gold:#956010; }
+.academy-ui .tw-hero { background: linear-gradient(118deg,#103e2e,#146c4c); border-color:#175e45; box-shadow:0 16px 38px #12523a14; }
+.academy-ui .tw-hero::before { background:linear-gradient(90deg,#f2c15b 0 60%,#f5d996 60% 80%,#b85a36 80%); }
+.academy-ui .tw-hero h1 { color:#fffdf3; }
+.academy-ui .tw-hero h1 em { color:#f2ce7d; }
+.academy-ui .tw-hero .tw-kicker { color:#c3e3c4; }
+.academy-ui .tw-identity a { color:#ebf4e5; }
+.academy-ui .tw-avatar { background:#f2c15b; color:#244132; border-color:#f9edce; box-shadow:0 0 0 1px #f9edce55; }
+.academy-ui .tw-promotions { border-top-color:#c9e4ce44; }
+.academy-ui .tw-promotions span { color:#f0f5df; background:#ffffff12; border-color:#d7edce44; }
+.academy-ui .tw-stat-primary { background:linear-gradient(125deg,#125137,#15815a); border-color:#126343; }
+.academy-ui .tw-stat-primary > span,.academy-ui .tw-stat-primary p { color:#e0efdc; }
+.academy-ui .tw-stat-primary > strong { color:#fffaf0; }
+.academy-ui .tw-stat-money { background:#ffedba; border-color:#e5c97f; }
+.academy-ui .tw-stat-money > strong { color:#805310; }
+.academy-ui .tw-card-icon { background:#dff1e3; color:#126b50; }
+.academy-ui .tw-current-rate { background:#e2f2df; }
+.academy-ui .tw-current-rate > strong,.academy-ui .tw-breakdown-list b { color:#126b50; }
+.academy-ui .tw-bts-list article { background:#fff1ce; border-color:#e8d09b; }
+.academy-ui .tw-bts-list :is(span,strong) { color:#8a5a13; }
+.academy-ui .tw-invoice-card { background:#fff4d9; border-color:#e5ce98; }
+.academy-ui .tw-table th { background:#e2f1e4; color:#315b44; }
+.academy-ui .tw-breakdown-list meter::-webkit-meter-optimum-value { background:#16865d; }
+.academy-ui .tw-breakdown-list meter::-moz-meter-bar { background:#16865d; }
+
+/* Planning chrome and tools. Subject-specific course colours and all red/orange
+   warning rules stay untouched. Only available slots receive a stronger green. */
+.academy-ui :is(.planning-app,.planning-dialog) {
+  --planning-ink:#19392f; --planning-muted:#576b61; --planning-line:#cfddd2;
+  --planning-olive:#126b50; --planning-gold:#956010; --planning-paper:#fffef9;
+}
+.academy-ui :is(.planning-heading h1 em,.planning-palette h2 em,.planning-year-heading h2 em,.planning-dialog h2 em) { color:#16805a; }
+.academy-ui .planning-kicker { color:#26714d; }
+.academy-ui .planning-palette { background:linear-gradient(145deg,#e5f3e2,#f6f9e8); border-color:#bcd7b9; }
+.academy-ui .planning-palette h2 { color:#164c35; }
+.academy-ui .planning-button.primary { color:#fffdf6; background:#126b50; border-color:#126b50; box-shadow:0 4px 12px #126b5015; }
+.academy-ui .planning-button.primary:hover { background:#0b513d; border-color:#0b513d; }
+.academy-ui .planning-button:not(.primary):not(.danger):hover { background:#e1f2e3; border-color:#a8d1b3; }
+.academy-ui .planning-view-switch button[aria-pressed=true] { background:#126b50; color:#fffdf6; }
+.academy-ui .planning-day-heading.kind-school { background:#e5f3e5; color:#20573c; }
+.academy-ui .planning-day-heading.kind-school small { color:#407150; }
+.academy-ui .planning-day-heading.is-today > b { background:#126b50; color:#fffdf6; }
+.academy-ui .planning-subject-card.selected { outline-color:#16865d; background:#e8f6e8; }
+.academy-ui .planning-subject-card.slot-available { border-color:#97caa0; background:#e9f7e6; }
+.academy-ui .slot-available .planning-subject-result { color:#126b50; }
+.academy-ui .planning-slot.is-available { background:#ccebc37d; }
+.academy-ui .planning-availability-legend .available { background:#b7dfa9; border-color:#6ca75f; }
+.academy-ui .planning-batch-week.is-selected { background:#d9efdc; border-color:#16865d; color:#12583c; }
+.academy-ui .planning-fullscreen-button[aria-pressed=true] { background:#126b50; color:#fffdf6; border-color:#126b50; }
+body.academy-ui.planning-is-fullscreen .planning-app,
+body.academy-ui.planning-is-fullscreen .planning-toolbar { background:#f2f6e9; }
+.academy-ui :is(.catalog-app,.catalog-dialog) { --catalog-ink:#19392f; --catalog-muted:#576b61; --catalog-line:#cfddd2; --catalog-olive:#126b50; }
+.academy-ui .catalog-button.primary { background:#126b50; border-color:#126b50; color:#fffdf6; }
+.academy-ui :is(.catalog-subject-card,.catalog-room-card) { box-shadow:0 10px 26px #15482b08; }
+
+/* Personal timetable views use the same identity, with existing warning colours. */
+.academy-ui :is(.portal-today,.portal-planning-app) { --pp-ink:#19392f; --pp-muted:#576b61; --pp-line:#cfddd2; --pp-olive:#126b50; --pp-gold:#956010; }
+body.academy-ui.portal-planning-page #main-content,
+body.academy-ui.trainer-availability-page #main-content { background:#f3f5e9 !important; }
+.academy-ui :is(.portal-planning-heading h1 em,.portal-today h2 em) { color:#16805a; }
+.academy-ui .portal-week-summary { background:#def1df; border-color:#b9d9bd; }
+.academy-ui .portal-week-summary > span { background:#bfe4c9; color:#126b50; }
+.academy-ui .portal-week-summary small { color:#426d4c; }
+.academy-ui .portal-today { border-color:#bfd8c3; box-shadow:0 8px 28px #1953360a; }
+.academy-ui .portal-planning-promotion { background:#dff2e3; color:#146344; }
+.academy-ui .portal-planning-button.primary { background:#126b50 !important; border-color:#126b50 !important; color:#fffdf6 !important; }
+.academy-ui .portal-planning-button.primary:hover { background:#0b513d !important; }
+.academy-ui .portal-view-switch button[aria-pressed=true] { background:#126b50; color:#fffdf6; }
+.academy-ui .portal-today-tag { background:#126b50; color:#fffdf6; }
+.academy-ui .portal-planning-day.is-today:not(.is-public-holiday) { background:#f1faeb; box-shadow:inset 0 3px #16865d; }
+.academy-ui .portal-planning-day.is-today:not(.is-public-holiday) .portal-day-heading { background:#e0f2df; }
+.academy-ui .portal-course-card:not(.is-incomplete) { background:#e7f4e3; border-color:#b9d6b5; border-left-color:#16865d; color:#194c32; }
+.academy-ui .portal-course-card:not(.is-incomplete) .portal-course-meta { color:#3d6947; }
+.academy-ui .portal-course-card[data-live-state=ongoing]:not(.is-incomplete) { box-shadow:0 0 0 2px #16865d; }
+.academy-ui .portal-course-card[data-live-state=ongoing] .portal-course-live { background:#126b50; color:#fffdf6; }
+.academy-ui .ta-app,.academy-ui .ta-dialog { --ta-ink:#19392f; --ta-muted:#576b61; --ta-olive:#126b50; --ta-line:#cfddd2; }
+.academy-ui .ta-heading h1 em { color:#16805a; }
+.academy-ui .ta-button.primary { background:#126b50 !important; border-color:#126b50 !important; color:#fffdf6 !important; }
+.academy-ui .ta-button.primary:hover { background:#0b513d !important; }
+.academy-ui .ta-tool.is-active { background:#dff1e3 !important; color:#126b50 !important; border-color:#bad7c2 !important; }
+.academy-ui .ta-help { background:#edf6df; border-color:#d5e6c6; }
+.academy-ui .ta-help > span { background:#d6ebbb; color:#4b6b29; }
+.academy-ui .ta-help p { color:#456330; }
+.academy-ui .ta-month { background:#fffef9; border-color:#cddfc8; }
+
+/* Public landing page only. The new application journey owns its own palette. */
+body.academy-ui.waiting-page { background:radial-gradient(ellipse at 80% 10%,#26745366,transparent 55%),linear-gradient(150deg,#103e2f,#153c2f 65%,#264d32); }
+.academy-ui.waiting-page .waiting-room h1 em { color:#f2ce7d; }
+.academy-ui.waiting-page .waiting-countdown > div { background:#f3cb6d10; border-color:#f2ce7d66; box-shadow:0 16px 35px #061f221f; }
+.academy-ui.waiting-page .waiting-countdown > div:last-child { background:#efc86a1c; }
+.academy-ui.waiting-page .waiting-countdown > div:last-child strong { color:#f2ce7d; }
+.academy-ui.waiting-page .waiting-countdown span { color:#cfdfc9; }
+.academy-ui.login-page:not(.daily-login-page) .login-intro { background:linear-gradient(145deg,#104330,#176548); }
+
+/* Seven daily palettes remain distinct; illustrations are not recoloured. */
+body.academy-ui.daily-tone-olive { --daily-accent:#286e42; --daily-soft:#cbe6b3; --daily-secondary:#eaf5d6; --daily-edge:#a7c68e; --daily-bg:#f2f5e7; }
+body.academy-ui.daily-tone-ochre { --daily-accent:#956215; --daily-soft:#f6d58e; --daily-secondary:#fff0c9; --daily-edge:#dfbd75; --daily-bg:#faf4e4; }
+body.academy-ui.daily-tone-forest { --daily-accent:#14694f; --daily-soft:#bfe4ce; --daily-secondary:#e1f4e6; --daily-edge:#92c4aa; --daily-bg:#edf5eb; }
+body.academy-ui.daily-tone-clay { --daily-accent:#ae4b2a; --daily-soft:#efc1a1; --daily-secondary:#fce7d7; --daily-edge:#d6a17d; --daily-bg:#fbf1e7; }
+body.academy-ui.daily-tone-graphite { --daily-accent:#394f4b; --daily-soft:#c4d8c6; --daily-secondary:#e4efe0; --daily-edge:#a4bdac; --daily-bg:#f0f4eb; }
+body.academy-ui.daily-tone-moss { --daily-accent:#557026; --daily-soft:#d9e4a8; --daily-secondary:#f1f5d5; --daily-edge:#bac987; --daily-bg:#f6f6e7; }
+body.academy-ui.daily-tone-sepia { --daily-accent:#865629; --daily-soft:#ead2a1; --daily-secondary:#fff0d3; --daily-edge:#ccae79; --daily-bg:#f9f3e6; }
+.academy-ui.daily-login-page :is(.access-story,.trainer-login-story) { background:linear-gradient(135deg,var(--daily-secondary),var(--daily-soft)); }
+.academy-ui.daily-login-page :is(.access-shell,.trainer-login-shell) { box-shadow:0 20px 60px #1e412419; border-color:var(--daily-edge); }
+.academy-ui.daily-login-page :is(.student-login-illustration,.trainer-login-visual) { box-shadow:0 12px 28px #26483118; border-color:#fffdf2; }

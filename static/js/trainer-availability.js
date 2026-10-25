@@ -46,6 +46,8 @@
     $('ta-clear').disabled = busy || !count;
     $('ta-previous').disabled = busy || !!count || Number(data.year) <= 1900;
     $('ta-next').disabled = busy || !!count || Number(data.year) >= 2200;
+    $('ta-year-select').disabled = busy || !!count;
+    $('ta-year-submit').disabled = busy || !!count;
     document.querySelectorAll('[data-ta-action]').forEach(button => {
       const active = button.dataset.taAction === action;
       button.classList.toggle('is-active', active);
@@ -66,6 +68,8 @@
   function render() {
     dayMap = new Map((data.days || []).map(day => [day.date, day]));
     $('ta-calendar-title').textContent = String(data.year);
+    $('ta-year-select').value = String(data.year);
+    $('ta-month-select').value = '';
     months.replaceChildren();
     for (let month = 0; month < 12; month++) {
       const first = new Date(Date.UTC(Number(data.year), month, 1, 12));
@@ -276,6 +280,21 @@
   $('ta-clear').addEventListener('click', () => { if (!busy) { selection.clear(); preview = null; anchor = null; updateSelection(); } });
   $('ta-previous').addEventListener('click', () => loadYear(Number(data.year) - 1));
   $('ta-next').addEventListener('click', () => loadYear(Number(data.year) + 1));
+  $('ta-year-form').addEventListener('submit', event => {
+    event.preventDefault();
+    if (busy || selection.size || isOpen()) {
+      notice('Enregistrez ou effacez votre sélection avant de changer d’année.');
+      return;
+    }
+    const year = Number($('ta-year-select').value);
+    if (Number.isInteger(year) && year >= 1900 && year <= 2200) loadYear(year);
+  });
+  $('ta-month-select').addEventListener('change', event => {
+    const value = event.target.value;
+    const target = value === '' ? $('ta-calendar-title') : $('ta-month-' + value);
+    if (!target) return;
+    target.scrollIntoView({behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
+  });
   $('ta-save').addEventListener('click', previewDates);
   $('ta-confirm').addEventListener('click', commitDates);
   $('ta-close-dialog').addEventListener('click', closeDialog);

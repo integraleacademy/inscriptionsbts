@@ -56,10 +56,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if daily_login %}<link rel="stylesheet" href="{{ url_for('static', filename='css/daily-login.css') }}?v=2">{% endif %}
   {% if is_planning_admin or is_trainer_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning.css') }}?v=4">{% endif %}
   {% if is_planning_catalog %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-catalog.css') }}?v=1">{% endif %}
-  {% if is_portal_planning or is_student_portal or request.endpoint == 'trainer_dashboard' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/portal-planning.css') }}?v=2">{% endif %}
+  {% if is_portal_planning or is_student_portal or request.endpoint in ['trainer_dashboard', 'trainer_availability', 'admin_trainer_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/portal-planning.css') }}?v=3">{% endif %}
   {% if request.endpoint == 'trainer_availability' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-availability.css') }}?v=1">{% endif %}
-  {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-workload.css') }}?v=1">{% endif %}
+  {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-workload.css') }}?v=2">{% endif %}
   {% if planning_sync_config %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-sync.css') }}?v=1">{% endif %}
+  {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-admin-planning.css') }}?v=1">{% endif %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-vibrant.css') }}?v=1">
   {% block page_styles %}{% endblock %}
 </head>
 
@@ -108,7 +110,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <footer class="footer-signature"><span>Intégrale Academy · Puget-sur-Argens, Côte d’Azur</span><a href="https://integraleacademy.com" target="_blank" rel="noopener">integraleacademy.com</a>{% if not is_trainer_space and not is_admin %}<a href="/formateur/connexion">Espace formateur</a>{% endif %}<small>Une école Intégrale Group</small></footer>
   <script src="{{ url_for('static', filename='js/workspace-shell.js') }}" defer></script>
   {% if is_planning_admin %}
-    <script src="{{ url_for('static', filename='js/planning.js') }}?v=4" defer></script>
+    <script src="{{ url_for('static', filename='js/planning.js') }}?v=5" defer></script>
   {% elif is_planning_catalog %}
     <script src="{{ url_for('static', filename='js/planning-catalog.js') }}?v=1" defer></script>
   {% elif is_portal_planning %}
@@ -128,8 +130,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% endif %}
   {% if request.endpoint in ['admin_candidate_sheet', 'espace_candidat', 'student_dashboard'] %}<script src="{{ url_for('static', filename='js/candidate-refinement.js') }}?v=4" defer></script>{% endif %}
   {% if request.endpoint == 'admin_candidate_sheet' %}<script src="{{ url_for('static', filename='js/candidate-promotion.js') }}?v=1" defer></script>{% endif %}
-  {% if request.endpoint == 'trainer_availability' %}<script src="{{ url_for('static', filename='js/trainer-availability.js') }}?v=1" defer></script>{% endif %}
-  {% if request.endpoint == 'admin_trainer_detail' %}<script src="{{ url_for('static', filename='js/trainer-workload.js') }}?v=1" defer></script>{% endif %}
+  {% if request.endpoint == 'trainer_availability' %}<script src="{{ url_for('static', filename='js/trainer-availability.js') }}?v=2" defer></script>{% endif %}
+  {% if request.endpoint == 'admin_trainer_detail' %}<script src="{{ url_for('static', filename='js/trainer-workload.js') }}?v=2" defer></script>{% endif %}
   {% if planning_sync_config %}<script src="{{ url_for('static', filename='js/planning-sync.js') }}?v=1" defer></script>{% endif %}
+  {% if request.endpoint == 'admin_trainer_detail' %}<script src="{{ url_for('static', filename='js/trainer-admin-planning.js') }}?v=1" defer></script>{% endif %}
 </body>
 </html>

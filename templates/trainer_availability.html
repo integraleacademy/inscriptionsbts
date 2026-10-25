@@ -4,10 +4,10 @@
 {% block content %}
 <div class="ta-app" data-trainer-availability>
   <script type="application/json" id="trainer-availability-config">{{ availability|tojson }}</script>
-  <a class="ta-back" href="{{ availability.home_url }}">← Mon espace formateur</a>
+  {% set trainer_portal_active = 'availability' %}{% include '_trainer_portal_nav.html' %}
   <header class="ta-heading">
     <div><p class="ta-kicker">INTÉGRALE ACADEMY · ÉQUIPE PÉDAGOGIQUE</p><h1>Mes <em>indisponibilités.</em></h1><p>Quelques dates à réserver ? Indiquez-les ici pour que votre planning en tienne compte.</p></div>
-    <a class="ta-button" href="{{ availability.planning_url }}">{{ icon('clock') }} Voir mon planning</a>
+
   </header>
   <div class="ta-notice" id="ta-notice" role="status" aria-live="polite" hidden></div>
   <noscript><div class="ta-notice ta-error">Activez JavaScript pour sélectionner des dates et enregistrer vos indisponibilités.</div></noscript>
@@ -15,6 +15,10 @@
     <div class="ta-toolbar">
       <div class="ta-year-navigation"><button type="button" class="ta-icon-button" id="ta-previous" aria-label="Année précédente">‹</button><div><p class="ta-kicker">VOTRE ANNÉE, EN UN COUP D’ŒIL</p><h2 id="ta-calendar-title">{{ availability.year }}</h2></div><button type="button" class="ta-icon-button" id="ta-next" aria-label="Année suivante">›</button></div>
       <div class="ta-tools" role="group" aria-label="Que souhaitez-vous indiquer ?"><button type="button" class="ta-tool is-active" data-ta-action="unavailable" aria-pressed="true"><i class="ta-dot unavailable"></i>Indisponible</button><button type="button" class="ta-tool" data-ta-action="available" aria-pressed="false"><i class="ta-dot available"></i>De nouveau disponible</button></div>
+    </div>
+    <div class="ta-calendar-jumps">
+      <form method="get" action="/formateur/indisponibilites" id="ta-year-form"><label for="ta-year-select">Choisir une année<select name="year" id="ta-year-select">{% for year in range(1900,2201) %}<option value="{{ year }}"{% if year == availability.year|int %} selected{% endif %}>{{ year }}</option>{% endfor %}</select></label><button type="submit" id="ta-year-submit" class="ta-button">Afficher l’année</button></form>
+      <label for="ta-month-select">Aller directement à un mois<select id="ta-month-select"><option value="">Les douze mois</option>{% for month in ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'] %}<option value="{{ loop.index0 }}">{{ month }}</option>{% endfor %}</select></label>
     </div>
     <div class="ta-help"><span>{{ icon('calendar') }}</span><p id="ta-instructions">Cliquez sur les jours où vous êtes indisponible, ou faites glisser pour en sélectionner plusieurs. Vos choix seront appliqués après enregistrement.</p></div>
     <div class="ta-legend"><span><i class="ta-dot available"></i>Disponible</span><span><i class="ta-dot unavailable"></i>Votre indisponibilité</span><span><i class="ta-dot admin"></i>Blocage de l’équipe</span><span><i class="ta-dot holiday"></i>Jour férié</span><span><i class="ta-dot lesson"></i>Cours prévu</span></div>

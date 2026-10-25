@@ -25,6 +25,8 @@ _ADMIN_TABLES = {
     'promotions': '*', 'trainer_promotions': '*',
     'trainers': 'id,nom,prenom,active,version',
     'trainer_hourly_rates': '*', 'trainer_workload_versions': '*',
+    'trainer_availability_notifications': 'id,trainer_id,created_at',
+    'trainer_availability_deliveries': 'notification_id,recipient,status,attempts,sent_at',
 }
 
 

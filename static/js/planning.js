@@ -543,6 +543,7 @@
     $('planning-batch-date-clear').disabled = !dates.length;
     $('planning-batch-date-months').querySelectorAll('[data-batch-date]').forEach(cell => { const selected = batch.dates.has(cell.dataset.batchDate); cell.classList.toggle('is-selected', selected); cell.setAttribute('aria-pressed', String(selected)); });
     $('planning-batch-preview').disabled = batch.mode === 'dates' && (batch.calendarLoading || !batch.calendar || !dates.length);
+    updateBatchCommit();
   }
   function setBatchDate(date, selected) {
     const batch = state.batch; if (!batch || batch.mode !== 'dates' || $('planning-batch-dialog').dataset.busy || batchDateProblem(date)) return;
@@ -598,6 +599,7 @@
     $('planning-batch-week-clear').disabled = !weeks.length;
     $('planning-batch-week-months').querySelectorAll('[data-batch-week]').forEach(cell => { const selected = batch.weeks.has(cell.dataset.batchWeek); cell.classList.toggle('is-selected', selected); cell.setAttribute('aria-pressed', String(selected)); });
     if (batch.mode === 'weeks') $('planning-batch-preview').disabled = batch.calendarLoading || !batch.calendar || !weeks.length;
+    updateBatchCommit();
   }
   function setBatchWeek(week, selected) {
     const batch = state.batch; if (!batch || batch.mode !== 'weeks' || $('planning-batch-dialog').dataset.busy || batchWeekProblem(week)) return;
@@ -679,7 +681,7 @@
     setBatchMode(state.batch.mode); renderBatchDateCalendar(); renderBatchWeekCalendar(); openDialog('planning-batch-dialog', course ? $('planning-batch-mode-dates') : $('planning-batch-week-clear'));
     loadBatchDateCalendar(state.batch);
   }
-  function invalidateBatch() { if (state.batch) state.batch.preview = null; $('planning-batch-results').hidden = true; $('planning-batch-commit').disabled = true; $('planning-batch-skip').checked = false; }
+  function invalidateBatch() { if (state.batch) state.batch.preview = null; $('planning-batch-results').hidden = true; $('planning-batch-skip').checked = false; updateBatchCommit(); }
   $('planning-batch-mode-dates').addEventListener('click', () => setBatchMode('dates'));
   $('planning-batch-mode-repeat').addEventListener('click', () => setBatchMode('repeat'));
   $('planning-batch-date-clear').addEventListener('click', () => { if (state.batch && !$('planning-batch-dialog').dataset.busy) { state.batch.dates.clear(); invalidateBatch(); updateBatchDates(); } });
@@ -723,24 +725,37 @@
   function batchBudgetStatus(preview, selectedKeys) {
     const totals = new Map(), limits = new Map();
     const groups = course => course.groups?.length ? course.groups : [{subject_id: course.subject_id}, ...(course.shared || [])];
-    for (const subject of catalogSubjects()) limits.set(String(subject.id), subjectBudget(subject).remaining);
+    for (const subject of preview?.budgets || catalogSubjects()) limits.set(String(subject.id), subjectBudget(subject).remaining);
     for (const item of preview?.items || []) for (const issue of item.conflicts || []) if (issue.type === 'subject_budget') limits.set(String(issue.subject_id), Number(issue.planned_minutes) - Number(issue.scheduled_minutes));
     for (const item of preview?.items || []) if (selectedKeys.has(String(item.key))) for (const id of new Set(groups(item.course).map(group => String(group.subject_id)))) totals.set(id, (totals.get(id) || 0) + courseDuration(item.course));
     const withinBudget = [...totals].every(([id, total]) => limits.has(id) && total <= limits.get(id));
     return {withinBudget, canAdd: item => [...new Set(groups(item.course).map(group => String(group.subject_id)))].every(id => limits.has(id) && (totals.get(id) || 0) + courseDuration(item.course) <= limits.get(id))};
   }
   function updateBatchCommit() {
-    const preview = state.batch?.preview, inputs = [...$('planning-batch-items').querySelectorAll('input')], selectedKeys = new Set(inputs.filter(input => input.checked).map(input => input.value));
+    const batch = state.batch, preview = batch?.preview, control = $('planning-batch-commit'), help = $('planning-batch-action-help'), busy = !!$('planning-batch-dialog').dataset.busy;
+    if (!preview) {
+      const form = $('planning-batch-form'), calendarMode = batch?.mode === 'weeks' || batch?.mode === 'dates';
+      const selectedCount = batch?.mode === 'weeks' ? batch.weeks.size : batch?.dates?.size || 0;
+      const ready = calendarMode ? !!batch.calendar && !batch.calendarLoading && selectedCount > 0 : !!batch && !!form.elements.start_date.value && !!form.elements.end_date.value && selectedWeekdays(form).length > 0;
+      control.disabled = busy || !ready;
+      control.textContent = busy ? 'Vérification en cours…' : batch?.mode === 'weeks' ? 'Vérifier les semaines choisies' : 'Vérifier les dates choisies';
+      help.textContent = busy ? 'Les disponibilités et les volumes sont en cours de vérification.' : batch?.calendarLoading ? 'Le calendrier est en cours de chargement.' : !ready ? (batch?.mode === 'weeks' ? 'Sélectionnez au moins une semaine dans le calendrier.' : batch?.mode === 'dates' ? 'Sélectionnez au moins un jour dans le calendrier.' : 'Choisissez les dates et au moins un jour de répétition.') : 'Vérifiez votre sélection, puis confirmez les cours disponibles.';
+      return;
+    }
+    const inputs = [...$('planning-batch-items').querySelectorAll('input')], selectedKeys = new Set(inputs.filter(input => input.checked).map(input => input.value));
     const budget = batchBudgetStatus(preview, selectedKeys);
-    for (const input of inputs) { const item = preview?.items?.find(item => String(item.key) === input.value); if (item && input.dataset.budgetEligible === '1') input.disabled = !input.checked && !budget.canAdd(item); }
-    const excludedConflicts = preview?.items?.some(item => !item.valid && !selectedKeys.has(String(item.key)));
-    $('planning-batch-conflict-consent').hidden = !excludedConflicts || state.batch?.mode === 'weeks';
-    $('planning-batch-commit').disabled = !preview || selectedKeys.size === 0 || !budget.withinBudget || (state.batch?.mode !== 'weeks' && !!excludedConflicts && !$('planning-batch-skip').checked);
-    $('planning-batch-commit').textContent = 'Créer ' + selectedKeys.size + ' occurrence' + (selectedKeys.size !== 1 ? 's' : '') + ' sélectionnée' + (selectedKeys.size !== 1 ? 's' : '');
+    for (const input of inputs) { const item = preview.items?.find(item => String(item.key) === input.value); if (item && input.dataset.budgetEligible === '1') input.disabled = busy || (!input.checked && !budget.canAdd(item)); }
+    const excludedConflicts = preview.items?.some(item => !item.valid && !selectedKeys.has(String(item.key)));
+    const needsConsent = batch.mode !== 'weeks' && !!excludedConflicts && !$('planning-batch-skip').checked;
+    $('planning-batch-conflict-consent').hidden = !excludedConflicts || batch.mode === 'weeks';
+    control.disabled = busy || selectedKeys.size === 0 || !budget.withinBudget || needsConsent;
+    control.textContent = busy ? 'Traitement en cours…' : 'Créer ' + selectedKeys.size + ' cours';
+    help.textContent = busy ? 'Votre demande est en cours de traitement.' : selectedKeys.size === 0 ? (preview.items?.some(item => item.valid) ? 'Cochez au moins un cours disponible dans les résultats.' : 'Aucun cours ne peut être créé : les motifs sont indiqués dans les résultats. Choisissez d’autres dates ou corrigez ces blocages.') : !budget.withinBudget ? 'La sélection dépasse les heures disponibles. Décochez des cours ou relancez la vérification pour actualiser les volumes.' : needsConsent ? 'Cochez la confirmation ci-dessus pour laisser les cours en conflit de côté.' : selectedKeys.size + ' cours prêt' + (selectedKeys.size > 1 ? 's' : '') + ' à créer.' + (excludedConflicts ? ' Les cours bloqués seront laissés de côté.' : '');
   }
   $('planning-batch-skip').addEventListener('change', updateBatchCommit);
   $('planning-batch-commit').addEventListener('click', async () => {
-    const preview = state.batch?.preview, dialog = $('planning-batch-dialog'), form = $('planning-batch-form'); if (!preview || dialog.dataset.busy || $('planning-batch-commit').disabled) return;
+    const preview = state.batch?.preview, dialog = $('planning-batch-dialog'), form = $('planning-batch-form'); if (dialog.dataset.busy || $('planning-batch-commit').disabled) return;
+    if (!preview) { form.requestSubmit($('planning-batch-preview')); return; }
     const selected_keys = [...$('planning-batch-items').querySelectorAll('input:checked:not(:disabled)')].map(input => input.value); busyDialog(dialog, true); formError(form, '');
     try { const result = await request('/courses/batch', {method: 'POST', data: {preview_token: preview.preview_token, selected_keys}}); const weeksMode = state.batch?.mode === 'weeks'; dialog.close(); if ($('planning-course-dialog').open) $('planning-course-dialog').close(); notice(result.message || 'Les occurrences sélectionnées ont été créées.'); await loadState(); if (weeksMode) showBatchReport(preview, selected_keys, result); }
     catch (failure) { formError(form, failure.message + '\nVérifiez à nouveau les créneaux avant de réessayer.'); invalidateBatch(); }

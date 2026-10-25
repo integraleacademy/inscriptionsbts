@@ -173,3 +173,43 @@ def get_trainer_workload(conn, trainer_id, month, today=None):
         current_rate_cents=current_rate, current_rate_label=format_cents(current_rate),
         rate_input=f'{Decimal(current_rate)/100:.2f}' if current_rate is not None else '',
         rate_revision=workload_revision(conn, trainer_id))
+
+
+def get_trainer_annual_workload(conn, trainer_id, year):
+    """Calendar-year forecast, priced once per physical session and exact minute."""
+    if isinstance(year, bool) or not isinstance(year, int) or not 1900 <= year <= 2200:
+        raise WorkloadError('Sélectionnez une année comprise entre 1900 et 2200.')
+    rates = [dict(row) for row in conn.execute(
+        'SELECT effective_date,rate_cents FROM trainer_hourly_rates WHERE trainer_id=? ORDER BY effective_date',
+        (trainer_id,))]
+    courses = _load_courses(conn, f'{year:04d}-01-01', f'{year:04d}-12-31', trainer_id=trainer_id)
+    months = [dict(month=f'{year:04d}-{number:02d}', number=number, name=MONTHS[number-1],
+                   minutes=0, course_count=0, unpriced_minutes=0, price_numerator=0)
+              for number in range(1, 13)]
+    shared_minutes = 0
+    for course in courses:
+        row = months[int(course['date'][5:7])-1]
+        minutes = course['end_min'] - course['start_min']
+        row['minutes'] += minutes
+        row['course_count'] += 1
+        rate = next((item['rate_cents'] for item in reversed(rates) if item['effective_date'] <= course['date']), None)
+        if rate is None:
+            row['unpriced_minutes'] += minutes
+        else:
+            row['price_numerator'] += minutes * rate
+        if len({group['promotion_id'] for group in course['groups']}) > 1:
+            shared_minutes += minutes
+    total_minutes = sum(row['minutes'] for row in months)
+    unpriced_minutes = sum(row['unpriced_minutes'] for row in months)
+    numerator = sum(row['price_numerator'] for row in months)
+    estimated_cents = int((Decimal(numerator)/60).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+    peak = max((row['minutes'] for row in months), default=0)
+    for row in months:
+        row['estimated_cents'] = int((Decimal(row.pop('price_numerator'))/60).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+        row.update(hours_label=format_minutes(row['minutes']), estimated_label=format_cents(row['estimated_cents']),
+                   unpriced_label=format_minutes(row['unpriced_minutes']), all_priced=not row['unpriced_minutes'],
+                   percent=round(row['minutes']*100/peak) if peak else 0)
+    return dict(year=year, months=months, total_minutes=total_minutes, total_label=format_minutes(total_minutes),
+                course_count=len(courses), estimated_cents=estimated_cents, estimated_label=format_cents(estimated_cents),
+                unpriced_minutes=unpriced_minutes, unpriced_label=format_minutes(unpriced_minutes), all_priced=not unpriced_minutes,
+                shared_minutes=shared_minutes, shared_label=format_minutes(shared_minutes))

@@ -259,6 +259,28 @@ def register_planning_portal(app, db_connect):
             result = app.make_response(render_template('portal_planning.html', title='Mon planning · Intégrale Academy', portal_planning=snapshot))
         return secure(result)
 
+    def jump_to_month(role):
+        _person_id, blocked = identity(role)
+        if blocked is not None:
+            return blocked
+        if set(request.args) != {'month', 'year'} or any(len(values) != 1 for _, values in request.args.lists()):
+            abort(400, 'Choisissez un mois et une année.')
+        month, year = request.args.get('month', ''), request.args.get('year', '')
+        if (not re.fullmatch(r'(?:0?[1-9]|1[0-2])', month)
+                or not re.fullmatch(r'\d{4}', year) or not 1900 <= int(year) <= 2200):
+            abort(400, 'Choisissez un mois valide et une année entre 1900 et 2200.')
+        selected = date(int(year), int(month), 1).isoformat()
+        endpoint = 'trainer_planning' if role == 'trainer' else 'student_planning'
+        return secure(redirect(url_for(endpoint, date=selected)))
+
+    @app.get('/formateur/planning/mois')
+    def trainer_planning_month():
+        return jump_to_month('trainer')
+
+    @app.get('/espace/planning/mois')
+    def student_planning_month():
+        return jump_to_month('student')
+
     @app.get('/formateur/planning')
     def trainer_planning():
         return view('trainer')
