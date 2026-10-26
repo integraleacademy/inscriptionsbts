@@ -136,7 +136,7 @@
   });
   function renderPromotion() {
     const {promotion, subjects = [], courses = []} = state.data;
-    const details = $('planning-promotion-details'); details.replaceChildren(el('b', '', promotion.nom), el('span', '', 'BTS ' + promotion.bts + ' · ' + (promotion.niveau ? (Number(promotion.niveau) === 1 ? '1re année' : '2e année') : 'Niveau à compléter') + (promotion.date_debut && promotion.date_fin ? ' · ' + formatDate(promotion.date_debut) + ' au ' + formatDate(promotion.date_fin, {day: 'numeric', month: 'long', year: 'numeric'}) : ' · Dates à compléter dans Promotions')));
+    const details = $('planning-promotion-details'); details.replaceChildren(el('b', '', promotion.nom), el('span', '', 'BTS ' + promotion.bts + ' · ' + (promotion.niveau ? (Number(promotion.niveau) === 1 ? '1re année' : '2e année') : 'Niveau à compléter') + (promotion.date_debut && promotion.date_fin ? ' · Du ' + formatDate(promotion.date_debut, {day: 'numeric', month: 'long', year: 'numeric'}) + ' au ' + formatDate(promotion.date_fin, {day: 'numeric', month: 'long', year: 'numeric'}).replace(/^1 /, '1er ') : ' · Dates à compléter dans Promotions')));
     $('planning-calendar-progress').textContent = state.data.calendar_configured ? 'En place' : 'À préparer';
     $('planning-subject-progress').textContent = subjects.length ? subjects.length + ' matière' + (subjects.length > 1 ? 's' : '') : 'À préparer';
     $('planning-course-progress').textContent = courses.length ? courses.length + ' cours cette semaine' : 'À composer';
@@ -144,6 +144,61 @@
     $('planning-range-title').textContent = formatDate(state.week, {day: 'numeric', month: 'short'}) + ' — ' + formatDate(addDays(state.week, 6), {day: 'numeric', month: 'short', year: 'numeric'});
     $('planning-week-hours').textContent = hours(courses.reduce((sum, course) => sum + courseDuration(course), 0) / 60) + ' planifiées · ' + courses.length + ' cours';
     $('planning-date').value = state.week;
+    $('planning-date-label').textContent = formatDate(state.week, {day: '2-digit', month: '2-digit', year: 'numeric'});
+  }
+  function scheduledDates() {
+    const dates = new Map();
+    for (const day of state.data?.scheduled_days || []) {
+      if (!state.subject || String(day.subject_id) === state.subject) dates.set(day.date, (dates.get(day.date) || 0) + Number(day.count));
+    }
+    return dates;
+  }
+  function shiftPickerMonth(delta) {
+    const date = parseDate(state.dateMonth); date.setMonth(date.getMonth() + delta);
+    state.dateMonth = dateString(date).slice(0, 7) + '-01'; renderDatePicker();
+  }
+  function pickPlanningDate(date) {
+    $('planning-date-dialog').close(); goToWeek(date);
+  }
+  function renderDatePicker(focusDate) {
+    const month = parseDate(state.dateMonth), year = month.getFullYear(), monthNumber = month.getMonth();
+    const dates = scheduledDates(), ordered = [...dates.keys()].sort();
+    $('planning-date-subject').textContent = currentSubject()?.name || 'Toutes les matières de la promotion';
+    $('planning-month').replaceChildren(...Array.from({length: 12}, (_, index) => new Option(new Date(2026, index, 1).toLocaleDateString('fr-FR', {month: 'long'}), String(index))));
+    $('planning-month').value = String(monthNumber);
+    const years = [year, Number(state.week.slice(0, 4)), Number(today().slice(0, 4)), ...ordered.map(date => Number(date.slice(0, 4))), ...[state.data.promotion.date_debut, state.data.promotion.date_fin].filter(Boolean).map(date => Number(date.slice(0, 4)))];
+    const firstYear = Math.min(...years) - 1, lastYear = Math.max(...years) + 1;
+    $('planning-month-year').replaceChildren(...Array.from({length: lastYear - firstYear + 1}, (_, index) => new Option(String(firstYear + index), String(firstYear + index))));
+    $('planning-month-year').value = String(year);
+    const grid = $('planning-mini-days'); grid.replaceChildren();
+    grid.setAttribute('aria-label', month.toLocaleDateString('fr-FR', {month: 'long', year: 'numeric'}));
+    for (let i = 0; i < (month.getDay() + 6) % 7; i++) grid.append(el('span'));
+    const lastDay = new Date(year, monthNumber + 1, 0).getDate();
+    let monthCount = 0;
+    for (let day = 1; day <= lastDay; day++) {
+      const date = dateString(new Date(year, monthNumber, day, 12)), count = dates.get(date) || 0;
+      monthCount += count;
+      const control = button(String(day), 'planning-mini-day' + (count ? ' has-course' : '') + (date >= state.week && date <= addDays(state.week, 6) ? ' in-week' : ''), () => pickPlanningDate(date));
+      control.dataset.date = date;
+      const label = formatDate(date, {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'}) + (count ? ' · ' + count + ' cours programmé' + (count > 1 ? 's' : '') : ' · Aucun cours programmé');
+      control.setAttribute('aria-label', label); control.title = label;
+      if (date === today()) control.setAttribute('aria-current', 'date');
+      if (count) { const dot = el('i', 'planning-course-dot'); dot.setAttribute('aria-hidden', 'true'); control.append(dot); }
+      grid.append(control);
+    }
+    const monthEnd = dateString(new Date(year, monthNumber, lastDay, 12));
+    const previous = ordered.filter(date => date < state.dateMonth).at(-1), next = ordered.find(date => date > monthEnd);
+    for (const [id, date] of [['planning-course-prev', previous], ['planning-course-next', next]]) {
+      const control = $(id); control.disabled = !date; control.dataset.date = date || '';
+      control.title = date ? 'Ouvrir la semaine du ' + formatDate(date, {day: 'numeric', month: 'long', year: 'numeric'}) : 'Aucun autre cours';
+    }
+    $('planning-date-summary').textContent = monthCount ? monthCount + ' cours programmé' + (monthCount > 1 ? 's' : '') + ' ce mois-ci.' : ordered.length ? 'Aucun cours ce mois-ci. Utilisez les flèches ci-dessous pour en retrouver un.' : 'Aucun cours programmé' + (state.subject ? ' pour cette matière.' : ' dans cette promotion.');
+    if (focusDate) grid.querySelector('[data-date="' + focusDate + '"]')?.focus();
+  }
+  function openDatePicker() {
+    if (!state.data || state.loading) return;
+    state.dateMonth = state.week.slice(0, 7) + '-01'; renderDatePicker();
+    openDialog('planning-date-dialog', $('planning-mini-days').querySelector('[data-date="' + state.week + '"]') || $('planning-month'));
   }
   function subjectBudget(subject) {
     const configured = subject?.budget_configured !== false && subject?.planned_hours !== null && subject?.planned_hours !== undefined && Number(subject?.planned_minutes ?? Number(subject?.planned_hours) * 60) > 0;
@@ -198,13 +253,15 @@
     const query = normal($('planning-subject-search').value), duration = state.slot ? minutes(state.slot.end) - minutes(state.slot.start) : 0;
     for (const subject of (state.data?.subjects || []).filter(item => normal(item.name + ' ' + (item.trainer_name || '')).includes(query))) {
       const budget = subjectBudget(subject), problem = budgetProblem(subject, duration), check = state.slotChecks.get(String(subject.id));
-      const unavailable = !!problem || (state.slot && check?.status !== 'available');
+      const unavailable = state.slot && (!!problem || check?.status !== 'available');
       const card = el('article', 'planning-subject-card' + (state.subject === String(subject.id) ? ' selected' : '') + (state.slot && check?.status === 'available' && !problem ? ' slot-available' : '') + (problem || check?.status === 'blocked' ? ' slot-unavailable' : '')); card.style.setProperty('--subject-color', safeColor(subject.color));
       const choose = button('', 'planning-subject-pick', () => chooseSubject(subject.id)); choose.draggable = !problem && !state.quickBusy; choose.disabled = !!unavailable || state.quickBusy; choose.setAttribute('aria-pressed', String(state.subject === String(subject.id))); choose.append(el('b', '', subject.name), el('span', '', subject.trainer_name || 'Formateur à définir'));
       const metrics = el('span', 'planning-subject-budget'); for (const [label, value] of [['Annuel', budget.configured ? minuteLabel(budget.annual) : 'À définir'], ['Planifié', minuteLabel(budget.scheduled)], ['Restant', budget.configured ? minuteLabel(budget.remaining) : '—']]) { const metric = el('span'); metric.append(el('small', '', label), el('strong', '', value)); metrics.append(metric); } choose.append(metrics);
       choose.addEventListener('dragstart', event => { state.dragCourse = null; chooseSubject(subject.id, true); event.dataTransfer.setData('text/plain', 'subject:' + subject.id); event.dataTransfer.effectAllowed = 'copy'; });
-      const status = problem || (state.slot ? check?.status === 'available' ? 'Ajouter sur ce créneau' : check?.reason || 'Vérification des disponibilités…' : 'Sélectionnez un créneau pour l’ajouter'); card.append(choose, el('p', 'planning-subject-result', status));
-      const edit = button(budget.configured ? 'Modifier' : 'Définir le volume annuel', 'planning-text-button', () => openSubject(subject)); edit.setAttribute('aria-label', 'Modifier la matière ' + subject.name); card.append(edit); container.append(card);
+      const status = problem || (state.slot ? check?.status === 'available' ? 'Ajouter sur ce créneau' : check?.reason || 'Vérification des disponibilités…' : state.subject === String(subject.id) ? 'Ouvrez le calendrier pour retrouver ses cours, ou choisissez un créneau.' : 'Cliquez pour retrouver les cours de cette matière.'); card.append(choose, el('p', 'planning-subject-result', status));
+      const edit = button(budget.configured ? 'Modifier' : 'Définir le volume annuel', 'planning-text-button', () => openSubject(subject)); edit.setAttribute('aria-label', 'Modifier la matière ' + subject.name);
+      const dates = button('Voir les dates', 'planning-text-button', () => { if (state.loading || state.quickBusy) return; state.subject = String(subject.id); state.availabilityReady = false; state.availability.clear(); renderSubjects(); renderAvailability(); openDatePicker(); loadAvailability(); }); dates.setAttribute('aria-label', 'Voir les dates de ' + subject.name);
+      const actions = el('div', 'planning-subject-actions'); actions.append(edit, dates); card.append(actions); container.append(card);
     }
     if (!container.children.length) container.append(el('p', 'planning-palette-empty', state.data?.subjects?.length ? 'Aucune matière pour cette recherche.' : 'Choisissez une matière du catalogue, son formateur et son volume annuel pour préparer ce planning.'));
     const prepared = new Set((state.data?.subjects || []).map(item => item.catalog_subject_id));
@@ -813,6 +870,26 @@
   $('planning-view-week').addEventListener('click', () => navigatePlanning(() => selectView('week'))); $('planning-view-year').addEventListener('click', () => selectView('year'));
   $('planning-step-calendar').addEventListener('click', () => selectView('year')); $('planning-step-subjects').addEventListener('click', () => navigatePlanning(() => { selectView('week'); openSubject(); })); $('planning-step-courses').addEventListener('click', () => navigatePlanning(() => { selectView('week'); $('planning-slot-form').elements.date.focus(); }));
   const goToWeek = date => navigatePlanning(() => { clearSlot(); state.quickShared = []; state.week = monday(date); selectView('week'); loadState(); });
+  $('planning-date-open').addEventListener('click', openDatePicker);
+  $('planning-month-prev').addEventListener('click', () => shiftPickerMonth(-1));
+  $('planning-month-next').addEventListener('click', () => shiftPickerMonth(1));
+  for (const id of ['planning-month', 'planning-month-year']) $(id).addEventListener('change', () => {
+    state.dateMonth = $('planning-month-year').value + '-' + String(Number($('planning-month').value) + 1).padStart(2, '0') + '-01'; renderDatePicker();
+  });
+  for (const id of ['planning-course-prev', 'planning-course-next']) $(id).addEventListener('click', () => { if ($(id).dataset.date) pickPlanningDate($(id).dataset.date); });
+  $('planning-mini-days').addEventListener('keydown', event => {
+    const date = event.target.dataset.date; if (!date) return;
+    const steps = {ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7};
+    let next;
+    if (event.key in steps) next = addDays(date, steps[event.key]);
+    else if (event.key === 'Home') next = monday(date);
+    else if (event.key === 'End') next = addDays(monday(date), 6);
+    else if (event.key === 'PageUp' || event.key === 'PageDown') {
+      const target = parseDate(date), day = target.getDate(); target.setDate(1); target.setMonth(target.getMonth() + (event.key === 'PageUp' ? -1 : 1));
+      target.setDate(Math.min(day, new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate())); next = dateString(target);
+    } else return;
+    event.preventDefault(); state.dateMonth = next.slice(0, 7) + '-01'; renderDatePicker(next);
+  });
   $('planning-prev').addEventListener('click', () => goToWeek(addDays(state.week, -7))); $('planning-next').addEventListener('click', () => goToWeek(addDays(state.week, 7))); $('planning-today').addEventListener('click', () => goToWeek(today())); $('planning-date').addEventListener('change', event => { if (event.target.value) goToWeek(event.target.value); });
   $('planning-subject-search').addEventListener('input', renderSubjects); $('planning-subject-new').addEventListener('click', () => openSubject()); $('planning-duration').addEventListener('change', loadAvailability); $('planning-room').addEventListener('change', () => { state.availabilitySeq++; state.availabilityReady = false; if (state.slot) checkSelectedSlot(); else loadAvailability(); }); $('planning-selection-clear').addEventListener('click', () => { state.subject = ''; state.availabilitySeq++; state.availability.clear(); state.availabilityReady = false; renderSubjects(); renderAvailability(); });
   $('planning-slot-form').addEventListener('input', () => { state.slotFormDirty = true; $('planning-slot-clear').hidden = false; });

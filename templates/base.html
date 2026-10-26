@@ -58,7 +58,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-neutral.css') }}?v=1">
   {% if is_trainer_admin or is_promotions_admin or request.endpoint in ['trainer_dashboard', 'admin_candidate_sheet'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/promotions.css') }}?v=1">{% endif %}
   {% if daily_login %}<link rel="stylesheet" href="{{ url_for('static', filename='css/daily-login.css') }}?v=3">{% endif %}
-  {% if is_planning_admin or is_trainer_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning.css') }}?v=4">{% endif %}
+  {% if is_planning_admin or is_trainer_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning.css') }}?v=5">{% endif %}
   {% if is_planning_catalog %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-catalog.css') }}?v=1">{% endif %}
   {% if is_portal_planning or is_student_portal or request.endpoint in ['trainer_dashboard', 'trainer_availability', 'admin_trainer_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/portal-planning.css') }}?v=3">{% endif %}
   {% if request.endpoint == 'trainer_availability' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-availability.css') }}?v=1">{% endif %}
@@ -117,7 +117,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <script src="{{ url_for('static', filename='js/workspace-shell.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/academy-header.js') }}?v=2" defer></script>
   {% if is_planning_admin %}
-    <script src="{{ url_for('static', filename='js/planning.js') }}?v=6" defer></script>
+    <script src="{{ url_for('static', filename='js/planning.js') }}?v=7" defer></script>
   {% elif is_planning_catalog %}
     {% if request.path == '/admin/matieres' %}
     <script src="{{ url_for('static', filename='js/subject-catalog.js') }}?v=1" defer></script>
@@ -132,6 +132,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <script src="{{ url_for('static', filename='js/trainer-space.js') }}?v=4" defer></script>
   {% elif request.endpoint in ['admin', 'admin_candidate_sheet'] %}
     <script src="{{ url_for('static', filename='js/bts-management.js') }}?v=4" defer></script>
+  {% elif request.endpoint == 'admin_candidate_create' %}
+    <script src="{{ url_for('static', filename='js/candidate-create.js') }}?v=1" defer></script>
   {% elif is_admin_settings %}
     {# Dedicated settings script is loaded by the page. #}
   {% elif is_company_space %}

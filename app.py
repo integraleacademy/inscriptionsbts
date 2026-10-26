@@ -7,6 +7,7 @@ from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
+from candidate_creation import register_candidate_creation
 from candidate_workflows import register_candidate_workflows
 from candidate_documents import register_candidate_documents, document_preview_response
 from student_cards import register_student_cards, student_card_dates
@@ -78,6 +79,10 @@ def run_startup_integrity_checks():
         "candidate_messages.py",
         "candidate_documents.py",
         "candidate_photos.py",
+        "candidate_creation.py",
+        "templates/candidate_create.html",
+        "static/css/candidate-create.css",
+        "static/js/candidate-create.js",
         "student_cards.py",
         "assets/student_cards/carte_etudiante_original.pdf",
         "assets/student_cards/integrale_academy_official.png",
@@ -211,7 +216,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
@@ -1011,6 +1016,7 @@ register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy
 register_candidate_messages(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event)
 register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
 register_candidate_photos(app, db, lambda: UPLOAD_DIR, require_admin, log_event)
+register_candidate_creation(app, db, require_admin, normalize_candidate_names, log_event)
 register_student_cards(app, db, lambda: UPLOAD_DIR, require_admin)
 candidate_workflow_response = register_candidate_workflows(
     app, db, lambda *args, **kwargs: send_mail(*args, **kwargs),
@@ -1590,7 +1596,7 @@ def admin_candidate_information(cid):
         placement = get_candidate_promotion(conn, cid)
         if placement and merged.get('bts') != placement['bts']:
             return jsonify(ok=False, error="Retirez d’abord la promotion de cet étudiant avant de changer son BTS, puis affectez-lui une promotion du nouveau BTS."), 409
-        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", merged.get("email") or "") or not re.fullmatch(r"0[1-9]\d{8}", merged.get("tel") or ""):
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", merged.get("email") or "") or (merged.get("tel") and not re.fullmatch(r"0[1-9]\d{8}", merged["tel"])):
             return jsonify(ok=False, error="Vérifiez l’e-mail et le téléphone."), 400
         if {"num_secu", "date_naissance", "sexe"}.intersection(changes) and merged.get("num_secu") and merged["num_secu"] != "123456789123456":
             ok, message = validate_nir(merged["num_secu"], merged.get("date_naissance"), merged.get("sexe"))

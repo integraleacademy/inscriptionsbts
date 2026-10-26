@@ -295,11 +295,18 @@ def get_planning_snapshot(conn,promotion_id,start=None,end=None):
     days=[_day(promotion,day,rules,exceptions) for day in _dates(beginning,ending)] if beginning else []
     courses=_load_courses(conn,start,end,promotion_id) if beginning else []
     subjects=_subjects(conn,promotion_id);trainers=[]
+    # A compact all-period index for the date picker, including shared courses.
+    scheduled_days=[dict(row) for row in conn.execute('''WITH memberships AS (
+        SELECT id AS course_id,subject_id FROM planning_courses WHERE promotion_id=?
+        UNION SELECT course_id,subject_id FROM planning_course_groups WHERE promotion_id=?
+    ) SELECT g.subject_id,c.date,COUNT(DISTINCT c.id) AS count
+      FROM memberships g JOIN planning_courses c ON c.id=g.course_id
+      GROUP BY g.subject_id,c.date ORDER BY c.date,g.subject_id''',(promotion_id,promotion_id))]
     if _has_table(conn,'trainers'):
         trainers=[dict(row) for row in conn.execute('SELECT t.id,t.nom,t.prenom,t.email FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE a.promotion_id=? AND t.active=1 ORDER BY t.nom,t.prenom',(promotion_id,))]
     return dict(promotion=promotion,days=days,rules=rules,exceptions=exceptions,subjects=subjects,
                 rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms ORDER BY name')],trainers=trainers,
-                courses=courses,calendar_configured=bool(rules or exceptions),calendar_revision=_calendar_version(conn,promotion_id),
+                courses=courses,scheduled_days=scheduled_days,calendar_configured=bool(rules or exceptions),calendar_revision=_calendar_version(conn,promotion_id),
                 catalog=get_planning_catalog(conn),start=start,end=end)
 
 

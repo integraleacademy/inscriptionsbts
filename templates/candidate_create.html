@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% from 'ui_icons.html' import icon %}
+{% block body_class %}admin-page candidate-create-page{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-create.css') }}?v=1">{% endblock %}
+{% block content %}
+<div class="candidate-create">
+  <a class="create-back" href="{{ url_for('admin', rentree=values.rentree_annee) }}">← Retour aux candidatures</a>
+  <header class="create-heading"><span class="create-icon">{{ icon('person') }}</span><div><p class="eyebrow">AJOUT MANUEL</p><h1>Ajouter un étudiant</h1><p>Créez sa fiche directement, même sans pré-inscription en ligne.</p></div></header>
+  {% if error %}<div class="create-error" role="alert">{{ error }}{% if duplicate %} <a href="{{ url_for('admin_candidate_sheet', cid=duplicate.id, rentree=values.rentree_annee) }}">Ouvrir le dossier existant →</a>{% endif %}</div>{% endif %}
+  <form method="post" id="candidate-create-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <section class="create-card"><h2>{{ icon('person') }} Identité et coordonnées</h2><p>Les champs marqués d’un * sont obligatoires. Les autres informations pourront être complétées sur la fiche.</p><div class="create-fields">
+      <label>Prénom *<input name="prenom" value="{{ values.prenom }}" maxlength="100" autocomplete="given-name" required></label>
+      <label>Nom *<input name="nom" value="{{ values.nom }}" maxlength="100" autocomplete="family-name" required></label>
+      <label>E-mail *<input name="email" type="email" value="{{ values.email }}" maxlength="254" autocomplete="email" required></label>
+      <label>Téléphone<input name="tel" type="tel" value="{{ values.tel }}" maxlength="25" autocomplete="tel" placeholder="06 12 34 56 78"></label>
+      <label>Date de naissance<input name="date_naissance" type="date" value="{{ values.date_naissance }}" min="1900-01-01" autocomplete="bday"></label>
+    </div></section>
+    <section class="create-card"><h2>{{ icon('book') }} Formation et inscription</h2><div class="create-fields">
+      <label>BTS *<select name="bts" required><option value="">Choisir un BTS</option>{% for code,label in diplomas.items() %}<option value="{{ code }}" {% if values.bts == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>Rentrée d’origine *<select name="rentree_annee" required>{% for year in years %}<option value="{{ year }}" {% if values.rentree_annee == year|string %}selected{% endif %}>Rentrée {{ year }}</option>{% endfor %}</select></label>
+      <label>Mode de suivi *<select name="mode" required><option value="presentiel" {% if values.mode == 'presentiel' %}selected{% endif %}>Présentiel</option><option value="distanciel" {% if values.mode == 'distanciel' %}selected{% endif %}>Distanciel</option></select></label>
+      <label>Statut initial *<select name="statut" required>{% for key,label in [('preinscription','Pré-inscription à traiter'),('validee','Candidature validée'),('confirmee','Inscription confirmée')] %}<option value="{{ key }}" {% if values.statut == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label class="create-wide">Promotion <span class="create-optional">Facultatif</span><select name="promotion_id"><option value="">À affecter plus tard</option>{% for promotion in promotions %}<option value="{{ promotion.id }}" data-bts="{{ promotion.bts }}" data-year="{{ promotion.rentree_annee }}" {% if values.promotion_id == promotion.id %}selected{% endif %}>{{ promotion.nom }}</option>{% endfor %}</select><small>Les promotions proposées correspondent au BTS et à la rentrée choisis.</small></label>
+      <label class="create-wide">Note interne <span class="create-optional">Facultatif</span><textarea name="commentaires" rows="3" maxlength="5000" placeholder="Une information utile pour le suivi de cet étudiant…">{{ values.commentaires }}</textarea></label>
+    </div></section>
+    <div class="create-footer"><p>Aucun justificatif n’est demandé à cette étape. Aucun e-mail ni SMS n’est envoyé lors de l’ajout.</p><div><a class="btn" href="{{ url_for('admin', rentree=values.rentree_annee) }}">Annuler</a><button class="btn primary" type="submit">{{ icon('person') }} Créer la fiche étudiant</button></div></div>
+  </form>
+</div>
+{% endblock %}
