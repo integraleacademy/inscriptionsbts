@@ -148,7 +148,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if request.endpoint == 'admin_candidate_sheet' %}<script src="{{ url_for('static', filename='js/candidate-photo.js') }}?v=2" defer></script>{% endif %}
   {% if request.endpoint in ['admin_candidate_sheet', 'espace_candidat', 'student_dashboard'] %}<script src="{{ url_for('static', filename='js/candidate-refinement.js') }}?v=4" defer></script>{% endif %}
   {% if request.endpoint == 'admin_candidate_sheet' %}<script src="{{ url_for('static', filename='js/candidate-promotion.js') }}?v=1" defer></script>{% endif %}
-  {% if request.endpoint == 'trainer_availability' %}<script src="{{ url_for('static', filename='js/trainer-availability.js') }}?v=2" defer></script>{% endif %}
+  {% if request.endpoint == 'trainer_availability' %}<script src="{{ url_for('static', filename='js/trainer-availability.js') }}?v=3" defer></script>{% endif %}
   {% if request.endpoint == 'admin_trainer_detail' %}<script src="{{ url_for('static', filename='js/trainer-workload.js') }}?v=2" defer></script>{% endif %}
   {% if planning_sync_config %}<script src="{{ url_for('static', filename='js/planning-sync.js') }}?v=1" defer></script>{% endif %}
   {% if request.endpoint == 'admin_trainer_detail' %}<script src="{{ url_for('static', filename='js/trainer-admin-planning.js') }}?v=1" defer></script>{% endif %}

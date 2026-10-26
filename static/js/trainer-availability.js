@@ -74,7 +74,7 @@
     for (let month = 0; month < 12; month++) {
       const first = new Date(Date.UTC(Number(data.year), month, 1, 12));
       const section = document.createElement('section');
-      section.className = 'ta-month';
+      section.className = 'ta-month'; section.dataset.month = String(month);
       const heading = document.createElement('h3');
       heading.id = 'ta-month-' + month;
       heading.textContent = monthFormatter.format(first);
@@ -108,6 +108,7 @@
         button.classList.toggle('is-today', date === data.today);
         if (date === data.today) button.setAttribute('aria-current', 'date');
         const details = [label(date)];
+        if (date < (data.today || '1900-01-01')) details.push('Date passée : déclaration indisponible');
         if (day.public_holiday) details.push('Jour férié : ' + day.public_holiday);
         if (day.own_unavailable) details.push('Votre indisponibilité');
         if (day.admin_unavailable) details.push(day.partial ? 'Indisponibilité partielle indiquée par l’équipe' : 'Indisponibilité indiquée par l’équipe');
@@ -120,7 +121,17 @@
       }
       section.appendChild(grid); months.appendChild(section);
     }
+    filterMonths();
     updateSelection();
+  }
+
+  function filterMonths() {
+    const selected = $('ta-month-select').value;
+    const current = String(data.today || '');
+    months.querySelectorAll('.ta-month').forEach(section => {
+      const month = Number(section.dataset.month);
+      section.hidden = selected === 'all' ? false : selected !== '' ? month !== Number(selected) : (Number(data.year) === Number(current.slice(0,4)) && month < Number(current.slice(5,7))-1);
+    });
   }
 
   function selectDate(date, selected) {
@@ -289,12 +300,7 @@
     const year = Number($('ta-year-select').value);
     if (Number.isInteger(year) && year >= 1900 && year <= 2200) loadYear(year);
   });
-  $('ta-month-select').addEventListener('change', event => {
-    const value = event.target.value;
-    const target = value === '' ? $('ta-calendar-title') : $('ta-month-' + value);
-    if (!target) return;
-    target.scrollIntoView({behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start'});
-  });
+  $('ta-month-select').addEventListener('change', filterMonths);
   $('ta-save').addEventListener('click', previewDates);
   $('ta-confirm').addEventListener('click', commitDates);
   $('ta-close-dialog').addEventListener('click', closeDialog);
