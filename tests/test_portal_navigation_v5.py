@@ -47,7 +47,8 @@ def test_month_jump_preserves_authentication_and_initial_password_guard(portal_a
 def test_trainer_planning_uses_real_page_tabs_with_current_page(portal_app):
     html=login(portal_app,'trainer','t1').get('/formateur/planning?date=2026-10-26').text
     nav=re.search(r'<nav class="trainer-portal-nav".*?</nav>',html,re.S).group(0)
-    assert nav.count('<a ')==3
+    assert nav.count('<a ')==4
+    assert '/formateur/pedagogie' in nav
     assert 'href="/formateur"' in nav
     assert 'href="/formateur/indisponibilites"' in nav
     assert re.search(r'href="/formateur/planning"[^>]*aria-current="page"',nav)

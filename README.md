@@ -273,3 +273,58 @@ Tests complémentaires : `tests/test_company_workspace.py` (routes, filtres,
 comptages, pagination, autorisations et validation), `tests/company_admin_frontend.cjs`
 (jsdom, prend une fiche entreprise rendue ; clavier, historique, conservation
 des champs et protection des modifications non enregistrées).
+
+
+## Espace formateur : appel, cahier de texte, documents et évaluations
+
+**Cours et devoirs** (`/formateur/pedagogie`) et chaque carte du planning ouvrent
+la fiche du cours. Les quatre onglets conservent leurs saisies au changement
+d’onglet ; une sortie avec des modifications non enregistrées est signalée.
+
+- **Appel** : étudiants confirmés de toutes les promotions autorisées du cours,
+  présents en vert par défaut à l’écran. L’appel n’est enregistré qu’après
+  validation explicite. Le serveur autorise les écritures entre le début inclus
+  et la fin exclue du cours, en Europe/Paris. Retard orange avec minutes entières
+  obligatoires ; absence rouge. La validation est atomique et versionnée. Les
+  absences/retards alimentent le registre `student_attendance` déjà utilisé par
+  l’administration et les entreprises. Une correction de l’équipe n’est jamais
+  écrasée silencieusement par le formateur.
+- **Rappel SMS** : mobile renseigné dans la fiche administrateur (Compte) ou
+  dans Cours et devoirs du formateur. Le service contrôle les cours toutes les
+  30 secondes et envoie un rappel dès début + 1 h si le cours est toujours en
+  cours, l’appel non validé, le compte actif et la liste non vide. Les cours
+  terminés, supprimés ou sans mobile ne déclenchent aucun envoi. Les claims
+  SQLite survivent aux redémarrages et empêchent deux workers d’envoyer le même
+  rappel. Une réponse réseau ambiguë n’est pas réessayée automatiquement ; les
+  états `blocked`, `unknown`, `sending`, `sent` sont conservés pour diagnostic.
+  Le transport réutilise `BREVO_API_KEY`, via `/v3/transactionalSMS/send`, avec
+  délais réseau bornés et sans journaliser le mobile, le message ou la clé.
+- **Cahier de texte** : thèmes issus des contenus et objectifs enregistrés dans
+  le catalogue, pour la matière et le diplôme du cours. Aucun thème officiel
+  n’est inventé si le référentiel manque. Le texte est partagé avec les étudiants
+  après enregistrement. L’assistant propose un brouillon à relire, applicable
+  explicitement puis enregistrable ; il aide aussi à préparer les devoirs.
+  Il utilise la clé OpenAI des Paramètres, `OPENAI_PEDAGOGY_MODEL` (par défaut
+  `gpt-4.1-mini`), Responses avec `store=false`, sans envoi de liste d’élèves,
+  notes ou présences. Les indications saisies restent à la charge du formateur.
+  Limite persistante de 10 demandes par formateur en 10 minutes.
+- **Documents** : PDF, DOCX, PPTX, XLSX, TXT, PNG, JPEG et WebP ; contenu contrôlé,
+  20 Mo par fichier et 100 Mo par cours. Stockage privé sur le disque existant
+  dans `uploads/teaching`, identifiants aléatoires et téléchargement en pièce
+  jointe après revalidation de la session et de l’accès au cours.
+- **Devoirs et notes** : consignes, échéance, barème, coefficient, brouillon ou
+  publication ; notes (zéro compris), absent, dispensé, non noté, appréciations
+  et moyenne du devoir. Modifications concurrentes détectées. Les étudiants
+  accèdent aux contenus et documents du cours et uniquement à leurs propres
+  notes des devoirs publiés (`/espace/pedagogie`).
+
+Schéma additif `teaching_*` ; aucun compte, cours ni fichier existant supprimé.
+Le worker démarre dans le processus servant `python app.py` sur Render et dispose
+également d’un démarrage sur première requête pour WSGI. En test, aucun thread ni
+SMS réel ; `TEACHING_REMINDER_WORKER_DISABLED=1` désactive explicitement le worker.
+Les tests simulent les fournisseurs OpenAI et Brevo :
+`python -m pytest -q tests/test_teaching.py`.
+
+Le calendrier d’indisponibilités ouvre les mois restants de l’année en cours.
+Les mois antérieurs restent consultables avec « Toute l’année » ; les dates
+passées sont grisées et leur restriction est explicitement expliquée.

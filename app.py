@@ -98,6 +98,12 @@ def run_startup_integrity_checks():
         "static/css/candidate-editor.css",
         "candidate_workflows.py",
         "trainer_access.py",
+        "teaching.py",
+        "teaching_reminders.py",
+        "templates/teaching_course.html",
+        "templates/teaching_index.html",
+        "static/js/teaching.js",
+        "static/css/teaching.css",
         "company_portal.py",
         "company_registry.py",
         "reference_data/company_nomenclatures.json",
@@ -216,7 +222,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py", "teaching.py", "teaching_reminders.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
@@ -1031,6 +1037,8 @@ register_company_portal(app, db, lambda *args, **kwargs: send_mail(*args, copy_a
 register_trainer_availability(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
 register_admin_trainer_planning(app, db, require_admin)
 register_planning_sync(app, db, require_admin)
+from teaching import register_teaching
+register_teaching(app, db, lambda: UPLOAD_DIR, require_admin)
 
 
 @app.route("/ouverture.ics")
@@ -3563,4 +3571,8 @@ from gestionstagiaires_api import register_gestionstagiaires_api
 register_gestionstagiaires_api(app, db, UPLOAD_DIR)
 
 if __name__ == "__main__":
+    # Render starts this file with Werkzeug's reloader. Start in the serving
+    # child as soon as it boots, so reminders do not depend on website visits.
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        app.extensions['teaching_start_reminders']()
     app.run(host="0.0.0.0", port=5000, debug=True)
