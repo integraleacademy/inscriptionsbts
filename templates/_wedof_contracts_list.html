@@ -67,7 +67,8 @@
     {% if account.schedules %}
     <div class="wc-schedule-filters" role="group" aria-label="Filtrer les échéances"><button type="button" data-wc-filter="all" aria-pressed="true">Toutes <b>{{ account.schedules|length }}</b></button>{% for code,label in [('paid','Réglées'),('upcoming','À venir'),('open','Ouvertes'),('pending','En instruction'),('stale','À vérifier'),('unknown','Non communiqué')] %}{% if account.counts[code] %}<button type="button" class="due-{{ code }}" data-wc-filter="{{ code }}" aria-pressed="false"><i></i>{{ label }} <b>{{ account.counts[code] }}</b></button>{% endif %}{% endfor %}</div>
     <div class="wc-table-wrap" role="region" aria-label="Échéances du contrat {{ item.external_number }}" tabindex="0"><table class="wc-table wc-schedule-table"><thead><tr><th>Échéance / période</th><th>Ouverture à facturation</th><th>Montant</th><th>Réglé</th><th>En instruction</th><th>Reste à régler</th><th>État</th></tr></thead><tbody>
-      {% for due in account.schedules %}{% set due_number = due.codification or due.numero or loop.index %}
+      {# La codification OPCO (par exemple 99) est une référence, pas le rang affiché. #}
+      {% for due in account.schedules %}{% set due_number = loop.index %}
       <tr data-wc-due="{{ due.status_code }}">
         <td class="wc-due-name"><span class="wc-due-number due-{{ due.status_code }}">{{ due_number }}</span><div><strong>Échéance</strong><small>{% if due.dateDebut or due.dateFin %}{{ due.dateDebut|wedof_date }} → {{ due.dateFin|wedof_date }}{% else %}Période non communiquée{% endif %}</small></div></td>
         <td data-label="Ouverture à facturation">{{ due.dateOuverture|wedof_date }}</td>
