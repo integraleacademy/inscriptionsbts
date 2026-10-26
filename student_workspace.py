@@ -356,7 +356,9 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
     def student_absences(identity):
         with closing(connect()) as conn:
             rows = student_events(conn, identity['account_id'])
+        justified_absences = [r for r in rows if r['kind']=='absence' and r['state']=='accepted']
         summary = dict(count=sum(r['kind']=='absence' for r in rows), minutes=sum(r['minutes'] for r in rows if r['kind']=='absence'),
+                       justified=len(justified_absences), justified_minutes=sum(r['minutes'] for r in justified_absences),
                        late=sum(r['kind']=='late' for r in rows), pending=sum(r['state']=='pending' for r in rows),
                        missing=sum(r['state'] in ('missing','unjustified','needs_info','rejected') for r in rows))
         month, state = request.args.get('month', ''), request.args.get('status', '')
