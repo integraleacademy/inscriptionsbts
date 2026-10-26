@@ -1,7 +1,7 @@
-"""Admin-only WEDOF contract linking, with explicit previews and cached reads.
+"""Admin-only WEDOF contract discovery, linking and cached reads.
 
-No remote writes, polling, retries or bulk imports. Each search page is requested
-explicitly; only exact reference matches are returned. Credentials and previews
+No remote writes, background polling, retries or bulk imports. Discovery is bounded
+to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
 import base64
@@ -45,6 +45,13 @@ def ensure_schema(conn):
             kind TEXT NOT NULL, payload TEXT NOT NULL, created_at REAL NOT NULL);
         CREATE TABLE IF NOT EXISTS student_wedof_lock (id INTEGER PRIMARY KEY CHECK(id=1), token TEXT, expires REAL);
         CREATE TABLE IF NOT EXISTS student_wedof_calls (created_at REAL NOT NULL);
+        CREATE TABLE IF NOT EXISTS student_wedof_discovery (
+            candidate_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL,
+            payload TEXT NOT NULL, updated_at REAL NOT NULL);
+        CREATE TRIGGER IF NOT EXISTS student_wedof_discovery_deleted AFTER DELETE ON candidats
+        BEGIN
+            DELETE FROM student_wedof_discovery WHERE candidate_id=OLD.id;
+        END;
         CREATE TRIGGER IF NOT EXISTS student_wedof_candidate_deleted AFTER DELETE ON candidats
         BEGIN
             DELETE FROM student_wedof_contracts WHERE candidate_id=OLD.id;
@@ -108,6 +115,26 @@ def identity(candidate, item):
     if complete:
         return {'status': 'matched', 'message': 'Le nom et le prénom correspondent à la fiche étudiante.'}
     return {'status': 'unverified', 'message': 'WEDOF ne restitue pas une identité complète. Vérifiez personnellement que ce contrat appartient à cet étudiant.'}
+
+
+def email(value):
+    value = str(value or '').strip().casefold()
+    return value if len(value) <= 254 and re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', value) else ''
+
+
+def automatic_identity(candidate, item):
+    """Names alone never authorize an automatic link, even for a unique result."""
+    if identity(candidate, item)['status'] != 'matched':
+        return False
+    local_email = email(candidate.get('email'))
+    birth = source_date(candidate.get('date_naissance'))
+    return bool((local_email and local_email == email(item.get('apprentice_email')))
+                or (birth and birth == item.get('apprentice_birth_date')))
+
+
+def discovery_fingerprint(candidate, config):
+    fields = {k: candidate.get(k) for k in ('id', 'nom', 'prenom', 'date_naissance', 'email')}
+    return hashlib.sha256(json.dumps([fields, config], sort_keys=True).encode()).hexdigest()
 
 
 def euros(value):
@@ -219,6 +246,44 @@ class Client:
             raise WedofError('La pagination WEDOF est incohérente.') from None
         return items, page*100 < total if total is not None else len(items) == 100
 
+    def folders(self, candidate, *, by_name=False):
+        params = {'state': 'all', 'limit': 100, 'page': 1}
+        if by_name:
+            name = str(candidate.get('nom') or '').strip()
+            if len(norm(name)) < 2:
+                return [], False
+            params['query'] = name
+        else:
+            address = email(candidate.get('email'))
+            if not address:
+                return [], False
+            params['findOtherFoldersOfAttendee'] = address
+        raw, headers = self.read('/registrationFolders', params)
+        if not isinstance(raw, list) or len(raw) > 100 or any(not isinstance(x, dict) for x in raw):
+            raise WedofError('La liste des dossiers WEDOF est inattendue.')
+        headers = {k.lower(): v for k, v in headers.items()}
+        try:
+            total = int(headers.get('x-total-count', len(raw)))
+            if total < len(raw) or int(headers.get('x-current-page', 1)) != 1:
+                raise ValueError
+        except (ValueError, TypeError):
+            raise WedofError('La pagination WEDOF est incohérente.') from None
+        found = {}
+        seen = set()
+        for folder in raw:
+            key = folder.get('externalId')
+            if folder.get('type') not in {'opcoCfa', 'opco'} or not isinstance(key, str) or not re.fullmatch(r'[\w.-]{1,120}', key):
+                continue
+            if key in seen:
+                raise WedofError('La liste des dossiers WEDOF contient des doublons. Vérifiez la référence manuellement.')
+            seen.add(key)
+            fields = folder_fields(folder, key)
+            check = identity(candidate, fields)['status']
+            same_email = bool(email(candidate.get('email')) and email(candidate.get('email')) == email(fields.get('apprentice_email')))
+            if check != 'mismatch' and (check == 'matched' if by_name else same_email):
+                found[key] = {'registration_id': key, 'strong': automatic_identity(candidate, fields)}
+        return list(found.values()), total > len(raw) or len(raw) == 100
+
     def details(self, item):
         data = dict(item)
         errors = []
@@ -239,11 +304,12 @@ class Client:
             for k in ('apprentice_first_name', 'apprentice_last_name', 'apprentice_birth_date'):
                 if data.get(k) and fields.get(k) and norm(data[k]) != norm(fields[k]):
                     raise WedofError('Les identités du dossier et du contrat OPCO sont différentes.', code='identity_conflict')
-            data.update(fields)
+            # Empty CERFA fields must not erase the verified folder identity.
+            data.update({k: v for k, v in fields.items() if v not in ('', None) or not data.get(k)})
         except WedofError as error:
             if error.code == 'identity_conflict':
                 raise
-            data.update(raw_stale=True, raw_error=str(error))
+            data.update(raw_stale=True, raw_error=str(error), raw_identity_conflict=error.code == 'raw_identity_mismatch')
         data['details_error'] = ' '.join(errors)
         return data
 
@@ -393,7 +459,112 @@ def register_wedof_contracts(app, connect, require_admin):
                 configured = bool(get_key(app, conn))
             except WedofError:
                 configured = False
-        return jsonify(ok=True, html=render_template('_wedof_contracts_list.html', contracts=cards(cid), row=row, configured=configured))
+        contracts = cards(cid)
+        return jsonify(ok=True, configured=configured, has_contracts=bool(contracts),
+                       html=render_template('_wedof_contracts_list.html', contracts=contracts, row=row, configured=configured))
+
+    def discovery_state(conn, cid, fingerprint, manual):
+        stored = conn.execute('SELECT * FROM student_wedof_discovery WHERE candidate_id=?', (cid,)).fetchone()
+        if stored and stored['fingerprint'] == fingerprint:
+            state = json.loads(stored['payload'])
+            if state.get('suppressed') and not manual:
+                return state, stored['updated_at']
+            if not state.get('suppressed') and stored['updated_at'] > time.time()-CACHE_SECONDS:
+                return state, stored['updated_at']
+        return {'step': 'email', 'items': [], 'folders': [], 'incomplete': False}, stored['updated_at'] if stored else None
+
+    def discovery_reply(cid, state, config, cached=False):
+        items = state.get('items', []) if state['step'] == 'done' and not state.get('linked') else []
+        token = None
+        if items:
+            with closing(connection()) as conn:
+                token = save_preview(conn, cid, 'search', {'config': config, 'items': items})
+        public_items = [{k: i.get(k) for k in ('working_contract_id', 'external_number', 'deca_number', 'employer_name', 'state_label')} for i in items]
+        return jsonify(ok=True, pending=state['step'] != 'done', linked=bool(state.get('linked')),
+                       message=state.get('message', 'Recherche des contrats WEDOF de cet étudiant…') + (' Le résultat de cette recherche est conservé 30 minutes.' if cached and not state.get('suppressed') else ''),
+                       token=token, items=public_items, cached=cached)
+
+    @bp.post('/admin/candidat/<cid>/contrats-apprentissage/detecter')
+    @guarded
+    def discover(cid):
+        row, data = candidate(cid), body()
+        manual = data.get('manual') is True
+        with closing(connection()) as conn:
+            if conn.execute('SELECT 1 FROM student_wedof_contracts WHERE candidate_id=?', (cid,)).fetchone():
+                return jsonify(ok=True, pending=False, linked=True, items=[], message='Le contrat est déjà rattaché à cette fiche.')
+            config = config_id(get_key(app, conn))
+            fingerprint = discovery_fingerprint(row, config)
+            state, revision = discovery_state(conn, cid, fingerprint, manual)
+        if state['step'] == 'done':
+            return discovery_reply(cid, state, config, cached=True)
+        # One bounded phase per request; never paginate the organism's catalogue.
+        # The shared lease also prevents two tabs from advancing the same phase.
+        with api_client() as client:
+            with closing(connection()) as conn:
+                state, revision = discovery_state(conn, cid, fingerprint, manual)
+            if state['step'] == 'done':
+                return discovery_reply(cid, state, config, cached=True)
+            item_to_link = None
+            try:
+                if state['step'] in {'email', 'name'}:
+                    folders, more = client.folders(row, by_name=state['step'] == 'name')
+                    state['incomplete'] = state['incomplete'] or more or len(folders) > 5
+                    if folders:
+                        state.update(step='contracts', folders=folders[:5], message='Dossier étudiant trouvé. Recherche de ses contrats…')
+                    elif state['step'] == 'email':
+                        state.update(step='name', message='Aucun dossier trouvé par e-mail. Vérification de l’identité dans WEDOF…')
+                    else:
+                        state.update(step='done', message='Aucun dossier d’apprentissage correspondant trouvé dans WEDOF. Vérifiez l’identité et l’e-mail de la fiche, ou recherchez une référence manuellement.')
+                elif state['step'] == 'contracts':
+                    folder = state['folders'][0]
+                    items, more = client.page(folder=folder['registration_id'])
+                    state['incomplete'] = state['incomplete'] or more
+                    state['folders'] = state['folders'][1:]
+                    by_id = {i['working_contract_id']: i for i in state['items']}
+                    by_id.update({i['working_contract_id']: {**i, 'discovery_strong': folder['strong']} for i in items})
+                    state['items'] = list(by_id.values())
+                    if not state['folders']:
+                        if len(state['items']) == 1 and not state['incomplete'] and state['items'][0]['discovery_strong']:
+                            state.update(step='verify', message='Contrat trouvé. Vérification de l’identité et récupération des échéances…')
+                        else:
+                            state.update(step='done', message='Plusieurs contrats ou une identité à vérifier : sélectionnez le contrat à rattacher.' if state['items'] else 'Le dossier étudiant a été retrouvé, mais aucun contrat d’apprentissage n’y est disponible dans WEDOF.')
+                        if state['incomplete']:
+                            state['message'] = 'La recherche ne permet pas de choisir un contrat avec certitude. Vérifiez les propositions ou utilisez sa référence exacte.'
+                elif state['step'] == 'verify':
+                    selected = state['items'][0]
+                    current = client.contract(selected['working_contract_id'])
+                    if current['summary_hash'] != selected['summary_hash']:
+                        raise WedofError('Le contrat a changé pendant la recherche. Vérifiez-le manuellement avant de le rattacher.')
+                    item = client.details(current)
+                    state.update(step='done', message='Contrat trouvé : vérifiez son identité avant de le rattacher.')
+                    if automatic_identity(row, item) and not item.get('details_error') and not item.get('raw_identity_conflict'):
+                        item_to_link = item
+            except WedofError as error:
+                state.update(step='done', items=[], message=str(error))
+            with closing(connection()) as conn:
+                conn.execute('BEGIN IMMEDIATE')
+                current_row = conn.execute('SELECT * FROM candidats WHERE id=?', (cid,)).fetchone()
+                if not current_row:
+                    abort(404)
+                if discovery_fingerprint(dict(current_row), config_id(get_key(app, conn))) != fingerprint:
+                    raise WedofError('La fiche ou la connexion WEDOF a changé. Relancez la recherche.', status=409)
+                current_state = conn.execute('SELECT updated_at FROM student_wedof_discovery WHERE candidate_id=?', (cid,)).fetchone()
+                if (current_state['updated_at'] if current_state else None) != revision:
+                    raise WedofError('La recherche a été modifiée dans une autre fenêtre. Rechargez les contrats.', status=409)
+                linked = conn.execute('SELECT 1 FROM student_wedof_contracts WHERE candidate_id=?', (cid,)).fetchone()
+                if linked:
+                    state.update(step='done', linked=True, items=[], message='Le contrat est déjà rattaché à cette fiche.')
+                elif item_to_link:
+                    try:
+                        conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)',
+                                     (item_to_link['working_contract_id'], cid, json.dumps(item_to_link, ensure_ascii=False), time.time(), stamp()))
+                        state.update(linked=True, items=[], message='Contrat retrouvé et rattaché automatiquement après vérification de l’identité.')
+                    except sqlite3.IntegrityError:
+                        state.update(items=[], message='Ce contrat est déjà rattaché à un autre étudiant. Vérifiez les fiches avant de poursuivre.')
+                conn.execute('INSERT INTO student_wedof_discovery VALUES(?,?,?,?) ON CONFLICT(candidate_id) DO UPDATE SET fingerprint=excluded.fingerprint,payload=excluded.payload,updated_at=excluded.updated_at',
+                             (cid, fingerprint, json.dumps(state, ensure_ascii=False), time.time()))
+                conn.commit()
+        return discovery_reply(cid, state, config)
 
     @bp.post('/admin/candidat/<cid>/contrats-apprentissage/rechercher')
     @guarded
@@ -543,9 +714,18 @@ def register_wedof_contracts(app, connect, require_admin):
     @bp.post('/admin/candidat/<cid>/contrats-apprentissage/<key>/detacher')
     @guarded
     def unlink(cid, key):
-        candidate(cid)
+        row = candidate(cid)
         with closing(connection()) as conn:
+            conn.execute('BEGIN IMMEDIATE')
             conn.execute('DELETE FROM student_wedof_contracts WHERE candidate_id=? AND contract_id=?', (cid, identifier(key)))
+            # A deliberate unlink must survive a reload and the cache expiry.
+            state = {'step': 'done', 'suppressed': True, 'items': [], 'message': 'Rattachement automatique suspendu après le retrait du lien. Utilisez « Rechercher automatiquement » pour le relancer.'}
+            try:
+                config = config_id(get_key(app, conn))
+            except WedofError:
+                config = config_id('')
+            conn.execute('INSERT INTO student_wedof_discovery VALUES(?,?,?,?) ON CONFLICT(candidate_id) DO UPDATE SET fingerprint=excluded.fingerprint,payload=excluded.payload,updated_at=excluded.updated_at',
+                         (cid, discovery_fingerprint(row, config), json.dumps(state), time.time()))
             conn.commit()
         return jsonify(ok=True, message='Le lien avec cette fiche a été retiré. Le contrat reste dans WEDOF.')
 

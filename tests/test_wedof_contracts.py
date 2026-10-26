@@ -67,7 +67,8 @@ def setup(tmp_path, monkeypatch):
     http = Mock()
     def reply(url, **kwargs):
         endpoint = url.removeprefix(wc.BASE_URL)
-        if endpoint == '/workingContracts': data = [contract()]
+        if endpoint == '/registrationFolders': data = [folder()]
+        elif endpoint == '/workingContracts': data = [contract()]
         elif endpoint.startswith('/workingContracts/') and endpoint.endswith('/raw'): data = raw(int(endpoint.split('/')[2]))
         elif endpoint.startswith('/workingContracts/'): data = contract(int(endpoint.rsplit('/',1)[1]))
         elif endpoint.startswith('/registrationFolders/'): data = folder(int(endpoint.rsplit('-',1)[1]))
@@ -347,3 +348,217 @@ def test_changed_summary_invalidates_cached_search_for_immediate_retry(setup, mo
 
 def test_unexpected_optional_state_is_not_a_server_error():
     assert normalize_summary(contract(state=[]))['state_label']=='État non communiqué'
+
+
+def discover(env, **data):
+    for _ in range(8):
+        response = post(env, '/detecter', data)
+        assert response.status_code == 200, response.json
+        if not response.json['pending']:
+            return response.json
+    raise AssertionError('Unbounded discovery')
+
+
+def linked_count(env):
+    with env[1]() as conn:
+        return conn.execute('SELECT COUNT(*) FROM student_wedof_contracts').fetchone()[0]
+
+
+def test_auto_discovery_links_one_verified_contract_and_preserves_folder_identity(setup):
+    initial = setup[0].get('/admin/candidat/alice/contrats-apprentissage').json
+    assert initial['configured'] and not initial['has_contracts']
+    setup[3].assert_not_called()
+    result = discover(setup)
+    assert result['linked'] and linked_count(setup) == 1
+    assert setup[3].call_count == 5
+    calls = setup[3].call_args_list
+    assert calls[0].kwargs['params'] == {'state':'all', 'limit':100, 'page':1, 'findOtherFoldersOfAttendee':'camille@example.test'}
+    assert calls[1].kwargs['params']['registrationFolderExternalId'] == 'OPCO-101'
+    with setup[1]() as conn:
+        payload = conn.execute('SELECT payload FROM student_wedof_contracts').fetchone()[0]
+        assert 'SECRET-' not in payload and 'evil.invalid' not in payload
+        item = json.loads(payload)
+        assert item['apprentice_email'] == 'camille@example.test'
+        assert item['apprentice_birth_date'] == '2006-03-04'
+        assert item['training_title'] == 'BTS MOS'
+    setup[3].reset_mock()
+    assert discover(setup)['linked']
+    setup[3].assert_not_called()
+
+
+def test_auto_discovery_names_are_accent_and_case_insensitive(setup):
+    with setup[1]() as conn:
+        conn.execute("UPDATE candidats SET nom='EXÉMPLE', prenom='CAMILLE' WHERE id='alice'")
+    assert discover(setup)['linked']
+
+
+def test_auto_discovery_no_match_is_cached_across_admin_sessions(setup):
+    reply = setup[3].side_effect
+    setup[3].side_effect = lambda url, **kw: Mock(status_code=200, json=Mock(return_value=[]), headers={}, content=b'[]') if url.endswith('/registrationFolders') else reply(url, **kw)
+    result = discover(setup)
+    assert not result['linked'] and not result['items']
+    assert setup[3].call_count == 2
+    assert setup[3].call_args_list[1].kwargs['params']['query'] == 'Exemple'
+    setup[3].reset_mock()
+    with setup[0].session_transaction() as session:
+        session['_wedof_csrf'] = 'another-admin-token'
+    setup[2]['X-CSRF-Token'] = 'another-admin-token'
+    assert discover(setup)['cached']
+    setup[3].assert_not_called()
+
+
+def test_auto_discovery_can_match_changed_email_using_exact_birth_and_names(setup):
+    reply = setup[3].side_effect
+    def changed_email(url, **kw):
+        response = reply(url, **kw)
+        if url.endswith('/registrationFolders'):
+            if 'findOtherFoldersOfAttendee' in kw['params']:
+                response.json.return_value = []
+            else:
+                response.json.return_value[0]['attendee']['email'] = 'old@example.test'
+        elif '/registrationFolders/' in url:
+            response.json.return_value['attendee']['email'] = 'old@example.test'
+        return response
+    setup[3].side_effect = changed_email
+    assert discover(setup)['linked']
+    assert setup[3].call_count == 6
+
+
+@pytest.mark.parametrize('field,value', [('nom','Different'), ('date_naissance','2001-01-01')])
+def test_auto_discovery_rejects_identity_conflicts(setup, field, value):
+    with setup[1]() as conn:
+        conn.execute(f'UPDATE candidats SET {field}=? WHERE id=?', (value,'alice'))
+    result = discover(setup)
+    assert not result['linked'] and not result['items'] and linked_count(setup) == 0
+    assert all(c.args[0].endswith('/registrationFolders') for c in setup[3].call_args_list)
+
+
+def test_auto_discovery_never_links_on_names_alone(setup):
+    with setup[1]() as conn:
+        conn.execute("UPDATE candidats SET email='different@example.test', date_naissance='' WHERE id='alice'")
+    result = discover(setup)
+    assert not result['linked'] and len(result['items']) == 1
+    assert linked_count(setup) == 0
+    assert 'vérifier' in result['message']
+
+
+def test_auto_discovery_multiple_contracts_are_proposed_for_manual_preview(setup):
+    reply = setup[3].side_effect
+    def multiple(url, **kw):
+        response = reply(url, **kw)
+        if url.endswith('/workingContracts'):
+            second = contract(102)
+            second['_links']['registrationFolder']['externalId'] = 'OPCO-101'
+            response.json.return_value = [contract(), second]
+        return response
+    setup[3].side_effect = multiple
+    result = discover(setup)
+    assert not result['linked'] and len(result['items']) == 2 and linked_count(setup) == 0
+    assert setup[3].call_count == 2
+    preview = post(setup, '/apercu', {'token':result['token'], 'contract_id':'101'})
+    assert preview.status_code == 200
+    assert post(setup, '/rattacher', {'token':preview.json['token']}).status_code == 200
+
+
+def test_auto_discovery_multiple_folders_are_queried_only_by_exact_reference(setup):
+    reply = setup[3].side_effect
+    def multiple(url, **kw):
+        response = reply(url, **kw)
+        if url.endswith('/registrationFolders'):
+            response.json.return_value = [folder(), folder(102)]
+        if url.endswith('/workingContracts'):
+            key = int(kw['params']['registrationFolderExternalId'].split('-')[1])
+            response.json.return_value = [contract(key)]
+        return response
+    setup[3].side_effect = multiple
+    result = discover(setup)
+    assert len(result['items']) == 2 and not result['linked']
+    assert setup[3].call_count == 3
+
+
+@pytest.mark.parametrize('endpoint', ['/registrationFolders', '/workingContracts'])
+def test_auto_discovery_incomplete_pagination_cannot_auto_link(setup, endpoint):
+    reply = setup[3].side_effect
+    def incomplete(url, **kw):
+        response = reply(url, **kw)
+        if url.endswith(endpoint): response.headers = {'X-Total-Count':'101'}
+        return response
+    setup[3].side_effect = incomplete
+    result = discover(setup)
+    assert not result['linked'] and result['items']
+    assert linked_count(setup) == 0 and setup[3].call_count == 2
+
+
+def test_auto_discovery_failure_is_cached_without_automatic_retries(setup):
+    setup[3].side_effect = requests.Timeout()
+    first = discover(setup)
+    assert not first['linked'] and 'injoignable' in first['message']
+    assert setup[3].call_count == 1
+    setup[3].reset_mock()
+    assert discover(setup)['cached']
+    setup[3].assert_not_called()
+
+
+def test_auto_discovery_key_change_invalidates_error_cache(setup):
+    reply = setup[3].side_effect
+    setup[3].side_effect = requests.Timeout()
+    discover(setup)
+    setup[3].side_effect = reply
+    setup[0].put('/admin/api/wedof/settings', json={'api_key':'another-wedof-test-key'}, headers=setup[2])
+    assert discover(setup)['linked']
+
+
+def test_auto_discovery_detach_stays_detached_after_reload_and_cache_expiry(setup):
+    assert discover(setup)['linked']
+    assert post(setup, '/101/detacher').status_code == 200
+    with setup[1]() as conn:
+        conn.execute('UPDATE student_wedof_discovery SET updated_at=0')
+    setup[3].reset_mock()
+    result = discover(setup)
+    assert not result['linked'] and linked_count(setup) == 0
+    assert 'suspendu' in result['message']
+    setup[3].assert_not_called()
+    assert discover(setup, manual=True)['linked']
+
+
+def test_auto_discovery_rechecks_candidate_before_committing(setup):
+    reply = setup[3].side_effect
+    def change_candidate(url, **kw):
+        if url.endswith('/raw'):
+            with setup[1]() as conn:
+                conn.execute("UPDATE candidats SET date_naissance='2000-01-01' WHERE id='alice'")
+        return reply(url, **kw)
+    setup[3].side_effect = change_candidate
+    for _ in range(2): assert post(setup, '/detecter').status_code == 200
+    response = post(setup, '/detecter')
+    assert response.status_code == 409 and linked_count(setup) == 0
+
+
+def test_auto_discovery_does_not_reassign_another_students_contract(setup):
+    with setup[1]() as conn:
+        conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)', ('101','bob','{}',time.time(),'now'))
+    result = discover(setup)
+    assert not result['linked'] and 'autre étudiant' in result['message']
+    assert linked_count(setup) == 1
+
+
+def test_auto_discovery_raw_reference_conflict_needs_manual_verification(setup):
+    reply = setup[3].side_effect
+    def conflict(url, **kw):
+        response = reply(url, **kw)
+        if url.endswith('/raw'):
+            response.json.return_value['cerfa']['numeroInterne'] = 'OTHER-123'
+            response.json.return_value['cerfa']['contrat']['noContrat'] = 'OTHER-456'
+        return response
+    setup[3].side_effect = conflict
+    result = discover(setup)
+    assert not result['linked'] and result['items'] and linked_count(setup) == 0
+
+
+def test_auto_discovery_is_admin_and_csrf_protected(setup):
+    response = setup[0].post('/admin/candidat/alice/contrats-apprentissage/detecter', json={})
+    assert response.status_code == 400
+    with setup[0].session_transaction() as session:
+        session['admin_ok'] = False
+    assert post(setup, '/detecter').status_code == 403
+    setup[3].assert_not_called()

@@ -34,6 +34,26 @@
   }
   async function load() {
     const result = await api(); $('wc-list').innerHTML = result.html; loaded = true;
+    return result;
+  }
+  async function discover(manual = false) {
+    notice('wc-notice', 'Recherche automatique du contrat dans WEDOF…');
+    for (let phase = 0; phase < 8; phase++) {
+      const result = await api('/detecter', {manual});
+      notice('wc-notice', result.message);
+      if (result.pending) continue;
+      if (result.linked) await load();
+      else if (result.items?.length) {
+        $('wc-search').hidden = false;
+        renderResults(result);
+      }
+      return;
+    }
+    throw new Error('La recherche reste incomplète. Utilisez la référence exacte du contrat.');
+  }
+  async function initialLoad() {
+    const result = await load();
+    if (result.configured && !result.has_contracts) await discover();
   }
   const openSearch = () => { $('wc-search').hidden = false; $('wc-reference').focus(); };
   $('wc-add').addEventListener('click', openSearch);
@@ -45,8 +65,11 @@
     $('wc-results').replaceChildren(); $('wc-preview').hidden = true; previewToken = resultToken = '';
   });
   async function search(data) {
+    renderResults(await api('/rechercher', data));
+  }
+  function renderResults(result) {
     $('wc-preview').hidden = true; previewToken = '';
-    const result = await api('/rechercher', data); resultToken = result.token;
+    resultToken = result.token;
     const target = $('wc-results'); target.replaceChildren(el('p', result.message, 'wc-results-heading'));
     for (const item of result.items) {
       const card = el('div', '', 'wc-result'), info = el('div', '');
@@ -72,6 +95,7 @@
   panel.addEventListener('click', event => {
     const button = event.target.closest('button'); if (!button || busy) return;
     if (button.hasAttribute('data-wc-open')) openSearch();
+    if (button.hasAttribute('data-wc-detect')) run(() => discover(true));
     if (button.id === 'wc-link') run(async () => {
       const result = await api('/rattacher', {token: previewToken, identity_confirmed: Boolean($('wc-confirm-identity')?.checked)});
       previewToken = ''; $('wc-search').hidden = true; $('wc-preview').hidden = true; $('wc-results').replaceChildren();
@@ -85,7 +109,7 @@
       const result = await api(`/${encodeURIComponent(button.dataset.wcUnlink)}/detacher`, {}); await load(); notice('wc-notice', result.message);
     });
   });
-  const observer = new MutationObserver(() => {if (!panel.hidden && !loaded && !busy) run(load);});
+  const observer = new MutationObserver(() => {if (!panel.hidden && !loaded && !busy) run(initialLoad);});
   observer.observe(panel, {attributes: true, attributeFilter: ['hidden']});
-  if (!panel.hidden) run(load);
+  if (!panel.hidden) run(initialLoad);
 })();
