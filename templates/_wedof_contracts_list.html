@@ -69,7 +69,7 @@
     <div class="wc-table-wrap" role="region" aria-label="Échéances du contrat {{ item.external_number }}" tabindex="0"><table class="wc-table wc-schedule-table"><thead><tr><th>Échéance / période</th><th>Ouverture à facturation</th><th>Montant</th><th>Réglé</th><th>En instruction</th><th>Reste à régler</th><th>État</th></tr></thead><tbody>
       {% for due in account.schedules %}{% set due_number = due.codification or due.numero or loop.index %}
       <tr data-wc-due="{{ due.status_code }}">
-        <td class="wc-due-name"><div><strong>Échéance {{ due_number }}</strong><small>{% if due.dateDebut or due.dateFin %}{{ due.dateDebut|wedof_date }} → {{ due.dateFin|wedof_date }}{% else %}Période non communiquée{% endif %}</small></div></td>
+        <td class="wc-due-name"><span class="wc-due-number due-{{ due.status_code }}">{{ due_number }}</span><div><strong>Échéance</strong><small>{% if due.dateDebut or due.dateFin %}{{ due.dateDebut|wedof_date }} → {{ due.dateFin|wedof_date }}{% else %}Période non communiquée{% endif %}</small></div></td>
         <td data-label="Ouverture à facturation">{{ due.dateOuverture|wedof_date }}</td>
         <td data-label="Montant"><strong>{{ due.get('montantTotal')|wedof_money }}</strong></td>
         <td data-label="Réglé" class="wc-paid-value">{{ due.get('montantRegle')|wedof_money }}{% if due.paid_percent is not none %}<progress class="wc-mini-progress" max="100" value="{{ due.paid_percent }}" aria-label="Part réglée de l’échéance {{ due_number }}">{{ due.paid_percent }} %</progress>{% endif %}</td>
