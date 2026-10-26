@@ -354,6 +354,12 @@ L’accueil présente les cours et les demandes à compléter ou en traitement.
   Filtres par mois et statut. Chaque événement permet un dépôt de pièces et
   un message : « En cours de traitement », puis « Justifiée », « Refusée »
   ou « À compléter ». Un complément relance le traitement, avec historique.
+- `/espace/absences/justifier` permet de cocher une période (bornes incluses,
+  même entre deux mois/années), puis d’ajuster jusqu’à 200 événements.
+  Un motif et un dépôt de pièces couvrent toute la sélection ; une seule demande
+  apparaît dans la file administrative. Un complément ou une décision s’applique
+  à tous les événements liés. Les événements ayant déjà une demande sont suivis
+  dans celle-ci et ne peuvent pas être envoyés une deuxième fois.
 - `/admin/assiduite/justificatifs` est la file de traitement de l’équipe,
   accessible depuis le registre d’assiduité avec le nombre de demandes en
   attente. Le refus et la demande de complément exigent une réponse écrite.
@@ -370,7 +376,11 @@ L’accueil présente les cours et les demandes à compléter ou en traitement.
   `DATA_DIR/absence-justifications`, hors nettoyage des dossiers `uploads`.
   Téléchargement après contrôle de session, de version et d’appartenance.
   Les liens historiques de dossier seuls n’ouvrent pas ces nouvelles données.
-- Schéma additif `absence_requests`, `absence_files`, `absence_history` ;
+- Schéma additif `absence_requests`, `absence_request_events`, `absence_files`, `absence_history` ;
+  les anciennes demandes unitaires sont rattachées automatiquement, sans modifier
+  leurs identifiants ni dupliquer leurs documents. Les pièces sont stockées une
+  seule fois par demande, indépendamment du nombre d’événements. La suppression
+  d’un événement ne retire pas les pièces des autres événements de la demande ;
   transactions et versions protègent les envois et décisions concurrents.
   Une correction de la période d’un événement rouvre l’examen ; un événement
   accompagné d’un justificatif ne peut pas être réattribué à un autre étudiant.
