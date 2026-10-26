@@ -21,6 +21,7 @@ from candidate_photos import load_candidate_portrait
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE = ROOT / 'assets/student_cards/carte_etudiante_original.pdf'
+ACADEMY_LOGO = ROOT / 'assets/student_cards/integrale_academy_official.png'
 FONT = 'StudentCard-LiberationSans'
 # Coordinates from the supplied digital-entry model, in PDF points from top left.
 FIELDS = {
@@ -36,6 +37,7 @@ FIELDS = {
     'phone': (63.07, 119.41, 222.21, 130.75),
 }
 PHOTO_BOX = (166.0, 48.2, 231.5, 139.3)
+LOGO_BOX = (178.0, 89.0, 221.0, 132.0)
 ADDRESSES = {
     'presentiel': ('54 chemin du Carreou', '83480 PUGET-SUR-ARGENS'),
     'distanciel': ('141 rue de Rivoli', '75001 PARIS'),
@@ -130,6 +132,10 @@ def student_card_pdf(row, photo, *, start=None, end=None, layout='carte'):
             portrait.thumbnail((800, 1000))
             drawing.drawImage(ImageReader(portrait), left, height-bottom, width=right-left, height=bottom-top,
                               preserveAspectRatio=True, anchor='c')
+        else:
+            left, top, right, bottom = LOGO_BOX
+            drawing.drawImage(str(ACADEMY_LOGO), left, height-bottom, width=right-left, height=bottom-top,
+                              preserveAspectRatio=True, anchor='c', mask='auto')
         drawing.save()
         page.merge_page(PdfReader(BytesIO(overlay.getvalue())).pages[0])
     # Older open sheets may still send format=a4. Always return full-page badge

@@ -80,6 +80,7 @@ def run_startup_integrity_checks():
         "candidate_photos.py",
         "student_cards.py",
         "assets/student_cards/carte_etudiante_original.pdf",
+        "assets/student_cards/integrale_academy_official.png",
         "templates/_candidate_student_card.html",
         "templates/student_card_error.html",
         "certificates.py",
