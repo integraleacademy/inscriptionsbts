@@ -69,3 +69,29 @@ que si tous les montants nécessaires sont présents, en centimes. Une ouverture
 facturation n’est jamais présentée comme un retard de paiement. Les frais annexes
 ne sont pas ajoutés aux montants de formation. En cas d’échec, l’ancien échéancier
 est conservé mais marqué « À vérifier ». Aucun envoi de facture n’est effectué.
+
+## Présentation et situation de l’étudiant
+
+Le contrat dispose de cinq sous-onglets indépendants : vue d’ensemble, contrat et
+formation, entreprise et tuteur, échéancier, frais annexes. La navigation au clavier
+et la sélection lors d’une actualisation sont conservées. L’échéancier devient une
+liste de cartes avec libellés sur petit écran. Les filtres et badges utilisent des
+codes distincts : réglée (vert), à venir (bleu), ouverte à facturation (orange),
+en instruction (violet), à vérifier (rouge orangé), inconnu (gris). Les états et
+les icônes restent lisibles sans se reposer uniquement sur la couleur.
+
+Le pourcentage de règlement utilise le total de l’échéancier, jamais l’engagement
+OPCO, et reste absent si les données sont incomplètes ou périmées. La prochaine
+échéance à suivre est la première échéance non soldée disposant d’une date
+d’ouverture ; ce repère ne prétend pas constituer une échéance de paiement.
+
+`candidate_statuses.py` calcule le statut affiché « En entreprise » à partir d’un
+rattachement local en cours ou d’un contrat WEDOF engagé, démarré et non terminé
+ni rompu. Les dates sont évaluées en Europe/Paris. La déclaration « entreprise
+trouvée » seule n’est pas une preuve de rattachement. Les dossiers annulés, non
+conformes ou non encore examinés conservent leur statut d’inscription.
+
+Ce statut est partagé par le badge de la fiche, la liste, ses filtres et ses KPI.
+L’étape d’inscription stockée ne change pas : les campagnes de reconfirmation, les
+accès aux espaces et les notifications continuent d’utiliser le statut d’admission.
+Aucun message n’est envoyé par une mise à jour de l’affichage.

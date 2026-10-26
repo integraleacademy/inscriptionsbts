@@ -9,14 +9,20 @@
   const select = document.getElementById('candidate-status');
   const badge = document.querySelector('[data-sheet-status]');
   if (select && badge) {
-    const sync = () => {
+    const sync = async () => {
       const current = select.dataset.current;
-      const option = Array.from(select.options).find(item => item.value === current);
-      badge.textContent = option?.textContent || 'Dossier en cours';
-      badge.className = 'sheet-status-badge status-' + (current || 'preinscription');
+      try {
+        const cid = document.querySelector('.candidate-sheet').dataset.candidateId;
+        const response = await fetch('/admin/row/' + encodeURIComponent(cid), {headers: {Accept: 'application/json'}});
+        const data = await response.json();
+        if (!response.ok || !data.ok || current !== select.dataset.current) return;
+        const option = Array.from(select.options).find(item => item.value === data.row.statut);
+        badge.textContent = data.row.display_status_label || option?.textContent || 'Dossier en cours';
+        badge.className = 'sheet-status-badge status-' + (data.row.display_status || data.row.statut || 'preinscription');
+      } catch (_) { /* Keep the last server-confirmed badge on a network failure. */ }
     };
     new MutationObserver(sync).observe(select, {attributes: true, attributeFilter: ['data-current']});
-    sync();
+    document.addEventListener('candidate-employment-changed', sync);
   }
 })();
 

@@ -84,7 +84,7 @@
   function tab(key,updateURL=true){
     if(!sheet||!document.getElementById('panel-'+key))return;
     sheet.querySelectorAll('.sheet-panel').forEach(panel=>panel.hidden=panel.id!=='panel-'+key);
-    sheet.querySelectorAll('[role=tab]').forEach(button=>{const active=button.dataset.tabTarget===key;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
+    sheet.querySelectorAll('.sheet-tabs [role=tab]').forEach(button=>{const active=button.dataset.tabTarget===key;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
     if(updateURL)history.replaceState({},'',location.pathname+location.search+'#'+key);
     if(key==='documents')loadFiles();if(key==='historique')loadHistory();
   }

@@ -8,6 +8,7 @@ from candidate_access import register_candidate_access, get_authenticated_studen
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
 from candidate_creation import register_candidate_creation
+from candidate_statuses import annotate_candidate_statuses, EMPLOYMENT_STATUS
 from candidate_workflows import register_candidate_workflows
 from candidate_documents import register_candidate_documents, document_preview_response
 from student_cards import register_student_cards, student_card_dates
@@ -80,6 +81,7 @@ def run_startup_integrity_checks():
         "candidate_documents.py",
         "candidate_photos.py",
         "candidate_creation.py",
+        "candidate_statuses.py",
         "templates/candidate_create.html",
         "static/css/candidate-create.css",
         "static/js/candidate-create.js",
@@ -1548,7 +1550,7 @@ def submit():
 
 # ---------------- Admin ----------------
 
-def _admin_filtered_rows(args):
+def _admin_filtered_rows(args, *, admission_only=False):
     q = args.get("q", "").strip().lower()
     flt_year = args.get("rentree", str(ADMISSION_YEAR))
     flt_bts = args.get("bts", "")
@@ -1562,6 +1564,8 @@ def _admin_filtered_rows(args):
     cur = conn.cursor()
     cur.execute("SELECT * FROM candidats ORDER BY created_at DESC")
     rows = [dict(r) for r in cur.fetchall()]
+    if not admission_only:
+        annotate_candidate_statuses(conn, rows)
     conn.close()
 
     def is_checked(value):
@@ -1575,7 +1579,7 @@ def _admin_filtered_rows(args):
         if flt_bts:
             ok &= row.get("bts", "") == flt_bts
         if flt_statut and not flt_carte_manquante:
-            ok &= row.get("statut", "") == flt_statut
+            ok &= row.get("statut" if admission_only else "display_status", "") == flt_statut
         if flt_mode:
             ok &= row.get("mode", "") == flt_mode
         if flt_relance:
@@ -1600,7 +1604,7 @@ def admin():
         return redirect(url_for("login"))
 
     rows = _admin_filtered_rows(request.args)
-    return render_template("admin.html", title="Plateforme de gestion des BTS", rows=rows, statuts=STATUTS)
+    return render_template("admin.html", title="Plateforme de gestion des BTS", rows=rows, statuts=STATUTS + [EMPLOYMENT_STATUS])
 
 
 @app.route("/admin/candidat/<cid>")
@@ -1610,6 +1614,7 @@ def admin_candidate_sheet(cid):
     with closing(db()) as conn:
         row = get_candidat(conn, cid)
         if row:
+            annotate_candidate_statuses(conn, [row])
             current_promotion = get_candidate_promotion(conn, cid)
             available_promotions = list_promotions(conn, bts=row.get('bts'), rentree_annee=candidate_year(row), active_only=True)
     if not row: abort(404)
@@ -1700,17 +1705,17 @@ def campaign_rows(statut=None):
     args = {"rentree": request.args.get("rentree", str(ADMISSION_YEAR))}
     if statut:
         args["statut"] = statut
-    return _admin_filtered_rows(args)
+    return _admin_filtered_rows(args, admission_only=True)
 
 
 @app.get("/api/kpi")
 def api_kpi():
     if not require_admin():
         abort(403)
-    stats = {key: 0 for key, _, _ in STATUTS}
+    stats = {key: 0 for key, _, _ in STATUTS + [EMPLOYMENT_STATUS]}
     for row in _admin_filtered_rows({"rentree": request.args.get("rentree", str(ADMISSION_YEAR))}):
-        if row.get("statut") in stats:
-            stats[row["statut"]] += 1
+        if row.get("display_status") in stats:
+            stats[row["display_status"]] += 1
     return jsonify(stats)
 
 # =====================================================
@@ -1721,7 +1726,7 @@ def admin_json():
     if not require_admin():
         abort(403)
     rows = _admin_filtered_rows(request.args)
-    keys = ("id", "nom", "prenom", "bts", "mode", "tel", "email", "statut", "created_at", "rentree_annee")
+    keys = ("id", "nom", "prenom", "bts", "mode", "tel", "email", "statut", "created_at", "rentree_annee", "display_status", "display_status_label")
     return jsonify(ok=True, rows=[{k: r.get(k) for k in keys} for r in rows])
 
 # =====================================================
@@ -1733,11 +1738,12 @@ def admin_row(cid):
         abort(403)
     conn = db()
     row = conn.execute("SELECT * FROM candidats WHERE id=?", (cid,)).fetchone()
+    if row:
+        row = dict(row)
+        annotate_candidate_statuses(conn, [row])
     conn.close()
     if not row:
         return jsonify(ok=False, error="Candidat introuvable"), 404
-
-    row = dict(row)
 
     # ✅ Indique au front si le candidat a la carte étudiante cochée
     row["has_badge_carte"] = bool(

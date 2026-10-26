@@ -19,6 +19,7 @@ import sqlite3
 import time
 import unicodedata
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 from cryptography.fernet import Fernet, InvalidToken
 from flask import Blueprint, abort, jsonify, render_template, request, session
@@ -164,30 +165,36 @@ def cents(value):
 
 
 def billing(item):
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(ZoneInfo('Europe/Paris')).date().isoformat()
     schedules = []
     for source in item.get('schedules', []):
         row = dict(source)
         total, paid, pending = (cents(row.get(k)) for k in ('montantTotal', 'montantRegle', 'montantEnCoursInstruction'))
         row['remaining'] = max(0, total-paid)/100 if total is not None and paid is not None else None
         if item.get('raw_stale'):
-            row['status'] = 'À vérifier'
+            row['status'], row['status_code'] = 'À vérifier', 'stale'
         elif total is not None and paid is not None and paid >= total:
-            row['status'] = 'Réglée'
+            row['status'], row['status_code'] = 'Réglée', 'paid'
         elif pending is not None and pending > 0:
-            row['status'] = 'En instruction'
+            row['status'], row['status_code'] = 'En instruction', 'pending'
         elif row.get('dateOuverture') and row['dateOuverture'] <= today:
-            row['status'] = 'Ouverte à facturation'
+            row['status'], row['status_code'] = 'Ouverte à facturation', 'open'
         elif row.get('dateOuverture'):
-            row['status'] = 'À venir'
+            row['status'], row['status_code'] = 'À venir', 'upcoming'
         else:
-            row['status'] = 'Non communiqué'
+            row['status'], row['status_code'] = 'Non communiqué', 'unknown'
+        row['paid_percent'] = min(100, max(0, round(paid/total*100))) if total and paid is not None else None
         schedules.append(row)
     def total(key):
         values = [cents(r.get(key)) for r in schedules]
         return sum(values)/100 if values and all(v is not None for v in values) else None
     amount, paid = total('montantTotal'), total('montantRegle')
+    counts = {code: sum(r['status_code'] == code for r in schedules) for code in ('paid', 'pending', 'open', 'upcoming', 'stale', 'unknown')}
+    next_due = next(iter(sorted((r for r in schedules if r['status_code'] in {'open', 'upcoming', 'pending'} and r.get('dateOuverture')),
+                               key=lambda r: r['dateOuverture'])), None)
     return {'schedules': schedules, 'total': amount, 'paid': paid, 'pending': total('montantEnCoursInstruction'),
+            'counts': counts, 'next_due': next_due,
+            'paid_percent': min(100, max(0, round(cents(paid)/cents(amount)*100))) if amount and paid is not None and not item.get('raw_stale') else None,
             'remaining': max(0, cents(amount)-cents(paid))/100 if amount is not None and paid is not None else None}
 
 

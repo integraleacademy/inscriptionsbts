@@ -1,46 +1,83 @@
+{% from 'ui_icons.html' import icon %}
 {% macro fact(label, value) %}<div><dt>{{ label }}</dt><dd>{{ value if value is defined and value is not none and value != '' else 'Non communiqué' }}</dd></div>{% endmacro %}
+{% macro state_badge(due) %}<span class="wc-due-status due-{{ due.status_code }}">{{ icon('check' if due.status_code == 'paid' else 'clock' if due.status_code in ['upcoming','pending'] else 'file' if due.status_code == 'open' else 'shield') }}{{ due.status }}</span>{% endmacro %}
 {% if not configured %}<div class="wc-message wc-warning">La connexion WEDOF reste à configurer. <a href="/admin/parametres#wedof">Ouvrir les paramètres WEDOF →</a></div>{% endif %}
-{% for contract in contracts %}{% set item = contract.item %}{% set account = contract.billing %}
-<article class="wc-contract sheet-card" data-contract-id="{{ item.working_contract_id }}">
-  <header class="wc-contract-header"><div><p class="wc-eyebrow">{{ wedof_financers.get(item.financer, 'OPCO') }}</p><h3>{{ item.employer_name or 'Entreprise non communiquée' }}</h3><p>Contrat {{ item.external_number or item.working_contract_id }}{% if item.deca_number %} · DECA {{ item.deca_number }}{% endif %}</p></div><span class="wc-status state-{{ item.state }}">{{ item.state_label }}</span></header>
-  <div class="wc-sync"><span>Dernière lecture : {{ contract.checked_at|wedof_stamp }}</span><button class="btn" type="button" data-wc-refresh="{{ item.working_contract_id }}" {% if not configured %}disabled{% endif %}>Actualiser depuis WEDOF</button></div>
-  {% if contract.error or item.raw_stale or item.details_error %}<p class="wc-message wc-warning">{{ contract.error or item.raw_error or item.details_error or 'Les données OPCO restent à vérifier.' }}{% if item.raw_checked_at %} Dernier échéancier vérifié : {{ item.raw_checked_at|wedof_stamp }}.{% endif %}</p>{% endif %}
-  <div class="wc-metrics">
-    <div><span>Engagement OPCO</span><strong>{{ item.engagement|wedof_money }}</strong></div>
-    <div><span>Réglé · échéancier</span><strong>{{ account.paid|wedof_money }}</strong></div>
-    <div><span>En instruction</span><strong>{{ account.pending|wedof_money }}</strong></div>
-    <div><span>Reste à régler</span><strong>{{ account.remaining|wedof_money }}</strong></div>
-  </div>
-  {% if item.raw_stale %}<p class="wc-help">Les montants et échéances précédemment enregistrés sont affichés à titre indicatif, en attente d’une actualisation réussie.</p>{% endif %}
-  <section class="wc-section"><h4>Le contrat</h4><dl class="wc-facts">
-    {{ fact('Identifiant WEDOF', item.working_contract_id) }}{{ fact('Dossier de formation', item.registration_id) }}
-    {{ fact('Numéro interne OPCO', item.internal_number) }}{{ fact('Type de contrat · code CERFA', item.contract_type) }}
-    {{ fact('Début du contrat', item.contract_start|wedof_date) }}{{ fact('Fin du contrat', item.contract_end|wedof_date) }}
-    {{ fact('Signature / conclusion', item.contract_conclusion|wedof_date) }}{{ fact('Avenant', item.amendment_date|wedof_date) }}
-    {{ fact('Date de rupture', item.contract_break_date|wedof_date) }}{{ fact('Salaire brut à l’embauche', item.get('gross_salary')|wedof_money) }}
-  </dl></section>
-  <section class="wc-section"><h4>L’apprenti et sa formation</h4><dl class="wc-facts">
-    {{ fact('Nom et prénom', ((item.get('apprentice_first_name') or '') ~ ' ' ~ (item.get('apprentice_last_name') or ''))|trim) }}{{ fact('Date de naissance', item.get('apprentice_birth_date')|wedof_date) }}
-    {{ fact('E-mail', item.apprentice_email) }}{{ fact('Téléphone', item.apprentice_phone) }}
-    {{ fact('Adresse', ((item.get('apprentice_address') or '') ~ ' ' ~ (item.get('apprentice_postcode') or '') ~ ' ' ~ (item.get('apprentice_city') or ''))|trim) }}
-    {{ fact('Formation', item.training_title) }}{{ fact('RNCP', item.rncp) }}{{ fact('Code diplôme', item.diploma_code) }}
-    {{ fact('Début de formation', item.get('training_start')|wedof_date) }}{{ fact('Fin de formation', item.get('training_end')|wedof_date) }}
-    {{ fact('Durée en centre · heures', item.training_hours) }}{{ fact('Dont à distance · heures', item.remote_hours) }}
-  </dl></section>
-  <section class="wc-section"><h4>L’entreprise et le maître d’apprentissage</h4><dl class="wc-facts">
-    {{ fact('Entreprise', item.employer_name) }}{{ fact('SIRET', item.employer_siret) }}
-    {{ fact('E-mail entreprise', item.employer_email) }}{{ fact('Téléphone entreprise', item.employer_phone) }}
-    {{ fact('Adresse entreprise', ((item.get('employer_address') or '') ~ ' ' ~ (item.get('employer_postcode') or '') ~ ' ' ~ (item.get('employer_city') or ''))|trim) }}
-    {{ fact('Maître d’apprentissage', item.tutor_name) }}{{ fact('E-mail du maître d’apprentissage', item.tutor_email) }}
-  </dl></section>
-  <section class="wc-section"><h4>Échéancier OPCO</h4><p class="wc-help">La date d’ouverture indique à partir de quand l’échéance peut être facturée. Les règlements et montants en instruction sont ceux communiqués par l’OPCO.</p>
-  {% if account.schedules %}<div class="wc-table-wrap" role="region" aria-label="Échéances du contrat {{ item.external_number }}" tabindex="0"><table class="wc-table"><thead><tr><th>Échéance / période</th><th>Ouverture à facturation</th><th>Montant</th><th>Réglé</th><th>En instruction</th><th>Reste à régler</th><th>État</th></tr></thead><tbody>
-  {% for due in account.schedules %}<tr><td><strong>{{ due.numero or loop.index }}{% if due.codification %} · {{ due.codification }}{% endif %}</strong><small>{% if due.dateDebut or due.dateFin %}{{ due.dateDebut|wedof_date }} → {{ due.dateFin|wedof_date }}{% else %}Période non communiquée{% endif %}</small></td><td>{{ due.dateOuverture|wedof_date }}</td><td>{{ due.get('montantTotal')|wedof_money }}</td><td>{{ due.get('montantRegle')|wedof_money }}</td><td>{{ due.get('montantEnCoursInstruction')|wedof_money }}</td><td>{{ due.remaining|wedof_money }}</td><td><span class="wc-due-status">{{ due.status }}</span></td></tr>{% endfor %}
-  </tbody></table></div>{% else %}<div class="wc-empty-small">{{ 'Aucune échéance transmise par l’OPCO pour ce contrat.' if not item.raw_stale else 'Échéancier indisponible. Les autres informations du contrat restent consultables.' }}</div>{% endif %}</section>
-  <details class="wc-extra"><summary>Frais annexes et informations de financement</summary>
-    {% if item.extra_costs_available %}{% if item.extra_costs %}<div class="wc-table-wrap"><table class="wc-table"><thead><tr><th>Nature des frais</th><th>Quantité</th><th>Prix unitaire</th><th>Total</th></tr></thead><tbody>{% for fee in item.extra_costs %}<tr><td>{{ fee.natureFrais or 'Non communiquée' }}</td><td>{{ fee.quantite if fee.quantite is not none else 'Non communiquée' }}</td><td>{{ fee.prixUnitaire|wedof_money }}</td><td>{{ fee.montantTotal|wedof_money }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="wc-help">Aucun engagement de frais annexe communiqué.</p>{% endif %}{% else %}<p class="wc-help">Les frais annexes ne sont pas disponibles dans les données OPCO reçues.</p>{% endif %}
-    {% if item.billing_details_available %}<dl class="wc-facts">{{ fact('Plafond premier équipement', item.billing_details.get('plafondFraisPremierEquipement')|wedof_money) }}{{ fact('Plafond mobilité', item.billing_details.get('plafondFraisMobilite')|wedof_money) }}{% for key, label in [('fraisPremierEquipementRegles','Premier équipement réglé'),('fraisMobiliteRegles','Mobilité réglée')] %}{{ fact(label, 'Oui' if item.billing_details.get(key) is sameas true else 'Non' if item.billing_details.get(key) is sameas false else 'Non communiqué') }}{% endfor %}</dl>{% endif %}
-  </details>
-  <footer class="wc-contract-footer"><p>Informations issues de WEDOF et de l’OPCO. Les champs manquants restent indiqués comme non communiqués.</p><button type="button" class="wc-unlink" data-wc-unlink="{{ item.working_contract_id }}">Retirer le lien</button></footer>
+{% for contract in contracts %}{% set item = contract.item %}{% set account = contract.billing %}{% set key = item.working_contract_id %}
+<article class="wc-contract" data-contract-id="{{ key }}">
+  <header class="wc-contract-header">
+    <div class="wc-company-mark">{{ icon('briefcase') }}</div>
+    <div class="wc-contract-title"><p class="wc-eyebrow">CONTRAT D’APPRENTISSAGE <span>· {{ wedof_financers.get(item.financer, 'OPCO') }}</span></p><h3>{{ item.employer_name or 'Entreprise non communiquée' }}</h3><p>Contrat {{ item.external_number or key }}{% if item.deca_number %}<span> · DECA {{ item.deca_number }}</span>{% endif %}</p></div>
+    <span class="wc-status state-{{ item.state }}"><i aria-hidden="true"></i>{{ item.state_label }}</span>
+    <div class="wc-contract-meta"><span>{{ icon('calendar') }} {{ item.contract_start|wedof_date }} <b aria-hidden="true">→</b> {{ item.contract_end|wedof_date }}</span><span>{{ icon('book') }} {{ item.training_title or 'Formation à compléter' }}</span></div>
+  </header>
+  <div class="wc-sync"><span>{{ icon('check') }} Données WEDOF <span class="wc-sync-date">· Actualisées le {{ contract.checked_at|wedof_stamp }}</span></span><button class="btn" type="button" data-wc-refresh="{{ key }}" {% if not configured %}disabled{% endif %}>{{ icon('clock') }} Actualiser</button></div>
+  {% if contract.error or item.raw_stale or item.details_error %}<p class="wc-message wc-warning wc-data-warning">{{ icon('shield') }}<span>{{ contract.error or item.raw_error or item.details_error or 'Les données OPCO restent à vérifier.' }}{% if item.raw_checked_at %} Dernier échéancier vérifié : {{ item.raw_checked_at|wedof_stamp }}.{% endif %}</span></p>{% endif %}
+  <nav class="wc-tabs" role="tablist" aria-label="Détails du contrat {{ item.external_number or key }}">
+    {% for name,label,symbol in [('overview','Vue d’ensemble','chart'),('contract','Contrat & formation','file'),('company','Entreprise & tuteur','briefcase'),('schedule','Échéancier','calendar'),('extras','Frais annexes','plus')] %}
+    <button type="button" role="tab" id="wc-{{ key }}-tab-{{ name }}" aria-controls="wc-{{ key }}-{{ name }}" aria-selected="{{ 'true' if loop.first else 'false' }}" tabindex="{{ 0 if loop.first else -1 }}" data-wc-tab="{{ name }}">{{ icon(symbol) }}<span>{{ label }}</span>{% if name == 'schedule' %}<b>{{ account.schedules|length }}</b>{% endif %}</button>
+    {% endfor %}
+  </nav>
+  <section class="wc-subpanel" id="wc-{{ key }}-overview" role="tabpanel" aria-labelledby="wc-{{ key }}-tab-overview" data-wc-panel="overview" tabindex="0">
+    <div class="wc-section-title"><div><p class="wc-eyebrow">LE CONTRAT EN UN COUP D’ŒIL</p><h4>Le suivi de votre alternant</h4></div><span class="wc-source-pill">{{ wedof_financers.get(item.financer, 'OPCO') }}</span></div>
+    <div class="wc-metrics">
+      {% for tone,label,value,symbol,note in [('blue','Engagement OPCO',item.engagement,'shield','Montant de prise en charge'),('green','Déjà réglé',account.paid,'check','Règlements de l’échéancier'),('purple','En instruction',account.pending,'clock','En cours de traitement'),('orange','Reste à recevoir',account.remaining,'chart','Solde de l’échéancier')] %}
+      <div class="wc-metric metric-{{ tone }}"><span class="wc-metric-icon">{{ icon(symbol) }}</span><span class="wc-metric-label">{{ label }}</span><strong class="{{ 'wc-amount-unknown' if value is none else '' }}">{{ value|wedof_money }}</strong><small>{{ note }}</small></div>
+      {% endfor %}
+    </div>
+    {% if item.raw_stale %}<p class="wc-help">Les montants enregistrés restent indicatifs jusqu’à la prochaine actualisation réussie.</p>{% endif %}
+    <div class="wc-overview-grid">
+      <section class="wc-inset-card wc-payment-card"><div class="wc-card-heading"><span class="wc-section-icon tone-green">{{ icon('chart') }}</span><div><h4>Avancement des règlements</h4><p>Sur le montant total de l’échéancier</p></div>{% if account.paid_percent is not none %}<strong>{{ account.paid_percent }}<small>%</small></strong>{% endif %}</div>
+        {% if account.paid_percent is not none %}<progress class="wc-progress" max="100" value="{{ account.paid_percent }}" aria-label="Part réglée de l’échéancier">{{ account.paid_percent }} %</progress><div class="wc-progress-labels"><span><i></i>{{ account.paid|wedof_money }} réglés</span><b>{{ account.total|wedof_money }}</b></div>{% else %}<p class="wc-help">Le taux de règlement sera disponible avec un échéancier complet et à jour.</p>{% endif %}
+        <div class="wc-payment-counts"><span class="due-paid">{{ icon('check') }}<b>{{ account.counts.paid }}</b> réglée{{ 's' if account.counts.paid != 1 else '' }}</span><span class="due-upcoming">{{ icon('calendar') }}<b>{{ account.counts.upcoming }}</b> à venir</span><span class="due-open">{{ icon('file') }}<b>{{ account.counts.open }}</b> ouverte{{ 's' if account.counts.open != 1 else '' }}</span><span class="due-pending">{{ icon('clock') }}<b>{{ account.counts.pending }}</b> en instruction</span></div>
+        <button type="button" class="wc-text-button" data-wc-goto="schedule">Voir toutes les échéances {{ icon('arrow') }}</button>
+      </section>
+      <section class="wc-inset-card wc-next-card"><div class="wc-card-heading"><span class="wc-section-icon tone-blue">{{ icon('calendar') }}</span><div><h4>Prochaine échéance à suivre</h4><p>Première échéance non soldée disponible</p></div></div>
+        {% if account.next_due %}{% set due = account.next_due %}<div class="wc-next-detail"><div><span>Ouverture à facturation</span><strong>{{ due.dateOuverture|wedof_date }}</strong></div><div><span>Reste à régler</span><strong>{{ due.remaining|wedof_money }}</strong></div></div>{{ state_badge(due) }}{% else %}<p class="wc-help">{{ 'Toutes les échéances sont réglées.' if account.schedules and account.counts.paid == account.schedules|length else 'Aucune échéance à suivre n’est disponible dans les données reçues.' }}</p>{% endif %}
+      </section>
+    </div>
+    <section class="wc-journey"><div class="wc-section-title"><h4>Les repères du contrat</h4><button type="button" class="wc-text-button" data-wc-goto="contract">Détail du contrat {{ icon('arrow') }}</button></div><div class="wc-milestones">{% for label,value,symbol in [('Signature',item.contract_conclusion,'edit'),('Début du contrat',item.contract_start,'briefcase'),('Fin du contrat',item.contract_end,'calendar')] %}<div><span>{{ icon(symbol) }}</span><p>{{ label }}<strong>{{ value|wedof_date }}</strong></p></div>{% endfor %}</div></section>
+  </section>
+  <section class="wc-subpanel" id="wc-{{ key }}-contract" role="tabpanel" aria-labelledby="wc-{{ key }}-tab-contract" data-wc-panel="contract" tabindex="0" hidden>
+    <div class="wc-section-title"><div><p class="wc-eyebrow">DOSSIER D’APPRENTISSAGE</p><h4>Le contrat & la formation</h4></div></div>
+    <section class="wc-inset-card"><div class="wc-card-heading"><span class="wc-section-icon tone-blue">{{ icon('file') }}</span><div><h4>Les informations du contrat</h4><p>Références, dates et rémunération communiquées par l’OPCO</p></div></div><dl class="wc-facts">
+      {{ fact('Identifiant WEDOF', key) }}{{ fact('Dossier de formation', item.registration_id) }}{{ fact('Numéro interne OPCO', item.internal_number) }}{{ fact('Type de contrat · code CERFA', item.contract_type) }}
+      {{ fact('Début du contrat', item.contract_start|wedof_date) }}{{ fact('Fin du contrat', item.contract_end|wedof_date) }}{{ fact('Signature / conclusion', item.contract_conclusion|wedof_date) }}{{ fact('Avenant', item.amendment_date|wedof_date) }}{{ fact('Date de rupture', item.contract_break_date|wedof_date) }}{{ fact('Salaire brut à l’embauche', item.get('gross_salary')|wedof_money) }}
+    </dl></section>
+    <div class="wc-detail-grid">
+      <section class="wc-inset-card"><div class="wc-card-heading"><span class="wc-section-icon tone-purple">{{ icon('person') }}</span><div><h4>L’apprenti</h4><p>Identité du bénéficiaire du contrat</p></div></div><dl class="wc-facts wc-facts-two">
+        {{ fact('Nom et prénom', ((item.get('apprentice_first_name') or '') ~ ' ' ~ (item.get('apprentice_last_name') or ''))|trim) }}{{ fact('Date de naissance', item.get('apprentice_birth_date')|wedof_date) }}{{ fact('E-mail', item.apprentice_email) }}{{ fact('Téléphone', item.apprentice_phone) }}{{ fact('Adresse', ((item.get('apprentice_address') or '') ~ ' ' ~ (item.get('apprentice_postcode') or '') ~ ' ' ~ (item.get('apprentice_city') or ''))|trim) }}
+      </dl></section>
+      <section class="wc-inset-card"><div class="wc-card-heading"><span class="wc-section-icon tone-orange">{{ icon('book') }}</span><div><h4>La formation</h4><p>{{ item.training_title or 'Intitulé non communiqué' }}</p></div></div><dl class="wc-facts wc-facts-two">
+        {{ fact('RNCP', item.rncp) }}{{ fact('Code diplôme', item.diploma_code) }}{{ fact('Début de formation', item.get('training_start')|wedof_date) }}{{ fact('Fin de formation', item.get('training_end')|wedof_date) }}{{ fact('Durée en centre · heures', item.training_hours) }}{{ fact('Dont à distance · heures', item.remote_hours) }}
+      </dl></section>
+    </div>
+  </section>
+  <section class="wc-subpanel" id="wc-{{ key }}-company" role="tabpanel" aria-labelledby="wc-{{ key }}-tab-company" data-wc-panel="company" tabindex="0" hidden>
+    <div class="wc-section-title"><div><p class="wc-eyebrow">LES INTERLOCUTEURS DE L’ALTERNANCE</p><h4>L’entreprise & le maître d’apprentissage</h4></div></div>
+    <div class="wc-detail-grid wc-company-grid">
+      <section class="wc-inset-card"><div class="wc-card-heading"><span class="wc-section-icon tone-blue">{{ icon('briefcase') }}</span><div><h4>{{ item.employer_name or 'Entreprise non communiquée' }}</h4><p>Entreprise d’accueil</p></div></div><dl class="wc-facts wc-facts-two">
+        {{ fact('SIRET', item.employer_siret) }}{{ fact('Téléphone', item.employer_phone) }}{{ fact('E-mail', item.employer_email) }}{{ fact('Adresse', ((item.get('employer_address') or '') ~ ' ' ~ (item.get('employer_postcode') or '') ~ ' ' ~ (item.get('employer_city') or ''))|trim) }}
+      </dl></section>
+      <section class="wc-inset-card wc-tutor-card"><span class="wc-tutor-icon">{{ icon('person') }}</span><p class="wc-eyebrow">MAÎTRE D’APPRENTISSAGE</p><h4>{{ item.tutor_name or 'Non communiqué' }}</h4><p class="wc-tutor-description">Le référent de l’étudiant au sein de l’entreprise.</p><dl class="wc-facts wc-facts-two">{{ fact('E-mail du maître d’apprentissage', item.tutor_email) }}</dl></section>
+    </div>
+  </section>
+  <section class="wc-subpanel" id="wc-{{ key }}-schedule" role="tabpanel" aria-labelledby="wc-{{ key }}-tab-schedule" data-wc-panel="schedule" tabindex="0" hidden>
+    <div class="wc-section-title"><div><p class="wc-eyebrow">FINANCEMENT & RÈGLEMENTS</p><h4>Échéancier OPCO</h4></div><span class="wc-source-pill">{{ account.schedules|length }} échéance{{ 's' if account.schedules|length != 1 else '' }}</span></div>
+    <p class="wc-help">L’ouverture à facturation indique quand l’échéance peut être facturée. Les montants réglés et en instruction sont ceux communiqués par l’OPCO.</p>
+    {% if account.schedules %}
+    <div class="wc-schedule-filters" role="group" aria-label="Filtrer les échéances"><button type="button" data-wc-filter="all" aria-pressed="true">Toutes <b>{{ account.schedules|length }}</b></button>{% for code,label in [('paid','Réglées'),('upcoming','À venir'),('open','Ouvertes'),('pending','En instruction'),('stale','À vérifier'),('unknown','Non communiqué')] %}{% if account.counts[code] %}<button type="button" class="due-{{ code }}" data-wc-filter="{{ code }}" aria-pressed="false"><i></i>{{ label }} <b>{{ account.counts[code] }}</b></button>{% endif %}{% endfor %}</div>
+    <div class="wc-table-wrap" role="region" aria-label="Échéances du contrat {{ item.external_number }}" tabindex="0"><table class="wc-table wc-schedule-table"><thead><tr><th>Échéance / période</th><th>Ouverture à facturation</th><th>Montant</th><th>Réglé</th><th>En instruction</th><th>Reste à régler</th><th>État</th></tr></thead><tbody>
+      {% for due in account.schedules %}<tr data-wc-due="{{ due.status_code }}"><td class="wc-due-name"><span class="wc-due-number due-{{ due.status_code }}">{{ due.numero or loop.index }}</span><div><strong>{{ due.codification or ('Échéance ' ~ (due.numero or loop.index)) }}</strong><small>{% if due.dateDebut or due.dateFin %}{{ due.dateDebut|wedof_date }} → {{ due.dateFin|wedof_date }}{% else %}Période non communiquée{% endif %}</small></div></td><td data-label="Ouverture à facturation">{{ due.dateOuverture|wedof_date }}</td><td data-label="Montant"><strong>{{ due.get('montantTotal')|wedof_money }}</strong></td><td data-label="Réglé" class="wc-paid-value">{{ due.get('montantRegle')|wedof_money }}{% if due.paid_percent is not none %}<progress class="wc-mini-progress" max="100" value="{{ due.paid_percent }}" aria-label="Part réglée de l’échéance {{ due.numero or loop.index }}">{{ due.paid_percent }} %</progress>{% endif %}</td><td data-label="En instruction">{{ due.get('montantEnCoursInstruction')|wedof_money }}</td><td data-label="Reste à régler"><strong>{{ due.remaining|wedof_money }}</strong></td><td data-label="État">{{ state_badge(due) }}</td></tr>{% endfor %}
+    </tbody></table></div><p class="wc-filter-empty wc-empty-small" hidden>Aucune échéance pour ce filtre.</p>
+    {% else %}<div class="wc-empty-small">{{ 'Aucune échéance transmise par l’OPCO pour ce contrat.' if not item.raw_stale else 'Échéancier indisponible. Les autres informations du contrat restent consultables.' }}</div>{% endif %}
+  </section>
+  <section class="wc-subpanel" id="wc-{{ key }}-extras" role="tabpanel" aria-labelledby="wc-{{ key }}-tab-extras" data-wc-panel="extras" tabindex="0" hidden>
+    <div class="wc-section-title"><div><p class="wc-eyebrow">PRISES EN CHARGE COMPLÉMENTAIRES</p><h4>Frais annexes & financement</h4></div></div>
+    <section class="wc-inset-card"><div class="wc-card-heading"><span class="wc-section-icon tone-orange">{{ icon('plus') }}</span><div><h4>Les engagements de frais annexes</h4><p>Ils sont présentés séparément du financement de la formation.</p></div></div>
+      {% if item.extra_costs_available %}{% if item.extra_costs %}<div class="wc-table-wrap"><table class="wc-table wc-extra-table"><thead><tr><th>Nature des frais</th><th>Quantité</th><th>Prix unitaire</th><th>Total</th></tr></thead><tbody>{% for fee in item.extra_costs %}<tr><td>{{ fee.natureFrais or 'Non communiquée' }}</td><td>{{ fee.quantite if fee.quantite is not none else 'Non communiquée' }}</td><td>{{ fee.prixUnitaire|wedof_money }}</td><td><strong>{{ fee.montantTotal|wedof_money }}</strong></td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="wc-empty-small">Aucun engagement de frais annexe communiqué.</p>{% endif %}{% else %}<p class="wc-empty-small">Les frais annexes ne sont pas disponibles dans les données OPCO reçues.</p>{% endif %}
+    </section>
+    {% if item.billing_details_available %}<section class="wc-inset-card"><div class="wc-card-heading"><span class="wc-section-icon tone-purple">{{ icon('shield') }}</span><div><h4>Les plafonds et règlements</h4><p>Informations complémentaires transmises par l’OPCO</p></div></div><dl class="wc-facts">{{ fact('Plafond premier équipement', item.billing_details.get('plafondFraisPremierEquipement')|wedof_money) }}{{ fact('Plafond mobilité', item.billing_details.get('plafondFraisMobilite')|wedof_money) }}{% for field,label in [('fraisPremierEquipementRegles','Premier équipement réglé'),('fraisMobiliteRegles','Mobilité réglée')] %}{{ fact(label, 'Oui' if item.billing_details.get(field) is sameas true else 'Non' if item.billing_details.get(field) is sameas false else 'Non communiqué') }}{% endfor %}</dl></section>{% endif %}
+  </section>
+  <footer class="wc-contract-footer"><span>{{ icon('shield') }} Informations transmises par WEDOF et l’OPCO.</span><button type="button" class="wc-unlink" data-wc-unlink="{{ key }}">Retirer le lien</button></footer>
 </article>
-{% else %}<section class="wc-empty sheet-card"><span class="wc-empty-icon" aria-hidden="true">↔</span><h3>Aucun contrat rattaché</h3><p>À l’ouverture de cet onglet, le contrat de {{ row.prenom }} est recherché dans WEDOF à partir de son e-mail et de son identité. Une correspondance unique et vérifiée est rattachée automatiquement.</p><div class="wc-empty-actions">{% if configured %}<button type="button" class="btn primary" data-wc-detect>Rechercher automatiquement</button>{% endif %}<button type="button" class="btn" data-wc-open>Rechercher par référence</button></div></section>{% endfor %}
+{% else %}<section class="wc-empty sheet-card"><span class="wc-empty-icon">{{ icon('search') }}</span><p class="wc-eyebrow">RETROUVEZ SON CONTRAT</p><h3>Le suivi de l’alternance commence ici</h3><p>Le contrat de {{ row.prenom }} est recherché automatiquement dans WEDOF à partir de son e-mail et de son identité. Vous pouvez également utiliser sa référence.</p><div class="wc-empty-actions">{% if configured %}<button type="button" class="btn primary" data-wc-detect>{{ icon('spark') }} Rechercher automatiquement</button>{% endif %}<button type="button" class="btn" data-wc-open>Rechercher par référence</button></div></section>{% endfor %}
