@@ -24,7 +24,7 @@
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-integrale.png') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
-  {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
+  {% if not is_admin and not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
   <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -81,7 +81,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if has_student_navigation %}student-portal-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_trainer_portal %}trainer-portal-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
 
-    {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
+    {% if not is_admin and not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
     <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PKTXJCXF"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>

@@ -1,0 +1,46 @@
+{% macro fact(label, value) %}<div><dt>{{ label }}</dt><dd>{{ value if value is defined and value is not none and value != '' else 'Non communiqué' }}</dd></div>{% endmacro %}
+{% if not configured %}<div class="wc-message wc-warning">La connexion WEDOF reste à configurer. <a href="/admin/parametres#wedof">Ouvrir les paramètres WEDOF →</a></div>{% endif %}
+{% for contract in contracts %}{% set item = contract.item %}{% set account = contract.billing %}
+<article class="wc-contract sheet-card" data-contract-id="{{ item.working_contract_id }}">
+  <header class="wc-contract-header"><div><p class="wc-eyebrow">{{ wedof_financers.get(item.financer, 'OPCO') }}</p><h3>{{ item.employer_name or 'Entreprise non communiquée' }}</h3><p>Contrat {{ item.external_number or item.working_contract_id }}{% if item.deca_number %} · DECA {{ item.deca_number }}{% endif %}</p></div><span class="wc-status state-{{ item.state }}">{{ item.state_label }}</span></header>
+  <div class="wc-sync"><span>Dernière lecture : {{ contract.checked_at|wedof_stamp }}</span><button class="btn" type="button" data-wc-refresh="{{ item.working_contract_id }}" {% if not configured %}disabled{% endif %}>Actualiser depuis WEDOF</button></div>
+  {% if contract.error or item.raw_stale or item.details_error %}<p class="wc-message wc-warning">{{ contract.error or item.raw_error or item.details_error or 'Les données OPCO restent à vérifier.' }}{% if item.raw_checked_at %} Dernier échéancier vérifié : {{ item.raw_checked_at|wedof_stamp }}.{% endif %}</p>{% endif %}
+  <div class="wc-metrics">
+    <div><span>Engagement OPCO</span><strong>{{ item.engagement|wedof_money }}</strong></div>
+    <div><span>Réglé · échéancier</span><strong>{{ account.paid|wedof_money }}</strong></div>
+    <div><span>En instruction</span><strong>{{ account.pending|wedof_money }}</strong></div>
+    <div><span>Reste à régler</span><strong>{{ account.remaining|wedof_money }}</strong></div>
+  </div>
+  {% if item.raw_stale %}<p class="wc-help">Les montants et échéances précédemment enregistrés sont affichés à titre indicatif, en attente d’une actualisation réussie.</p>{% endif %}
+  <section class="wc-section"><h4>Le contrat</h4><dl class="wc-facts">
+    {{ fact('Identifiant WEDOF', item.working_contract_id) }}{{ fact('Dossier de formation', item.registration_id) }}
+    {{ fact('Numéro interne OPCO', item.internal_number) }}{{ fact('Type de contrat · code CERFA', item.contract_type) }}
+    {{ fact('Début du contrat', item.contract_start|wedof_date) }}{{ fact('Fin du contrat', item.contract_end|wedof_date) }}
+    {{ fact('Signature / conclusion', item.contract_conclusion|wedof_date) }}{{ fact('Avenant', item.amendment_date|wedof_date) }}
+    {{ fact('Date de rupture', item.contract_break_date|wedof_date) }}{{ fact('Salaire brut à l’embauche', item.get('gross_salary')|wedof_money) }}
+  </dl></section>
+  <section class="wc-section"><h4>L’apprenti et sa formation</h4><dl class="wc-facts">
+    {{ fact('Nom et prénom', ((item.get('apprentice_first_name') or '') ~ ' ' ~ (item.get('apprentice_last_name') or ''))|trim) }}{{ fact('Date de naissance', item.get('apprentice_birth_date')|wedof_date) }}
+    {{ fact('E-mail', item.apprentice_email) }}{{ fact('Téléphone', item.apprentice_phone) }}
+    {{ fact('Adresse', ((item.get('apprentice_address') or '') ~ ' ' ~ (item.get('apprentice_postcode') or '') ~ ' ' ~ (item.get('apprentice_city') or ''))|trim) }}
+    {{ fact('Formation', item.training_title) }}{{ fact('RNCP', item.rncp) }}{{ fact('Code diplôme', item.diploma_code) }}
+    {{ fact('Début de formation', item.get('training_start')|wedof_date) }}{{ fact('Fin de formation', item.get('training_end')|wedof_date) }}
+    {{ fact('Durée en centre · heures', item.training_hours) }}{{ fact('Dont à distance · heures', item.remote_hours) }}
+  </dl></section>
+  <section class="wc-section"><h4>L’entreprise et le maître d’apprentissage</h4><dl class="wc-facts">
+    {{ fact('Entreprise', item.employer_name) }}{{ fact('SIRET', item.employer_siret) }}
+    {{ fact('E-mail entreprise', item.employer_email) }}{{ fact('Téléphone entreprise', item.employer_phone) }}
+    {{ fact('Adresse entreprise', ((item.get('employer_address') or '') ~ ' ' ~ (item.get('employer_postcode') or '') ~ ' ' ~ (item.get('employer_city') or ''))|trim) }}
+    {{ fact('Maître d’apprentissage', item.tutor_name) }}{{ fact('E-mail du maître d’apprentissage', item.tutor_email) }}
+  </dl></section>
+  <section class="wc-section"><h4>Échéancier OPCO</h4><p class="wc-help">La date d’ouverture indique à partir de quand l’échéance peut être facturée. Les règlements et montants en instruction sont ceux communiqués par l’OPCO.</p>
+  {% if account.schedules %}<div class="wc-table-wrap" role="region" aria-label="Échéances du contrat {{ item.external_number }}" tabindex="0"><table class="wc-table"><thead><tr><th>Échéance / période</th><th>Ouverture à facturation</th><th>Montant</th><th>Réglé</th><th>En instruction</th><th>Reste à régler</th><th>État</th></tr></thead><tbody>
+  {% for due in account.schedules %}<tr><td><strong>{{ due.numero or loop.index }}{% if due.codification %} · {{ due.codification }}{% endif %}</strong><small>{% if due.dateDebut or due.dateFin %}{{ due.dateDebut|wedof_date }} → {{ due.dateFin|wedof_date }}{% else %}Période non communiquée{% endif %}</small></td><td>{{ due.dateOuverture|wedof_date }}</td><td>{{ due.get('montantTotal')|wedof_money }}</td><td>{{ due.get('montantRegle')|wedof_money }}</td><td>{{ due.get('montantEnCoursInstruction')|wedof_money }}</td><td>{{ due.remaining|wedof_money }}</td><td><span class="wc-due-status">{{ due.status }}</span></td></tr>{% endfor %}
+  </tbody></table></div>{% else %}<div class="wc-empty-small">{{ 'Aucune échéance transmise par l’OPCO pour ce contrat.' if not item.raw_stale else 'Échéancier indisponible. Les autres informations du contrat restent consultables.' }}</div>{% endif %}</section>
+  <details class="wc-extra"><summary>Frais annexes et informations de financement</summary>
+    {% if item.extra_costs_available %}{% if item.extra_costs %}<div class="wc-table-wrap"><table class="wc-table"><thead><tr><th>Nature des frais</th><th>Quantité</th><th>Prix unitaire</th><th>Total</th></tr></thead><tbody>{% for fee in item.extra_costs %}<tr><td>{{ fee.natureFrais or 'Non communiquée' }}</td><td>{{ fee.quantite if fee.quantite is not none else 'Non communiquée' }}</td><td>{{ fee.prixUnitaire|wedof_money }}</td><td>{{ fee.montantTotal|wedof_money }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="wc-help">Aucun engagement de frais annexe communiqué.</p>{% endif %}{% else %}<p class="wc-help">Les frais annexes ne sont pas disponibles dans les données OPCO reçues.</p>{% endif %}
+    {% if item.billing_details_available %}<dl class="wc-facts">{{ fact('Plafond premier équipement', item.billing_details.get('plafondFraisPremierEquipement')|wedof_money) }}{{ fact('Plafond mobilité', item.billing_details.get('plafondFraisMobilite')|wedof_money) }}{% for key, label in [('fraisPremierEquipementRegles','Premier équipement réglé'),('fraisMobiliteRegles','Mobilité réglée')] %}{{ fact(label, 'Oui' if item.billing_details.get(key) is sameas true else 'Non' if item.billing_details.get(key) is sameas false else 'Non communiqué') }}{% endfor %}</dl>{% endif %}
+  </details>
+  <footer class="wc-contract-footer"><p>Informations issues de WEDOF et de l’OPCO. Les champs manquants restent indiqués comme non communiqués.</p><button type="button" class="wc-unlink" data-wc-unlink="{{ item.working_contract_id }}">Retirer le lien</button></footer>
+</article>
+{% else %}<section class="wc-empty sheet-card"><span class="wc-empty-icon" aria-hidden="true">↔</span><h3>Aucun contrat rattaché</h3><p>Retrouvez le contrat WEDOF de {{ row.prenom }}, puis consultez ici ses informations et son échéancier OPCO.</p><button type="button" class="btn primary" data-wc-open>Rattacher son premier contrat</button></section>{% endfor %}

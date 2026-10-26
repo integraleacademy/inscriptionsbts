@@ -1,0 +1,15 @@
+<div class="wc-preview-card">
+  <p class="wc-eyebrow">VÉRIFIER AVANT DE RATTACHER</p><h3>{{ item.apprentice_first_name or 'Prénom non communiqué' }} {{ item.apprentice_last_name or 'Nom non communiqué' }}</h3>
+  <p class="wc-message {{ 'wc-error' if identity.status == 'mismatch' else '' }}">{{ identity.message }}</p>
+  <dl class="wc-facts">
+    <div><dt>Contrat OPCO</dt><dd>{{ item.external_number or 'Non communiqué' }}</dd></div>
+    <div><dt>N° DECA</dt><dd>{{ item.deca_number or 'Non communiqué' }}</dd></div>
+    <div><dt>Entreprise</dt><dd>{{ item.employer_name or 'Non communiquée' }}</dd></div>
+    <div><dt>SIRET</dt><dd>{{ item.employer_siret or 'Non communiqué' }}</dd></div>
+    <div><dt>Formation</dt><dd>{{ item.training_title or 'Non communiquée' }}</dd></div>
+    <div><dt>Période du contrat</dt><dd>{{ item.contract_start|wedof_date }} → {{ item.contract_end|wedof_date }}</dd></div>
+  </dl>
+  {% if item.details_error or item.raw_error %}<p class="wc-message wc-warning">Certaines informations n’ont pas pu être récupérées. {{ item.details_error or '' }} {{ item.raw_error or '' }}</p>{% endif %}
+  {% if identity.status == 'unverified' %}<label class="wc-confirm"><input type="checkbox" id="wc-confirm-identity"> J’ai vérifié que ce contrat concerne bien {{ row.prenom }} {{ row.nom }}.</label>{% endif %}
+  {% if identity.status != 'mismatch' %}<button class="btn primary" type="button" id="wc-link">Rattacher ce contrat à l’étudiant</button>{% endif %}
+</div>

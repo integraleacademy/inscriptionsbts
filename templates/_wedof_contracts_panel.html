@@ -1,0 +1,19 @@
+<div class="wc-heading"><div><p class="wc-eyebrow">ALTERNANCE · WEDOF</p><h2>Contrat d’apprentissage</h2><p>Le contrat, son financement et les échéances de votre étudiant.</p></div><button class="btn primary" type="button" id="wc-add">Rattacher un contrat</button></div>
+<p class="wc-message" id="wc-notice" role="status" hidden></p>
+<p class="wc-message wc-error" id="wc-error" role="alert" hidden></p>
+<div id="wc-list"><p class="wc-loading">Chargement des contrats…</p></div>
+<section class="sheet-card wc-search" id="wc-search" hidden aria-labelledby="wc-search-title">
+  <div class="wc-heading"><div><h3 id="wc-search-title">Retrouver un contrat</h3><p>Recherchez sa référence, vérifiez l’aperçu puis rattachez-le à {{ row.prenom }} {{ row.nom }}.</p></div><button type="button" class="btn" id="wc-close-search">Fermer</button></div>
+  <form id="wc-search-form">
+    <div class="wc-form-grid">
+      <label>Type de référence<select name="kind" id="wc-kind"><option value="number">Numéro de contrat OPCO ou DECA</option><option value="wedof">Identifiant du contrat WEDOF</option><option value="folder">Référence du dossier de formation WEDOF</option></select></label>
+      <label>OPCO<select name="financer" id="wc-financer" required><option value="">Choisir un OPCO</option>{% for code, label in wedof_financers.items() %}<option value="{{ code }}">{{ label }}</option>{% endfor %}</select></label>
+      <label class="wc-reference">Référence exacte<input type="text" name="reference" id="wc-reference" maxlength="120" required autocomplete="off" placeholder="Numéro de contrat ou DECA" aria-describedby="wc-reference-help"></label>
+    </div>
+    <p id="wc-reference-help" class="wc-help">Reprenez le numéro figurant sur votre dossier OPCO. Vous pouvez aussi utiliser l’identifiant du contrat ou du dossier de formation dans WEDOF.</p>
+    <button class="btn primary" type="submit">Rechercher le contrat</button>
+  </form>
+  <div id="wc-results" aria-live="polite"></div>
+  <div id="wc-preview" hidden></div>
+</section>
+<script src="{{ url_for('static', filename='js/wedof-contracts.js') }}?v=1" defer></script>

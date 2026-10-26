@@ -97,6 +97,14 @@ def run_startup_integrity_checks():
         "static/js/candidate-photo.js",
         "static/css/candidate-editor.css",
         "candidate_workflows.py",
+        "wedof_contracts.py",
+        "wedof_contract_data.py",
+        "templates/_wedof_contracts_panel.html",
+        "templates/_wedof_contracts_list.html",
+        "templates/_wedof_contract_preview.html",
+        "static/js/wedof-contracts.js",
+        "static/js/wedof-settings.js",
+        "static/css/wedof-contracts.css",
         "trainer_access.py",
         "teaching.py",
         "teaching_reminders.py",
@@ -1056,6 +1064,8 @@ register_company_portal(app, db, lambda *args, **kwargs: send_mail(*args, copy_a
 register_trainer_availability(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
 register_admin_trainer_planning(app, db, require_admin)
 register_planning_sync(app, db, require_admin)
+from wedof_contracts import register_wedof_contracts
+register_wedof_contracts(app, db, require_admin)
 from teaching import register_teaching
 register_teaching(app, db, lambda: UPLOAD_DIR, require_admin)
 from student_workspace import register_student_workspace, student_home_summary

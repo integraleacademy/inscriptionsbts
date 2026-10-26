@@ -21,6 +21,18 @@
     </div>
     <footer><span>La connexion est partagée par les administrateurs de la plateforme.</span><a href="/admin/matieres">Aller aux matières {{ icon('arrow') }}</a></footer>
   </section>
+  {% if wedof_csrf is defined %}<section class="settings-card" id="wedof" data-wedof-csrf="{{ wedof_csrf() }}" aria-labelledby="wedof-title">
+    <header><span class="settings-icon">{{ icon('file') }}</span><div><h2 id="wedof-title">WEDOF · Contrats d’apprentissage</h2><p>Informations des contrats BTS, financement OPCO et échéanciers.</p></div><span id="wedof-status" class="settings-status" role="status">Chargement…</span></header>
+    <div class="settings-content">
+      <p id="wedof-error" class="settings-message error" role="alert" hidden></p><p id="wedof-success" class="settings-message" role="status" hidden></p>
+      <p id="wedof-managed" hidden>La clé WEDOF est configurée sur le serveur.</p>
+      <form id="wedof-form" hidden><label for="wedof-key">Clé API WEDOF</label><input id="wedof-key" type="password" autocomplete="new-password" maxlength="512" minlength="16" required aria-describedby="wedof-key-help"><p id="wedof-key-help" class="settings-help">Utilisez la clé de votre compte WEDOF, comme sur Gestion Stagiaires. Elle est chiffrée sur le serveur et n’est jamais réaffichée.</p><div class="settings-actions"><button id="wedof-save" class="settings-button primary" type="submit">Enregistrer la clé</button><button id="wedof-remove" class="settings-button danger" type="button" hidden>Retirer la clé</button></div></form>
+      <button id="wedof-retry" class="settings-button" type="button" hidden>Réessayer</button>
+      <div class="settings-info"><p>Dans une fiche étudiante, ouvrez « Contrat d’apprentissage », recherchez une référence précise puis vérifiez le dossier avant de le rattacher. Les informations sont conservées pour consultation et peuvent être actualisées toutes les 30 minutes.</p><a href="https://www.wedof.fr/" target="_blank" rel="noopener noreferrer">Ouvrir WEDOF ↗</a></div>
+    </div>
+    <footer><span>Connexion partagée entre les administrateurs. Aucun import global automatique.</span><a href="/admin">Ouvrir les fiches étudiantes {{ icon('arrow') }}</a></footer>
+  </section>{% endif %}
 </div>
 <script src="{{ url_for('static', filename='js/admin-settings.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/wedof-settings.js') }}?v=1" defer></script>
 {% endblock %}
