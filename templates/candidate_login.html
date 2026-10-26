@@ -13,16 +13,19 @@
     </figure>
     <div class="student-login-topics" aria-label="Ton espace étudiant"><span>{{ icon('person') }} Tes informations</span><span>{{ icon('file') }} Tes documents</span><span>{{ icon('book') }} Ton parcours</span></div>
   </aside>
-  <div class="access-form-panel"><span class="access-kicker">HEUREUX DE TE RETROUVER</span><h2>Bienvenue dans ton espace.</h2><p>Connecte-toi avec ton nom de famille et ton mot de passe.</p>
+  <div class="access-form-panel"><span class="access-kicker">HEUREUX DE TE RETROUVER</span><h2>Bienvenue dans ton espace.</h2><p>Connecte-toi avec ton nom de famille ou ton adresse e-mail, et ton mot de passe personnel.</p>
   {% if reset_done %}<div class="access-success" role="status">Ton mot de passe a été modifié. Tu peux maintenant te connecter.</div>{% endif %}
   {% if error %}<div class="access-error" role="alert">{{ error }}</div>{% endif %}
   <form method="post" action="{{ url_for('candidate_login') }}" class="access-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label for="access-name">Nom de famille<input id="access-name" name="nom" value="{{ surname }}" maxlength="100" autocomplete="username" placeholder="DUPONT" required></label>
-    <label for="access-password">Mot de passe<input id="access-password" name="password" type="password" maxlength="128" autocomplete="current-password" placeholder="Ton mot de passe" required></label>
+    <label for="access-name">Nom de famille ou adresse e-mail<input id="access-name" name="nom" value="{{ surname }}" maxlength="254" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="DUPONT ou ton adresse e-mail" required></label>
+    <label for="access-password">Mot de passe<input id="access-password" name="password" type="password" maxlength="128" autocomplete="current-password" placeholder="Ton mot de passe personnel" required></label>
+    <button type="button" class="access-password-toggle" aria-controls="access-password" aria-pressed="false" id="access-password-toggle">Afficher le mot de passe</button>
+    <p id="access-caps-lock" role="status" hidden>La touche Verr. Maj. est activée.</p>
     <button type="submit" class="access-submit">Me connecter</button>
   </form><a href="{{ url_for('student_forgot_password') }}" class="access-forgot">Mot de passe oublié ?</a>
   <div class="access-first"><b>Première connexion ?</b><p>Ton mot de passe initial est ta date de naissance, au format <strong>JJMMAAAA</strong>, sans espaces ni séparateurs.<br>Exemple : 02/01/2000 devient <strong>02012000</strong>.</p><small>Tu choisiras ensuite ton mot de passe personnel.</small></div>
   <div class="access-help"><span>Besoin d’un coup de main ?</span><a href="tel:+33422470768">04 22 47 07 68</a></div><a href="/" class="access-back">Revenir à l’accueil</a></div>
 </section>
+<script src="{{ url_for('static', filename='js/student-login.js') }}?v=1" defer></script>
 {% endblock %}

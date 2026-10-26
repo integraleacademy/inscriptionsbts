@@ -100,6 +100,13 @@ def run_startup_integrity_checks():
         "trainer_access.py",
         "teaching.py",
         "teaching_reminders.py",
+        "gradebook.py",
+        "curriculum_topics.py",
+        "templates/gradebook.html",
+        "static/js/gradebook.js",
+        "static/js/student-login.js",
+        "static/css/gradebook.css",
+        "static/css/trainer-portal.css",
         "templates/teaching_course.html",
         "templates/teaching_index.html",
         "static/js/teaching.js",
@@ -222,7 +229,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py", "teaching.py", "teaching_reminders.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py", "teaching.py", "teaching_reminders.py", "gradebook.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")

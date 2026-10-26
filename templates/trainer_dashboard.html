@@ -6,7 +6,7 @@
 <div class="trainer-dashboard">
   <div class="trainer-dashboard-topline"><span>{{ icon('shield') }} VOTRE ESPACE FORMATEUR</span><form method="post" action="{{ url_for('trainer_logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="trainer-button">Me déconnecter</button></form></div>
   <header class="trainer-dashboard-heading"><div><p class="trainer-kicker">INTÉGRALE ACADEMY · ÉQUIPE PÉDAGOGIQUE</p><h1>Bonjour {{ trainer.prenom }}<span>.</span></h1><p>Vos promotions, leurs étudiants, un espace pour vous retrouver.</p></div><span class="trainer-dashboard-avatar" aria-hidden="true">{{ (trainer.prenom or '')[:1]|upper }}{{ (trainer.nom or '')[:1]|upper }}</span></header>
-  {% set trainer_portal_active = 'home' %}{% include '_trainer_portal_nav.html' %}
+
   {% include "_portal_today.html" %}
   <div class="trainer-dashboard-summary">
     <section class="trainer-groups-card"><div class="trainer-section-title"><span>{{ icon('book') }}</span><div><p class="trainer-kicker">VOTRE PÉRIMÈTRE</p><h2>Vos promotions.</h2></div></div>

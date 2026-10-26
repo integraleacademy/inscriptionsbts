@@ -70,6 +70,7 @@
     $('ta-calendar-title').textContent = String(data.year);
     $('ta-year-select').value = String(data.year);
     $('ta-month-select').value = '';
+    [...$('ta-month-select').options].forEach(option => { if (/^\d+$/.test(option.value)) option.textContent = monthFormatter.format(new Date(Date.UTC(Number(data.year), Number(option.value), 1, 12))) + ' ' + data.year; });
     months.replaceChildren();
     for (let month = 0; month < 12; month++) {
       const first = new Date(Date.UTC(Number(data.year), month, 1, 12));
@@ -77,7 +78,7 @@
       section.className = 'ta-month'; section.dataset.month = String(month);
       const heading = document.createElement('h3');
       heading.id = 'ta-month-' + month;
-      heading.textContent = monthFormatter.format(first);
+      heading.textContent = monthFormatter.format(first) + ' ' + data.year;
       section.setAttribute('aria-labelledby', heading.id);
       section.appendChild(heading);
       const grid = document.createElement('div');

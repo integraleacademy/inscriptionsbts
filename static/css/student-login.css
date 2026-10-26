@@ -113,3 +113,7 @@ body.student-login-page {
   .student-login-page .access-form-panel { padding: 29px 24px; }
   .student-login-page .access-form-panel h2 { font-size: 30px; }
 }
+
+.academy-ui.student-login-page .access-form .access-password-toggle{justify-self:start;width:auto;min-height:28px;padding:0;background:none;border:0;border-radius:0;box-shadow:none;color:#526587;text-decoration:underline;font-size:12px;font-weight:600;cursor:pointer;text-align:left;margin:-6px 0 0}
+.academy-ui.student-login-page #access-caps-lock{margin:0;color:#9a6511;font-size:12px}
+.academy-ui.student-login-page #access-caps-lock[hidden]{display:none}

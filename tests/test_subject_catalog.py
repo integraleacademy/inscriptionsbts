@@ -33,6 +33,18 @@ def test_catalogue_can_be_created_without_any_promotion(client, db):
         assert conn.execute('SELECT COUNT(*) FROM planning_subjects').fetchone()[0] == 0
 
 
+def test_subject_used_by_independent_evaluation_cannot_be_deleted(client, db):
+    item=create(client)
+    import teaching
+    with db() as conn:
+        teaching.schema(conn)
+        conn.execute('INSERT INTO teaching_homework_groups VALUES(?,?,?)',('evaluation-history','p1',item['id']))
+    response=call(client,'/subject-catalog/'+item['id'],{},'DELETE')
+    assert response.status_code==409
+    with db() as conn:
+        assert conn.execute('SELECT 1 FROM planning_subject_catalog WHERE id=?',(item['id'],)).fetchone()
+
+
 def test_migration_groups_same_subject_by_diploma_without_rewriting_history(client, db):
     with db() as conn:
         conn.execute("UPDATE promotions SET bts='MOS' WHERE id='p2'")

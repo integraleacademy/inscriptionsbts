@@ -6,7 +6,7 @@
   const $ = id => document.getElementById(id), dialog = $('reference-dialog');
   const state = {catalog: null, settings: null, job: null, rows: [], timer: null, polling: false, saving: false, opening: false};
   const API = '/admin/planning/api/references';
-  const textFields = ['exam_unit', 'objectives', 'pedagogical_content', 'exam_format', 'review_note'];
+  const textFields = ['exam_unit', 'objectives', 'curriculum_topics', 'pedagogical_content', 'exam_format', 'review_note'];
   const numericFields = ['coefficient', 'weekly_hours_first', 'weekly_hours_second'];
   const normal = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr').trim().replace(/\s+/g, ' ');
   const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
@@ -138,7 +138,7 @@
     const exam = node('div', 'catalog-form-row'); exam.append(field(row, 'Unité / épreuve', 'exam_unit', 'text', 80), field(row, 'Coefficient d’examen', 'coefficient', 'number')); content.append(exam);
     const optional = node('label', 'reference-check'); row.fields.optional = node('input'); row.fields.optional.type = 'checkbox'; row.fields.optional.checked = !!value.optional; optional.append(row.fields.optional, document.createTextNode(' Enseignement / épreuve facultative')); content.append(optional);
     const hours = node('div', 'catalog-form-row'); hours.append(field(row, 'Horaire scolaire · 1re année (h/semaine)', 'weekly_hours_first', 'number', 80), field(row, 'Horaire scolaire · 2e année (h/semaine)', 'weekly_hours_second', 'number', 80)); content.append(hours);
-    content.append(field(row, 'Objectifs et compétences', 'objectives', 'textarea', 12000), field(row, 'Contenu pédagogique / savoirs associés', 'pedagogical_content', 'textarea', 20000), field(row, 'Modalités d’examen', 'exam_format', 'textarea', 2000), field(row, 'Points à vérifier / notes', 'review_note', 'textarea', 2000), sourceLink(original));
+    content.append(field(row, 'Objectifs et compétences', 'objectives', 'textarea', 12000), field(row, 'Thèmes du référentiel · un intitulé par ligne', 'curriculum_topics', 'textarea', 20000), field(row, 'Contenu pédagogique / savoirs associés', 'pedagogical_content', 'textarea', 20000), field(row, 'Modalités d’examen', 'exam_format', 'textarea', 2000), field(row, 'Points à vérifier / notes', 'review_note', 'textarea', 2000), sourceLink(original));
     if (Object.keys(original.full_text || {}).length) content.append(fullTextDetails(original.full_text));
     if (original.review_note) card.append(node('p', 'reference-row-note', original.review_note));
     detail.append(content); card.append(detail); row.card = card; row.detail = detail;

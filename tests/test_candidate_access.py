@@ -118,7 +118,7 @@ def test_invalid_names_passwords_and_unicode_names_are_handled_generically(acces
     client=access[0]
     wrong=login(access,'wrong-password').data
     missing=login(access,'wrong-password','UNKNOWN').data
-    marker='Nom ou mot de passe incorrect'.encode()
+    marker='Nom, adresse e-mail ou mot de passe incorrect'.encode()
     assert marker in wrong and marker in missing
     assert login(access,DOB_PASSWORD,' DUPRE ').status_code==302
     assert client.post('/espace/connexion',data=dict(csrf_token=token(client),nom='DUPRÉ',password='x'*129)).status_code==200
@@ -283,6 +283,52 @@ def test_csrf_required_including_non_ascii_and_default_secret_fails_closed(acces
 
 def test_deprecated_verification_bookmark_goes_to_new_login(access):
     assert access[0].get('/espace/verification').headers['Location']=='/espace/connexion'
+
+
+def test_email_login_uses_existing_password_without_creating_another_account(access):
+    setup(access)
+    with access[1]() as conn:
+        original=dict(conn.execute('SELECT * FROM student_accounts').fetchone())
+    fresh=access[0].application.test_client()
+    assert login(access,PASSWORD,nom=' CAMILLE@EXAMPLE.TEST ',client=fresh).headers['Location']=='/espace/mon-dossier'
+    with access[1]() as conn:
+        assert dict(conn.execute('SELECT * FROM student_accounts').fetchone())==original
+        assert conn.execute('SELECT COUNT(*) FROM student_accounts').fetchone()[0]==1
+    assert login(access,DOB_PASSWORD,nom='camille@example.test').status_code==200
+
+
+def test_duplicate_surname_and_password_can_be_resolved_by_email(access):
+    setup(access)
+    from werkzeug.security import generate_password_hash
+    with access[1]() as conn:
+        conn.execute("INSERT INTO candidats VALUES('other','DUPRÉ','Alex','alex@example.test','2001-03-04','other-private-slug',2027,'2026-12-02')")
+        conn.execute('INSERT INTO student_accounts VALUES(?,?,0,1,0,0)',('other-account',generate_password_hash(PASSWORD,method='scrypt')))
+        conn.execute("INSERT INTO student_account_members VALUES('other','other-account')")
+    ambiguous=login(access,PASSWORD)
+    assert ambiguous.status_code==200 and 'Plusieurs comptes correspondent' in ambiguous.text
+    assert 'alex@example.test' not in ambiguous.text
+    assert login(access,PASSWORD,nom='camille@example.test').headers['Location']=='/espace/mon-dossier'
+    with access[0].session_transaction() as state: assert state['_student_auth']['candidate_id']=='person'
+
+
+def test_successful_reconnections_do_not_exhaust_login_limit(access):
+    setup(access)
+    for _ in range(candidate_access.LOGIN_LIMIT+2):
+        assert login(access,PASSWORD).headers['Location']=='/espace/mon-dossier'
+    with access[1]() as conn:
+        assert conn.execute("SELECT count(*) FROM student_auth_requests WHERE kind='login'").fetchone()[0]==0
+
+
+def test_password_survives_app_restart_and_contact_correction(access):
+    setup(access)
+    with access[1]() as conn:
+        conn.execute("UPDATE candidats SET email='corrected@example.test' WHERE id='person'")
+    original=access[0].application
+    restarted=Flask(__name__,template_folder=original.template_folder,static_folder=original.static_folder)
+    restarted.secret_key=original.secret_key; restarted.config['TESTING']=True
+    restarted.add_url_rule('/espace/<slug>','espace_candidat',lambda slug:'Dossier')
+    candidate_access.register_candidate_access(restarted,access[1],lambda *args:True)
+    assert login(access,PASSWORD,nom='corrected@example.test',client=restarted.test_client()).headers['Location']=='/espace/mon-dossier'
 
 
 def test_public_ip_limit_ignores_caller_forwarded_headers(access,monkeypatch):

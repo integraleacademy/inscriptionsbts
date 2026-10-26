@@ -191,6 +191,9 @@ def register(app, connect, guard, result, fail, transact):
         def operation(conn, payload):
             if request.method == 'DELETE':
                 find(conn, subject_id)
+                has_gradebook = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='teaching_homework_groups'").fetchone()
+                if has_gradebook and conn.execute('SELECT 1 FROM teaching_homework_groups WHERE subject_id=? LIMIT 1', (subject_id,)).fetchone():
+                    raise PlanningError('Cette matière contient des devoirs ou des évaluations. Elle doit être conservée pour préserver les notes.', status=409)
                 if conn.execute('''SELECT 1 FROM planning_subject_catalog_links l
                     JOIN planning_subjects s ON s.id=l.planning_subject_id WHERE l.subject_id=? LIMIT 1''', (subject_id,)).fetchone():
                     raise PlanningError('Cette matière est préparée dans un planning. Retirez-la des plannings concernés avant de la supprimer du catalogue.', status=409)

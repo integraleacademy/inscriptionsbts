@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block body_class %}teaching-page gradebook-page{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/teaching.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static',filename='css/gradebook.css') }}?v=1">{% endblock %}
+{% block content %}
+{% set teacher = state.role == 'trainer' %}
+<div class="teaching-app" data-gradebook data-csrf="{{ csrf_token }}">
+  {% if not teacher %}<div class="teach-inline"><a class="teach-back" href="/espace/mon-dossier">← Mon espace étudiant</a><a class="teach-back" href="/espace/pedagogie">Mes cours</a></div>{% endif %}
+  <header class="teach-heading"><div><p class="teach-eyebrow">INTÉGRALE ACADEMY · {{ 'ESPACE FORMATEUR' if teacher else 'ESPACE ÉTUDIANT' }}</p><h1>{{ 'Devoirs et notes' if teacher else 'Mes devoirs et mes notes' }}<span>.</span></h1><p>{{ 'Vos devoirs et évaluations, par promotion et par matière. Saisissez les notes à tout moment.' if teacher else 'Retrouve les consignes, les échéances et tes résultats personnels.' }}</p></div></header>
+  <script type="application/json" id="gradebook-state">{{ state|tojson }}</script>
+  <div id="gb-feedback" class="teach-feedback" role="status" aria-live="polite" hidden></div>
+  <div class="gb-toolbar"><div class="gb-filters"><label>Promotion<select id="gb-filter-promotion"><option value="">Toutes les promotions</option>{% for p in state.promotions %}<option value="{{ p.id }}">{{ p.nom }}</option>{% endfor %}</select></label><label>Matière<select id="gb-filter-subject"><option value="">Toutes les matières</option></select></label><label>Rechercher<input type="search" id="gb-search" placeholder="Titre du devoir ou de l’évaluation"></label></div>{% if teacher %}<div class="teach-inline gb-create"><button class="teach-button" type="button" id="gb-new-homework">+ Créer un devoir</button><button class="teach-button primary" type="button" id="gb-new-evaluation">+ Ajouter des notes</button></div>{% endif %}</div>
+  {% if teacher %}
+  <form id="gb-editor" class="teach-card" hidden>
+    <div class="teach-section-heading"><div><p class="teach-eyebrow">UNE PROMOTION, UNE MATIÈRE</p><h2 id="gb-editor-title">Nouveau devoir</h2></div><button class="teach-button" type="button" id="gb-editor-close">Fermer</button></div>
+    <div class="gb-form-grid"><label>Type<select id="gb-kind"><option value="homework">Devoir à rendre</option><option value="evaluation">Évaluation / saisie de notes</option></select></label><label>Promotion<select id="gb-promotion" required><option value="">Choisir une promotion</option>{% for p in state.promotions %}<option value="{{ p.id }}">{{ p.nom }}</option>{% endfor %}</select></label><label>Matière<select id="gb-subject" required><option value="">Choisir une matière</option></select></label></div>
+    <p class="gb-scope-note" id="gb-scope-note" hidden></p>
+    <label>Titre<input id="gb-title" maxlength="160" required placeholder="Étude de cas, contrôle, oral, participation…"></label>
+    <label>Consignes ou description<textarea id="gb-instructions" rows="4" maxlength="12000" placeholder="Consignes du travail à réaliser ou précisions sur l’évaluation."></textarea></label>
+    <div class="gb-form-grid"><label>Date du devoir ou de l’évaluation<input type="date" id="gb-date" min="1900-01-01" max="2200-12-31" required></label><label id="gb-due-label">À rendre le<input type="date" id="gb-due" min="1900-01-01" max="2200-12-31"></label><label>Note sur<input type="number" id="gb-scale" min="0.01" max="1000" step="0.01" value="20" required></label><label>Coefficient<input type="number" id="gb-coefficient" min="0.01" max="100" step="0.01" value="1" required></label></div>
+    <label class="teach-check"><input type="checkbox" id="gb-published"> Publier dans l’espace étudiant, avec les notes et appréciations individuelles</label>
+    <div class="teach-form-footer"><span>La saisie reste possible avant, pendant et après les cours.</span><button class="teach-button primary" type="submit" id="gb-save">Enregistrer le devoir</button></div>
+  </form>
+  <form id="gb-grades" class="teach-card" hidden>
+    <div class="teach-section-heading"><div><p class="teach-eyebrow" id="gb-grades-scope"></p><h2 id="gb-grades-title">Saisir les notes</h2></div><button class="teach-button" type="button" id="gb-grades-close">Fermer</button></div>
+    <p id="gb-grades-publication" class="teach-info"></p>
+    <div id="gb-grades-rows"></div>
+    <div class="teach-form-footer"><span id="gb-average"></span><button type="submit" class="teach-button primary">Enregistrer les notes</button></div>
+  </form>
+  {% endif %}
+  <section class="teach-card gb-list-section"><div class="teach-section-heading"><h2>{{ 'Vos devoirs et évaluations' if teacher else 'Devoirs et évaluations' }}</h2><span class="teach-tag" id="gb-count"></span></div><div id="gb-list"></div></section>
+  <noscript><p class="teach-info">Activez JavaScript pour afficher les devoirs, filtrer les matières et saisir les notes.</p></noscript>
+</div>
+<script src="{{ url_for('static',filename='js/gradebook.js') }}?v=1" defer></script>
+{% endblock %}
