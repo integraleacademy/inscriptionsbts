@@ -214,3 +214,32 @@ def test_bulk_auth_csrf_document_and_selection_limit(batch_env):
     assert submit(client,documents=(BytesIO(b'bad'),'fake.pdf')).status_code==400
     assert submit(client,[str(i) for i in range(201)]).status_code==400
     assert counts(batch_env)==(0,0,0,0)
+
+
+def test_company_work_requires_planning_for_group_then_reuses_it_for_complement(batch_env):
+    client=student(batch_env)
+    reply=submit(client,reason='company_work',documents=[])
+    assert reply.status_code==400 and 'Joins le planning de ton entreprise' in reply.text
+    assert counts(batch_env)==(0,0,0,0)
+    assert submit(client,reason='company_work',documents=(pdf(),'planning-entreprise.pdf')).status_code==303
+    assert request_record(batch_env)['status']=='pending'
+    assert counts(batch_env)==(1,4,1,1)
+    assert decision(batch_env,'needs_info').status_code==303
+    path='/espace/absences/b2'
+    data=hidden(client.get(path));data.update(reason='company_work',message='Le planning joint couvre tous les cours sélectionnés.')
+    assert client.post(path,data=data).status_code==303
+    assert request_record(batch_env)['status']=='pending'
+    assert counts(batch_env)==(1,4,1,3)
+
+
+def test_switching_to_company_work_requires_new_planning_even_with_existing_document(batch_env):
+    client=student(batch_env)
+    assert send(client,reason='illness').status_code==303
+    before=request_record(batch_env)
+    assert send(client,reason='company_work',documents=[]).status_code==400
+    assert request_record(batch_env)==before
+    assert counts(batch_env)==(1,1,1,1)
+    assert send(client,reason='company_work',documents=(pdf(),'planning-entreprise.pdf')).status_code==303
+    assert request_record(batch_env)['reason']=='company_work'
+    assert request_record(batch_env)['status']=='pending'
+    assert counts(batch_env)==(1,1,2,2)

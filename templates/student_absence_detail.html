@@ -15,5 +15,5 @@
 </form></section>{% else %}<section class="sw-card"><h2>{{ icon('check') }} Justificatif validé</h2><p>{{ 'Toutes les absences et tous les retards de cette demande sont justifiés.' if events|length > 1 else 'Cette absence est justifiée.' }} La décision est enregistrée dans ton suivi d’assiduité.</p>{% if submission %}<p>Motif : {{ reasons.get(submission.reason,{}).get('label','Autre situation') }}</p>{% endif %}</section>{% endif %}
 <aside class="sw-help"><h2>Motifs et documents attendus</h2><p>Convocations, maladie, transports et événements familiaux : les pièces demandées dépendent de ta situation. Les durées de congé et les cas particuliers sont vérifiés par l’équipe.</p><a class="sw-link" href="{{ guide_url }}" target="_blank" rel="noopener noreferrer">Consulter le guide des motifs ↗</a></aside>
 </div><aside>{% include '_absence_evidence.html' %}</aside></div></div>
-<script src="{{ url_for('static',filename='js/student-workspace.js') }}?v=2" defer></script>
+<script src="{{ url_for('static',filename='js/student-workspace.js') }}?v=3" defer></script>
 {% endblock %}

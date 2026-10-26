@@ -1,11 +1,13 @@
 """Document guidance, never an automatic decision on an apprentice's rights.
 
-Categories follow the user-supplied Occitanie guide. Its historical ICF rules
-and obsolete leave durations are deliberately not encoded as current law.
+Categories follow the user-supplied Occitanie guide, with the school's common
+case of work scheduled during lessons. Historical ICF rules and obsolete leave
+durations are deliberately not encoded as current law.
 """
 GUIDE_URL = 'https://www.lapprenti.com/upload/docs/droit/Guide_qualification_absences_en_CFA.htm'
 LAW_URL = 'https://www.legifrance.gouv.fr/codes/section_lc/LEGITEXT000006072050/LEGISCTA000006195795/'
 REASONS = (
+    ('company_work', 'Entreprise', 'Présence en entreprise pendant les cours', 'Planning de l’entreprise indiquant ton nom, les dates et les horaires travaillés correspondant aux cours manqués.'),
     ('illness', 'Santé', 'Maladie ou accident avec arrêt', 'Arrêt de travail ou justificatif médical couvrant la période, sans détail sur le diagnostic.'),
     ('maternity', 'Santé', 'Congé maternité', 'Attestation du congé ou arrêt couvrant la période.'),
     ('paternity', 'Santé', 'Congé paternité ou accueil de l’enfant', 'Attestation des dates du congé.'),
@@ -27,3 +29,6 @@ REASONS = (
 )
 REASON_MAP = {key: dict(key=key, group=group, label=label, evidence=evidence)
               for key, group, label, evidence in REASONS}
+REASON_GROUPS = {}
+for reason in REASON_MAP.values():
+    REASON_GROUPS.setdefault(reason['group'], []).append(reason)
