@@ -14,6 +14,11 @@
 @media(max-width:650px){.sw-select-event{display:grid;grid-template-columns:21px minmax(0,1fr);gap:6px 12px;padding:14px}.sw-select-event input{grid-row:1/3}.sw-select-event .sw-badge{grid-column:2;justify-self:start;margin-left:0}.sw-bulk-submit{flex-direction:column;align-items:stretch}.sw-bulk-submit .sw-button{width:100%}.sw-select-list{max-height:440px}}
 
 /* Align the date controls and actions on one baseline. */
+.sw-attendance-stats{grid-template-columns:repeat(5,minmax(0,1fr))}
+.sw-attendance-stats small{display:block;margin-top:6px;color:#60705b;font-size:12px;line-height:1.5}
+.sw-attendance-stats .sw-stat-justified{background:#eaf6ed;border-color:#b9dcc5}
+.sw-attendance-stats .sw-stat-justified strong{color:#176b4c}
+@media(max-width:1000px){.sw-attendance-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.sw-attendance-stats .sw-stat-total{grid-column:1/-1}}
 .student-workspace .sw-range{display:grid;grid-template-columns:repeat(2,minmax(160px,180px)) max-content max-content;align-items:end;gap:16px}
 .student-workspace .sw-range label{margin:0;line-height:1.4}
 .student-workspace .sw-range :is(input,button){height:48px;min-height:48px;margin:0;box-sizing:border-box}
