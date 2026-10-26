@@ -21,13 +21,14 @@ import re
 import secrets
 import sqlite3
 
-from flask import abort, jsonify, redirect, render_template, request, session, url_for, send_file
+from flask import abort, jsonify, redirect, render_template, request, session, url_for, send_file, has_request_context
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from promotions import ensure_promotion_schema, list_promotions
 from planning_holidays import public_holiday_name
 import subject_references
 import subject_catalog
+import planning_years
 
 KINDS={'school','company','holiday','closed'}
 MAX_BATCH=500
@@ -70,6 +71,7 @@ def ensure_planning_schema(conn):
             conn.execute('INSERT INTO planning_migrations(name) VALUES(?)',('shared_courses_v1',))
         subject_references.schema(conn)
         subject_catalog.schema(conn)
+        planning_years.schema(conn)
         conn.execute('RELEASE SAVEPOINT planning_schema')
     except Exception:
         conn.execute('ROLLBACK TO SAVEPOINT planning_schema');conn.execute('RELEASE SAVEPOINT planning_schema');raise
@@ -129,6 +131,15 @@ def _promotion(conn,promotion_id,ready=False):
     result=dict(row)
     if ready and (not result['active'] or not result.get('date_debut') or not result.get('date_fin')):raise PlanningError('Complétez les dates de cette promotion et vérifiez qu’elle est active avant de construire son planning.')
     return result
+
+
+def _planning_period(conn,promotion_id,day=None,period_id=None):
+    if has_request_context():
+        explicit=request.args.get('period_id')
+        if not explicit and request.headers.get('X-Planning-Promotion')==promotion_id:
+            explicit=request.headers.get('X-Planning-Period')
+        period_id=period_id or explicit
+    return planning_years.select(conn,_promotion(conn,promotion_id),period_id,day)
 
 
 def _calendar(conn,promotion_id):
@@ -224,9 +235,12 @@ def _load_courses(conn,start=None,end=None,promotion_id=None,trainer_id=None):
 
 def _subject_minutes(conn,subject_id,exclude_id=None):
     return conn.execute('''SELECT COALESCE(SUM(c.end_min-c.start_min),0) FROM planning_courses c
-        WHERE (? IS NULL OR c.id!=?) AND (c.subject_id=? OR EXISTS(
+        WHERE (? IS NULL OR c.id!=?) AND (NOT EXISTS(SELECT 1 FROM planning_subject_periods WHERE subject_id=?)
+            OR c.date BETWEEN (SELECT p.start_date FROM planning_periods p JOIN planning_subject_periods y ON y.period_id=p.id WHERE y.subject_id=?)
+                          AND (SELECT p.end_date FROM planning_periods p JOIN planning_subject_periods y ON y.period_id=p.id WHERE y.subject_id=?))
+        AND (c.subject_id=? OR EXISTS(
             SELECT 1 FROM planning_course_groups g WHERE g.course_id=c.id AND g.subject_id=?))''',
-        (exclude_id,exclude_id,subject_id,subject_id)).fetchone()[0]
+        (exclude_id,exclude_id,subject_id,subject_id,subject_id,subject_id,subject_id)).fetchone()[0]
 
 
 def _budget_minutes(hours):
@@ -251,7 +265,7 @@ def _annual_hours(value):
     return float(hours)
 
 
-def _subjects(conn,promotion_id=None):
+def _subjects(conn,promotion_id=None,period_id=None):
     if not _has_table(conn,'trainers'):return []
     sql='''SELECT s.*,t.nom,t.prenom,p.nom AS promotion_name,p.bts AS diploma_code FROM planning_subjects s
         LEFT JOIN trainers t ON t.id=s.trainer_id JOIN promotions p ON p.id=s.promotion_id'''
@@ -260,6 +274,11 @@ def _subjects(conn,promotion_id=None):
     items=[]
     for row in conn.execute(sql+' ORDER BY p.nom,s.name',args):
         item=dict(row);item['trainer_name']=f"{item.pop('prenom') or ''} {item.pop('nom') or ''}".strip()
+        period=planning_years.allocation(conn,item['id'])
+        if period_id and (not period or period['id']!=period_id):continue
+        item['period_id']=period['id'] if period else None
+        item['period_start']=period['start_date'] if period else None
+        item['period_end']=period['end_date'] if period else None
         item['catalog_subject_id']=subject_catalog.linked_subject(conn,item['id'])
         item.update(subject_catalog.diploma_details(conn,item['catalog_subject_id'],item['diploma_code'])
             if item['catalog_subject_id'] else subject_references.details(conn,item['id']))
@@ -282,19 +301,26 @@ def get_planning_catalog(conn):
 
 
 def _calendar_version(conn,promotion_id):
-    row=conn.execute('SELECT version FROM planning_calendar_versions WHERE promotion_id=?',(promotion_id,)).fetchone()
+    period=_planning_period(conn,promotion_id)
+    row=conn.execute('SELECT version FROM planning_calendar_versions WHERE promotion_id=?',(period['id'] if period else promotion_id,)).fetchone()
     return row[0] if row else 0
 
 
-def get_planning_snapshot(conn,promotion_id,start=None,end=None):
-    ensure_planning_schema(conn);promotion=_promotion(conn,promotion_id)
+def get_planning_snapshot(conn,promotion_id,start=None,end=None,period_id=None):
+    ensure_planning_schema(conn);cohort=_promotion(conn,promotion_id);promotion=dict(cohort)
+    period=_planning_period(conn,promotion_id,start,period_id)
+    if period:promotion.update(date_debut=period['start_date'],date_fin=period['end_date'])
     start=start or promotion.get('date_debut');end=end or promotion.get('date_fin')
     if start and end:beginning,ending=_range(start,end)
     else:beginning=ending=None
     rules,exceptions=_calendar(conn,promotion_id)
+    if period:
+        rules=[r for r in rules if r['start_date']>=period['start_date'] and r['end_date']<=period['end_date']]
+        exceptions=[e for e in exceptions if planning_years.contains(period,e['date'])]
     days=[_day(promotion,day,rules,exceptions) for day in _dates(beginning,ending)] if beginning else []
     courses=_load_courses(conn,start,end,promotion_id) if beginning else []
-    subjects=_subjects(conn,promotion_id);trainers=[]
+    courses=[c for c in courses if planning_years.contains(period,c['date'])]
+    subjects=_subjects(conn,promotion_id,period['id'] if period else None);trainers=[]
     # A compact all-period index for the date picker, including shared courses.
     scheduled_days=[dict(row) for row in conn.execute('''WITH memberships AS (
         SELECT id AS course_id,subject_id FROM planning_courses WHERE promotion_id=?
@@ -302,12 +328,20 @@ def get_planning_snapshot(conn,promotion_id,start=None,end=None):
     ) SELECT g.subject_id,c.date,COUNT(DISTINCT c.id) AS count
       FROM memberships g JOIN planning_courses c ON c.id=g.course_id
       GROUP BY g.subject_id,c.date ORDER BY c.date,g.subject_id''',(promotion_id,promotion_id))]
+    scheduled_days=[item for item in scheduled_days if planning_years.contains(period,item['date'])]
+    choices=planning_years.periods(cohort)
+    outside=[c for c in _load_courses(conn,promotion_id=promotion_id) if not any(planning_years.contains(y,c['date']) for y in choices)]
     if _has_table(conn,'trainers'):
         trainers=[dict(row) for row in conn.execute('SELECT t.id,t.nom,t.prenom,t.email FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE a.promotion_id=? AND t.active=1 ORDER BY t.nom,t.prenom',(promotion_id,))]
-    return dict(promotion=promotion,days=days,rules=rules,exceptions=exceptions,subjects=subjects,
+    return dict(promotion=promotion,cohort=cohort,period=period,periods=choices,outside_courses=outside,days=days,rules=rules,exceptions=exceptions,subjects=subjects,
                 rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms ORDER BY name')],trainers=trainers,
-                courses=courses,scheduled_days=scheduled_days,calendar_configured=bool(rules or exceptions),calendar_revision=_calendar_version(conn,promotion_id),
+                courses=courses,scheduled_days=scheduled_days,calendar_configured=bool(rules or exceptions),calendar_revision=_period_revision(conn,period),
                 catalog=get_planning_catalog(conn),start=start,end=end)
+
+
+def _period_revision(conn,period):
+    row=conn.execute('SELECT version FROM planning_calendar_versions WHERE promotion_id=?',(period['id'],)).fetchone() if period else None
+    return row[0] if row else 0
 
 
 def _unavailability(conn,trainer_id=None):
@@ -384,6 +418,13 @@ def _conflicts(conn,course,exclude_id=None,pool=None,calendar=None,unavailable=N
     found=[];day=_iso(course['date'])
     for group in _groups(course):
         promotion=_promotion(conn,group['promotion_id'])
+        period=planning_years.allocation(conn,group['subject_id'])
+        if period and not planning_years.contains(period,course['date']):
+            found.append(dict(type='outside_planning_year',message='Ce cours est en dehors de l’année de cette matière.',date=course['date'],promotion_id=group['promotion_id']))
+        if has_request_context() and request.headers.get('X-Planning-Promotion')==group['promotion_id'] and request.headers.get('X-Planning-Period'):
+            selected=_planning_period(conn,group['promotion_id'])
+            if not planning_years.contains(selected,course['date']):
+                found.append(dict(type='outside_planning_year',message='Ce cours est en dehors de l’année affichée.',date=course['date']))
         if not promotion.get('date_debut') or not promotion.get('date_fin') or not promotion['date_debut']<=course['date']<=promotion['date_fin']:
             found.append(dict(type='outside_promotion',message='Ce cours est en dehors des dates de la promotion.',date=course['date'],promotion_id=group['promotion_id']))
         rules,exceptions=calendar if calendar is not None and group['promotion_id']==course['promotion_id'] else _calendar(conn,group['promotion_id'])
@@ -440,9 +481,18 @@ def validate_promotion_change(conn,promotion_id,data):
             WHERE s.promotion_id=? AND d.subject_id IS NULL''',(merged.get('bts'),promotion_id)):
             issues.append(dict(type='subject_diploma',subject_id=row['id'],message='La matière « '+row['name']+' » n’est pas rattachée au nouveau diplôme. Modifiez ses diplômes dans Matières avant de changer cette promotion.'))
     courses=_load_courses(conn,promotion_id=promotion_id)
+    new_periods={p['id']:p for p in planning_years.periods(merged)}
     for course in courses:
         if not merged.get('date_debut') or not merged.get('date_fin') or not merged['date_debut']<=course['date']<=merged['date_fin']:
             issues.append(dict(type='outside_promotion',message='Un cours existant serait en dehors des nouvelles dates.',course_id=course['id'],date=course['date']))
+        if _has_table(conn,'planning_subject_periods'):
+            group=next(g for g in course['groups'] if g['promotion_id']==promotion_id)
+            allocated=planning_years.allocation(conn,group['subject_id'])
+            if allocated and planning_years.contains(allocated,course['date']) and not planning_years.contains(new_periods.get(allocated['id']),course['date']):
+                issues.append(dict(type='outside_planning_year',message='Un cours sortirait de son année. Déplacez-le avant de changer les dates.',course_id=course['id'],date=course['date']))
+    if _has_table(conn,'planning_subject_periods'):
+        for allocated in conn.execute('SELECT DISTINCT y.period_id FROM planning_subject_periods y JOIN planning_subjects s ON s.id=y.subject_id WHERE s.promotion_id=?',(promotion_id,)):
+            if allocated['period_id'] not in new_periods:issues.append(dict(type='planning_year_used',message='Une année contient des matières préparées. Retirez-les avant de supprimer cette année.'))
     for row in conn.execute('SELECT id,start_date,end_date FROM planning_calendar_rules WHERE promotion_id=?',(promotion_id,)):
         if not merged.get('date_debut') or not merged.get('date_fin') or row['start_date']<merged['date_debut'] or row['end_date']>merged['date_fin']:
             issues.append(dict(type='calendar_outside',message='Une règle d’alternance dépasse les nouvelles dates. Modifiez-la avant de réduire la promotion.',rule_id=row['id']))
@@ -522,9 +572,24 @@ def register_planning(app,db_connect,require_admin):
         conn.executemany('INSERT INTO planning_course_groups(course_id,promotion_id,subject_id) VALUES(?,?,?)',[(course_id,g['promotion_id'],g['subject_id']) for g in _groups(course)])
         return course_id
 
-    def touch_calendar(conn,promotion_id):
-        conn.execute('INSERT INTO planning_calendar_versions(promotion_id,version) VALUES(?,1) ON CONFLICT(promotion_id) DO UPDATE SET version=version+1',(promotion_id,))
-        return _calendar_version(conn,promotion_id)
+    def touch_calendar(conn,promotion_id,day=None):
+        period=_planning_period(conn,promotion_id,day)
+        conn.execute('INSERT INTO planning_calendar_versions(promotion_id,version) VALUES(?,1) ON CONFLICT(promotion_id) DO UPDATE SET version=version+1',(period['id'] if period else promotion_id,))
+        return _period_revision(conn,period)
+
+    def scoped_dates(conn,promotion_id,*days,period_id=None):
+        period=_planning_period(conn,promotion_id,days[0] if days else None,period_id)
+        planning_years.require_dates(period,*days)
+        return period
+
+    def check_course_scope(conn,course):
+        pid=request.headers.get('X-Planning-Promotion')
+        if pid and request.headers.get('X-Planning-Period'):
+            if pid not in course['promotion_ids']:raise PlanningError('Ce cours n’appartient pas au planning affiché.',status=409)
+            # Legacy summer courses remain visible in a separate repair list.
+            # They can be moved into the displayed year, never batch-deleted.
+            years=planning_years.periods(_promotion(conn,pid))
+            if any(planning_years.contains(year,course['date']) for year in years):scoped_dates(conn,pid,course['date'])
 
     def existing_course(conn,course_id,payload,require_version=False):
         row=next((c for c in _load_courses(conn) if c['id']==course_id),None)
@@ -580,6 +645,7 @@ def register_planning(app,db_connect,require_admin):
             if view not in ('weekly','annual'):raise PlanningError('Choisissez un export hebdomadaire ou annuel.')
             with closing(connect()) as conn:
                 snapshot=get_planning_snapshot(conn,request.args.get('promotion_id'),request.args.get('start'),request.args.get('end'))
+                if snapshot['period']:planning_years.require_dates(snapshot['period'],snapshot['start'],snapshot['end'])
             if not snapshot['promotion'].get('date_debut') or not snapshot['promotion'].get('date_fin'):
                 raise PlanningError('Complétez les dates de la promotion avant d’exporter le planning.')
             from planning_pdf import build_planning_pdf
@@ -595,6 +661,7 @@ def register_planning(app,db_connect,require_admin):
         values=dict(existing or {});values.update(payload);promotion=_promotion(conn,values.get('promotion_id'),True)
         start,end=_range(values.get('start_date'),values.get('end_date'))
         if start.isoformat()<promotion['date_debut'] or end.isoformat()>promotion['date_fin']:raise PlanningError('La règle doit rester dans les dates de la promotion.')
+        scoped_dates(conn,promotion['id'],start.isoformat(),end.isoformat())
         kind=values.get('kind')
         if not isinstance(kind,str) or kind not in KINDS:raise PlanningError('Choisissez école, entreprise, vacances ou fermeture.')
         return dict(promotion_id=promotion['id'],start_date=start.isoformat(),end_date=end.isoformat(),weekdays=_weekdays(values.get('weekdays')),kind=kind,label=_text(values.get('label',''),'le libellé',180))
@@ -606,7 +673,7 @@ def register_planning(app,db_connect,require_admin):
             rules,exceptions=_calendar(conn,rule['promotion_id']);rules.append(rule)
             reject(_base_rule_conflicts(rules));reject(_course_issues_for_calendar(conn,rule['promotion_id'],rules,exceptions))
             conn.execute('INSERT INTO planning_calendar_rules(id,promotion_id,start_date,end_date,weekdays,kind,label) VALUES(?,?,?,?,?,?,?)',(rule['id'],rule['promotion_id'],rule['start_date'],rule['end_date'],json.dumps(rule['weekdays']),rule['kind'],rule['label']))
-            return dict(rule=rule,calendar_revision=touch_calendar(conn,rule['promotion_id']),message='Règle d’alternance enregistrée.')
+            return dict(rule=rule,calendar_revision=touch_calendar(conn,rule['promotion_id'],rule['start_date']),message='Règle d’alternance enregistrée.')
         return transact(operation)
 
     @app.route('/admin/planning/api/calendar/rules/<rule_id>',methods=['PUT','DELETE'])
@@ -615,37 +682,41 @@ def register_planning(app,db_connect,require_admin):
             row=conn.execute('SELECT * FROM planning_calendar_rules WHERE id=?',(rule_id,)).fetchone()
             if not row:raise PlanningError('Règle introuvable.',status=404)
             existing=dict(row);existing['weekdays']=json.loads(existing['weekdays'])
+            period=scoped_dates(conn,row['promotion_id'],row['start_date'],row['end_date'])
             rules,exceptions=_calendar(conn,row['promotion_id']);rules=[r for r in rules if r['id']!=rule_id]
             if request.method=='PUT':
                 rule=rule_values(conn,payload,existing)
+                planning_years.require_dates(period,rule['start_date'],rule['end_date'])
                 if rule['promotion_id']!=row['promotion_id']:raise PlanningError('Une règle ne peut pas être déplacée vers une autre promotion.')
                 rule['id']=rule_id;rules.append(rule);reject(_base_rule_conflicts(rules))
             reject(_course_issues_for_calendar(conn,row['promotion_id'],rules,exceptions))
             if request.method=='DELETE':
-                conn.execute('DELETE FROM planning_calendar_rules WHERE id=?',(rule_id,));return dict(calendar_revision=touch_calendar(conn,row['promotion_id']),message='Règle supprimée.')
+                conn.execute('DELETE FROM planning_calendar_rules WHERE id=?',(rule_id,));return dict(calendar_revision=touch_calendar(conn,row['promotion_id'],row['start_date']),message='Règle supprimée.')
             conn.execute('UPDATE planning_calendar_rules SET start_date=?,end_date=?,weekdays=?,kind=?,label=? WHERE id=?',(rule['start_date'],rule['end_date'],json.dumps(rule['weekdays']),rule['kind'],rule['label'],rule_id))
-            return dict(rule=rule,calendar_revision=touch_calendar(conn,row['promotion_id']),message='Règle mise à jour.')
+            return dict(rule=rule,calendar_revision=touch_calendar(conn,row['promotion_id'],row['start_date']),message='Règle mise à jour.')
         return transact(operation)
 
     @app.put('/admin/planning/api/calendar/exceptions')
     def planning_exception_put():
         def operation(conn,payload):
             promotion=_promotion(conn,payload.get('promotion_id'),True);day=_iso(payload.get('date')).isoformat();kind=payload.get('kind')
+            scoped_dates(conn,promotion['id'],day)
             if not promotion['date_debut']<=day<=promotion['date_fin'] or not isinstance(kind,str) or kind not in KINDS:raise PlanningError('Choisissez un jour de la promotion et un type de journée valide.')
             if public_holiday_name(day):raise PlanningError('Un jour férié est automatiquement bloqué et ne peut pas être modifié.',[dict(type='public_holiday',date=day)],409)
             label=_text(payload.get('label',''),'le libellé',180);rules,exceptions=_calendar(conn,promotion['id'])
             exceptions=[item for item in exceptions if item['date']!=day]+[dict(date=day,kind=kind,label=label)]
             reject(_course_issues_for_calendar(conn,promotion['id'],rules,exceptions))
             conn.execute('INSERT INTO planning_day_exceptions(promotion_id,date,kind,label) VALUES(?,?,?,?) ON CONFLICT(promotion_id,date) DO UPDATE SET kind=excluded.kind,label=excluded.label',(promotion['id'],day,kind,label))
-            return dict(calendar_revision=touch_calendar(conn,promotion['id']),message='Exception enregistrée.')
+            return dict(calendar_revision=touch_calendar(conn,promotion['id'],day),message='Exception enregistrée.')
         return transact(operation)
 
     @app.delete('/admin/planning/api/calendar/exceptions/<promotion_id>/<day>')
     def planning_exception_delete(promotion_id,day):
         def operation(conn,payload):
             _iso(day);_promotion(conn,promotion_id);rules,exceptions=_calendar(conn,promotion_id)
+            scoped_dates(conn,promotion_id,day)
             reject(_course_issues_for_calendar(conn,promotion_id,rules,[item for item in exceptions if item['date']!=day]))
-            conn.execute('DELETE FROM planning_day_exceptions WHERE promotion_id=? AND date=?',(promotion_id,day));return dict(calendar_revision=touch_calendar(conn,promotion_id),message='Exception supprimée.')
+            conn.execute('DELETE FROM planning_day_exceptions WHERE promotion_id=? AND date=?',(promotion_id,day));return dict(calendar_revision=touch_calendar(conn,promotion_id,day),message='Exception supprimée.')
         return transact(operation)
 
     @app.post('/admin/planning/api/calendar/bulk')
@@ -653,9 +724,11 @@ def register_planning(app,db_connect,require_admin):
         def operation(conn,payload):
             promotion=_promotion(conn,payload.get('promotion_id'),True);expected=payload.get('expected_revision')
             if isinstance(expected,bool) or not isinstance(expected,int) or expected<0:raise PlanningError('Rechargez le calendrier avant de sauvegarder : sa révision est requise.')
-            if expected!=_calendar_version(conn,promotion['id']):raise PlanningError('Le calendrier a été modifié entre-temps. Rechargez-le avant de sauvegarder.',[dict(type='calendar_stale')],409)
             days=payload.get('days')
             if not isinstance(days,list) or not 1<=len(days)<=741:raise PlanningError('Sélectionnez entre 1 et 741 journées à enregistrer.')
+            if any(not isinstance(item,dict) for item in days):raise PlanningError('Les journées du calendrier sont invalides.')
+            period=scoped_dates(conn,promotion['id'],*[_iso(item.get('date')).isoformat() for item in days])
+            if expected!=_period_revision(conn,period):raise PlanningError('Le calendrier a été modifié entre-temps. Rechargez-le avant de sauvegarder.',[dict(type='calendar_stale')],409)
             changed={}
             for item in days:
                 if not isinstance(item,dict):raise PlanningError('Les journées du calendrier sont invalides.')
@@ -668,7 +741,7 @@ def register_planning(app,db_connect,require_admin):
             proposed=[item for item in exceptions if item['date'] not in changed]+list(changed.values())
             reject(_course_issues_for_calendar(conn,promotion['id'],rules,proposed),'Des cours existent sur des journées modifiées. Aucune journée n’a été enregistrée.')
             conn.executemany('INSERT INTO planning_day_exceptions(promotion_id,date,kind,label) VALUES(?,?,?,?) ON CONFLICT(promotion_id,date) DO UPDATE SET kind=excluded.kind,label=excluded.label',[(promotion['id'],item['date'],item['kind'],item['label']) for item in changed.values()])
-            return dict(calendar_revision=touch_calendar(conn,promotion['id']),count=len(changed),message='Calendrier annuel enregistré.')
+            return dict(calendar_revision=touch_calendar(conn,promotion['id'],days[0]['date']),count=len(changed),message='Calendrier annuel enregistré.')
         return transact(operation)
 
     @app.route('/admin/planning/api/rooms',methods=['POST'])
@@ -695,10 +768,17 @@ def register_planning(app,db_connect,require_admin):
         def operation(conn,payload):
             old=conn.execute('SELECT * FROM planning_subjects WHERE id=?',(subject_id,)).fetchone() if subject_id else None
             if subject_id and not old:raise PlanningError('Matière introuvable.',status=404)
+            period=_planning_period(conn,old['promotion_id'] if old else payload.get('promotion_id'),period_id=payload.get('period_id'))
+            allocated=planning_years.allocation(conn,subject_id) if old else None
+            if old and allocated:
+                if request.headers.get('X-Planning-Period') or payload.get('period_id'):
+                    if not period or allocated['id']!=period['id']:raise PlanningError('Cette matière appartient à une autre année.',status=409)
+                else:period=allocated
             if request.method=='DELETE':
                 reject([dict(type='subject_used',message='Cette matière comporte encore des cours. Supprimez ou réaffectez ces cours avant de la retirer.')] if conn.execute('SELECT 1 FROM planning_courses c WHERE c.subject_id=? OR EXISTS(SELECT 1 FROM planning_course_groups g WHERE g.course_id=c.id AND g.subject_id=?) LIMIT 1',(subject_id,subject_id)).fetchone() else [])
                 conn.execute('DELETE FROM planning_subject_details WHERE subject_id=?',(subject_id,))
                 conn.execute('DELETE FROM planning_subject_catalog_links WHERE planning_subject_id=?',(subject_id,))
+                conn.execute('DELETE FROM planning_subject_periods WHERE subject_id=?',(subject_id,))
                 conn.execute('DELETE FROM planning_subjects WHERE id=?',(subject_id,));return dict(message='Matière retirée de ce planning. Sa fiche reste dans le catalogue des diplômes.')
             metadata=subject_references.details(conn,subject_id) if old else {}
             imported=bool(metadata.get('import_id'))
@@ -728,12 +808,14 @@ def register_planning(app,db_connect,require_admin):
                 master=subject_catalog.find(conn,catalog_id)
                 name,color=master['name'],master['color']
             if not old and conn.execute('''SELECT 1 FROM planning_subject_catalog_links l JOIN planning_subjects s ON s.id=l.planning_subject_id
-                WHERE l.subject_id=? AND s.promotion_id=?''',(catalog_id,promotion['id'])).fetchone():
+                LEFT JOIN planning_subject_periods y ON y.subject_id=s.id
+                WHERE l.subject_id=? AND s.promotion_id=? AND y.period_id IS ?''',(catalog_id,promotion['id'],period['id'] if period else None)).fetchone():
                 raise PlanningError('Cette matière est déjà préparée dans le planning de cette promotion.',status=409)
             if old and (name!=master['name'] or color!=master['color'] or any(key in payload for key in (*subject_references.DETAIL_TEXT,*subject_references.DETAIL_NUMBERS,'optional'))):
                 subject_catalog.save(conn,dict(name=name,color=color,diploma_details={promotion['bts']:payload}),catalog_id)
             conn.execute('INSERT INTO planning_subjects(id,promotion_id,name,trainer_id,color,planned_hours) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,trainer_id=excluded.trainer_id,color=excluded.color,planned_hours=excluded.planned_hours',(sid,promotion['id'],name,trainer_id,color,hours))
             if not old:subject_catalog.link_allocation(conn,sid,catalog_id)
+            if period:conn.execute('INSERT OR IGNORE INTO planning_subject_periods VALUES(?,?)',(sid,period['id']))
             subject_references.save_details(conn,sid,payload,metadata or subject_catalog.diploma_details(conn,catalog_id,promotion['bts']))
             return dict(subject=next(item for item in _subjects(conn,promotion['id']) if item['id']==sid),message='Matière enregistrée. Les cours existants conservent leur formateur.')
         return transact(operation)
@@ -752,12 +834,77 @@ def register_planning(app,db_connect,require_admin):
     def planning_course_update(course_id):
         def operation(conn,payload):
             old=existing_course(conn,course_id,payload,require_version=True)
+            check_course_scope(conn,old)
             if request.method=='DELETE':
                 conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course_id,));conn.execute('DELETE FROM planning_courses WHERE id=?',(course_id,));return dict(message='Cours supprimé.')
             course=_course(conn,payload,old)
             if course['promotion_id']!=old['promotion_id']:raise PlanningError('Dupliquez le cours pour le proposer à une autre promotion.')
+            old_period=planning_years.allocation(conn,old['subject_id'])
+            if planning_years.contains(old_period,old['date']):planning_years.require_dates(old_period,course['date'])
             reject(_conflicts(conn,course,exclude_id=course_id));persist(conn,course,course_id)
             return dict(course=next(item for item in _load_courses(conn,course['date'],course['date']) if item['id']==course_id),message='Cours mis à jour.')
+        return transact(operation)
+
+    def deletion_selection(conn,payload):
+        pid=payload.get('promotion_id');_promotion(conn,pid)
+        if not payload.get('period_id'):raise PlanningError('Choisissez explicitement l’année à modifier.')
+        period=_planning_period(conn,pid,period_id=payload['period_id'])
+        if request.headers.get('X-Planning-Period') and request.headers['X-Planning-Period']!=period['id']:
+            raise PlanningError('L’année affichée a changé. Recommencez la sélection.',status=409)
+        courses=_load_courses(conn,period['start_date'],period['end_date'],pid)
+        mode=payload.get('mode')
+        if mode=='subject':
+            sid=payload.get('subject_id');allocated=planning_years.allocation(conn,sid)
+            if not allocated or allocated['id']!=period['id']:raise PlanningError('Choisissez une matière de cette année.')
+            courses=[c for c in courses if c['display_subject_id']==sid]
+        elif mode=='selected':
+            ids=payload.get('course_ids')
+            if not isinstance(ids,list) or not ids or len(ids)>10000 or any(not isinstance(cid,str) for cid in ids) or len(set(ids))!=len(ids):
+                raise PlanningError('Sélectionnez les cours à supprimer.')
+            courses=[c for c in courses if c['id'] in set(ids)]
+            if len(courses)!=len(ids):raise PlanningError('La sélection contient un cours absent ou appartenant à une autre année.',status=409)
+        else:raise PlanningError('Choisissez un lot ou tous les cours d’une matière.')
+        if not courses:raise PlanningError('Aucun cours à supprimer pour cette sélection.',status=409)
+        return period,courses
+
+    @app.post('/admin/planning/api/courses/delete-preview')
+    def planning_delete_preview():
+        guard(True)
+        try:
+            payload=body()
+            with closing(connect()) as conn:
+                conn.execute('BEGIN')
+                period,courses=deletion_selection(conn,payload)
+                selection={key:payload.get(key) for key in ('promotion_id','period_id','mode','subject_id','course_ids')}
+                token=serializer.dumps(dict(action='delete_courses',binding=hashlib.sha256(csrf().encode()).hexdigest(),
+                    selection=selection,period=period,versions={c['id']:c['version'] for c in courses}))
+                return result(preview_token=token,period=period,courses=courses,count=len(courses),
+                              shared_count=sum(c['is_shared'] for c in courses),minutes=sum(c['duration_minutes'] for c in courses))
+        except PlanningError as error:return fail(error)
+
+    @app.post('/admin/planning/api/courses/delete-batch')
+    def planning_delete_batch():
+        def operation(conn,payload):
+            try:preview=serializer.loads(payload.get('preview_token',''),max_age=15*60)
+            except (BadSignature,SignatureExpired,TypeError):raise PlanningError('Cet aperçu a expiré. Vérifiez de nouveau la sélection.',status=409)
+            if preview.get('action')!='delete_courses' or preview.get('binding')!=hashlib.sha256(csrf().encode()).hexdigest():
+                raise PlanningError('Cet aperçu de suppression est invalide.',status=409)
+            period,courses=deletion_selection(conn,preview['selection'])
+            if period!=preview['period'] or {c['id']:c['version'] for c in courses}!=preview['versions']:
+                raise PlanningError('Les cours ont changé depuis la vérification. Aucune suppression effectuée : vérifiez de nouveau la sélection.',status=409)
+            pid=preview['selection']['promotion_id'];detached=0
+            for course in courses:
+                remaining=[g for g in course['groups'] if g['promotion_id']!=pid]
+                if remaining:
+                    conn.execute('DELETE FROM planning_course_groups WHERE course_id=? AND promotion_id=?',(course['id'],pid))
+                    primary=next((g for g in remaining if g['promotion_id']==course['promotion_id']),remaining[0])
+                    conn.execute('UPDATE planning_courses SET promotion_id=?,subject_id=?,version=version+1,updated_at=? WHERE id=?',
+                        (primary['promotion_id'],primary['subject_id'],datetime.now(timezone.utc).isoformat(),course['id']))
+                    detached+=1
+                else:
+                    conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course['id'],))
+                    conn.execute('DELETE FROM planning_courses WHERE id=?',(course['id'],))
+            return dict(count=len(courses),detached_count=detached,message=f'{len(courses)} cours retiré(s) de cette année.')
         return transact(operation)
 
     def batch_items(conn,payload):
@@ -890,6 +1037,7 @@ def register_planning(app,db_connect,require_admin):
             try:preview=serializer.loads(payload.get('preview_token',''),max_age=15*60)
             except (BadSignature,SignatureExpired,TypeError):raise PlanningError('Cet aperçu a expiré. Générez un nouvel aperçu avant de programmer les cours.',status=409)
             if preview.get('binding')!=hashlib.sha256(csrf().encode()).hexdigest():raise PlanningError('Cet aperçu appartient à une autre session. Générez un nouvel aperçu.',status=409)
+            if preview.get('action')=='delete_courses':raise PlanningError('Cet aperçu ne permet pas de créer des cours.',status=409)
             selected=payload.get('selected_keys')
             if not isinstance(selected,list) or not selected or len(selected)>MAX_BATCH or len(set(map(str,selected)))!=len(selected):raise PlanningError('Cochez explicitement les occurrences à programmer.')
             for key in selected:

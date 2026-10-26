@@ -14,6 +14,8 @@
   const monday = value => { const date = parseDate(value); return addDays(value, -(date.getDay() + 6) % 7); };
   const today = () => new Intl.DateTimeFormat('sv-SE', {timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit'}).format(new Date());
   const formatDate = (value, options = {day: 'numeric', month: 'long'}) => parseDate(value).toLocaleDateString('fr-FR', options);
+  const fullDate = value => formatDate(value, {day: 'numeric', month: 'long', year: 'numeric'}).replace(/^1 /, '1er ');
+  const yearLabel = period => period ? 'Année ' + period.number + ' · Du ' + fullDate(period.start_date) + ' au ' + fullDate(period.end_date) : 'Dates à compléter';
   const minutes = value => { const [h, m] = String(value || '00:00').split(':').map(Number); return h * 60 + m; };
   const timeString = value => String(Math.floor(value / 60)).padStart(2, '0') + ':' + String(value % 60).padStart(2, '0');
   const minuteLabel = value => { const total = Math.max(0, Math.round(Number(value) || 0)), h = Math.floor(total / 60), m = total % 60; return h ? h + ' h' + (m ? ' ' + String(m).padStart(2, '0') : '') : m + ' min'; };
@@ -28,7 +30,7 @@
   function formError(form, message) { const node = form.querySelector('.planning-form-error'); if (node) { node.textContent = message || ''; node.hidden = !message; } }
   function failureText(result) { return [result.message || result.error || '', ...(result.conflicts || []).map(conflict => (conflict.date ? formatDate(conflict.date) + ' : ' : '') + conflict.message)].filter(Boolean).join('\n') || 'L’action n’a pas abouti. Rechargez la page puis réessayez.'; }
   async function request(path, {method = 'GET', data, signal} = {}) {
-    const response = await fetch(path.startsWith('/admin/') ? path : API + path, {method, signal, credentials: 'same-origin', headers: {Accept: 'application/json', ...(method !== 'GET' ? {'Content-Type': 'application/json', 'X-CSRF-Token': app.dataset.csrf} : {})}, ...(method !== 'GET' ? {body: JSON.stringify(data || {})} : {})});
+    const response = await fetch(path.startsWith('/admin/') ? path : API + path, {method, signal, credentials: 'same-origin', headers: {Accept: 'application/json', ...(state.periodId ? {'X-Planning-Period': state.periodId, 'X-Planning-Promotion': promotionId()} : {}), ...(method !== 'GET' ? {'Content-Type': 'application/json', 'X-CSRF-Token': app.dataset.csrf} : {})}, ...(method !== 'GET' ? {body: JSON.stringify(data || {})} : {})});
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result.ok === false) { const failure = new Error(failureText(result)); failure.result = result; throw failure; }
     return result;
@@ -106,9 +108,9 @@
         syncedYear = await request('/state?' + new URLSearchParams({promotion_id: id, start: annual.date_debut || state.week.slice(0, 4) + '-01-01', end: annual.date_fin || state.week.slice(0, 4) + '-12-31'}));
         if (seq !== state.loadSeq || id !== promotionId() || !planningSyncSafe({ignoreLoading: true})) return false;
       }
-      state.data = result; state.year = syncedYear;
+      state.data = result; state.year = syncedYear; state.periodId = result.period?.id || '';
       const promotion = result.promotion;
-      if (initial && promotion.date_debut && promotion.date_fin && (today() < promotion.date_debut || today() > promotion.date_fin)) { state.week = monday(promotion.date_debut); return loadState(); }
+      if (promotion.date_debut && promotion.date_fin && (addDays(state.week, 6) < promotion.date_debut || state.week > promotion.date_fin)) { state.week = monday(promotion.date_debut); return loadState(); }
       if (!(result.subjects || []).some(subject => String(subject.id) === state.subject)) state.subject = '';
       renderPromotion(); renderSharedRows($('planning-quick-shared'), state.quickShared, promotionId(), onQuickSharedChange); renderSubjects(); renderCalendar(); renderRules(); renderSlotSelection();
       if (state.view === 'year') await renderYear();
@@ -135,8 +137,17 @@
     state.syncPending = true; refreshChangedPlanning();
   });
   function renderPromotion() {
-    const {promotion, subjects = [], courses = []} = state.data;
-    const details = $('planning-promotion-details'); details.replaceChildren(el('b', '', promotion.nom), el('span', '', 'BTS ' + promotion.bts + ' · ' + (promotion.niveau ? (Number(promotion.niveau) === 1 ? '1re année' : '2e année') : 'Niveau à compléter') + (promotion.date_debut && promotion.date_fin ? ' · Du ' + formatDate(promotion.date_debut, {day: 'numeric', month: 'long', year: 'numeric'}) + ' au ' + formatDate(promotion.date_fin, {day: 'numeric', month: 'long', year: 'numeric'}).replace(/^1 /, '1er ') : ' · Dates à compléter dans Promotions')));
+    const {subjects = [], courses = []} = state.data, promotion = state.data.cohort || state.data.promotion;
+    const details = $('planning-promotion-details'); details.replaceChildren(el('b', '', promotion.nom), el('span', '', 'BTS ' + promotion.bts + ' · ' + (promotion.niveau ? (Number(promotion.niveau) === 1 ? '1re année' : '2e année') : 'Niveau à compléter') + (promotion.date_debut && promotion.date_fin ? ' · Du ' + fullDate(promotion.date_debut) + ' au ' + fullDate(promotion.date_fin) : ' · Dates à compléter dans Promotions')));
+    populate($('planning-school-year'), state.data.periods || [], yearLabel, null, state.periodId);
+    $('planning-school-year').disabled = !(state.data.periods || []).length;
+    $('planning-delete-open').disabled = !state.periodId;
+    $('planning-prev').disabled = state.week <= monday(state.data.promotion.date_debut || state.week);
+    $('planning-next').disabled = addDays(state.week, 7) > (state.data.promotion.date_fin || state.week);
+    $('planning-today').disabled = today() < state.data.promotion.date_debut || today() > state.data.promotion.date_fin;
+    const outside = state.data.outside_courses || []; $('planning-outside').hidden = !outside.length;
+    $('planning-outside-summary').textContent = outside.length + ' cours existant(s) hors des périodes annuelles';
+    $('planning-outside-courses').replaceChildren(...outside.map(course => button(fullDate(course.date) + ' · ' + courseName(course), 'planning-text-button', () => openCourse(course))));
     $('planning-calendar-progress').textContent = state.data.calendar_configured ? 'En place' : 'À préparer';
     $('planning-subject-progress').textContent = subjects.length ? subjects.length + ' matière' + (subjects.length > 1 ? 's' : '') : 'À préparer';
     $('planning-course-progress').textContent = courses.length ? courses.length + ' cours cette semaine' : 'À composer';
@@ -155,7 +166,9 @@
   }
   function shiftPickerMonth(delta) {
     const date = parseDate(state.dateMonth); date.setMonth(date.getMonth() + delta);
-    state.dateMonth = dateString(date).slice(0, 7) + '-01'; renderDatePicker();
+    const target = dateString(date).slice(0, 7) + '-01';
+    if (target.slice(0, 7) < state.data.promotion.date_debut?.slice(0, 7) || target.slice(0, 7) > state.data.promotion.date_fin?.slice(0, 7)) return;
+    state.dateMonth = target; renderDatePicker();
   }
   function pickPlanningDate(date) {
     $('planning-date-dialog').close(); goToWeek(date);
@@ -167,7 +180,7 @@
     $('planning-month').replaceChildren(...Array.from({length: 12}, (_, index) => new Option(new Date(2026, index, 1).toLocaleDateString('fr-FR', {month: 'long'}), String(index))));
     $('planning-month').value = String(monthNumber);
     const years = [year, Number(state.week.slice(0, 4)), Number(today().slice(0, 4)), ...ordered.map(date => Number(date.slice(0, 4))), ...[state.data.promotion.date_debut, state.data.promotion.date_fin].filter(Boolean).map(date => Number(date.slice(0, 4)))];
-    const firstYear = Math.min(...years) - 1, lastYear = Math.max(...years) + 1;
+    const firstYear = Number(state.data.promotion.date_debut?.slice(0, 4)) || Math.min(...years), lastYear = Number(state.data.promotion.date_fin?.slice(0, 4)) || Math.max(...years);
     $('planning-month-year').replaceChildren(...Array.from({length: lastYear - firstYear + 1}, (_, index) => new Option(String(firstYear + index), String(firstYear + index))));
     $('planning-month-year').value = String(year);
     const grid = $('planning-mini-days'); grid.replaceChildren();
@@ -180,6 +193,7 @@
       monthCount += count;
       const control = button(String(day), 'planning-mini-day' + (count ? ' has-course' : '') + (date >= state.week && date <= addDays(state.week, 6) ? ' in-week' : ''), () => pickPlanningDate(date));
       control.dataset.date = date;
+      control.disabled = date < state.data.promotion.date_debut || date > state.data.promotion.date_fin;
       const label = formatDate(date, {weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'}) + (count ? ' · ' + count + ' cours programmé' + (count > 1 ? 's' : '') : ' · Aucun cours programmé');
       control.setAttribute('aria-label', label); control.title = label;
       if (date === today()) control.setAttribute('aria-current', 'date');
@@ -187,6 +201,8 @@
       grid.append(control);
     }
     const monthEnd = dateString(new Date(year, monthNumber, lastDay, 12));
+    $('planning-month-prev').disabled = state.dateMonth.slice(0, 7) <= state.data.promotion.date_debut?.slice(0, 7);
+    $('planning-month-next').disabled = state.dateMonth.slice(0, 7) >= state.data.promotion.date_fin?.slice(0, 7);
     const previous = ordered.filter(date => date < state.dateMonth).at(-1), next = ordered.find(date => date > monthEnd);
     for (const [id, date] of [['planning-course-prev', previous], ['planning-course-next', next]]) {
       const control = $(id); control.disabled = !date; control.dataset.date = date || '';
@@ -197,7 +213,7 @@
   }
   function openDatePicker() {
     if (!state.data || state.loading) return;
-    state.dateMonth = state.week.slice(0, 7) + '-01'; renderDatePicker();
+    state.dateMonth = (state.week < state.data.promotion.date_debut ? state.data.promotion.date_debut : state.week).slice(0, 7) + '-01'; renderDatePicker();
     openDialog('planning-date-dialog', $('planning-mini-days').querySelector('[data-date="' + state.week + '"]') || $('planning-month'));
   }
   function subjectBudget(subject) {
@@ -214,8 +230,8 @@
     if (duration > budget.remaining) return 'Il reste ' + minuteLabel(budget.remaining) + ' ; ce créneau demande ' + minuteLabel(duration) + '.';
     return '';
   }
-  const catalogSubjects = () => state.data?.catalog?.subjects || state.data?.subjects || [];
-  const catalogPromotions = () => state.data?.catalog?.promotions || (state.data?.promotion ? [state.data.promotion] : []);
+  const catalogSubjects = () => (state.data?.catalog?.subjects || state.data?.subjects || []).filter(subject => !subject.period_start || !state.data?.period || (subject.promotion_id === promotionId() ? subject.period_id === state.periodId : subject.period_start <= state.data.period.end_date && subject.period_end >= state.data.period.start_date));
+  const catalogPromotions = () => (state.data?.catalog?.promotions || (state.data?.promotion ? [state.data.promotion] : [])).map(item => state.data?.period ? {...item, date_debut: item.date_debut > state.data.period.start_date ? item.date_debut : state.data.period.start_date, date_fin: item.date_fin < state.data.period.end_date ? item.date_fin : state.data.period.end_date} : item);
   function cleanShared(values, primary) {
     const used = new Set([String(primary)]);
     return values.map(item => {
@@ -233,7 +249,7 @@
       const row = el('div', 'planning-shared-row'), promotionLabel = el('label', '', 'Promotion'), subjectLabel = el('label', '', 'Matière à décompter');
       const promotion = el('select'), subject = el('select'); promotion.required = subject.required = true;
       populate(promotion, catalogPromotions().filter(item => String(item.id) !== String(primary) && item.active !== false && item.active !== 0), item => item.nom || item.name, 'Choisir une promotion', value.promotion_id);
-      populate(subject, catalogSubjects().filter(item => String(item.promotion_id) === String(value.promotion_id)), item => item.name, 'Choisir sa matière', value.subject_id);
+      populate(subject, catalogSubjects().filter(item => String(item.promotion_id) === String(value.promotion_id)), item => item.name + (item.period_start ? ' · ' + item.period_start.slice(0, 4) + '–' + item.period_end.slice(0, 4) : ''), 'Choisir sa matière', value.subject_id);
       promotion.addEventListener('change', () => { values[index] = {promotion_id: promotion.value, subject_id: ''}; renderSharedRows(container, values, primary, change); change(); });
       subject.addEventListener('change', () => { value.subject_id = subject.value; change(); });
       promotionLabel.append(promotion); subjectLabel.append(subject); const remove = button('×', 'planning-shared-remove', () => { values.splice(index, 1); renderSharedRows(container, values, primary, change); change(); }); remove.setAttribute('aria-label', 'Retirer cette promotion du cours'); row.append(promotionLabel, subjectLabel, remove);
@@ -261,7 +277,8 @@
       const status = problem || (state.slot ? check?.status === 'available' ? 'Ajouter sur ce créneau' : check?.reason || 'Vérification des disponibilités…' : state.subject === String(subject.id) ? 'Ouvrez le calendrier pour retrouver ses cours, ou choisissez un créneau.' : 'Cliquez pour retrouver les cours de cette matière.'); card.append(choose, el('p', 'planning-subject-result', status));
       const edit = button(budget.configured ? 'Modifier' : 'Définir le volume annuel', 'planning-text-button', () => openSubject(subject)); edit.setAttribute('aria-label', 'Modifier la matière ' + subject.name);
       const dates = button('Voir les dates', 'planning-text-button', () => { if (state.loading || state.quickBusy) return; state.subject = String(subject.id); state.availabilityReady = false; state.availability.clear(); renderSubjects(); renderAvailability(); openDatePicker(); loadAvailability(); }); dates.setAttribute('aria-label', 'Voir les dates de ' + subject.name);
-      const actions = el('div', 'planning-subject-actions'); actions.append(edit, dates); card.append(actions); container.append(card);
+      const removeCourses = button('Supprimer des cours', 'planning-text-button', () => openDeletion(subject.id)); removeCourses.setAttribute('aria-label', 'Supprimer des cours de ' + subject.name); removeCourses.disabled = !budget.scheduled;
+      const actions = el('div', 'planning-subject-actions'); actions.append(edit, dates, removeCourses); card.append(actions); container.append(card);
     }
     if (!container.children.length) container.append(el('p', 'planning-palette-empty', state.data?.subjects?.length ? 'Aucune matière pour cette recherche.' : 'Choisissez une matière du catalogue, son formateur et son volume annuel pour préparer ce planning.'));
     const prepared = new Set((state.data?.subjects || []).map(item => item.catalog_subject_id));
@@ -284,8 +301,9 @@
   function clearSlot() { state.slot = null; state.slotAnchor = null; state.slotGesture = null; state.slotChecks.clear(); state.slotCheckSeq++; renderSlotSelection(); renderSubjects(); renderAvailability(); }
   function renderSlotSelection() {
     const slot = state.slot, form = $('planning-slot-form'); state.slotFormDirty = false;
+    if (state.data) dateLimits(form);
     if (slot) { form.elements.date.value = slot.date; form.elements.start.value = slot.start; form.elements.end.value = slot.end === '24:00' ? '23:59' : slot.end; }
-    else { form.elements.date.value = state.week; form.elements.start.value = '08:00'; form.elements.end.value = '12:00'; }
+    else { form.elements.date.value = state.week < state.data?.promotion.date_debut ? state.data.promotion.date_debut : state.week; form.elements.start.value = '08:00'; form.elements.end.value = '12:00'; }
     $('planning-slot-summary').textContent = slot ? formatDate(slot.date, {weekday: 'long', day: 'numeric', month: 'long'}) + ' · ' + slot.start + ' – ' + slot.end + ' · ' + minuteLabel(minutes(slot.end) - minutes(slot.start)) + ' sélectionnées. Cliquez sur une matière verte pour créer le cours.' : 'Glissez dans une journée pour sélectionner plusieurs heures, ou utilisez les champs ci-dessus.';
     $('planning-slot-clear').hidden = !slot;
     $('planning-calendar').querySelectorAll('.planning-slot').forEach(cell => { const selected = !!slot && cell.dataset.date === slot.date && minutes(cell.dataset.start) >= minutes(slot.start) && minutes(cell.dataset.start) < minutes(slot.end); cell.classList.toggle('is-time-selected', selected); cell.setAttribute('aria-pressed', String(selected)); });
@@ -569,7 +587,11 @@
     if (state.loading || state.quickBusy || !state.data) return;
     if (!state.data?.subjects?.length) { notice('Préparez une matière avant de créer un cours.'); openSubject(); return; }
     state.courseEdit = course; const form = $('planning-course-form'); form.reset(); dateLimits(form);
-    const values = {...(course || {}), ...overrides}, primary = course?.promotion_id || promotionId(); const subjectId = values.subject_id || state.subject || '';
+    const values = {...(course || {}), ...overrides}, primary = course?.promotion_id || promotionId(); let subjectId = values.subject_id || state.subject || '';
+    if (course && !catalogSubjects().some(item => item.id === subjectId)) {
+      const old = state.data.catalog?.subjects?.find(item => item.id === subjectId);
+      subjectId = catalogSubjects().find(item => item.promotion_id === primary && item.catalog_subject_id === old?.catalog_subject_id)?.id || '';
+    }
     populate(form.elements.subject_id, catalogSubjects().filter(item => String(item.promotion_id) === String(primary)), item => item.name, 'Choisir une matière', subjectId);
     const subject = catalogSubjects().find(item => String(item.id) === String(subjectId));
     populate(form.elements.trainer_id, state.data.catalog?.trainers || state.data.trainers || [], trainerName, 'Choisir un formateur', values.trainer_id || subject?.trainer_id);
@@ -577,7 +599,7 @@
     $('planning-course-primary').textContent = 'Promotion de référence : ' + (catalogPromotions().find(item => String(item.id) === String(primary))?.nom || state.data.promotion.nom);
     renderSharedRows($('planning-course-shared'), state.courseShared, primary, courseSharedChanged);
     populate(form.elements.room_id, state.data.rooms || [], item => item.name + (item.active === false || item.active === 0 ? ' · Inactive' : ''), 'Sans salle attribuée', Object.prototype.hasOwnProperty.call(values, 'room_id') ? (values.room_id || '') : $('planning-room').value);
-    form.elements.date.value = values.date || state.week; form.elements.start.value = values.start || '09:00'; form.elements.end_at_midnight.checked = values.end === '24:00'; form.elements.end.value = values.end === '24:00' ? '23:59' : values.end || '11:00'; form.elements.end.disabled = form.elements.end_at_midnight.checked; form.elements.end.required = !form.elements.end_at_midnight.checked; form.elements.title.value = values.title || '';
+    form.elements.date.value = values.date || (state.week < state.data.promotion.date_debut ? state.data.promotion.date_debut : state.week); form.elements.start.value = values.start || '09:00'; form.elements.end_at_midnight.checked = values.end === '24:00'; form.elements.end.value = values.end === '24:00' ? '23:59' : values.end || '11:00'; form.elements.end.disabled = form.elements.end_at_midnight.checked; form.elements.end.required = !form.elements.end_at_midnight.checked; form.elements.title.value = values.title || '';
     const warning = $('planning-course-warning'), warnings = course ? courseWarnings(course) : []; warning.textContent = warnings.length ? '⚠︎ À compléter : ' + warnings.join(' · ') : ''; warning.hidden = !warnings.length;
     $('planning-course-delete').hidden = !course; $('planning-course-repeat').hidden = !course; $('planning-course-repeat').disabled = false; openDialog('planning-course-dialog', form.elements.subject_id);
   }
@@ -600,6 +622,81 @@
       finally { busyDialog(dialog, false); }
     };
   }
+  async function openDeletion(subjectId = '') {
+    if (state.loading || !state.data?.period) return;
+    const dialog = $('planning-delete-dialog'), period = state.data.period;
+    state.deletion = {courses: [], selected: new Set(), preview: null, period};
+    $('planning-delete-period').textContent = yearLabel(period);
+    populate($('planning-delete-subject'), state.data.subjects, item => item.name, 'Toutes les matières', subjectId);
+    for (const [id, value] of [['planning-delete-from', period.start_date], ['planning-delete-to', period.end_date]]) { $(id).min = period.start_date; $(id).max = period.end_date; $(id).value = value; }
+    showDeletionSelection(); openDialog('planning-delete-dialog'); busyDialog(dialog, true);
+    try {
+      const result = await request('/state?' + new URLSearchParams({promotion_id: promotionId(), period_id: period.id, start: period.start_date, end: period.end_date}));
+      state.deletion.courses = result.courses || [];
+    } catch (failure) { formError(dialog, failure.message); }
+    finally { busyDialog(dialog, false); renderDeletion(); }
+  }
+  function deletionVisible() {
+    const subject = $('planning-delete-subject').value, start = $('planning-delete-from').value, end = $('planning-delete-to').value;
+    return (state.deletion?.courses || []).filter(course => (!subject || course.display_subject_id === subject) && (!start || course.date >= start) && (!end || course.date <= end));
+  }
+  function deletionRow(course, selectable = false) {
+    const row = el(selectable ? 'label' : 'div', 'planning-delete-row');
+    if (selectable) {
+      const checkbox = el('input'); checkbox.type = 'checkbox'; checkbox.value = course.id; checkbox.checked = state.deletion.selected.has(course.id);
+      checkbox.addEventListener('change', () => { if (checkbox.checked) state.deletion.selected.add(course.id); else state.deletion.selected.delete(course.id); renderDeletionCount(); }); row.append(checkbox);
+    }
+    const description = el('span'); description.append(el('b', '', fullDate(course.date) + ' · ' + course.start + '–' + course.end), el('span', '', course.display_subject_name + ' · ' + course.trainer_name + (course.is_shared ? ' · Cours partagé' : ''))); row.append(description);
+    return row;
+  }
+  function renderDeletionCount() {
+    const count = state.deletion?.selected.size || 0, subject = $('planning-delete-subject').value;
+    $('planning-delete-count').textContent = count + ' cours sélectionné(s) sur l’année';
+    $('planning-delete-preview').disabled = !count;
+    $('planning-delete-all-subject').hidden = !subject || !!state.deletion?.preview;
+    $('planning-delete-all-subject').disabled = !subject || !state.deletion?.courses.some(course => course.display_subject_id === subject);
+    $('planning-delete-select-all').disabled = !deletionVisible().length;
+  }
+  function renderDeletion() {
+    const courses = deletionVisible(), list = $('planning-delete-list'); list.replaceChildren(...courses.map(course => deletionRow(course, true)));
+    if (!courses.length) list.append(el('p', '', 'Aucun cours pour ces filtres dans cette année.'));
+    renderDeletionCount();
+  }
+  function showDeletionSelection() {
+    state.deletion.preview = null;
+    for (const id of ['planning-delete-review', 'planning-delete-confirm', 'planning-delete-back']) $(id).hidden = true;
+    for (const id of ['planning-delete-selection', 'planning-delete-preview', 'planning-delete-all-subject']) $(id).hidden = false;
+    renderDeletion();
+  }
+  async function previewDeletion(mode) {
+    const dialog = $('planning-delete-dialog'); if (dialog.dataset.busy) return;
+    const data = {promotion_id: promotionId(), period_id: state.deletion.period.id, mode, ...(mode === 'subject' ? {subject_id: $('planning-delete-subject').value} : {course_ids: [...state.deletion.selected]})};
+    busyDialog(dialog, true); formError(dialog, '');
+    try {
+      const preview = await request('/courses/delete-preview', {method: 'POST', data}); state.deletion.preview = preview;
+      $('planning-delete-summary').textContent = preview.count + ' cours · ' + minuteLabel(preview.minutes) + ' seront retirés du planning ci-dessus. Vérifiez la liste avant de confirmer.';
+      $('planning-delete-shared').textContent = preview.shared_count ? preview.shared_count + ' cours partagé(s) seront retirés de cette promotion et conservés pour les autres promotions.' : '';
+      $('planning-delete-review-list').replaceChildren(...preview.courses.map(course => deletionRow(course)));
+      $('planning-delete-confirm').textContent = 'Supprimer ces ' + preview.count + ' cours';
+      for (const id of ['planning-delete-selection', 'planning-delete-preview', 'planning-delete-all-subject']) $(id).hidden = true;
+      for (const id of ['planning-delete-review', 'planning-delete-confirm', 'planning-delete-back']) $(id).hidden = false;
+    } catch (failure) { formError(dialog, failure.message); }
+    finally { busyDialog(dialog, false); if (state.deletion.preview) $('planning-delete-confirm').focus(); }
+  }
+  $('planning-delete-open').addEventListener('click', () => openDeletion(state.subject));
+  for (const id of ['planning-delete-subject', 'planning-delete-from', 'planning-delete-to']) $(id).addEventListener('change', renderDeletion);
+  $('planning-delete-select-all').addEventListener('click', () => { deletionVisible().forEach(course => state.deletion.selected.add(course.id)); renderDeletion(); });
+  $('planning-delete-clear').addEventListener('click', () => { state.deletion.selected.clear(); renderDeletion(); });
+  $('planning-delete-back').addEventListener('click', showDeletionSelection);
+  $('planning-delete-preview').addEventListener('click', () => previewDeletion('selected'));
+  $('planning-delete-all-subject').addEventListener('click', () => previewDeletion('subject'));
+  $('planning-delete-confirm').addEventListener('click', async () => {
+    const dialog = $('planning-delete-dialog'), preview = state.deletion?.preview; if (!preview || dialog.dataset.busy) return;
+    busyDialog(dialog, true); formError(dialog, '');
+    try { const result = await request('/courses/delete-batch', {method: 'POST', data: {preview_token: preview.preview_token}}); dialog.close(); clearSlot(); notice(result.message); await loadState(); }
+    catch (failure) { formError(dialog, failure.message); }
+    finally { busyDialog(dialog, false); }
+  });
   $('planning-subject-delete').addEventListener('click', () => { if (state.subjectEdit) confirmAction('Retirer « ' + state.subjectEdit.name + ' » de ce planning ? Les cours existants doivent d’abord être réaffectés. La fiche reste dans le catalogue des diplômes.', () => request('/subjects/' + encodeURIComponent(state.subjectEdit.id), {method: 'DELETE'}), 'Matière retirée de ce planning.', 'planning-subject-dialog'); });
   $('planning-period-delete').addEventListener('click', () => { if (state.ruleEdit) confirmAction('Supprimer cette période ? Les jours concernés retrouveront le rythme des autres règles, ou deviendront non définis. Les cours existants seront vérifiés avant toute modification.', () => request('/calendar/rules/' + encodeURIComponent(state.ruleEdit.id), {method: 'DELETE'}), 'Période supprimée.', 'planning-period-dialog'); });
   $('planning-exception-delete').addEventListener('click', () => { if (state.exceptionEdit) confirmAction('Retirer cette exception ? La journée retrouvera le rythme habituel de la promotion.', () => request('/calendar/exceptions/' + encodeURIComponent(promotionId()) + '/' + encodeURIComponent(state.exceptionEdit.date), {method: 'DELETE'}), 'Exception retirée.', 'planning-exception-dialog'); });
@@ -865,11 +962,16 @@
   });
   $('planning-promotion').addEventListener('change', event => {
     const next = event.target.value, previous = String(state.data?.promotion?.id || ''); event.target.value = previous;
-    navigatePlanning(() => { event.target.value = next; notice(''); state.slot = null; state.quickShared = []; state.slotChecks.clear(); state.subject = ''; state.availability.clear(); state.availabilityReady = false; state.week = monday(today()); const url = new URL(location.href); if (next) url.searchParams.set('promotion_id', next); else url.searchParams.delete('promotion_id'); url.searchParams.delete('promotion'); history.replaceState(null, '', url); loadState({initial: true}); });
+    navigatePlanning(() => { event.target.value = next; notice(''); state.periodId = ''; state.slot = null; state.quickShared = []; state.slotChecks.clear(); state.subject = ''; state.availability.clear(); state.availabilityReady = false; state.week = monday(today()); const url = new URL(location.href); if (next) url.searchParams.set('promotion_id', next); else url.searchParams.delete('promotion_id'); url.searchParams.delete('promotion'); url.searchParams.delete('period_id'); history.replaceState(null, '', url); loadState({initial: true}); });
+  });
+  $('planning-school-year').addEventListener('change', event => {
+    const next = event.target.value, period = state.data?.periods.find(item => item.id === next); event.target.value = state.periodId;
+    if (!period || state.loading || state.quickBusy) return;
+    navigatePlanning(() => { state.periodId = next; state.slot = null; state.quickShared = []; state.slotChecks.clear(); state.subject = ''; state.year = null; state.week = monday(period.start_date); notice(''); const url = new URL(location.href); url.searchParams.set('period_id', next); history.replaceState(null, '', url); loadState(); });
   });
   $('planning-view-week').addEventListener('click', () => navigatePlanning(() => selectView('week'))); $('planning-view-year').addEventListener('click', () => selectView('year'));
   $('planning-step-calendar').addEventListener('click', () => selectView('year')); $('planning-step-subjects').addEventListener('click', () => navigatePlanning(() => { selectView('week'); openSubject(); })); $('planning-step-courses').addEventListener('click', () => navigatePlanning(() => { selectView('week'); $('planning-slot-form').elements.date.focus(); }));
-  const goToWeek = date => navigatePlanning(() => { clearSlot(); state.quickShared = []; state.week = monday(date); selectView('week'); loadState(); });
+  const goToWeek = date => navigatePlanning(() => { clearSlot(); state.quickShared = []; const period = state.data?.period; const bounded = period ? (date < period.start_date ? period.start_date : date > period.end_date ? period.end_date : date) : date; state.week = monday(bounded); selectView('week'); loadState(); });
   $('planning-date-open').addEventListener('click', openDatePicker);
   $('planning-month-prev').addEventListener('click', () => shiftPickerMonth(-1));
   $('planning-month-next').addEventListener('click', () => shiftPickerMonth(1));
@@ -888,7 +990,7 @@
       const target = parseDate(date), day = target.getDate(); target.setDate(1); target.setMonth(target.getMonth() + (event.key === 'PageUp' ? -1 : 1));
       target.setDate(Math.min(day, new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate())); next = dateString(target);
     } else return;
-    event.preventDefault(); state.dateMonth = next.slice(0, 7) + '-01'; renderDatePicker(next);
+    event.preventDefault(); if (next < state.data.promotion.date_debut || next > state.data.promotion.date_fin) return; state.dateMonth = next.slice(0, 7) + '-01'; renderDatePicker(next);
   });
   $('planning-prev').addEventListener('click', () => goToWeek(addDays(state.week, -7))); $('planning-next').addEventListener('click', () => goToWeek(addDays(state.week, 7))); $('planning-today').addEventListener('click', () => goToWeek(today())); $('planning-date').addEventListener('change', event => { if (event.target.value) goToWeek(event.target.value); });
   $('planning-subject-search').addEventListener('input', renderSubjects); $('planning-subject-new').addEventListener('click', () => openSubject()); $('planning-duration').addEventListener('change', loadAvailability); $('planning-room').addEventListener('change', () => { state.availabilitySeq++; state.availabilityReady = false; if (state.slot) checkSelectedSlot(); else loadAvailability(); }); $('planning-selection-clear').addEventListener('click', () => { state.subject = ''; state.availabilitySeq++; state.availability.clear(); state.availabilityReady = false; renderSubjects(); renderAvailability(); });
@@ -903,8 +1005,9 @@
   window.addEventListener('beforeunload', event => { if (state.paintDraft.size) { event.preventDefault(); event.returnValue = ''; } });
   $('planning-period-new').addEventListener('click', () => openPeriod()); $('planning-exception-open').addEventListener('click', () => openException()); $('planning-course-new').addEventListener('click', () => openCourse()); $('planning-duplicate-week').addEventListener('click', () => openBatch()); $('planning-course-repeat').addEventListener('click', () => { if (state.courseEdit) openBatch(state.courseEdit); });
   $('planning-rooms-open').addEventListener('click', () => { if (!state.data || state.loading || state.quickBusy) return; resetRoom(); renderRooms(); openDialog('planning-rooms-dialog', $('planning-room-form').elements.name); });
-  $('planning-export-open').addEventListener('click', () => { if (!promotionId() || !state.data) return; if (state.paintDraft.size) { notice('Enregistrez ou annulez le brouillon avant d’exporter.'); return; } const form = $('planning-export-form'); form.elements.view.value = state.view === 'year' ? 'annual' : 'weekly'; form.elements.start.value = state.view === 'year' ? state.data.promotion.date_debut || state.week : state.week; form.elements.end.value = state.view === 'year' ? state.data.promotion.date_fin || addDays(state.week, 6) : addDays(state.week, 6); openDialog('planning-export-dialog', form.elements.start); });
-  $('planning-export-form').elements.view.addEventListener('change', event => { const form = $('planning-export-form'), annual = event.target.value === 'annual'; form.elements.start.value = annual ? state.data.promotion.date_debut || state.week : state.week; form.elements.end.value = annual ? state.data.promotion.date_fin || addDays(state.week, 6) : addDays(state.week, 6); });
-  $('planning-export-form').addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget; if (!form.reportValidity()) return; if (form.elements.start.value > form.elements.end.value) { formError(form, 'La date de fin doit suivre la date de début.'); return; } const query = new URLSearchParams({promotion_id: promotionId(), start: form.elements.start.value, end: form.elements.end.value, view: form.elements.view.value}); window.open('/admin/planning/export.pdf?' + query, '_blank', 'noopener'); });
+  $('planning-export-open').addEventListener('click', () => { if (!promotionId() || !state.data) return; if (state.paintDraft.size) { notice('Enregistrez ou annulez le brouillon avant d’exporter.'); return; } const form = $('planning-export-form'); dateLimits(form); form.elements.view.value = state.view === 'year' ? 'annual' : 'weekly'; form.elements.start.value = state.view === 'year' ? state.data.promotion.date_debut || state.week : (state.week < state.data.promotion.date_debut ? state.data.promotion.date_debut : state.week); form.elements.end.value = state.view === 'year' ? state.data.promotion.date_fin || addDays(state.week, 6) : (addDays(state.week, 6) > state.data.promotion.date_fin ? state.data.promotion.date_fin : addDays(state.week, 6)); openDialog('planning-export-dialog', form.elements.start); });
+  $('planning-export-form').elements.view.addEventListener('change', event => { const form = $('planning-export-form'), annual = event.target.value === 'annual'; form.elements.start.value = annual ? state.data.promotion.date_debut || state.week : (state.week < state.data.promotion.date_debut ? state.data.promotion.date_debut : state.week); form.elements.end.value = annual ? state.data.promotion.date_fin || addDays(state.week, 6) : (addDays(state.week, 6) > state.data.promotion.date_fin ? state.data.promotion.date_fin : addDays(state.week, 6)); });
+  $('planning-export-form').addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget; if (!form.reportValidity()) return; if (form.elements.start.value > form.elements.end.value) { formError(form, 'La date de fin doit suivre la date de début.'); return; } const query = new URLSearchParams({promotion_id: promotionId(), period_id: state.periodId || '', start: form.elements.start.value, end: form.elements.end.value, view: form.elements.view.value}); window.open('/admin/planning/export.pdf?' + query, '_blank', 'noopener'); });
+  state.periodId = new URL(location.href).searchParams.get('period_id') || '';
   loadState({initial: true});
 })();
