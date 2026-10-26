@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/student-workspace.css') }}?v=2">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/student-workspace.css') }}?v=3">{% endblock %}
 {% block content %}<div class="student-workspace"><header class="sw-heading"><p class="sw-kicker">ASSIDUITÉ · TRAITEMENT DES DEMANDES</p><h1>Justificatifs <em>étudiants.</em></h1><p>Examinez les documents, confirmez la justification ou demandez un complément.</p><a class="sw-link" href="/admin/assiduite">← Registre des absences et retards</a></header>
 <div class="sw-stats">{% for key in ['pending','needs_info','accepted','rejected'] %}<a href="{{ url_for('admin_absence_requests',status=key) }}"><strong>{{ counts[key] }}</strong><span>{{ states[key] }}</span></a>{% endfor %}</div>
 <section class="sw-card"><form class="sw-filters" method="get"><label>Afficher<select name="status"><option value="all"{% if selected_status=='all' %} selected{% endif %}>Toutes les demandes</option>{% for key,label in states.items() %}<option value="{{ key }}"{% if selected_status==key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><button class="sw-button" type="submit">Afficher</button></form>

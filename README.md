@@ -369,6 +369,10 @@ L’accueil présente les cours et les demandes à compléter ou en traitement.
   à partir du guide Occitanie fourni par le client (lien dans l’interface).
   Aucune qualification automatique : les anciennes durées de congés et règles
   ICF du guide ne sont pas reproduites. L’équipe vérifie le droit applicable.
+  Le motif fréquent « Présence en entreprise pendant les cours » est proposé
+  en premier : le planning de l’entreprise avec nom, dates et horaires est requis.
+  Passer d’un autre motif à celui-ci exige une nouvelle pièce, même si un autre
+  document est déjà joint. Le dépôt reste soumis au traitement de l’équipe.
 - `/espace/entreprise` affiche le rattachement actuel du dossier : entreprise,
   dates, tuteur, établissement et contact. L’absence de rattachement est explicite.
 - Les documents PDF, JPEG, PNG et WebP sont contrôlés côté serveur : 10 Mo par

@@ -42,14 +42,17 @@
     const reason = form.querySelector('[data-absence-reason]');
     const hint = form.querySelector('[data-evidence-hint]');
     const message = form.querySelector('[name="message"]');
+    const files = form.querySelector('[name="documents"]');
+    const uploadLabel = form.querySelector('[data-upload-label]');
     const update = () => {
       hint.textContent = reason.selectedOptions[0]?.dataset.evidence || 'Choisis un motif pour connaître le justificatif attendu.';
       message.required = reason.value === 'other';
       message.minLength = reason.value === 'other' ? 10 : 0;
+      if (uploadLabel) uploadLabel.textContent = reason.value === 'company_work' ? 'Joindre le planning de ton entreprise' : uploadLabel.dataset.defaultLabel;
+      if (files) files.required = Number(files.dataset.existingFiles) === 0 || (reason.value === 'company_work' && files.dataset.existingReason !== 'company_work');
     };
     reason.addEventListener('change', update);
     update();
-    const files = form.querySelector('[name="documents"]');
     files?.addEventListener('change', () => {
       const list = Array.from(files.files || []);
       files.setCustomValidity(list.length > 5 || list.some(f => f.size > 10 * 1024 * 1024) || list.reduce((n,f) => n+f.size,0) > 20 * 1024 * 1024 ? 'Maximum 5 documents, 10 Mo par fichier et 20 Mo au total.' : '');

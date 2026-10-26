@@ -15,7 +15,7 @@ from PIL import Image, UnidentifiedImageError
 from pypdf import PdfReader
 from werkzeug.utils import secure_filename
 
-from absence_reasons import GUIDE_URL, LAW_URL, REASON_MAP
+from absence_reasons import GUIDE_URL, LAW_URL, REASON_MAP, REASON_GROUPS
 from candidate_access import get_authenticated_student
 from company_portal import ensure_company_schema, now_iso, today, month_bounds
 
@@ -303,6 +303,8 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
     def save_submission(conn, events, submission, reason, message, prepared, written):
         existing = conn.execute('SELECT COUNT(*),COALESCE(SUM(size),0) FROM absence_files WHERE request_id=?',
                                 (submission['id'] if submission else '',)).fetchone()
+        if reason == 'company_work' and not prepared and (not submission or submission['reason'] != 'company_work' or not existing[0]):
+            raise ValueError('Joins le planning de ton entreprise avec ton nom, les dates et les horaires travaillés correspondant aux cours manqués.')
         if existing[0]+len(prepared) == 0:
             raise ValueError('Ajoute au moins un justificatif avant d’envoyer ta demande.')
         if existing[0]+len(prepared) > FILE_COUNT or existing[1]+sum(f['size'] for f in prepared) > TOTAL_LIMIT:
@@ -338,7 +340,7 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
         conn.commit()
 
     def page(template, **context):
-        return private(render_template(template, reasons=REASON_MAP, states=STATES,
+        return private(render_template(template, reasons=REASON_MAP, reason_groups=REASON_GROUPS, states=STATES,
                                        guide_url=GUIDE_URL, law_url=LAW_URL, **context))
 
     def evidence_context(conn, event, submission, identity=None):
