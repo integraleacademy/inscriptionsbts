@@ -1,0 +1,4 @@
+<section class="sw-card"><h2>{{ 'Documents transmis' if files else 'Justificatifs' }}</h2>
+{% for document in files %}<a class="sw-document" href="{{ '/espace/absences/documents/' ~ document.id if not review_admin else '/admin/assiduite/justificatifs/documents/' ~ document.id }}">{{ icon('file') }}<span>{{ document.filename }}<small>{{ (document.size / 1024)|round(0)|int }} Ko · Télécharger</small></span></a>{% else %}<p class="sw-muted">Aucun document transmis pour le moment.</p>{% endfor %}
+</section>
+{% if history %}<section class="sw-card"><h2>Historique du traitement</h2><ol class="sw-history">{% for item in history %}<li><div><strong>{{ item.action }}</strong><small>{{ item.created_at|student_date }} · {{ item.actor }}</small></div>{% if item.message %}<p class="sw-preline">{{ item.message }}</p>{% endif %}</li>{% endfor %}</ol></section>{% endif %}

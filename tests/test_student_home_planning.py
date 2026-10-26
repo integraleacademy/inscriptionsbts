@@ -34,6 +34,7 @@ def home(tmp_path):
                      parse_list=lambda value: [],
                      get_authenticated_student=lambda *_args, **_kwargs: session.get('test_student'),
                      get_portal_today=today,
+                     student_home_summary=lambda conn, identity: {},
                      render_template=lambda _name, **context: json.dumps(context['portal_today']))
     exec(compile(ast.Module(body=[route], type_ignores=[]), '<real-student-home-route>', 'exec'), namespace)
     return app.test_client(), calls

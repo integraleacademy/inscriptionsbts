@@ -2,7 +2,7 @@
 {% from 'ui_icons.html' import icon %}
 {% block body_class %}company-page{% endblock %}
 {% block content %}
-<div class="co-shell"><header class="co-heading"><div><span class="co-kicker">SUIVI DES ÉTUDIANTS</span><h1>Absences <em>et retards.</em></h1><p>Renseignez les événements constatés en formation. Les entreprises rattachées retrouvent ce suivi dans leur espace.</p></div><a class="co-button" href="/admin/entreprises">Entreprises</a></header>
+<div class="co-shell"><header class="co-heading"><div><span class="co-kicker">SUIVI DES ÉTUDIANTS</span><h1>Absences <em>et retards.</em></h1><p>Renseignez les événements constatés en formation. Les entreprises rattachées retrouvent ce suivi dans leur espace.</p></div><div class="co-actions"><a class="co-button primary" href="/admin/assiduite/justificatifs">Justificatifs étudiants{% if pending_evidence %} · {{ pending_evidence }} à traiter{% endif %}</a><a class="co-button" href="/admin/entreprises">Entreprises</a></div></header>
 {% if error %}<div class="co-notice error" role="alert">{{ error }}</div>{% endif %}
 <details class="co-panel co-create" {% if edit or error %}open{% endif %}><summary>{{ 'Corriger l’événement' if edit else '+ Enregistrer une absence ou un retard' }}</summary>
 <form method="post" class="co-form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">{% if edit %}<input type="hidden" name="record_id" value="{{ edit.id }}"><input type="hidden" name="version" value="{{ edit.version }}">{% endif %}

@@ -101,6 +101,18 @@ def run_startup_integrity_checks():
         "teaching.py",
         "teaching_reminders.py",
         "gradebook.py",
+        "student_workspace.py",
+        "absence_reasons.py",
+        "templates/_student_portal_nav.html",
+        "templates/student_home.html",
+        "templates/student_absences.html",
+        "templates/student_absence_detail.html",
+        "templates/_absence_evidence.html",
+        "templates/student_company.html",
+        "templates/admin_absence_requests.html",
+        "templates/admin_absence_review.html",
+        "static/css/student-workspace.css",
+        "static/js/student-workspace.js",
         "curriculum_topics.py",
         "templates/gradebook.html",
         "static/js/gradebook.js",
@@ -229,7 +241,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py", "teaching.py", "teaching_reminders.py", "gradebook.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py", "teaching.py", "teaching_reminders.py", "gradebook.py", "student_workspace.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
@@ -1046,6 +1058,8 @@ register_admin_trainer_planning(app, db, require_admin)
 register_planning_sync(app, db, require_admin)
 from teaching import register_teaching
 register_teaching(app, db, lambda: UPLOAD_DIR, require_admin)
+from student_workspace import register_student_workspace, student_home_summary
+register_student_workspace(app, db, lambda: UPLOAD_DIR, require_admin)
 
 
 @app.route("/ouverture.ics")
@@ -2929,15 +2943,18 @@ def espace_candidat(slug):
     portal_today = dict(role='student', requires_login=True,
                         planning_url=url_for('candidate_login'), today_label='')
     identity = get_authenticated_student(app, db)
+    student_overview = None
     if identity and identity['candidate_id'] == row['id']:
         with closing(db()) as planning_conn:
             portal_today = get_portal_today(planning_conn, 'student', identity['candidate_id'])
+            student_overview = student_home_summary(planning_conn, identity)
 
     response = app.make_response(render_template(
         "espace_candidat.html",
         title="Mon espace étudiant · Intégrale Academy",
         row=row,
         portal_today=portal_today,
+        student_overview=student_overview,
         statut=statut,
         explication_statut=explication_statut,
         commentaire=commentaire,

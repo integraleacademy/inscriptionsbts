@@ -1,0 +1,12 @@
+<div class="candidate-portal student-workspace">
+<header class="candidate-heading"><div><p class="eyebrow">INTÉGRALE ACADEMY · BTS {{ row.bts }}</p><h1>Bonjour {{ row.prenom }}<span>.</span></h1><p>Ton planning, tes cours et le suivi de ta scolarité, au même endroit.</p></div><span class="candidate-avatar candidate-portrait"><span aria-hidden="true">{{ (row.prenom or '')[:1]|upper }}{{ (row.nom or '')[:1]|upper }}</span>{% if candidate_photo_url %}<img data-candidate-photo src="{{ candidate_photo_url }}" alt="Ta photo d’identité">{% endif %}</span></header>
+{% include '_portal_today.html' %}
+<div class="sw-home-cards">
+<section class="sw-card"><p class="sw-kicker">MON ASSIDUITÉ</p><h2>Mes absences et justificatifs</h2>{% if student_overview %}<p><strong>{{ student_overview.to_justify }}</strong> à justifier ou à compléter<br><strong>{{ student_overview.pending }}</strong> en cours de traitement</p>{% else %}<p>Consulte tes absences et suis tes demandes.</p>{% endif %}<a class="sw-link" href="/espace/absences">Ouvrir mon suivi →</a></section>
+<section class="sw-card"><p class="sw-kicker">MON ALTERNANCE</p><h2>{{ student_overview.company.name if student_overview and student_overview.company else 'Mon entreprise' }}</h2><p>{% if student_overview and student_overview.company %}{{ student_overview.company.period_label }}{% if student_overview.company.tutor %}<br>Tuteur : {{ student_overview.company.tutor }}{% endif %}{% else %}Les informations de ton entreprise apparaîtront dès son rattachement à ton dossier.{% endif %}</p><a class="sw-link" href="/espace/entreprise">Voir mon entreprise →</a></section>
+<section class="sw-card"><p class="sw-kicker">MON DOSSIER</p><h2>{{ labels.get(statut,'Dossier en cours') }}</h2><p>BTS {{ row.bts }} · Rentrée {{ year }}<br>{{ row.numero_dossier or 'Numéro en cours d’attribution' }}</p><p>{{ row.email }}</p></section>
+</div>
+{% if commentaire %}<section class="sw-notice"><strong>Un message de l’équipe</strong><p class="sw-preline">{{ commentaire }}</p></section>{% endif %}
+{% if statut not in ['confirmee','reconfirmee','rentree'] %}<section class="sw-help"><h2>Le suivi de ton inscription</h2><p>{{ explication_statut }}</p></section>{% endif %}
+<section class="sw-help"><h2>Besoin d’un coup de main ?</h2><p>Une question sur ton dossier, ton entreprise ou un justificatif ? L’équipe t’accompagne.</p><a class="sw-link" href="tel:+33422470768">04 22 47 07 68</a></section>
+</div>

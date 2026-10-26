@@ -4,7 +4,6 @@
 {% block content %}
 {% set teacher = state.role == 'trainer' %}
 <div class="teaching-app" data-gradebook data-csrf="{{ csrf_token }}">
-  {% if not teacher %}<div class="teach-inline"><a class="teach-back" href="/espace/mon-dossier">← Mon espace étudiant</a><a class="teach-back" href="/espace/pedagogie">Mes cours</a></div>{% endif %}
   <header class="teach-heading"><div><p class="teach-eyebrow">INTÉGRALE ACADEMY · {{ 'ESPACE FORMATEUR' if teacher else 'ESPACE ÉTUDIANT' }}</p><h1>{{ 'Devoirs et notes' if teacher else 'Mes devoirs et mes notes' }}<span>.</span></h1><p>{{ 'Vos devoirs et évaluations, par promotion et par matière. Saisissez les notes à tout moment.' if teacher else 'Retrouve les consignes, les échéances et tes résultats personnels.' }}</p></div></header>
   <script type="application/json" id="gradebook-state">{{ state|tojson }}</script>
   <div id="gb-feedback" class="teach-feedback" role="status" aria-live="polite" hidden></div>
