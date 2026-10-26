@@ -1,0 +1,5 @@
+{% if events|length > 1 %}
+<section class="sw-card"><h2>Les {{ events|length }} événements de cette demande</h2><p>Le justificatif, les compléments et la décision de l’équipe concernent toute cette sélection.</p>
+<ul class="sw-period-list">{% for covered in events %}<li><strong>{{ covered.date|student_date }}</strong><span>{{ '%02d:%02d'|format(covered.start_min//60,covered.start_min%60) }} – {{ '%02d:%02d'|format(covered.end_min//60,covered.end_min%60) }} · {{ 'Absence' if covered.kind=='absence' else 'Retard' }}</span></li>{% endfor %}</ul>
+</section>
+{% endif %}

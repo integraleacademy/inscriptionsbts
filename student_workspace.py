@@ -6,6 +6,7 @@ from io import BytesIO
 from pathlib import Path
 from zoneinfo import ZoneInfo
 import hmac
+import json
 import secrets
 import time
 
@@ -21,6 +22,7 @@ from company_portal import ensure_company_schema, now_iso, today, month_bounds
 FILE_LIMIT = 10 * 1024 * 1024
 TOTAL_LIMIT = 20 * 1024 * 1024
 FILE_COUNT = 5
+BATCH_LIMIT = 200
 STATES = {'pending': 'En cours de traitement', 'accepted': 'Justifiée',
           'rejected': 'Refusée', 'needs_info': 'À compléter'}
 
@@ -47,8 +49,28 @@ def ensure_workspace_schema(conn):
             id INTEGER PRIMARY KEY, request_id TEXT NOT NULL, action TEXT NOT NULL,
             actor TEXT NOT NULL, message TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL)''',
         'CREATE INDEX IF NOT EXISTS absence_history_request ON absence_history(request_id,id)',
+        '''CREATE TABLE IF NOT EXISTS absence_request_events (
+            request_id TEXT NOT NULL, attendance_id TEXT NOT NULL, candidate_id TEXT NOT NULL,
+            PRIMARY KEY(attendance_id,candidate_id))''',
+        'CREATE INDEX IF NOT EXISTS absence_request_events_request ON absence_request_events(request_id)',
     ):
         conn.execute(sql)
+    # Existing single-event requests keep their IDs, documents and history.
+    conn.execute('''INSERT OR IGNORE INTO absence_request_events(request_id,attendance_id,candidate_id)
+        SELECT id,attendance_id,candidate_id FROM absence_requests''')
+
+
+def linked_events(conn, request_id):
+    return [dict(row) for row in conn.execute('''SELECT a.* FROM absence_request_events l
+        JOIN student_attendance a ON a.id=l.attendance_id AND a.candidate_id=l.candidate_id
+        WHERE l.request_id=? AND a.deleted=0 ORDER BY a.date,a.start_min,a.id''', (request_id,))]
+
+
+def event_submission(conn, event):
+    row = conn.execute('''SELECT r.* FROM absence_request_events l
+        JOIN absence_requests r ON r.id=l.request_id WHERE l.attendance_id=? AND l.candidate_id=?''',
+        (event['id'], event['candidate_id'])).fetchone()
+    return dict(row) if row else None
 
 
 def display_date(value):
@@ -108,9 +130,9 @@ def student_events(conn, account_id):
         JOIN candidats c ON c.id=a.candidate_id
         WHERE m.account_id=? AND a.deleted=0 ORDER BY a.date DESC,a.start_min DESC,a.id''', (account_id,)):
         item = dict(row)
-        submission = conn.execute('SELECT * FROM absence_requests WHERE attendance_id=? AND candidate_id=?',
-                                  (item['id'], item['candidate_id'])).fetchone()
+        submission = event_submission(conn, item)
         item['state'], item['state_label'] = state_for(item, submission)
+        item['can_group'] = not submission and item['justification'] != 'justified'
         item.update(date_label=display_date(item['date']), start=f"{item['start_min']//60:02}:{item['start_min']%60:02}",
                     end=f"{item['end_min']//60:02}:{item['end_min']%60:02}", minutes=item['end_min']-item['start_min'])
         rows.append(item)
@@ -121,8 +143,8 @@ def synchronize_attendance_edit(conn, current, candidate_id, day, begin, finish,
     """Keep an administrative correction consistent with an existing evidence review."""
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='absence_requests'").fetchone():
         return justification
-    submitted = conn.execute('SELECT * FROM absence_requests WHERE attendance_id=? AND candidate_id=?',
-                             (current['id'], current['candidate_id'])).fetchone()
+    ensure_workspace_schema(conn)
+    submitted = event_submission(conn, current)
     if not submitted:
         return justification
     if candidate_id != current['candidate_id']:
@@ -134,6 +156,9 @@ def synchronize_attendance_edit(conn, current, candidate_id, day, begin, finish,
         conn.execute("UPDATE absence_requests SET status='pending',version=version+1,reviewed_at=NULL,reviewer_comment=? WHERE id=?", (message, submitted['id']))
         conn.execute('INSERT INTO absence_history(request_id,action,actor,message,created_at) VALUES(?,?,?,?,?)',
                      (submitted['id'], 'Période corrigée', 'Équipe pédagogique', message, now_iso()))
+        for event in linked_events(conn, submitted['id']):
+            if event['id'] != current['id']:
+                conn.execute("UPDATE student_attendance SET justification='pending',version=version+1,updated_at=? WHERE id=?", (now_iso(),event['id']))
         return 'pending'
     return justification
 
@@ -237,22 +262,92 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
         return dict(event)
 
     def submission_for(conn, event):
-        row = conn.execute('SELECT * FROM absence_requests WHERE attendance_id=? AND candidate_id=?', (event['id'], event['candidate_id'])).fetchone()
-        return dict(row) if row else None
+        return event_submission(conn, event)
+
+    def submission_events(conn, submission, identity=None):
+        events = linked_events(conn, submission['id'])
+        if not events:
+            abort(404)
+        # Check every linked dossier, including removed events: a shared file must
+        # never become available to a different account after reassignment.
+        if identity and conn.execute('''SELECT 1 FROM absence_request_events l
+            WHERE l.request_id=? AND NOT EXISTS (SELECT 1 FROM student_account_members m
+            WHERE m.candidate_id=l.candidate_id AND m.account_id=?)''',
+            (submission['id'],identity['account_id'])).fetchone():
+            abort(404)
+        return events
 
     def version_check(value, expected):
         if str(value) != str(expected):
             abort(409, 'Cette demande a changé. Recharge la page avant de réessayer.')
 
+    def check_event_versions(events, current):
+        version_check(request.form.get('event_version'), current['version'])
+        raw = request.form.get('group_versions')
+        if len(events) > 1 or raw is not None:
+            try:
+                versions = json.loads(raw or '')
+            except (TypeError, ValueError):
+                abort(409, 'La sélection a changé. Recharge la page avant de réessayer.')
+            if versions != {e['id']:e['version'] for e in events}:
+                abort(409, 'Une absence a changé. Recharge la page avant de réessayer.')
+
+    def read_submission():
+        if request.content_length and request.content_length > TOTAL_LIMIT + 100000:
+            raise ValueError('La demande dépasse 20 Mo.')
+        reason, message = request.form.get('reason', ''), request.form.get('message', '').strip()
+        if reason not in REASON_MAP or len(message) > 3000 or (reason == 'other' and len(message) < 10):
+            raise ValueError('Choisis un motif et précise ta situation si tu sélectionnes « Autre situation ». Le message est limité à 3 000 caractères.')
+        return reason, message, validated_files(request.files.getlist('documents'))
+
+    def save_submission(conn, events, submission, reason, message, prepared, written):
+        existing = conn.execute('SELECT COUNT(*),COALESCE(SUM(size),0) FROM absence_files WHERE request_id=?',
+                                (submission['id'] if submission else '',)).fetchone()
+        if existing[0]+len(prepared) == 0:
+            raise ValueError('Ajoute au moins un justificatif avant d’envoyer ta demande.')
+        if existing[0]+len(prepared) > FILE_COUNT or existing[1]+sum(f['size'] for f in prepared) > TOTAL_LIMIT:
+            raise ValueError('La demande est limitée à 5 documents et 20 Mo au total.')
+        request_id, stamp = submission['id'] if submission else secrets.token_urlsafe(24), now_iso()
+        if submission:
+            conn.execute('''UPDATE absence_requests SET reason=?,message=?,status='pending',version=version+1,
+                submitted_at=?,reviewed_at=NULL,reviewer_comment='' WHERE id=?''', (reason,message,stamp,request_id))
+        else:
+            anchor = events[0]
+            conn.execute('''INSERT INTO absence_requests(id,attendance_id,candidate_id,reason,message,status,submitted_at)
+                VALUES(?,?,?,?,?,'pending',?)''', (request_id,anchor['id'],anchor['candidate_id'],reason,message,stamp))
+            conn.executemany('INSERT INTO absence_request_events VALUES(?,?,?)',
+                             [(request_id,e['id'],e['candidate_id']) for e in events])
+        directory = Path(uploads_dir()).resolve().parent / 'absence-justifications'
+        directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if directory.is_symlink():
+            raise OSError('Invalid evidence directory')
+        for item in prepared:
+            path = directory / item['storage_name']
+            with path.open('xb') as output:
+                written.append(path)
+                output.write(item['content'])
+            path.chmod(0o600)
+            conn.execute('INSERT INTO absence_files VALUES(?,?,?,?,?,?,?)',
+                         (item['id'],request_id,item['filename'],item['storage_name'],item['size'],item['mime'],stamp))
+        for event in events:
+            conn.execute("UPDATE student_attendance SET justification='pending',version=version+1,updated_at=? WHERE id=?", (stamp,event['id']))
+        periods = ' · '.join(f"{display_date(e['date'])} {e['start_min']//60:02}:{e['start_min']%60:02}–{e['end_min']//60:02}:{e['end_min']%60:02}" for e in events)
+        conn.execute('INSERT INTO absence_history(request_id,action,actor,message,created_at) VALUES(?,?,?,?,?)',
+                     (request_id,'Complément envoyé' if submission else 'Justificatif envoyé','Étudiant',
+                      REASON_MAP[reason]['label']+' — '+message+'\nPériode(s) concernée(s) : '+periods,stamp))
+        conn.commit()
+
     def page(template, **context):
         return private(render_template(template, reasons=REASON_MAP, states=STATES,
                                        guide_url=GUIDE_URL, law_url=LAW_URL, **context))
 
-    def evidence_context(conn, event, submission):
+    def evidence_context(conn, event, submission, identity=None):
         files = [dict(r) for r in conn.execute('SELECT id,filename,size FROM absence_files WHERE request_id=? ORDER BY created_at,id', (submission['id'],))] if submission else []
         history = [dict(r) for r in conn.execute('SELECT action,actor,message,created_at FROM absence_history WHERE request_id=? ORDER BY id DESC', (submission['id'],))] if submission else []
         state, state_label = state_for(event, submission)
-        return dict(event=event, submission=submission, files=files, history=history, state=state, state_label=state_label)
+        events = submission_events(conn,submission,identity) if submission else [event]
+        return dict(event=event, events=events, group_versions={e['id']:e['version'] for e in events},
+                    submission=submission, files=files, history=history, state=state, state_label=state_label)
 
     @app.get('/espace/absences')
     @student_required
@@ -272,7 +367,43 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
             abort(400)
         visible = [r for r in rows if (not month or r['date'].startswith(month)) and (not state or r['state']==state)]
         return page('student_absences.html', title='Mes absences · Espace étudiant', rows=visible, total=len(rows),
-                    summary=summary, month=month, selected_state=state)
+                    summary=summary, month=month, selected_state=state, can_group=any(r['can_group'] for r in rows))
+
+    @app.route('/espace/absences/justifier', methods=['GET','POST'])
+    @student_required
+    def student_absence_bulk(identity):
+        error, written = '', []
+        selected = list(dict.fromkeys(request.form.getlist('events'))) if request.method == 'POST' else []
+        with closing(connect()) as conn:
+            if request.method == 'POST':
+                csrf(check=True)
+                try:
+                    if not 1 <= len(selected) <= BATCH_LIMIT:
+                        raise ValueError('Sélectionne entre 1 et 200 absences ou retards à justifier ensemble.')
+                    reason, message, prepared = read_submission()
+                    conn.execute('BEGIN IMMEDIATE')
+                    current_identity(conn,identity)
+                    events = []
+                    for event_id in selected:
+                        event = event_for(conn,event_id,identity)
+                        version_check(request.form.get('event_version_'+event_id),event['version'])
+                        if event['justification']=='justified' or submission_for(conn,event):
+                            abort(409, 'Une absence possède déjà une demande ou est déjà justifiée. Recharge la sélection.')
+                        events.append(event)
+                    events.sort(key=lambda e:(e['date'],e['start_min'],e['id']))
+                    save_submission(conn,events,None,reason,message,prepared,written)
+                    flash(f'Demande envoyée pour {len(events)} événement(s). Un seul justificatif, un seul suivi : en cours de traitement.', 'success')
+                    return private(redirect(url_for('student_absence_detail',event_id=events[0]['id']),code=303))
+                except Exception as exc:
+                    conn.rollback()
+                    for path in written:
+                        path.unlink(missing_ok=True)
+                    if not isinstance(exc,ValueError):
+                        raise
+                    error = str(exc)
+            rows = [r for r in student_events(conn,identity['account_id']) if r['can_group']]
+        return page('student_absence_bulk.html',title='Justifier une période · Espace étudiant',rows=rows,
+                    selected=selected,csrf_token=csrf(),error=error),400 if error else 200
 
     @app.route('/espace/absences/<event_id>', methods=['GET', 'POST'])
     @student_required
@@ -284,59 +415,28 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
             if request.method == 'POST':
                 csrf(check=True)
                 try:
-                    if request.content_length and request.content_length > TOTAL_LIMIT + 100000:
-                        raise ValueError('La demande dépasse 20 Mo.')
-                    reason, message = request.form.get('reason', ''), request.form.get('message', '').strip()
-                    if reason not in REASON_MAP or len(message) > 3000 or (reason == 'other' and len(message) < 10):
-                        raise ValueError('Choisis un motif et précise ta situation si tu sélectionnes « Autre situation ». Le message est limité à 3 000 caractères.')
-                    prepared = validated_files(request.files.getlist('documents'))
+                    reason, message, prepared = read_submission()
                     conn.execute('BEGIN IMMEDIATE')
                     current_identity(conn, identity)
                     event = event_for(conn, event_id, identity)
                     submission = submission_for(conn, event)
-                    version_check(request.form.get('event_version'), event['version'])
+                    events = submission_events(conn,submission,identity) if submission else [event]
+                    check_event_versions(events,event)
                     version_check(request.form.get('version'), submission['version'] if submission else 0)
-                    if event['justification'] == 'justified' or (submission and submission['status']=='accepted'):
+                    if any(e['justification']=='justified' for e in events) or (submission and submission['status']=='accepted'):
                         abort(409, 'Cette absence est déjà justifiée.')
-                    existing = conn.execute('SELECT COUNT(*),COALESCE(SUM(size),0) FROM absence_files WHERE request_id=?', (submission['id'] if submission else '',)).fetchone()
-                    if existing[0]+len(prepared) == 0:
-                        raise ValueError('Ajoute au moins un justificatif avant d’envoyer ta demande.')
-                    if existing[0]+len(prepared) > FILE_COUNT or existing[1]+sum(f['size'] for f in prepared) > TOTAL_LIMIT:
-                        raise ValueError('La demande est limitée à 5 documents et 20 Mo au total.')
-                    request_id = submission['id'] if submission else secrets.token_urlsafe(24)
-                    stamp = now_iso()
-                    conn.execute('''INSERT INTO absence_requests(id,attendance_id,candidate_id,reason,message,status,submitted_at)
-                        VALUES(?,?,?,?,?,'pending',?) ON CONFLICT(attendance_id,candidate_id) DO UPDATE SET
-                        reason=excluded.reason,message=excluded.message,status='pending',version=absence_requests.version+1,
-                        submitted_at=excluded.submitted_at,reviewed_at=NULL,reviewer_comment='' ''',
-                        (request_id, event_id, event['candidate_id'], reason, message, stamp))
-                    directory = Path(uploads_dir()).resolve().parent / 'absence-justifications'
-                    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
-                    if directory.is_symlink():
-                        raise OSError('Invalid evidence directory')
-                    for item in prepared:
-                        path = directory / item['storage_name']
-                        with path.open('xb') as output:
-                            written.append(path)
-                            output.write(item['content'])
-                        path.chmod(0o600)
-                        conn.execute('INSERT INTO absence_files VALUES(?,?,?,?,?,?,?)',
-                                     (item['id'],request_id,item['filename'],item['storage_name'],item['size'],item['mime'],stamp))
-                    conn.execute("UPDATE student_attendance SET justification='pending',version=version+1,updated_at=? WHERE id=?", (stamp,event_id))
-                    conn.execute('INSERT INTO absence_history(request_id,action,actor,message,created_at) VALUES(?,?,?,?,?)',
-                                 (request_id,'Complément envoyé' if submission else 'Justificatif envoyé','Étudiant',REASON_MAP[reason]['label']+' — '+message,stamp))
-                    conn.commit()
+                    save_submission(conn,events,submission,reason,message,prepared,written)
                     flash('Justificatif envoyé. Ta demande est en cours de traitement par l’équipe.', 'success')
                     return private(redirect(url_for('student_absence_detail',event_id=event_id),code=303))
-                except ValueError as exc:
-                    conn.rollback()
-                    error = str(exc)
-                except Exception:
+                except Exception as exc:
                     conn.rollback()
                     for path in written:
                         path.unlink(missing_ok=True)
-                    raise
-            context = evidence_context(conn, event_for(conn,event_id,identity), submission_for(conn,event_for(conn,event_id,identity)))
+                    if not isinstance(exc,ValueError):
+                        raise
+                    error = str(exc)
+            event = event_for(conn,event_id,identity)
+            context = evidence_context(conn,event,submission_for(conn,event),identity)
         return page('student_absence_detail.html', title='Justifier mon absence · Espace étudiant',
                     csrf_token=csrf(), error=error, **context), 400 if error else 200
 
@@ -356,9 +456,11 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
             abort(400)
         with closing(connect()) as conn:
             rows = [dict(r) for r in conn.execute('''SELECT r.id,r.attendance_id,r.status,r.reason,r.submitted_at,
-                a.date,a.kind,c.nom,c.prenom,c.bts FROM absence_requests r
-                JOIN student_attendance a ON a.id=r.attendance_id AND a.candidate_id=r.candidate_id AND a.deleted=0
-                JOIN candidats c ON c.id=r.candidate_id ORDER BY r.submitted_at DESC''')]
+                MIN(a.date) AS date,MAX(a.date) AS end_date,COUNT(*) AS event_count,
+                a.kind,c.nom,c.prenom,c.bts FROM absence_requests r
+                JOIN absence_request_events l ON l.request_id=r.id
+                JOIN student_attendance a ON a.id=l.attendance_id AND a.candidate_id=l.candidate_id AND a.deleted=0
+                JOIN candidats c ON c.id=r.candidate_id GROUP BY r.id ORDER BY r.submitted_at DESC''')]
         counts = {key:sum(r['status']==key for r in rows) for key in STATES}
         return page('admin_absence_requests.html', title='Justificatifs étudiants · Administration',
                     rows=[r for r in rows if status=='all' or r['status']==status], counts=counts, selected_status=status)
@@ -376,12 +478,11 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
             if not submission:
                 abort(404)
             submission = dict(submission)
-            event = event_for(conn,submission['attendance_id'])
-            if event['candidate_id'] != submission['candidate_id']:
-                abort(404)
+            events = submission_events(conn,submission)
+            event = events[0]
             if request.method == 'POST':
                 version_check(request.form.get('version'),submission['version'])
-                version_check(request.form.get('event_version'),event['version'])
+                check_event_versions(events,event)
                 if submission['status'] != 'pending':
                     abort(409, 'Cette demande a déjà été traitée.')
                 decision, comment = request.form.get('decision',''),request.form.get('comment','').strip()
@@ -391,11 +492,12 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
                 else:
                     stamp=now_iso()
                     conn.execute('UPDATE absence_requests SET status=?,version=version+1,reviewed_at=?,reviewer_comment=? WHERE id=?', (decision,stamp,comment,request_id))
-                    conn.execute('UPDATE student_attendance SET justification=?,version=version+1,updated_at=? WHERE id=?',
-                                 ({'accepted':'justified','rejected':'unjustified','needs_info':'pending'}[decision],stamp,event['id']))
+                    for covered in events:
+                        conn.execute('UPDATE student_attendance SET justification=?,version=version+1,updated_at=? WHERE id=?',
+                                     ({'accepted':'justified','rejected':'unjustified','needs_info':'pending'}[decision],stamp,covered['id']))
+                        conn.execute('INSERT INTO company_audit(action,target_id,actor,created_at) VALUES(?,?,?,?)', ('absence_review_'+decision,covered['id'],'admin',stamp))
                     conn.execute('INSERT INTO absence_history(request_id,action,actor,message,created_at) VALUES(?,?,?,?,?)',
                                  (request_id,STATES[decision],'Équipe pédagogique',comment,stamp))
-                    conn.execute('INSERT INTO company_audit(action,target_id,actor,created_at) VALUES(?,?,?,?)', ('absence_review_'+decision,event['id'],'admin',stamp))
                     conn.commit()
                     flash('Décision enregistrée. Le suivi étudiant et entreprise est à jour.', 'success')
                     return private(redirect(url_for('admin_absence_review',request_id=request_id),code=303))
@@ -421,9 +523,7 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
                 JOIN absence_requests r ON r.id=f.request_id WHERE f.id=?''',(file_id,)).fetchone()
             if not row:
                 abort(404)
-            event=event_for(conn,row['attendance_id'],identity)
-            if event['candidate_id']!=row['candidate_id']:
-                abort(404)
+            submission_events(conn,{'id':row['request_id']},identity)
         root=Path(uploads_dir()).resolve().parent/'absence-justifications'
         path=root/row['storage_name']
         if root.is_symlink() or path.is_symlink() or path.resolve().parent!=root.resolve() or not path.is_file():

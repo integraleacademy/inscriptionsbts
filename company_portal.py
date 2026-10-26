@@ -715,8 +715,12 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                     abort(404)
             pending_evidence = 0
             if conn.execute("SELECT 1 FROM sqlite_master WHERE name='absence_requests' AND type='table'").fetchone():
-                pending_evidence = conn.execute("""SELECT COUNT(*) FROM absence_requests r
-                    JOIN student_attendance a ON a.id=r.attendance_id AND a.candidate_id=r.candidate_id
+                from student_workspace import ensure_workspace_schema
+                ensure_workspace_schema(conn)
+                conn.commit()
+                pending_evidence = conn.execute("""SELECT COUNT(DISTINCT r.id) FROM absence_requests r
+                    JOIN absence_request_events l ON l.request_id=r.id
+                    JOIN student_attendance a ON a.id=l.attendance_id AND a.candidate_id=l.candidate_id
                     WHERE a.deleted=0 AND r.status='pending'""").fetchone()[0]
         return page('company_attendance.html', title='Absences et retards · Administration', students=students, rows=rows, month=month, selected=selected,
                     edit=edit, error=error, today=today().isoformat(), kinds=KINDS, justifications=JUSTIFICATIONS, pending_evidence=pending_evidence), 400 if error else 200
