@@ -12,7 +12,8 @@
 {% set is_planning_catalog = request.path in ['/admin/matieres', '/admin/salles'] %}
 {% set is_portal_planning = request.endpoint in ['trainer_planning', 'student_planning'] %}
 {% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}
-{% set is_student_portal = request.endpoint in ['espace_candidat', 'student_dashboard', 'student_planning'] %}
+{% set is_student_portal = request.path.startswith('/espace/') and (not is_student_auth or request.endpoint == 'student_change_password') %}
+{% set has_student_navigation = is_student_portal and student_session and (request.endpoint != 'espace_candidat' or (row and student_session.candidate_id == row.id)) %}
 {% macro academy_logo() %}<span class="academy-sigle" aria-hidden="true"><img src="{{ url_for('static', filename='academy-official-logo.png') }}" width="5906" height="1772" alt=""></span><span class="academy-wordmark"><span>INTÉGRALE</span><span>ACADEMY</span></span>{% endmacro %}
 <!DOCTYPE html>
 <html lang="fr">
@@ -70,13 +71,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if is_company_space and not is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-space.css') }}?v=2">{% endif %}
   {% block page_styles %}{% endblock %}
   {% if is_trainer_portal %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-portal.css') }}?v=1">{% endif %}
+  {% if has_student_navigation %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-workspace.css') }}?v=1">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
   {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
   {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-admin.css') }}?v=1">{% endif %}
 {% if request.endpoint in ['admin_candidate_sheet', 'admin'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-editor.css') }}?v=4">{% endif %}
 </head>
 
-<body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_trainer_portal %}trainer-portal-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
+<body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if has_student_navigation %}student-portal-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_trainer_portal %}trainer-portal-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
 
     {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
@@ -92,7 +94,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <span class="nav-caption">VOTRE ESPACE ÉQUIPE</span>
     <nav aria-label="Navigation administration">
       {% for href,label,symbol in [('/admin','Candidatures','grid'),('/admin/promotions','Promotions','briefcase'),('/admin/planning','Plannings','clock'),('/admin/matieres','Matières','book'),('/admin/salles','Salles','home'),('/admin/formateurs','Formateurs','book'),('/admin/entreprises','Entreprises','briefcase'),('/admin/assiduite','Absences et retards','clock'),('/admin/reprendre-plus-tard','Dossiers à reprendre','clock'),('/parcoursup','Parcoursup','arrow'),('/admin/voyage-londres','Voyage à Londres','globe'),('/admin/parametres','Paramètres','settings')] %}
-      <a href="{{ href }}" title="{{ label }}" class="{% if request.path == href or (href == '/admin/entreprises' and request.path.startswith('/admin/entreprises/')) or (href == '/admin' and request.path.startswith('/admin/candidat/')) %}active{% endif %}">{{ icon(symbol) }}<span class="nav-text">{{ label }}</span></a>
+      <a href="{{ href }}" title="{{ label }}" class="{% if request.path == href or (href == '/admin/assiduite' and request.path.startswith('/admin/assiduite/')) or (href == '/admin/entreprises' and request.path.startswith('/admin/entreprises/')) or (href == '/admin' and request.path.startswith('/admin/candidat/')) %}active{% endif %}">{{ icon(symbol) }}<span class="nav-text">{{ label }}</span></a>
       {% endfor %}
     </nav>
     <div class="sidebar-bottom"><div class="sidebar-intake"><p>RENTRÉE SEPTEMBRE 2027</p><small>Ouverture le 1er décembre<br>à 10 h · Heure de Paris</small></div><a href="/candidature?preview=1" title="Aperçu du formulaire" target="_blank" rel="noopener">{{ icon('file') }}<span class="nav-text">Aperçu du formulaire ↗</span></a><a href="/" title="Page d’attente" target="_blank" rel="noopener">{{ icon('globe') }}<span class="nav-text">Page d’attente ↗</span></a><a href="/logout" title="Se déconnecter">{{ icon('arrow') }}<span class="nav-text">Se déconnecter</span></a></div>
@@ -104,6 +106,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <!-- ✅ Contenu principal -->
   <main id="main-content" class="{% if 'admin' in request.path or 'parcoursup' in request.path %}admin-full{% elif 'espace' in request.path %}container candidat{% else %}container{% endif %}">
     {% if is_trainer_portal %}{% include '_trainer_portal_nav.html' %}{% endif %}
+    {% if has_student_navigation %}{% include '_student_portal_nav.html' %}{% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-area">
@@ -116,7 +119,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     {% block content %}{% endblock %}
   </main>
 
-  <footer class="footer-signature"><span>Intégrale Academy · Puget-sur-Argens, Côte d’Azur</span><a href="https://integraleacademy.com" target="_blank" rel="noopener">integraleacademy.com</a>{% if not is_trainer_space and not is_admin %}<a href="/formateur/connexion">Espace formateur</a>{% endif %}<small>Une école Intégrale Group</small></footer>
+  <footer class="footer-signature"><span>Intégrale Academy · Puget-sur-Argens, Côte d’Azur</span><a href="https://integraleacademy.com" target="_blank" rel="noopener">integraleacademy.com</a>{% if not is_trainer_space and not is_admin and not has_student_navigation %}<a href="/formateur/connexion">Espace formateur</a>{% endif %}<small>Une école Intégrale Group</small></footer>
   <script src="{{ url_for('static', filename='js/workspace-shell.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/academy-header.js') }}?v=2" defer></script>
   {% if is_planning_admin %}

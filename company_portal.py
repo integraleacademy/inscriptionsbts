@@ -691,6 +691,8 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                     if overlap:
                         raise ValueError('Un événement existe déjà sur ce créneau pour cet étudiant. Corrigez la ligne existante.')
                     if current:
+                        from student_workspace import synchronize_attendance_edit
+                        justification = synchronize_attendance_edit(conn, current, cid, day, begin, finish, kind, justification)
                         conn.execute('UPDATE student_attendance SET candidate_id=?,date=?,start_min=?,end_min=?,kind=?,justification=?,version=version+1,updated_at=? WHERE id=?', (cid, day, begin, finish, kind, justification, now_iso(), record_id))
                     else:
                         conn.execute('INSERT INTO student_attendance(id,candidate_id,date,start_min,end_min,kind,justification,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)', (record_id, cid, day, begin, finish, kind, justification, now_iso(), now_iso()))
@@ -711,8 +713,13 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                 edit = next((r for r in rows if r['id']==request.args['edit']), None)
                 if not edit:
                     abort(404)
+            pending_evidence = 0
+            if conn.execute("SELECT 1 FROM sqlite_master WHERE name='absence_requests' AND type='table'").fetchone():
+                pending_evidence = conn.execute("""SELECT COUNT(*) FROM absence_requests r
+                    JOIN student_attendance a ON a.id=r.attendance_id AND a.candidate_id=r.candidate_id
+                    WHERE a.deleted=0 AND r.status='pending'""").fetchone()[0]
         return page('company_attendance.html', title='Absences et retards · Administration', students=students, rows=rows, month=month, selected=selected,
-                    edit=edit, error=error, today=today().isoformat(), kinds=KINDS, justifications=JUSTIFICATIONS), 400 if error else 200
+                    edit=edit, error=error, today=today().isoformat(), kinds=KINDS, justifications=JUSTIFICATIONS, pending_evidence=pending_evidence), 400 if error else 200
 
     @app.post('/admin/assiduite/<record_id>/supprimer')
     def admin_attendance_delete(record_id):

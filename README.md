@@ -343,6 +343,40 @@ SMS réel ; `TEACHING_REMINDER_WORKER_DISABLED=1` désactive explicitement le wo
 Les tests simulent les fournisseurs OpenAI et Brevo :
 `python -m pytest -q tests/test_teaching.py`.
 
+## Espace étudiant : absences, justificatifs et entreprise
+
+Un seul menu commun aux pages connectées : Accueil, Mon planning, Mes cours,
+Devoirs et notes, Mes absences, Mon entreprise, Mon compte et déconnexion.
+L’accueil présente les cours et les demandes à compléter ou en traitement.
+
+- `/espace/absences` présente toutes les absences et tous les retards enregistrés,
+  sur toutes les périodes et tous les dossiers associés au compte connecté.
+  Filtres par mois et statut. Chaque événement permet un dépôt de pièces et
+  un message : « En cours de traitement », puis « Justifiée », « Refusée »
+  ou « À compléter ». Un complément relance le traitement, avec historique.
+- `/admin/assiduite/justificatifs` est la file de traitement de l’équipe,
+  accessible depuis le registre d’assiduité avec le nombre de demandes en
+  attente. Le refus et la demande de complément exigent une réponse écrite.
+  La qualification est synchronisée avec le registre et la projection entreprise ;
+  les motifs, échanges et pièces ne sont jamais ajoutés au portail employeur.
+- Les catégories et pièces attendues sont regroupées dans `absence_reasons.py`,
+  à partir du guide Occitanie fourni par le client (lien dans l’interface).
+  Aucune qualification automatique : les anciennes durées de congés et règles
+  ICF du guide ne sont pas reproduites. L’équipe vérifie le droit applicable.
+- `/espace/entreprise` affiche le rattachement actuel du dossier : entreprise,
+  dates, tuteur, établissement et contact. L’absence de rattachement est explicite.
+- Les documents PDF, JPEG, PNG et WebP sont contrôlés côté serveur : 10 Mo par
+  fichier, 5 pièces et 20 Mo par demande. Stockage privé persistant dans
+  `DATA_DIR/absence-justifications`, hors nettoyage des dossiers `uploads`.
+  Téléchargement après contrôle de session, de version et d’appartenance.
+  Les liens historiques de dossier seuls n’ouvrent pas ces nouvelles données.
+- Schéma additif `absence_requests`, `absence_files`, `absence_history` ;
+  transactions et versions protègent les envois et décisions concurrents.
+  Une correction de la période d’un événement rouvre l’examen ; un événement
+  accompagné d’un justificatif ne peut pas être réattribué à un autre étudiant.
+
+Validation : `python -m pytest -q tests/test_student_workspace.py`.
+
 Le calendrier d’indisponibilités ouvre les mois restants de l’année en cours.
 Les mois antérieurs restent consultables avec « Toute l’année » ; les dates
 passées sont grisées et leur restriction est explicitement expliquée.

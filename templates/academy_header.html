@@ -1,10 +1,11 @@
 <header id="academy-header" class="academy-header{% if is_admin %} workspace-topbar{% endif %}">
   <div class="academy-header-identity">
     {% if is_admin %}<button type="button" class="menu-toggle" aria-controls="workspace-sidebar" aria-expanded="true" aria-label="Réduire le menu" title="Réduire le menu">{{ icon('menu') }}</button>{% endif %}
-    <a href="/" class="academy-header-brand" aria-label="Intégrale Academy — Accueil">{{ academy_logo() }}</a>
+    <a href="{{ '/espace/mon-dossier' if has_student_navigation else '/' }}" class="academy-header-brand" aria-label="Intégrale Academy — Accueil">{{ academy_logo() }}</a>
   </div>
   <div class="academy-header-actions">
     {% if is_admin %}<a class="academy-preview-link" href="/candidature?preview=1" target="_blank" rel="noopener">Aperçu de l’inscription ↗</a>{% endif %}
+    {% if has_student_navigation %}<span class="sw-kicker">ESPACE ÉTUDIANT</span>{% else %}
     <details class="academy-account" data-account-menu>
       <summary class="academy-account-toggle" aria-controls="academy-account-panel">{{ icon('person') }}<span>Connexion</span><span class="academy-account-chevron" aria-hidden="true"></span></summary>
       <nav id="academy-account-panel" class="academy-account-panel" aria-label="Choisir un espace">
@@ -14,5 +15,6 @@
         {% endfor %}
       </nav>
     </details>
+    {% endif %}
   </div>
 </header>
