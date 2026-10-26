@@ -158,7 +158,7 @@
     show(editor, isSubjects && !item && !form.elements.promotion_id.value ? form.elements.promotion_id : form.elements.name);
   }
   function fillReferenceFields(item) {
-    for (const key of ['exam_unit', 'objectives', 'pedagogical_content', 'exam_format', 'review_note', 'coefficient', 'weekly_hours_first', 'weekly_hours_second']) if (form.elements[key]) form.elements[key].value = item?.[key] ?? '';
+    for (const key of ['exam_unit', 'objectives', 'curriculum_topics', 'pedagogical_content', 'exam_format', 'review_note', 'coefficient', 'weekly_hours_first', 'weekly_hours_second']) if (form.elements[key]) form.elements[key].value = item?.[key] ?? '';
     if (form.elements.optional) form.elements.optional.checked = !!item?.optional;
     const panel = $('subject-reference-fields'); if (panel) panel.open = !!item?.import_id;
     const source = $('subject-reference-provenance'); if (!source) return;
@@ -191,7 +191,7 @@
       form.elements.planned_hours.setCustomValidity(state.editing?.import_id && !form.elements.planned_hours.value && !scheduled ? '' : !Number.isFinite(value) || value <= 0 ? 'Renseignez un volume annuel supérieur à zéro.' : Math.abs(value * 60 - Math.round(value * 60)) > 1e-7 ? 'Le volume doit correspondre à un nombre entier de minutes, par exemple 1,5 h pour 1 h 30.' : value * 60 + 1e-7 < scheduled ? 'Le volume annuel ne peut pas être inférieur aux ' + duration(scheduled) + ' déjà planifiées.' : '');
       if ($('catalog-save').disabled) return;
       payload = {promotion_id: state.editing?.promotion_id || form.elements.promotion_id.value, name: form.elements.name.value.trim(), trainer_id: form.elements.trainer_id.value, planned_hours: state.editing?.import_id && !form.elements.planned_hours.value ? null : value, color: form.elements.color.value};
-      for (const key of ['exam_unit', 'objectives', 'pedagogical_content', 'exam_format', 'review_note']) if (form.elements[key]) payload[key] = form.elements[key].value;
+      for (const key of ['exam_unit', 'objectives', 'curriculum_topics', 'pedagogical_content', 'exam_format', 'review_note']) if (form.elements[key]) payload[key] = form.elements[key].value;
       for (const key of ['coefficient', 'weekly_hours_first', 'weekly_hours_second']) if (form.elements[key]) payload[key] = form.elements[key].value === '' ? null : Number(form.elements[key].value);
       if (form.elements.optional) payload.optional = form.elements.optional.checked;
     } else payload = {name: form.elements.name.value.trim(), active: form.elements.active.checked};

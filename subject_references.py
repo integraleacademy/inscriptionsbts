@@ -25,14 +25,14 @@ from promotions import BTS_LABELS
 
 DOMAINS = ('legifrance.gouv.fr', 'education.gouv.fr', 'enseignementsup-recherche.gouv.fr', 'francecompetences.fr')
 API_URL = 'https://api.openai.com/v1/responses'
-DETAIL_TEXT = {'exam_unit': 80, 'objectives': 12000, 'pedagogical_content': 20000,
+DETAIL_TEXT = {'exam_unit': 80, 'objectives': 12000, 'pedagogical_content': 20000, 'curriculum_topics': 20000,
                'exam_format': 2000, 'source_url': 2000, 'source_label': 500,
                'reference_title': 500, 'reference_version': 800, 'evidence': 4000, 'review_note': 2000}
 DETAIL_NUMBERS = {'coefficient': 100, 'weekly_hours_first': 80, 'weekly_hours_second': 80}
 TEXT_LABELS = {'name': 'Nom de la matière', 'qualification': 'Diplôme',
     'reference_title': 'Titre du référentiel', 'reference_version': 'Version du référentiel',
     'exam_unit': 'Unité / épreuve', 'objectives': 'Objectifs et compétences',
-    'pedagogical_content': 'Contenu pédagogique', 'exam_format': 'Modalités d’examen',
+    'pedagogical_content': 'Contenu pédagogique', 'curriculum_topics': 'Thèmes du référentiel', 'exam_format': 'Modalités d’examen',
     'source_label': 'Repère dans la source', 'evidence': 'Extrait justificatif',
     'review_note': 'Points à vérifier'}
 MOS_URL = 'https://www.legifrance.gouv.fr/loda/id/JORFTEXT000041728741'
@@ -219,7 +219,7 @@ def response_payload(query):
         'name': text(120), 'exam_unit': text(80), 'coefficient': numeric(100), 'optional': {'type': 'boolean'},
         'weekly_hours_first': numeric(80), 'weekly_hours_second': numeric(80),
         **{field: text(DETAIL_TEXT[field]) for field in (
-            'objectives', 'pedagogical_content', 'exam_format', 'source_url', 'source_label', 'evidence', 'review_note')},
+            'objectives', 'pedagogical_content', 'curriculum_topics', 'exam_format', 'source_url', 'source_label', 'evidence', 'review_note')},
     })
     output = object_schema({'qualification': text(500), 'reference_title': text(500), 'reference_version': text(800),
         'warnings': {'type': 'array', 'items': text(2000), 'maxItems': 30},
@@ -243,6 +243,10 @@ Les horaires sont ceux de la grille scolaire hebdomadaire, jamais un volume annu
 Ne calcule aucun volume annuel. Pour chaque nombre absent ou ambigu, renvoie null et une review_note.
 Pour une épreuve facultative avec bonus de points, précise la règle, sans inventer de coefficient.
 Reprends les objectifs et synthétise les savoirs/contenus pédagogiques avec des sauts de ligne lisibles.
+Dans curriculum_topics, recopie les intitulés des compétences ou thèmes du référentiel pour cette matière,
+un intitulé complet par ligne. Priorité aux compétences du tableau de synthèse du bloc correspondant.
+Ne découpe pas le descriptif en phrases et n’utilise pas des modalités d’examen comme thèmes.
+N’ajoute aucun intitulé inventé. Si aucun thème n’est explicitement établi, laisse ce champ vide et signale-le.
 N'invente pas un programme et n'ajoute pas de promesses de certification.
 Chaque matière DOIT avoir source_url d'une page réellement consultée (sans fragment inventé), source_label
 avec annexe/page/tableau, et evidence avec un court extrait permettant de vérifier unité et coefficient.

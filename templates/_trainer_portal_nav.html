@@ -1,6 +1,7 @@
 {% from 'ui_icons.html' import icon %}
+{% set trainer_portal_active = 'grades' if request.path.startswith('/formateur/devoirs-notes') else 'planning' if request.path.startswith('/formateur/planning') else 'availability' if request.path.startswith('/formateur/indisponibilites') else 'teaching' if request.path.startswith('/formateur/pedagogie') or request.path.startswith('/formateur/cours/') else 'home' %}
 <nav class="trainer-portal-nav" aria-label="Mon espace formateur">
-  {% for key,href,label,symbol in [('home','/formateur','Accueil','home'),('planning','/formateur/planning','Mon planning','clock'),('availability','/formateur/indisponibilites','Mes indisponibilités','calendar'),('teaching','/formateur/pedagogie','Cours et devoirs','book')] %}
+  {% for key,href,label,symbol in [('home','/formateur','Accueil','home'),('planning','/formateur/planning','Mon planning','clock'),('availability','/formateur/indisponibilites','Mes indisponibilités','calendar'),('teaching','/formateur/pedagogie','Mes cours','book'),('grades','/formateur/devoirs-notes','Devoirs et notes','file')] %}
   <a href="{{ href }}" class="trainer-portal-tab{% if trainer_portal_active == key %} is-active{% endif %}"{% if trainer_portal_active == key %} aria-current="page"{% endif %}>{{ icon(symbol) }}<span>{{ label }}</span></a>
   {% endfor %}
 </nav>

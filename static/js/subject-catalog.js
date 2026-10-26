@@ -5,7 +5,7 @@
   if (!root) return;
   const $ = id => document.getElementById(id), form = $('catalog-form'), editor = $('catalog-editor'), confirm = $('catalog-confirm');
   const state = {data: null, loading: true, sequence: 0, editing: null, drafts: {}, detail: ''};
-  const textFields = ['exam_unit', 'objectives', 'pedagogical_content', 'exam_format', 'review_note'];
+  const textFields = ['exam_unit', 'objectives', 'curriculum_topics', 'pedagogical_content', 'exam_format', 'review_note'];
   const numberFields = ['coefficient', 'weekly_hours_first', 'weekly_hours_second'];
   const normal = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr');
   const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };

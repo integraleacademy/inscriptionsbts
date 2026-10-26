@@ -4,7 +4,7 @@
 {% block content %}
 <div class="ta-app" data-trainer-availability>
   <script type="application/json" id="trainer-availability-config">{{ availability|tojson }}</script>
-  {% set trainer_portal_active = 'availability' %}{% include '_trainer_portal_nav.html' %}
+
   <header class="ta-heading">
     <div><p class="ta-kicker">INTÉGRALE ACADEMY · ÉQUIPE PÉDAGOGIQUE</p><h1>Mes <em>indisponibilités.</em></h1><p>Quelques dates à réserver ? Indiquez-les ici pour que votre planning en tienne compte.</p></div>
 
@@ -18,7 +18,7 @@
     </div>
     <div class="ta-calendar-jumps">
       <form method="get" action="/formateur/indisponibilites" id="ta-year-form"><label for="ta-year-select">Choisir une année<select name="year" id="ta-year-select">{% for year in range(1900,2201) %}<option value="{{ year }}"{% if year == availability.year|int %} selected{% endif %}>{{ year }}</option>{% endfor %}</select></label><button type="submit" id="ta-year-submit" class="ta-button">Afficher l’année</button></form>
-      <label for="ta-month-select">Afficher une période<select id="ta-month-select"><option value="">Les mois à venir</option><option value="all">Toute l’année</option>{% for month in ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'] %}<option value="{{ loop.index0 }}">{{ month }}</option>{% endfor %}</select></label>
+      <label for="ta-month-select">Afficher une période<select id="ta-month-select"><option value="">Les mois à venir</option><option value="all">Toute l’année</option>{% for month in ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'] %}<option value="{{ loop.index0 }}">{{ month }} {{ availability.year }}</option>{% endfor %}</select></label>
     </div>
     <div class="ta-help"><span>{{ icon('calendar') }}</span><p id="ta-instructions">Cliquez sur les jours où vous êtes indisponible, ou faites glisser pour en sélectionner plusieurs. Vos choix seront appliqués après enregistrement.</p></div>
     <div class="ta-help"><p>Les dates passées sont grisées : elles ne peuvent plus être déclarées. Sélectionnez une date à venir, puis cliquez sur <strong>Enregistrer mes dates</strong>.</p></div>

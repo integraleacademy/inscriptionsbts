@@ -28,6 +28,11 @@ def _normalized_name(value):
     return ' '.join(''.join(c for c in value if not unicodedata.combining(c)).casefold().replace('’', "'").split())
 
 
+def _login_identity(value):
+    """Keep email accents intact; normalize names as before."""
+    return value.strip().casefold() if '@' in value else _normalized_name(value)
+
+
 def _dob(value):
     try:
         parsed = date.fromisoformat((value or '')[:10])
@@ -147,12 +152,14 @@ def register_candidate_access(app, db_connect, send_mail):
         conn.execute('INSERT INTO student_auth_requests(kind,identity_key,ip_key,created_at) VALUES(?,?,?,?)', (kind, identity_key, ip_key, now))
         return True
 
-    def grouped_accounts(conn, surname):
+    def grouped_accounts(conn, identifier):
         rows = conn.execute('''SELECT id,nom,prenom,date_naissance,email,slug_public,rentree_annee,created_at
             FROM candidats ORDER BY COALESCE(rentree_annee,2026) DESC,created_at DESC''').fetchall()
         groups = {}
         for row in rows:
-            if _normalized_name(row['nom']) != surname:
+            email = (row['email'] or '').strip().casefold()
+            surname = _normalized_name(row['nom'])
+            if (email != identifier if '@' in identifier else surname != identifier):
                 continue
             person = dict(row)
             # First name matters: twins sharing surname, DOB and a parent's email are distinct.
@@ -214,27 +221,41 @@ def register_candidate_access(app, db_connect, send_mail):
         if request.method == 'POST':
             check_csrf()
             _clear_student_session()
-            surname = request.form.get('nom', '').strip()[:100]
+            surname = request.form.get('nom', '').strip()[:254]
             password = request.form.get('password', '')
             selected = None
+            reason = 'invalid'
             if surname and 1 <= len(password) <= 128:
                 with closing(db_connect()) as conn:
                     _schema(conn)
                     conn.execute('BEGIN IMMEDIATE')
-                    if limit(conn, 'login', _normalized_name(surname), LOGIN_LIMIT):
-                        accounts = grouped_accounts(conn, _normalized_name(surname))
+                    identity = _login_identity(surname)
+                    if limit(conn, 'login', identity, LOGIN_LIMIT):
+                        accounts = grouped_accounts(conn, identity)
                         matches = [(account, people) for account, people in accounts if check_password_hash(account['password_hash'], password)]
                         if not accounts:
                             check_password_hash(dummy_password_hash, password)
                         # Never pick an arbitrary person when a surname/password pair is ambiguous.
                         if len(matches) == 1:
                             selected = matches[0]
+                            # Successful logins are not failed attempts. In particular,
+                            # repeated tests must not lock a known, valid account.
+                            conn.execute('DELETE FROM student_auth_requests WHERE kind=? AND identity_key=?',
+                                         ('login', digest('login:'+identity)))
+                        elif len(matches) > 1:
+                            reason = 'ambiguous'
+                    else:
+                        reason = 'limited'
                     conn.commit()
             if selected:
+                app.logger.info('student_login_result=success')
                 account, people = selected
                 establish(account, people[0])
                 return safe_redirect('student_change_password' if account['must_change'] else 'student_dashboard')
-            error = 'Nom ou mot de passe incorrect, ou accès temporairement limité. Vérifie tes informations ou utilise « Mot de passe oublié ». En cas de difficulté, contacte notre équipe.'
+            app.logger.info('student_login_result=%s', reason)
+            error = ('Plusieurs comptes correspondent. Utilise ton adresse e-mail et ton mot de passe personnel. Si l’adresse est partagée, contacte notre équipe.' if reason == 'ambiguous' else
+                     'Trop de tentatives récentes. Réessaie dans 15 minutes ou utilise « Mot de passe oublié ».' if reason == 'limited' else
+                     'Nom, adresse e-mail ou mot de passe incorrect. Si tu as déjà changé ton mot de passe, utilise ton mot de passe personnel : ta date de naissance ne fonctionne plus. Tu peux utiliser « Mot de passe oublié ».')
         return page('candidate_login.html', title='Espace étudiant · Intégrale Academy', error=error, surname=surname, reset_done=request.args.get('reset') == 'ok')
 
     @app.route('/espace/verification', methods=['GET', 'POST'])

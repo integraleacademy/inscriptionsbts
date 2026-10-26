@@ -47,7 +47,7 @@ def test_month_jump_preserves_authentication_and_initial_password_guard(portal_a
 def test_trainer_planning_uses_real_page_tabs_with_current_page(portal_app):
     html=login(portal_app,'trainer','t1').get('/formateur/planning?date=2026-10-26').text
     nav=re.search(r'<nav class="trainer-portal-nav".*?</nav>',html,re.S).group(0)
-    assert nav.count('<a ')==4
+    assert nav.count('<a ')==5
     assert '/formateur/pedagogie' in nav
     assert 'href="/formateur"' in nav
     assert 'href="/formateur/indisponibilites"' in nav
@@ -68,5 +68,5 @@ def test_availability_page_has_year_and_month_shortcuts():
         html=render_template('trainer_availability.html',availability=dict(year=2027,home_url='/formateur',planning_url='/formateur/planning'),trainer={})
     assert '<select name="year" id="ta-year-select">' in html
     assert '<option value="2027" selected>2027</option>' in html
-    assert 'id="ta-month-select"' in html and '>Décembre</option>' in html
+    assert 'id="ta-month-select"' in html and '>Décembre 2027</option>' in html
     assert re.search(r'href="/formateur/indisponibilites"[^>]*aria-current="page"',html)

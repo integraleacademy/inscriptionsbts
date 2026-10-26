@@ -4,6 +4,7 @@
 {% set is_company_auth = request.endpoint in ['company_login', 'company_forgot_password', 'company_password'] %}
 {% set is_company_space = request.path.startswith('/entreprise') or request.path.startswith('/admin/entreprises') or request.path.startswith('/admin/assiduite') %}
 {% set is_trainer_space = request.path.startswith('/formateur') %}
+{% set is_trainer_portal = is_trainer_space and request.endpoint not in ['trainer_login', 'trainer_forgot_password', 'trainer_password', 'trainer_accept_token', 'trainer_logout'] %}
 {% set is_trainer_admin = request.path.startswith('/admin/formateurs') %}
 {% set is_promotions_admin = request.path.startswith('/admin/promotions') %}
 {% set is_planning_admin = request.path.startswith('/admin/planning') %}
@@ -53,7 +54,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/public-refinement.css') }}?v=5">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-refinement.css') }}?v=4">
   {% if is_student_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-access.css') }}?v=4">{% endif %}
-  {% if request.endpoint == 'candidate_login' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-login.css') }}?v=1">{% endif %}
+  {% if request.endpoint == 'candidate_login' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-login.css') }}?v=2">{% endif %}
   {% if is_trainer_space or is_trainer_admin or is_promotions_admin or is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-space.css') }}?v=2">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-neutral.css') }}?v=1">
   {% if is_trainer_admin or is_promotions_admin or request.endpoint in ['trainer_dashboard', 'admin_candidate_sheet'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/promotions.css') }}?v=1">{% endif %}
@@ -68,13 +69,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-vibrant.css') }}?v=1">
   {% if is_company_space and not is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-space.css') }}?v=2">{% endif %}
   {% block page_styles %}{% endblock %}
+  {% if is_trainer_portal %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-portal.css') }}?v=1">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
   {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
   {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-admin.css') }}?v=1">{% endif %}
 {% if request.endpoint in ['admin_candidate_sheet', 'admin'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-editor.css') }}?v=4">{% endif %}
 </head>
 
-<body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
+<body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_trainer_portal %}trainer-portal-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
 
     {% if not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
@@ -101,6 +103,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   <!-- ✅ Contenu principal -->
   <main id="main-content" class="{% if 'admin' in request.path or 'parcoursup' in request.path %}admin-full{% elif 'espace' in request.path %}container candidat{% else %}container{% endif %}">
+    {% if is_trainer_portal %}{% include '_trainer_portal_nav.html' %}{% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         <div class="flash-area">
@@ -120,9 +123,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <script src="{{ url_for('static', filename='js/planning.js') }}?v=8" defer></script>
   {% elif is_planning_catalog %}
     {% if request.path == '/admin/matieres' %}
-    <script src="{{ url_for('static', filename='js/subject-catalog.js') }}?v=1" defer></script>
+    <script src="{{ url_for('static', filename='js/subject-catalog.js') }}?v=2" defer></script>
     {% else %}
-    <script src="{{ url_for('static', filename='js/planning-catalog.js') }}?v=3" defer></script>
+    <script src="{{ url_for('static', filename='js/planning-catalog.js') }}?v=4" defer></script>
     {% endif %}
   {% elif is_portal_planning %}
     <script src="{{ url_for('static', filename='js/portal-planning.js') }}?v=1" defer></script>
@@ -148,7 +151,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if request.endpoint == 'admin_candidate_sheet' %}<script src="{{ url_for('static', filename='js/candidate-photo.js') }}?v=2" defer></script>{% endif %}
   {% if request.endpoint in ['admin_candidate_sheet', 'espace_candidat', 'student_dashboard'] %}<script src="{{ url_for('static', filename='js/candidate-refinement.js') }}?v=4" defer></script>{% endif %}
   {% if request.endpoint == 'admin_candidate_sheet' %}<script src="{{ url_for('static', filename='js/candidate-promotion.js') }}?v=1" defer></script>{% endif %}
-  {% if request.endpoint == 'trainer_availability' %}<script src="{{ url_for('static', filename='js/trainer-availability.js') }}?v=3" defer></script>{% endif %}
+  {% if request.endpoint == 'trainer_availability' %}<script src="{{ url_for('static', filename='js/trainer-availability.js') }}?v=4" defer></script>{% endif %}
   {% if request.endpoint == 'admin_trainer_detail' %}<script src="{{ url_for('static', filename='js/trainer-workload.js') }}?v=2" defer></script>{% endif %}
   {% if planning_sync_config %}<script src="{{ url_for('static', filename='js/planning-sync.js') }}?v=1" defer></script>{% endif %}
   {% if request.endpoint == 'admin_trainer_detail' %}<script src="{{ url_for('static', filename='js/trainer-admin-planning.js') }}?v=1" defer></script>{% endif %}

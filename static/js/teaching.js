@@ -6,7 +6,7 @@
   let state = JSON.parse($('teaching-state').textContent);
   const teacher = state.role === 'trainer', base = '/formateur/cours/' + encodeURIComponent(state.course.id);
   const dirty = new Set();
-  let busy = false, editingHomework = null, gradingHomework = null;
+  let busy = false;
   let clockOffset = Date.parse(state.window.server_now) - Date.now();
   function message(text, error = false) {
     const node = $('teach-feedback'); node.textContent = text; node.hidden = false;
@@ -158,91 +158,4 @@
       state.documents = state.documents.filter(d => d.id !== button.dataset.deleteDocument); renderDocuments(); message('Document retiré.');
     });
   });
-  function renderHomework() {
-    const list = $('teach-homework-list'); list.replaceChildren();
-    if (!state.homework.length) list.append(el('p', 'Aucun devoir pour ce cours. Créez le premier devoir.', 'teach-empty'));
-    state.homework.forEach(hw => {
-      const item = el('article', undefined, 'teach-homework'), heading = el('div', undefined, 'teach-section-heading');
-      heading.append(el('h3', hw.title), el('span', hw.published ? 'Publié' : 'Brouillon', 'teach-tag'));
-      item.append(heading, el('div', hw.instructions, 'teach-read-content'), el('p', 'Pour le ' + hw.due_date.split('-').reverse().join('/') + ' · Sur ' + hw.scale + ' · Coefficient ' + hw.coefficient));
-      const actions = el('div', undefined, 'teach-inline');
-      const edit = el('button', 'Modifier le devoir', 'teach-button'); edit.type = 'button'; edit.addEventListener('click', () => openHomework(hw));
-      const grades = el('button', 'Saisir les notes', 'teach-button primary'); grades.type = 'button'; grades.addEventListener('click', () => openGrades(hw));
-      actions.append(edit, grades); item.append(actions); list.append(item);
-    });
-  }
-  function canDiscard(id) { return !dirty.has(id) || window.confirm('Abandonner les modifications non enregistrées de ce formulaire ?'); }
-  function openHomework(hw = null) {
-    if (!canDiscard('teach-homework-form')) return;
-    dirty.delete('teach-homework-form'); editingHomework = hw ? {id:hw.id, version:hw.version} : null;
-    $('teach-homework-form').hidden = false; $('teach-homework-editor-title').textContent = hw ? 'Modifier le devoir' : 'Nouveau devoir';
-    $('teach-homework-id').value = hw?.id || ''; $('teach-homework-title').value = hw?.title || '';
-    $('teach-homework-instructions').value = hw?.instructions || ''; $('teach-homework-due').value = hw?.due_date || state.course.date;
-    $('teach-homework-scale').value = hw?.scale || 20; $('teach-homework-coefficient').value = hw?.coefficient || 1;
-    $('teach-homework-published').checked = hw?.published === 1; $('teach-homework-ai-draft').hidden = true;
-    $('teach-homework-title').focus();
-  }
-  $('teach-new-homework').addEventListener('click', () => openHomework());
-  $('teach-close-homework').addEventListener('click', () => { if (canDiscard('teach-homework-form')) { dirty.delete('teach-homework-form'); $('teach-homework-form').hidden = true; } });
-  $('teach-homework-form').addEventListener('submit', event => {
-    event.preventDefault(); const form = event.currentTarget;
-    if (!form.reportValidity()) return;
-    task(event.submitter, async () => {
-      const answer = await api('devoir', {id:editingHomework?.id || null, version:editingHomework?.version || 0,
-        title:$('teach-homework-title').value, instructions:$('teach-homework-instructions').value,
-        due_date:$('teach-homework-due').value, scale:$('teach-homework-scale').value,
-        coefficient:$('teach-homework-coefficient').value, published:$('teach-homework-published').checked});
-      state.homework = answer.homework; dirty.delete(form.id); form.hidden = true; renderHomework(); message('Devoir enregistré.');
-    });
-  });
-  $('teach-ai-homework').addEventListener('click', event => task(event.currentTarget, async () => {
-    const notes = [$('teach-homework-title').value, $('teach-homework-instructions').value, $('teach-journal-content').value].filter(Boolean).join('\n\n');
-    const answer = await api('assistant', {task:'homework', topics:selectedTopics(), notes:notes.slice(0, 12000)});
-    $('teach-homework-ai-output').value = answer.draft; $('teach-homework-ai-draft').hidden = false;
-    message('Consignes proposées : relisez-les avant de les utiliser.');
-  }));
-  $('teach-use-homework-ai').addEventListener('click', () => {
-    if ($('teach-homework-instructions').value.trim() && !window.confirm('Remplacer les consignes actuelles par cette proposition ?')) return;
-    $('teach-homework-instructions').value = $('teach-homework-ai-output').value; $('teach-homework-ai-draft').hidden = true; dirty.add('teach-homework-form');
-  });
-  function openGrades(hw) {
-    if (!canDiscard('teach-grades-form')) return;
-    dirty.delete('teach-grades-form'); gradingHomework = {id:hw.id, version:hw.version, scale:hw.scale};
-    $('teach-grades-form').hidden = false; $('teach-grades-title').textContent = hw.title + ' · Notes sur ' + hw.scale;
-    const rows = $('teach-grades-rows'); rows.replaceChildren();
-    state.attendance.students.forEach(student => {
-      const grade = hw.grades.find(g => g.candidate_id === student.id), row = el('div', undefined, 'teach-grade-row');
-      row.dataset.gradeStudent = student.id; const name = el('strong', student.prenom + ' ' + student.nom.toUpperCase()); name.append(el('small', student.promotion_name));
-      const statusLabel = el('label', 'Statut'), status = document.createElement('select'); status.dataset.gradeStatus = '';
-      [['pending','Non noté'],['graded','Noté'],['absent','Absent'],['exempt','Dispensé']].forEach(([value,label]) => { const option = el('option', label); option.value = value; status.append(option); });
-      status.value = grade?.status || 'pending'; statusLabel.append(status);
-      const scoreLabel = el('label', 'Sur ' + hw.scale), score = document.createElement('input'); score.type = 'number'; score.min = '0'; score.max = hw.scale; score.step = '.01'; score.dataset.gradeScore = ''; score.value = grade?.score ?? ''; scoreLabel.append(score);
-      const commentLabel = el('label', 'Appréciation'), comment = document.createElement('input'); comment.type = 'text'; comment.maxLength = 2000; comment.dataset.gradeComment = ''; comment.value = grade?.comment || ''; commentLabel.append(comment);
-      const refresh = () => { score.disabled = ['absent', 'exempt'].includes(status.value); score.required = status.value === 'graded'; updateAverage(); };
-      status.addEventListener('change', refresh); score.addEventListener('input', () => { if (score.value !== '') status.value = 'graded'; else if (status.value === 'graded') status.value = 'pending'; refresh(); });
-      row.append(name, statusLabel, scoreLabel, commentLabel); rows.append(row); refresh();
-    });
-    updateAverage(); $('teach-grades-title').scrollIntoView({block:'start', behavior:'smooth'});
-  }
-  function updateAverage() {
-    let sum = 0, count = 0;
-    root.querySelectorAll('[data-grade-student]').forEach(row => {
-      const score = row.querySelector('[data-grade-score]');
-      if (row.querySelector('[data-grade-status]').value === 'graded' && score.value !== '' && Number.isFinite(Number(score.value))) { sum += Number(score.value); count++; }
-    });
-    $('teach-grades-average').textContent = count ? 'Moyenne du devoir : ' + (sum/count).toLocaleString('fr-FR', {maximumFractionDigits:2}) + ' / ' + gradingHomework.scale + ' · ' + count + ' notes' : 'Aucune note saisie';
-  }
-  $('teach-close-grades').addEventListener('click', () => { if (canDiscard('teach-grades-form')) { dirty.delete('teach-grades-form'); $('teach-grades-form').hidden = true; } });
-  $('teach-grades-form').addEventListener('submit', event => {
-    event.preventDefault(); const form = event.currentTarget;
-    if (!form.reportValidity() || !gradingHomework) return;
-    const students = [...root.querySelectorAll('[data-grade-student]')].map(row => ({id:row.dataset.gradeStudent,
-      status:row.querySelector('[data-grade-status]').value, score:row.querySelector('[data-grade-score]').value, comment:row.querySelector('[data-grade-comment]').value}));
-    task(event.submitter, async () => {
-      const answer = await api('notes', {id:gradingHomework.id, version:gradingHomework.version, students});
-      state.homework = answer.homework; gradingHomework.version = state.homework.find(hw => hw.id === gradingHomework.id).version;
-      dirty.delete(form.id); renderHomework(); message('Notes et appréciations enregistrées.');
-    });
-  });
-  renderHomework();
 })();

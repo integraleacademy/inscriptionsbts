@@ -277,8 +277,8 @@ des champs et protection des modifications non enregistrées).
 
 ## Espace formateur : appel, cahier de texte, documents et évaluations
 
-**Cours et devoirs** (`/formateur/pedagogie`) et chaque carte du planning ouvrent
-la fiche du cours. Les quatre onglets conservent leurs saisies au changement
+**Mes cours** (`/formateur/pedagogie`) et chaque carte du planning ouvrent
+la fiche du cours. Les trois onglets conservent leurs saisies au changement
 d’onglet ; une sortie avec des modifications non enregistrées est signalée.
 
 - **Appel** : étudiants confirmés de toutes les promotions autorisées du cours,
@@ -290,7 +290,7 @@ d’onglet ; une sortie avec des modifications non enregistrées est signalée.
   l’administration et les entreprises. Une correction de l’équipe n’est jamais
   écrasée silencieusement par le formateur.
 - **Rappel SMS** : mobile renseigné dans la fiche administrateur (Compte) ou
-  dans Cours et devoirs du formateur. Le service contrôle les cours toutes les
+  dans Mes cours du formateur. Le service contrôle les cours toutes les
   30 secondes et envoie un rappel dès début + 1 h si le cours est toujours en
   cours, l’appel non validé, le compte actif et la liste non vide. Les cours
   terminés, supprimés ou sans mobile ne déclenchent aucun envoi. Les claims
@@ -299,11 +299,14 @@ d’onglet ; une sortie avec des modifications non enregistrées est signalée.
   états `blocked`, `unknown`, `sending`, `sent` sont conservés pour diagnostic.
   Le transport réutilise `BREVO_API_KEY`, via `/v3/transactionalSMS/send`, avec
   délais réseau bornés et sans journaliser le mobile, le message ou la clé.
-- **Cahier de texte** : thèmes issus des contenus et objectifs enregistrés dans
-  le catalogue, pour la matière et le diplôme du cours. Aucun thème officiel
+- **Cahier de texte** : thèmes structurés dans le champ `curriculum_topics` du
+  catalogue (un intitulé complet par ligne), pour la matière et le diplôme.
+  Les quatre blocs professionnels du BTS MOS disposent des intitulés du tableau
+  de synthèse officiel de l’arrêté du 2 mars 2020. Le descriptif n’est jamais
+  découpé automatiquement en thèmes. Aucun thème officiel
   n’est inventé si le référentiel manque. Le texte est partagé avec les étudiants
   après enregistrement. L’assistant propose un brouillon à relire, applicable
-  explicitement puis enregistrable ; il aide aussi à préparer les devoirs.
+  explicitement puis enregistrable.
   Il utilise la clé OpenAI des Paramètres, `OPENAI_PEDAGOGY_MODEL` (par défaut
   `gpt-4.1-mini`), Responses avec `store=false`, sans envoi de liste d’élèves,
   notes ou présences. Les indications saisies restent à la charge du formateur.
@@ -312,11 +315,26 @@ d’onglet ; une sortie avec des modifications non enregistrées est signalée.
   20 Mo par fichier et 100 Mo par cours. Stockage privé sur le disque existant
   dans `uploads/teaching`, identifiants aléatoires et téléchargement en pièce
   jointe après revalidation de la session et de l’accès au cours.
-- **Devoirs et notes** : consignes, échéance, barème, coefficient, brouillon ou
+- **Devoirs et notes** (`/formateur/devoirs-notes`) : rubrique indépendante du
+  planning, par promotion et matière. Les évaluations peuvent être créées et
+  notées à toute date, même sans cours programmé ni allocation au planning.
+  Les devoirs existants conservent leurs identifiants et notes ; leurs liens à
+  la promotion et à la matière sont copiés une seule fois dans
+  `teaching_homework_groups`, indépendamment des suppressions de cours.
+  Seul le créateur peut modifier ses évaluations, dans ses promotions actives.
+  Consignes, échéance, barème, coefficient, brouillon ou
   publication ; notes (zéro compris), absent, dispensé, non noté, appréciations
   et moyenne du devoir. Modifications concurrentes détectées. Les étudiants
   accèdent aux contenus et documents du cours et uniquement à leurs propres
-  notes des devoirs publiés (`/espace/pedagogie`).
+  notes des devoirs publiés (`/espace/devoirs-notes`).
+- **Navigation** : un seul menu commun placé avant le contenu, avec Accueil,
+  Mon planning, Mes indisponibilités, Mes cours et Devoirs et notes. Les mois
+  du calendrier d’indisponibilités et du sélecteur portent aussi leur année.
+- **Connexion étudiant** : nom de famille ou e-mail et mot de passe personnel.
+  Les connexions réussies ne consomment pas le quota de tentatives échouées.
+  Les mots de passe existants sont conservés ; homonymie et limitation ont des
+  messages distincts. Les journaux de connexion contiennent uniquement le résultat
+  (`success`, `invalid`, `ambiguous`, `limited`), sans identifiant ni mot de passe.
 
 Schéma additif `teaching_*` ; aucun compte, cours ni fichier existant supprimé.
 Le worker démarre dans le processus servant `python app.py` sur Render et dispose

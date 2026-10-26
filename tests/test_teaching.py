@@ -148,7 +148,7 @@ def test_shared_course_roster_only_in_current_grants(env):
 def add_topics(env):
     with env[1]() as conn:
         t.schema(conn)
-        conn.execute("UPDATE planning_subject_diplomas SET data=? WHERE subject_id='s1'",(json.dumps(dict(pedagogical_content='Analyser une situation; Organiser une intervention',objectives='Communiquer',source_url='https://education.gouv.fr/referentiel')),))
+        conn.execute("UPDATE planning_subject_diplomas SET data=? WHERE subject_id='s1'",(json.dumps(dict(curriculum_topics='Analyser une situation\nOrganiser une intervention\nCommuniquer',pedagogical_content='Descriptif de la matière. Ceci ne doit pas être un thème.',objectives='Objectifs pédagogiques généraux',source_url='https://education.gouv.fr/referentiel')),))
 
 
 def test_journal_uses_real_topics_and_is_available_to_student(env):
@@ -184,7 +184,7 @@ def test_ai_draft_is_private_not_autosaved_and_has_no_roster(env,monkeypatch):
 
 
 def homework(client,**extra):
-    return post(client,'devoir',dict(version=0,title='Étude de cas',instructions='Analyser la situation.',due_date='2027-01-10',scale=20,coefficient=2,published=False,**extra))
+    return post(client,'devoir',{**dict(version=0,title='Étude de cas',instructions='Analyser la situation.',due_date='2027-01-10',scale=20,coefficient=2,published=False),**extra})
 
 
 def test_homework_grades_privacy_bounds_and_concurrency(env):
@@ -202,9 +202,11 @@ def test_homework_grades_privacy_bounds_and_concurrency(env):
     hw=state(client)['homework'][0]
     update={k:hw[k] for k in ('id','version','title','instructions','due_date','scale','coefficient')}; update['published']=True
     assert post(client,'devoir',update).status_code==200
-    response=student.get('/espace/cours/own')
+    response=student.get('/espace/devoirs-notes')
     assert response.status_code==200
-    assert '14.5' in response.text and 'Très bien' in response.text
+    import re
+    data=json.loads(re.search(r'id="gradebook-state">(.*?)</script>',response.text,re.S).group(1))
+    assert data['items'][0]['grades'][0]['score']==14.5 and data['items'][0]['grades'][0]['comment']=='Très bien'
     assert 'commentaire confidentiel c5' not in response.text and 'ETUDIANT c5' not in response.text
     assert 'teaching_attendance' not in response.text
 

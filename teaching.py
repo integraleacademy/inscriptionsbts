@@ -29,6 +29,7 @@ from planning import PlanningError, ensure_planning_schema
 from planning_portal import _identity_scope
 from company_portal import ensure_company_schema
 import subject_references
+from curriculum_topics import curriculum_labels
 
 PARIS = ZoneInfo('Europe/Paris')
 STATUSES = ('confirmee', 'reconfirmee', 'rentree')
@@ -83,6 +84,8 @@ def schema(conn):
             action TEXT NOT NULL,created_at TEXT NOT NULL,details TEXT NOT NULL)''',
     ):
         conn.execute(sql)
+    from gradebook import ensure_gradebook_schema
+    ensure_gradebook_schema(conn)
 
 
 def audit(conn, course_id, actor, action, details):
@@ -99,16 +102,22 @@ def course_window(course, now=None):
                 server_now=now.isoformat(), phase='before' if now < start else 'during' if now < end else 'after')
 
 
+def assert_trainer_session(conn, identity_id):
+    if not has_request_context():
+        return
+    auth = session.get('_trainer_auth') or {}
+    account = conn.execute('SELECT active,version,password_hash FROM trainers WHERE id=?', (identity_id,)).fetchone()
+    if (not account or not account['active'] or not account['password_hash'] or auth.get('trainer_id') != identity_id
+            or auth.get('version') != account['version'] or auth.get('expires_at', 0) <= time.time()):
+        raise PlanningError('Votre accès a changé. Reconnectez-vous.', status=401)
+
+
 def course_access(conn, course_id, role, identity_id):
     row = conn.execute('SELECT * FROM planning_courses WHERE id=?', (course_id,)).fetchone()
     if not row or (role == 'trainer' and row['trainer_id'] != identity_id):
         raise PlanningError('Cours introuvable dans votre espace.', status=404)
-    if role == 'trainer' and has_request_context():
-        auth = session.get('_trainer_auth') or {}
-        account = conn.execute('SELECT active,version,password_hash FROM trainers WHERE id=?', (identity_id,)).fetchone()
-        if (not account or not account['active'] or not account['password_hash'] or auth.get('trainer_id') != identity_id
-                or auth.get('version') != account['version'] or auth.get('expires_at', 0) <= time.time()):
-            raise PlanningError('Votre accès a changé. Reconnectez-vous.', status=401)
+    if role == 'trainer':
+        assert_trainer_session(conn, identity_id)
     allowed = {p['id'] for p in _identity_scope(conn, role, identity_id)['promotions']}
     groups = [dict(g) for g in conn.execute('''SELECT g.promotion_id,g.subject_id,p.nom,p.bts,s.name
         FROM planning_course_groups g JOIN promotions p ON p.id=g.promotion_id
@@ -141,20 +150,12 @@ def topics_for(conn, course):
             JOIN planning_subject_diplomas d ON d.subject_id=l.subject_id
             WHERE l.planning_subject_id=? AND d.diploma_code=?''', (group['subject_id'], group['bts'])).fetchone()
         details = json.loads(row['data']) if row else {}
-        source = details.get('source_url') or ''
+        labels, source, source_label = curriculum_labels(group['name'], group['bts'], details)
         if not source.startswith('https://'):
             source = ''
-        for field in ('pedagogical_content', 'objectives'):
-            text = details.get(field) or ''
-            if not isinstance(text, str):
-                continue
-            for part in re.split(r'\n+|;|(?<=[.!?])\s+', text):
-                label = part.strip(' \t\r•–-')
-                if not label:
-                    continue
-                key = hashlib.sha256((group['subject_id']+'\0'+group['bts']+'\0'+label).encode()).hexdigest()[:24]
-                topics[key] = dict(id=key, label=label, diploma=group['bts'], source=source,
-                                   source_label=details.get('source_label') or 'Référentiel de la matière')
+        for label in labels:
+            key = hashlib.sha256((group['subject_id']+'\0'+group['bts']+'\0'+label).encode()).hexdigest()[:24]
+            topics[key] = dict(id=key, label=label, diploma=group['bts'], source=source, source_label=source_label)
     return list(topics.values())[:120]
 
 
@@ -278,6 +279,8 @@ def save_homework(conn, course, trainer_id, payload):
     old = conn.execute('SELECT * FROM teaching_homework WHERE id=? AND course_id=?', (hid, course['id'])).fetchone() if hid else None
     if hid and not old:
         raise PlanningError('Devoir introuvable.', status=404)
+    if old and old['trainer_id'] != trainer_id:
+        raise PlanningError('Cette évaluation appartient à un autre formateur.', status=403)
     check_version(payload, old['version'] if old else 0)
     title = text_field(payload.get('title'), 'le titre du devoir', 160, True)
     instructions = text_field(payload.get('instructions', ''), 'les consignes', 12000)
@@ -294,11 +297,15 @@ def save_homework(conn, course, trainer_id, payload):
     if old and conn.execute('SELECT 1 FROM teaching_grades WHERE homework_id=? AND score>?', (hid, scale)).fetchone():
         raise PlanningError('Une note dépasse le nouveau barème. Corrigez les notes avant de réduire le barème.')
     hid = hid or secrets.token_urlsafe(24)
-    conn.execute('''INSERT INTO teaching_homework VALUES(?,?,?,?,?,?,?, ?,1,?,?,?) ON CONFLICT(id)
+    conn.execute('''INSERT INTO teaching_homework(id,course_id,title,instructions,due_date,scale,coefficient,
+        published,version,created_at,updated_at,trainer_id) VALUES(?,?,?,?,?,?,?, ?,1,?,?,?) ON CONFLICT(id)
         DO UPDATE SET title=excluded.title,instructions=excluded.instructions,due_date=excluded.due_date,
         scale=excluded.scale,coefficient=excluded.coefficient,published=excluded.published,
         version=version+1,updated_at=excluded.updated_at''',
         (hid, course['id'], title, instructions, due, scale, coefficient, int(payload['published']), stamp(), stamp(), trainer_id))
+    if course['id']:
+        from gradebook import migrate_homework_scope
+        migrate_homework_scope(conn, hid)
     audit(conn, course['id'], trainer_id, 'homework', dict(id=hid, title=title, published=payload['published']))
     return hid
 
@@ -307,6 +314,8 @@ def save_grades(conn, course, trainer_id, payload):
     hw = conn.execute('SELECT * FROM teaching_homework WHERE id=? AND course_id=?', (payload.get('id'), course['id'])).fetchone()
     if not hw:
         raise PlanningError('Devoir introuvable.', status=404)
+    if hw['trainer_id'] != trainer_id:
+        raise PlanningError('Cette évaluation appartient à un autre formateur.', status=403)
     check_version(payload, hw['version'])
     rows = payload.get('students')
     allowed = {s['id'] for s in roster(conn, course)}
@@ -474,7 +483,7 @@ def register_teaching(app, db_connect, uploads_dir, require_admin):
                 course['live'] = course_window(course)['open']
                 courses.append(course)
         return secure(app.make_response(render_template('teaching_index.html', role=role, trainer=who,
-            courses=courses, month=raw_month, csrf_token=csrf(), title='Mes cours et devoirs · Intégrale Academy')))
+            courses=courses, month=raw_month, csrf_token=csrf(), title='Mes cours · Intégrale Academy')))
 
     @app.get('/formateur/cours/<course_id>')
     @app.get('/espace/cours/<course_id>')
@@ -485,6 +494,7 @@ def register_teaching(app, db_connect, uploads_dir, require_admin):
         with closing(connect()) as conn:
             course = course_access(conn, course_id, role, identity_id)
             state = state_for(conn, course, role, identity_id)
+            state.pop('homework', None)
         return secure(app.make_response(render_template('teaching_course.html', state=state, trainer=who,
             csrf_token=csrf(), title=course['subject_name']+' · Intégrale Academy')))
 
@@ -653,6 +663,10 @@ def register_teaching(app, db_connect, uploads_dir, require_admin):
             conn.commit()
         (Path(uploads_dir())/'teaching'/row['storage_name']).unlink(missing_ok=True)
         return result(dict(ok=True))
+
+    from gradebook import register_gradebook
+    register_gradebook(app, connect=connect, person=person, guard=guard, check_csrf=check_csrf,
+        csrf=csrf, secure=secure, result=result, payload=payload)
 
     from teaching_reminders import register_reminder_worker
     register_reminder_worker(app, db_connect)
