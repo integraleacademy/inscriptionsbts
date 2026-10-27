@@ -25,7 +25,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from flask import Blueprint, abort, jsonify, render_template, request, session
 import requests
 
-from wedof_contract_data import (FINANCERS, WedofError, date as source_date,
+from wedof_contract_data import (FINANCERS, STATES, WedofError, date as source_date,
     financer_filter, folder_fields, identifier, normalize_summary, raw_fields, stamp)
 
 CACHE_SECONDS = 1800
@@ -136,6 +136,65 @@ def automatic_identity(candidate, item):
 def discovery_fingerprint(candidate, config):
     fields = {k: candidate.get(k) for k in ('id', 'nom', 'prenom', 'date_naissance', 'email')}
     return hashlib.sha256(json.dumps([fields, config], sort_keys=True).encode()).hexdigest()
+
+
+def directory_contracts(app, conn, rows):
+    """Read the same links as the student sheet, without making remote calls.
+
+    A missing local link is unknown until a complete, successful discovery. Keep
+    ambiguous, failed and deliberately detached results out of the no-contract KPI.
+    """
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    api_key = ''
+    if 'student_wedof_settings' in tables:
+        try:
+            api_key = get_key(app, conn)
+        except WedofError:
+            pass
+    config = hashlib.sha256(api_key.encode()).hexdigest()
+    contracts, discoveries = {}, {}
+    ids = [r['id'] for r in rows]
+    for offset in range(0, len(ids), 400):
+        batch = ids[offset:offset+400]
+        marks = ','.join('?' for _ in batch)
+        if 'student_wedof_contracts' in tables:
+            for saved in conn.execute(f'SELECT candidate_id,payload FROM student_wedof_contracts WHERE candidate_id IN ({marks}) ORDER BY checked_at DESC', batch):
+                try:
+                    item = json.loads(saved['payload'])
+                except (ValueError, TypeError):
+                    item = None
+                contracts.setdefault(saved['candidate_id'], []).append(item)
+        if 'student_wedof_discovery' in tables:
+            discoveries.update({r['candidate_id']: dict(r) for r in conn.execute(
+                f'SELECT * FROM student_wedof_discovery WHERE candidate_id IN ({marks})', batch)})
+    for row in rows:
+        row.update(contract='linked', contract_label='À vérifier', contract_detail='Recherche WEDOF à effectuer', contract_needs_check=bool(api_key))
+        linked = contracts.get(row['id'], [])
+        if linked:
+            row['contract_needs_check'] = False
+            items = [i for i in linked if isinstance(i, dict) and i]
+            if items:
+                row.update(contract='yes', contract_label='Contrat d’apprentissage',
+                           contract_detail=' · '.join(dict.fromkeys(STATES.get(i.get('state'), 'État à vérifier') for i in items)))
+            else:
+                row['contract_detail'] = 'Le contrat rattaché doit être vérifié dans la fiche.'
+            continue
+        saved = discoveries.get(row['id'])
+        if not saved or saved['fingerprint'] != discovery_fingerprint(row, config):
+            continue
+        try:
+            state = json.loads(saved['payload'])
+        except (TypeError, ValueError):
+            continue
+        if not isinstance(state, dict):
+            continue
+        if state.get('suppressed'):
+            row.update(contract_needs_check=False, contract_detail='Rattachement automatique suspendu dans la fiche.')
+        elif saved['updated_at'] > time.time()-CACHE_SECONDS and state.get('step') == 'done':
+            row.update(contract_needs_check=False, contract_detail=state.get('message', 'Vérifiez le contrat dans la fiche.'))
+            if state.get('not_found') is True and not state.get('incomplete') and not state.get('error_code') and not state.get('items'):
+                row.update(contract='no', contract_label='Aucun contrat identifié', contract_detail='Aucun contrat trouvé lors de la dernière recherche WEDOF.')
+    return bool(api_key)
 
 
 def euros(value):
@@ -489,7 +548,8 @@ def register_wedof_contracts(app, connect, require_admin):
         public_items = [{k: i.get(k) for k in ('working_contract_id', 'external_number', 'deca_number', 'employer_name', 'state_label')} for i in items]
         return jsonify(ok=True, pending=state['step'] != 'done', linked=bool(state.get('linked')),
                        message=state.get('message', 'Recherche des contrats WEDOF de cet étudiant…') + (' Le résultat de cette recherche est conservé 30 minutes.' if cached and not state.get('suppressed') else ''),
-                       token=token, items=public_items, cached=cached)
+                       token=token, items=public_items, cached=cached,
+                       stop_sync=state.get('error_code') in {'http_401', 'http_403', 'http_429'} or state.get('error_status') in {429, 502, 503})
 
     @bp.post('/admin/candidat/<cid>/contrats-apprentissage/detecter')
     @guarded
@@ -521,7 +581,7 @@ def register_wedof_contracts(app, connect, require_admin):
                     elif state['step'] == 'email':
                         state.update(step='name', message='Aucun dossier trouvé par e-mail. Vérification de l’identité dans WEDOF…')
                     else:
-                        state.update(step='done', message='Aucun dossier d’apprentissage correspondant trouvé dans WEDOF. Vérifiez l’identité et l’e-mail de la fiche, ou recherchez une référence manuellement.')
+                        state.update(step='done', not_found=not state['incomplete'], message='Aucun dossier d’apprentissage correspondant trouvé dans WEDOF. Vérifiez l’identité et l’e-mail de la fiche, ou recherchez une référence manuellement.')
                 elif state['step'] == 'contracts':
                     folder = state['folders'][0]
                     items, more = client.page(folder=folder['registration_id'])
@@ -534,7 +594,7 @@ def register_wedof_contracts(app, connect, require_admin):
                         if len(state['items']) == 1 and not state['incomplete'] and state['items'][0]['discovery_strong']:
                             state.update(step='verify', message='Contrat trouvé. Vérification de l’identité et récupération des échéances…')
                         else:
-                            state.update(step='done', message='Plusieurs contrats ou une identité à vérifier : sélectionnez le contrat à rattacher.' if state['items'] else 'Le dossier étudiant a été retrouvé, mais aucun contrat d’apprentissage n’y est disponible dans WEDOF.')
+                            state.update(step='done', not_found=not state['items'] and not state['incomplete'], message='Plusieurs contrats ou une identité à vérifier : sélectionnez le contrat à rattacher.' if state['items'] else 'Le dossier étudiant a été retrouvé, mais aucun contrat d’apprentissage n’y est disponible dans WEDOF.')
                         if state['incomplete']:
                             state['message'] = 'La recherche ne permet pas de choisir un contrat avec certitude. Vérifiez les propositions ou utilisez sa référence exacte.'
                 elif state['step'] == 'verify':
@@ -547,7 +607,7 @@ def register_wedof_contracts(app, connect, require_admin):
                     if automatic_identity(row, item) and not item.get('details_error') and not item.get('raw_identity_conflict'):
                         item_to_link = item
             except WedofError as error:
-                state.update(step='done', items=[], message=str(error))
+                state.update(step='done', items=[], not_found=False, error_code=error.code, error_status=error.status, message=str(error))
             with closing(connection()) as conn:
                 conn.execute('BEGIN IMMEDIATE')
                 current_row = conn.execute('SELECT * FROM candidats WHERE id=?', (cid,)).fetchone()

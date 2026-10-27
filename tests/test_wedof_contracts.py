@@ -84,6 +84,54 @@ def post(env, path, data=None, cid='alice'):
     return client.post(f'/admin/candidat/{cid}/contrats-apprentissage' + path, json=data or {}, headers=headers)
 
 
+def directory_state(env):
+    with env[1]() as conn:
+        rows = [dict(conn.execute("SELECT * FROM candidats WHERE id='alice'").fetchone())]
+        assert wc.directory_contracts(env[4], conn, rows)
+    return rows[0]
+
+
+def test_directory_distinguishes_unchecked_found_and_voluntary_detach(setup):
+    row = directory_state(setup)
+    assert row['contract'] == 'linked' and row['contract_needs_check']
+    assert discover(setup)['linked']
+    assert directory_state(setup)['contract'] == 'yes'
+    assert post(setup, '/101/detacher').status_code == 200
+    with setup[1]() as conn:
+        conn.execute('UPDATE student_wedof_discovery SET updated_at=0')
+    row = directory_state(setup)
+    assert row['contract'] == 'linked' and not row['contract_needs_check']
+
+
+def test_directory_no_contract_requires_complete_success_and_current_identity(setup):
+    setup[3].side_effect = lambda *a, **kw: Mock(status_code=200, json=Mock(return_value=[]), headers={}, content=b'[]')
+    discover(setup)
+    row = directory_state(setup)
+    assert row['contract'] == 'no' and not row['contract_needs_check']
+    with setup[1]() as conn:
+        conn.execute("UPDATE candidats SET email='new@example.test' WHERE id='alice'")
+    row = directory_state(setup)
+    assert row['contract'] == 'linked' and row['contract_needs_check']
+
+
+@pytest.mark.parametrize('status', [401, 403, 429, 500])
+def test_directory_remote_failures_never_mean_no_contract_and_stop_queue(setup, status):
+    setup[3].side_effect = lambda *a, **kw: Mock(status_code=status, content=b'{}')
+    result = discover(setup)
+    assert result['stop_sync']
+    row = directory_state(setup)
+    assert row['contract'] == 'linked' and not row['contract_needs_check']
+    with setup[1]() as conn:
+        conn.execute('UPDATE student_wedof_discovery SET updated_at=0')
+    assert directory_state(setup)['contract_needs_check']
+
+
+def test_directory_incomplete_empty_results_do_not_claim_no_contract(setup):
+    setup[3].side_effect = lambda *a, **kw: Mock(status_code=200, json=Mock(return_value=[]), headers={'X-Total-Count': '101'}, content=b'[]')
+    discover(setup)
+    assert directory_state(setup)['contract'] == 'linked'
+
+
 def inspect(env, key=101, cid='alice'):
     search = post(env, '/rechercher', {'kind':'wedof','reference':str(key)}, cid)
     assert search.status_code == 200, search.json

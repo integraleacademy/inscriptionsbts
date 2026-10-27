@@ -5,12 +5,12 @@ from datetime import datetime, timezone
 import json
 import secrets
 import unicodedata
-from zoneinfo import ZoneInfo
 
-from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from candidate_messages import _equal
 from promotions import assign_candidate_promotion, list_promotions
 from teaching import schema as teaching_schema
+from wedof_contracts import directory_contracts
 
 ENROLLED = ('confirmee', 'reconfirmee')
 
@@ -27,26 +27,16 @@ def csrf():
 
 def enrolled_rows(conn):
     rows = [dict(r) for r in conn.execute('''SELECT c.id,c.nom,c.prenom,c.bts,c.mode,c.email,c.tel,c.statut,
-        c.rentree_annee,c.numero_dossier,c.label_carte_etudiante,p.id AS promotion_id,p.nom AS promotion_name,p.active AS promotion_active
+        c.rentree_annee,c.numero_dossier,c.label_carte_etudiante,c.fichiers_photo,c.date_naissance,
+        p.id AS promotion_id,p.nom AS promotion_name,p.active AS promotion_active
         FROM candidats c LEFT JOIN student_promotions s ON s.candidate_id=c.id
         LEFT JOIN promotions p ON p.id=s.promotion_id WHERE c.statut IN (?,?) ORDER BY c.nom,c.prenom''', ENROLLED)]
-    contracts = {}
-    if conn.execute("SELECT 1 FROM sqlite_master WHERE name='student_wedof_contracts'").fetchone():
-        for r in conn.execute('SELECT candidate_id,payload,checked_at FROM student_wedof_contracts ORDER BY checked_at'):
-            try:
-                data = json.loads(r['payload'])
-            except (ValueError, TypeError):
-                continue
-            if isinstance(data, dict):
-                contracts.setdefault(r['candidate_id'], []).append(data)
-    today = datetime.now(ZoneInfo('Europe/Paris')).date().isoformat()
     for row in rows:
-        linked = contracts.get(row['id'], [])
-        current = [c for c in linked if c.get('state') == 'accepted'
-                   and (not c.get('contract_break_date') or str(c['contract_break_date'])[:10] > today)
-                   and (not c.get('contract_end') or str(c['contract_end'])[:10] >= today)]
-        row['contract'] = 'yes' if current else 'linked' if linked else 'no'
-        row['contract_label'] = {'yes':'Contrat d’apprentissage', 'linked':'Contrat à vérifier', 'no':'Aucun contrat rattaché'}[row['contract']]
+        try:
+            photos = json.loads(row.pop('fichiers_photo') or '[]')
+        except (TypeError, ValueError):
+            photos = []
+        row['photo_url'] = url_for('admin_candidate_photo', cid=row['id']) if isinstance(photos, list) and any(isinstance(p, str) and p for p in photos) else ''
     from candidate_statuses import annotate_candidate_statuses
     annotate_candidate_statuses(conn,rows)
     return rows
@@ -107,21 +97,37 @@ def register_campus_admin(app, db_connect, require_admin):
         return dict(campus_csrf=csrf)
 
     @app.get('/admin/inscriptions')
+    @app.get('/admin/inscriptions/donnees')
     def admin_enrollments():
         if not require_admin(): return redirect('/login')
         with closing(db_connect()) as conn:
             promotions = list_promotions(conn, active_only=True)
             rows = enrolled_rows(conn)
-        total = len(rows)
+            configured = directory_contracts(current_app, conn, rows)
         filters = {name:request.args.get(name,'').strip() for name in ('q','bts','mode','promotion','contract','rentree','carte_etudiante_manquante')}
         for name, value in filters.items():
-            if not value: continue
+            if not value or name == 'contract': continue
             if name == 'q': rows = [r for r in rows if all(word in key(' '.join(str(r.get(k) or '') for k in ('nom','prenom','email','numero_dossier'))) for word in key(value).split())]
             elif name == 'promotion': rows = [r for r in rows if (not r['promotion_id'] if value=='none' else r['promotion_id']==value)]
             elif name == 'rentree': rows = [r for r in rows if str(r['rentree_annee'] or 2026)==value]
             elif name == 'carte_etudiante_manquante': rows = [r for r in rows if r['label_carte_etudiante'] not in (1,'1',True,'true','True','on','yes')]
             else: rows = [r for r in rows if r.get(name)==value]
-        return render_template('enrollments.html', rows=rows, promotions=promotions, filters=filters, total=total, title='Inscriptions · Intégrale Academy')
+        # Discover within the other filters, including when a contract filter has
+        # no matches yet. Otherwise unchecked students could never enter the list.
+        discovery = [r['id'] for r in rows if r['contract_needs_check']]
+        if filters['contract']:
+            rows = [r for r in rows if r['contract'] == filters['contract']]
+        stats = dict(total=len(rows), with_contract=sum(r['contract']=='yes' for r in rows),
+                     without_contract=sum(r['contract']=='no' for r in rows),
+                     unverified=sum(r['contract']=='linked' for r in rows),
+                     unassigned=sum(not r['promotion_id'] for r in rows),
+                     remote=sum(r['mode']=='distanciel' for r in rows))
+        context = dict(rows=rows, promotions=promotions, filters=filters, stats=stats,
+                       discovery=discovery, wedof_configured=configured, title='Inscriptions · Intégrale Academy')
+        if request.path.endswith('/donnees'):
+            return jsonify(ok=True, stats_html=render_template('_enrollment_stats.html', **context),
+                           rows_html=render_template('_enrollment_rows.html', **context), discovery=discovery)
+        return render_template('enrollments.html', **context)
 
     @app.post('/admin/inscriptions/affecter')
     def admin_enrollments_assign():
