@@ -159,13 +159,17 @@
       invalidate();
       const result = await request('/bulk-commit', {token});
       message('rooms-promotion-success', result.count + ' créneau(x) affecté(s) à la salle choisie.');
-      $('rooms-refresh').click();
+      window.dispatchEvent(new CustomEvent('academy:rooms-changed', {detail: {origin: 'promotions'}}));
       await loadCourses();
     });
   });
   $('rooms-promotion-open').addEventListener('click', () => {
     $('rooms-promotion-panel').open = true;
     field('promotion_id').focus({preventScroll: true});
+  });
+  window.addEventListener('academy:rooms-changed', event => {
+    if (event.detail?.origin === 'catalog') work(loadPromotions);
+    else if (event.detail?.origin !== 'promotions' && state.loaded) work(loadCourses);
   });
   work(loadPromotions);
 })();

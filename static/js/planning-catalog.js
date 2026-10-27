@@ -197,7 +197,7 @@
     } else payload = {name: form.elements.name.value.trim(), active: form.elements.active.checked};
     if (!form.reportValidity()) return;
     busy(editor, true);
-    try { const result = await request('/' + (isSubjects ? 'subjects' : 'rooms') + (state.editing ? '/' + encodeURIComponent(state.editing.id) : ''), state.editing ? 'PUT' : 'POST', payload); editor.close(); await load(result.message || (isSubjects ? 'Matière enregistrée.' : 'Salle enregistrée.')); }
+    try { const result = await request('/' + (isSubjects ? 'subjects' : 'rooms') + (state.editing ? '/' + encodeURIComponent(state.editing.id) : ''), state.editing ? 'PUT' : 'POST', payload); editor.close(); if (!isSubjects) window.dispatchEvent(new CustomEvent('academy:rooms-changed', {detail: {origin: 'catalog'}})); await load(result.message || (isSubjects ? 'Matière enregistrée.' : 'Salle enregistrée.')); }
     catch (failure) { errorAt('catalog-form-error', failure.message); }
     finally { busy(editor, false); }
   });
@@ -209,7 +209,7 @@
   });
   $('catalog-confirm-action').addEventListener('click', async () => {
     if (!state.deleting || confirm.dataset.busy) return; busy(confirm, true); errorAt('catalog-confirm-error', '');
-    try { const result = await request('/' + (isSubjects ? 'subjects' : 'rooms') + '/' + encodeURIComponent(state.deleting.id), 'DELETE'); confirm.close(); editor.close(); await load(result.message || 'Suppression enregistrée.'); }
+    try { const result = await request('/' + (isSubjects ? 'subjects' : 'rooms') + '/' + encodeURIComponent(state.deleting.id), 'DELETE'); confirm.close(); editor.close(); if (!isSubjects) window.dispatchEvent(new CustomEvent('academy:rooms-changed', {detail: {origin: 'catalog'}})); await load(result.message || 'Suppression enregistrée.'); }
     catch (failure) { errorAt('catalog-confirm-error', failure.message); }
     finally { busy(confirm, false); }
   });
