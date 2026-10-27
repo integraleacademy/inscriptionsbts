@@ -1,3 +1,31 @@
 {% from 'person_names.html' import person_name, person_initials %}
 {% from 'study_badges.html' import study_mode %}
-{% for r in rows %}<tr data-enrollment-id="{{ r.id }}" data-bts="{{ r.bts }}" data-year="{{ r.rentree_annee or 2026 }}"><td><input type="checkbox" data-select-student value="{{ r.id }}" aria-label="Sélectionner {{ person_name(r.nom,r.prenom) }}"></td><td><a class="campus-person" href="/admin/candidat/{{ r.id }}"><span class="campus-avatar" aria-hidden="true"><span>{{ person_initials(r.nom,r.prenom) }}</span>{% if r.photo_url %}<img src="{{ r.photo_url }}" alt="" width="48" height="60" loading="lazy" decoding="async" data-student-photo>{% endif %}</span><span><b>{{ person_name(r.nom,r.prenom) }}</b><small>{{ r.email }}</small><small>{{ r.display_status_label or ('Re-confirmée' if r.statut=='reconfirmee' else 'Inscription confirmée') }}</small></span></a></td><td><b>BTS {{ r.bts }} · {{ r.rentree_annee or 2026 }}</b><div>{{ study_mode(r.mode) }}</div></td><td><span class="study-badge contract-{{ r.contract }}">{{ r.contract_label }}</span><small class="campus-contract-detail">{{ r.contract_detail }}</small><small><a href="/admin/candidat/{{ r.id }}#contrat-apprentissage">Voir le contrat →</a></small></td><td><strong class="{{ '' if r.promotion_id else 'campus-unassigned' }}">{{ r.promotion_name or 'À affecter' }}{% if r.promotion_id and not r.promotion_active %} · Archivée{% endif %}</strong><div class="campus-inline-assign"><select aria-label="Promotion de {{ person_name(r.nom,r.prenom) }}"><option value="">Choisir…</option>{% for p in promotions if p.bts==r.bts and p.rentree_annee==(r.rentree_annee or 2026) %}<option value="{{ p.id }}" {% if p.id==r.promotion_id %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}</select><button class="btn" type="button" data-assign-one>Affecter</button></div></td><td><a class="btn" href="/admin/candidat/{{ r.id }}">Fiche ↗</a></td></tr>{% else %}<tr><td colspan="6" class="campus-empty">Aucune inscription pour ces filtres.</td></tr>{% endfor %}
+{% for r in rows %}
+<tr data-enrollment-id="{{ r.id }}" data-bts="{{ r.bts }}" data-year="{{ r.rentree_annee or 2026 }}">
+  <td><input type="checkbox" data-select-student value="{{ r.id }}" aria-label="Sélectionner {{ person_name(r.nom,r.prenom) }}"></td>
+  <td>
+    <a class="campus-person" href="/admin/candidat/{{ r.id }}">
+      <span class="campus-avatar" aria-hidden="true"><span>{{ person_initials(r.nom,r.prenom) }}</span>{% if r.photo_url %}<img src="{{ r.photo_url }}" alt="" width="40" height="50" loading="lazy" decoding="async" data-student-photo>{% endif %}</span>
+      <span class="campus-person-details"><b>{{ person_name(r.nom,r.prenom) }}</b><span class="campus-person-meta"><small title="{{ r.email }}">{{ r.email }}</small><small>{{ r.display_status_label or ('Re-confirmée' if r.statut=='reconfirmee' else 'Inscription confirmée') }}</small></span></span>
+    </a>
+  </td>
+  <td><b>BTS {{ r.bts }} · {{ r.rentree_annee or 2026 }}</b><div>{{ study_mode(r.mode) }}</div></td>
+  <td>
+    <div class="campus-contract-summary"><span class="study-badge contract-{{ r.contract }}">{{ r.contract_label }}</span><a href="/admin/candidat/{{ r.id }}#contrat-apprentissage" aria-label="Voir le contrat de {{ person_name(r.nom,r.prenom) }}">Voir →</a></div>
+    <small class="campus-contract-detail" title="{{ r.contract_detail }}">{{ r.contract_detail }}</small>
+  </td>
+  <td>
+    {% if r.promotion_id and not r.promotion_active %}<small class="campus-archived-promotion" title="{{ r.promotion_name }} · Archivée">{{ r.promotion_name }} · Archivée</small>{% endif %}
+    <div class="campus-inline-assign">
+      <select class="{{ 'campus-unassigned' if not r.promotion_id else '' }}" aria-label="Promotion de {{ person_name(r.nom,r.prenom) }}">
+        <option value="">{{ 'Changer de promotion…' if r.promotion_id else 'À affecter…' }}</option>
+        {% for p in promotions if p.bts==r.bts and p.rentree_annee==(r.rentree_annee or 2026) %}<option value="{{ p.id }}" {% if p.id==r.promotion_id %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+      </select>
+      <button class="btn" type="button" data-assign-one>Affecter</button>
+    </div>
+  </td>
+  <td><a class="btn" href="/admin/candidat/{{ r.id }}">Fiche ↗</a></td>
+</tr>
+{% else %}
+<tr><td colspan="6" class="campus-empty">Aucune inscription pour ces filtres.</td></tr>
+{% endfor %}

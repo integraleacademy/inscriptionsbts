@@ -1,6 +1,7 @@
 {% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends 'base.html' %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/enrollments.css') }}?v=1">{% endblock %}
+{% block body_class %}enrollments-page{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/enrollments.css') }}?v=2">{% endblock %}
 {% block content %}
 <div class="campus-page" data-enrollments data-wedof-csrf="{{ wedof_csrf() }}" data-csrf="{{ campus_csrf() }}">
 <header class="campus-heading"><div><p class="eyebrow">LA VIE DE L’ÉCOLE</p><h1>Les inscriptions<span>.</span></h1><p>Tous les étudiants confirmés et re-confirmés, toutes rentrées confondues.</p></div><a class="btn" href="/admin">Voir les candidatures →</a></header>
