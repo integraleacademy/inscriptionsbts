@@ -463,3 +463,26 @@ Vérifications : `tests/test_campus_workspace.py`, ajout de couverture Zoom dans
 Chromium à 1440 et 390 px couvre recherche, affectation, fiches, suivi Londres,
 aperçus et envois simulés, présence, confidentialité Zoom et guide des absences.
 Aucun e-mail ou SMS réel n’est envoyé par les tests.
+
+
+## Reprise d’un planning Yparéo
+
+Dans **Planning**, choisir la promotion et son année, puis **Importer un planning**.
+L’assistant accepte les PDF texte « Planning groupe » hebdomadaires Yparéo
+(10 Mo, 100 pages et 500 cours au maximum). Il lit les horaires sur la grille et
+vérifie chaque total hebdomadaire. Un PDF scanné, ambigu ou différent est refusé
+sans écriture. Les matières tronquées et les initiales des formateurs font
+l’objet de correspondances à vérifier ; les matières de l’année et les formateurs
+affectés à la promotion doivent être préparés au préalable.
+
+L’analyse et l’aperçu n’ajoutent aucun cours. Le récapitulatif distingue les cours
+prêts, les doublons et les conflits. L’administrateur coche les cours à reprendre
+et confirme l’import. Les jours fériés, indisponibilités, réservations de salle,
+chevauchements et volumes annuels sont contrôlés une nouvelle fois dans une
+transaction SQLite. L’import ne remplace pas de cours et ne modifie aucun volume
+annuel. La création de journées école est une option explicite ; seules les dates
+des cours sélectionnés sont concernées, jamais les semaines vides du PDF.
+Les autres années restent indépendantes. Les aperçus signés sont liés à la
+session, expirent après 30 minutes et ne conservent pas le PDF sur le serveur.
+
+Validation : `python -m pytest -q tests/test_planning_import.py`.

@@ -965,6 +965,10 @@
     const next = event.target.value, previous = String(state.data?.promotion?.id || ''); event.target.value = previous;
     navigatePlanning(() => { event.target.value = next; notice(''); state.periodId = ''; state.slot = null; state.quickShared = []; state.slotChecks.clear(); state.subject = ''; state.availability.clear(); state.availabilityReady = false; state.week = monday(today()); const url = new URL(location.href); if (next) url.searchParams.set('promotion_id', next); else url.searchParams.delete('promotion_id'); url.searchParams.delete('promotion'); url.searchParams.delete('period_id'); history.replaceState(null, '', url); loadState({initial: true}); });
   });
+  $('planning-import-open')?.addEventListener('click', () => {
+    if (!state.data?.period || state.loading) { notice('Sélectionnez une promotion et une année avant d’importer un planning.', true); return; }
+    navigatePlanning(() => { location.href = '/admin/planning/import?' + new URLSearchParams({promotion_id: promotionId(), period_id: state.periodId}); });
+  });
   $('planning-school-year').addEventListener('change', event => {
     const next = event.target.value, period = state.data?.periods.find(item => item.id === next); event.target.value = state.periodId;
     if (!period || state.loading || state.quickBusy) return;
