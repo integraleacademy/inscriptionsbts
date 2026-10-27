@@ -24,6 +24,14 @@ def schema(conn):
         title TEXT NOT NULL, url TEXT NOT NULL)''')
     conn.execute('CREATE TABLE IF NOT EXISTS planning_room_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)')
     conn.execute('CREATE TABLE IF NOT EXISTS planning_room_aliases(name TEXT PRIMARY KEY,room_id TEXT NOT NULL)')
+    if not conn.execute("SELECT 1 FROM planning_room_meta WHERE key='sessions_only_v1'").fetchone():
+        old=conn.execute("SELECT slots,pending_slots FROM planning_room_owners WHERE owner LIKE 'formation:%'").fetchall()
+        counts=dict(owners=len(old),slots=sum(len(json.loads(row['slots'])) for row in old))
+        # Remove only copies imported from the excluded old /planning database.
+        # Genuine sessions, BTS courses and the physical-room catalogue stay intact.
+        conn.execute("DELETE FROM planning_room_owners WHERE owner LIKE 'formation:%'")
+        conn.execute("INSERT INTO planning_room_meta(key,value) VALUES('sessions_only_v1',?)",(json.dumps(counts),))
+
 
 
 def configured():
@@ -43,13 +51,13 @@ def external_slots(conn, exclude_owner=None, room_day=None):
         rows=cached[3].get(room_day,[]) if room_day else cached[2]
         return [row for row in rows if row['owner']!=exclude_owner]
     result = []
-    for row in conn.execute('SELECT * FROM planning_room_owners'):
+    for row in conn.execute("SELECT * FROM planning_room_owners WHERE owner LIKE 'session:%'"):
         seen = set()
         for field in ('slots', 'pending_slots'):
             for slot in json.loads(row[field] or '[]'):
                 key = (slot['room_id'], slot['date'], slot['start_min'], slot['end_min'])
                 if key not in seen:
-                    result.append(dict(slot, owner=row['owner'], title=row['title'], url=row['url'],
+                    result.append(dict(slot, owner=row['owner'], title=row['title'], url='/admin/salles?session_id='+quote(row['owner'][8:],safe=''),
                                        source='session', pending=bool(row['pending_token'])))
                     seen.add(key)
     index={}
@@ -125,15 +133,13 @@ def normalize(conn, raw, bootstrap=False):
 def owner_data(data):
     from planning import PlanningError
     owner, revision = data.get('owner'), data.get('revision')
-    if not isinstance(owner, str) or not owner.startswith(('session:', 'formation:')) or len(owner) > 180:
+    if not isinstance(owner, str) or not owner.startswith('session:') or not owner[8:] or len(owner) > 180:
         raise PlanningError('Référence de session invalide.')
     if not isinstance(revision, str) or len(revision) != 64 or any(c not in '0123456789abcdef' for c in revision):
         raise PlanningError('Version de session invalide.')
     title = str(data.get('title') or 'Session')[:200]
     base = os.environ.get('SESSION_ROOMS_URL', '').rstrip('/')
-    route = '/sessions/' if owner.startswith('session:') else '/formation/'
-    suffix = '' if owner.startswith('session:') else '/modifier'
-    return owner, revision, title, base + route + quote(owner.split(':', 1)[1], safe='') + suffix
+    return owner, revision, title, base + '/sessions/' + quote(owner[8:], safe='')
 
 
 def prepare(conn, data):
@@ -195,7 +201,10 @@ def reconcile(conn, owners, complete=False):
                     finish(conn,dict(token=row['pending_token'],commit=True))
                 elif json.loads(row['slots']) == []:
                     finish(conn,dict(token=row['pending_token'],commit=False))
-    return {}
+    audit=conn.execute("SELECT value FROM planning_room_meta WHERE key='sessions_only_v1'").fetchone()
+    return dict(scope='sessions',session_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'session:%'").fetchone()[0],
+                excluded_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'formation:%'").fetchone()[0],
+                removed_legacy=json.loads(audit[0]) if audit else None)
 
 
 def finish(conn, data):
@@ -253,11 +262,6 @@ def register(app, connect, guard, result, fail, transact, serializer):
                     owners = payload.get('owners')
                     if not isinstance(owners, list) or len(owners) > 10000:
                         raise PlanningError('Liste de sessions invalide.')
-                    room_names=payload.get('room_names',[])
-                    if not isinstance(room_names,list) or len(room_names)>300 or any(not isinstance(n,str) or not n.strip() or len(n)>100 for n in room_names):
-                        raise PlanningError('Liste des salles invalide.')
-                    for name in room_names:
-                        normalize(conn,[dict(room_name=name,date='2000-01-01',start='00:00',end='00:01')],bootstrap=True)
                     for item in owners:
                         owner, revision, title, url = owner_data(item)
                         slots = normalize(conn, item['slots'], bootstrap=True)
@@ -281,7 +285,7 @@ def register(app, connect, guard, result, fail, transact, serializer):
                 raise PlanningError('Affichez au maximum 31 jours.')
             with closing(connect()) as conn:
                 rows = [dict(c, source='event' if c.get('kind') == 'event' else 'bts',
-                             title=c['title'] or c['subject_name'], url='/admin/planning?promotion_id=' + quote(c['promotion_id']))
+                             title=c['title'] or c['subject_name'], url='/admin/salles?course_id=' + quote(c['id']) + '&date=' + c['date'])
                         for c in _load_courses(conn, start.isoformat(), end.isoformat()) if c['room_id']]
                 rows += [c for c in external_slots(conn) if start.isoformat() <= c['date'] <= end.isoformat()]
                 for index, row in enumerate(rows):
@@ -298,9 +302,36 @@ def register(app, connect, guard, result, fail, transact, serializer):
         guard(request.method == 'POST')
         try:
             # No ledger transaction here: the remote writer calls back into it.
-            return result(remote('/sessions', request.method, request.get_json(silent=True) if request.method == 'POST' else None))
+            payload=request.get_json(silent=True) if request.method=='POST' else None
+            if request.method=='POST' and (not isinstance(payload,dict) or not isinstance(payload.get('owner'),str) or not payload['owner'].startswith('session:')):
+                raise PlanningError('Choisissez une session de la page Sessions.')
+            data=remote('/sessions',request.method,payload)
+            if request.method=='GET':
+                data['sessions']=[row for row in data.get('sessions',[]) if isinstance(row.get('owner'),str) and row['owner'].startswith('session:')]
+                data['source']='sessions'
+            return result(data)
         except PlanningError as exc:
             return fail(exc)
+
+    @app.post('/admin/planning/api/rooms/courses/<course_id>/assign')
+    def assign_course_room(course_id):
+        def operation(conn,payload):
+            row=conn.execute('SELECT date FROM planning_courses WHERE id=?',(course_id,)).fetchone()
+            if not row:raise PlanningError('Ce créneau n’existe plus.',status=404)
+            course=next(c for c in _load_courses(conn,row['date'],row['date']) if c['id']==course_id)
+            version=payload.get('version')
+            if type(version) is not int or version!=course['version']:
+                raise PlanningError('Ce créneau a changé. Actualisez le planning des salles.',status=409)
+            rid=payload.get('room_id') or None
+            if rid is not None and (not isinstance(rid,str) or not conn.execute('SELECT 1 FROM planning_rooms WHERE id=? AND active=1',(rid,)).fetchone()):
+                raise PlanningError('Choisissez une salle active.')
+            proposed=dict(course,room_id=rid)
+            issues=room_conflicts(conn,proposed,include_courses=True,exclude_ids=(course_id,))
+            if issues:raise PlanningError('Salle indisponible. Le créneau n’a pas été modifié.',issues,409)
+            conn.execute('UPDATE planning_courses SET room_id=?,version=version+1,updated_at=? WHERE id=?',
+                         (rid,datetime.now(timezone.utc).isoformat(),course_id))
+            return dict(course_id=course_id,message='La salle de ce créneau a été mise à jour.')
+        return transact(operation)
 
     @app.post('/admin/planning/api/rooms/bootstrap')
     def room_bootstrap():

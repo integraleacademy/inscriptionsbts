@@ -1,5 +1,5 @@
 <section class="room-planner" aria-labelledby="room-planner-title">
- <div class="room-planner-heading"><div><p class="catalog-kicker">UN PLANNING COMMUN</p><h2 id="room-planner-title">Toutes les salles, au même endroit.</h2><p>Cours BTS, événements ponctuels et sessions de formation. Les horaires sont ceux de Paris.</p></div><a class="catalog-button" href="https://plateformegestion.onrender.com/sessions" target="_blank" rel="noopener">Ouvrir les sessions ↗</a></div>
+ <div class="room-planner-heading"><div><p class="catalog-kicker">UN PLANNING COMMUN</p><h2 id="room-planner-title">Toutes les salles, au même endroit.</h2><p>Cours BTS, événements ponctuels et sessions de formation. Cliquez sur une réservation pour changer sa salle ici. Les horaires sont ceux de Paris.</p></div><a class="catalog-button" href="https://plateformegestion.onrender.com/sessions" target="_blank" rel="noopener">Consulter les sessions ↗</a></div>
  <div class="room-planner-controls"><button class="catalog-button" id="rooms-prev" type="button" aria-label="Semaine précédente">←</button><label>Semaine du <input type="date" id="rooms-date"></label><button class="catalog-button" id="rooms-next" type="button" aria-label="Semaine suivante">→</button><button class="catalog-button" id="rooms-today" type="button">Aujourd’hui</button><button class="catalog-button" id="rooms-refresh" type="button">Actualiser</button></div>
  <p id="rooms-status" role="status" aria-live="polite"></p><p id="rooms-error" class="rooms-error" role="alert" hidden></p>
  <div class="room-calendar-scroll" tabindex="0" aria-label="Planning de toutes les salles"><table class="room-calendar" id="rooms-calendar"></table></div>
@@ -10,3 +10,8 @@
  <p id="rooms-session-error" class="rooms-error" role="alert" hidden></p><button class="catalog-button primary" type="submit">Réserver cette salle pour la session</button><button class="catalog-button" type="button" id="rooms-sessions-reload">Actualiser les sessions</button></form>
  </details>
 </section>
+
+<dialog class="catalog-dialog compact" id="rooms-course-dialog" aria-labelledby="rooms-course-heading">
+ <header><div><p class="catalog-kicker">AFFECTATION DE SALLE</p><h2 id="rooms-course-heading">Changer la salle</h2></div><button type="button" class="catalog-close" data-room-close aria-label="Fermer">×</button></header>
+ <form id="rooms-course-form"><div class="catalog-dialog-content"><p id="rooms-course-description"></p><p id="rooms-course-shared" class="catalog-inline-note" hidden></p><label class="catalog-field">Salle à affecter<select name="room_id"></select></label><p id="rooms-course-error" class="catalog-form-error" role="alert" hidden></p></div><footer><button class="catalog-button" type="button" data-room-close>Annuler</button><button class="catalog-button primary" type="submit">Enregistrer la salle</button></footer></form>
+</dialog>

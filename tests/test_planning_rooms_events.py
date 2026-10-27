@@ -220,7 +220,7 @@ def test_request_cache_observes_other_writer_and_own_changes(linked,app,client,d
     machine(client,'finish',dict(token=first,commit=True))
     with app.test_request_context(),db() as conn:
         reads=[]
-        conn.set_trace_callback(lambda sql:reads.append(sql) if sql=='SELECT * FROM planning_room_owners' else None)
+        conn.set_trace_callback(lambda sql:reads.append(sql) if sql.startswith('SELECT * FROM planning_room_owners WHERE owner LIKE') else None)
         assert {s['room_id'] for s in planning_rooms.external_slots(conn)}=={'r1'}
         assert planning_rooms.external_slots(conn,room_day=('r2','2027-01-04'))==[]
         assert len(reads)==1
@@ -234,3 +234,75 @@ def test_request_cache_observes_other_writer_and_own_changes(linked,app,client,d
         conn.execute("UPDATE planning_room_owners SET slots='[]'")
         assert planning_rooms.external_slots(conn)==[]
         assert len(reads)==3
+
+
+
+def test_scope_migration_removes_only_old_planner_copies(linked,client,db):
+    prepared=machine(client,'prepare',reservation(room='r2')).json['token']
+    machine(client,'finish',dict(token=prepared,commit=True))
+    c=event(client,start='14:00',end='15:00',room_id='r2').json['course']
+    with db() as conn:
+        real=tuple(conn.execute("SELECT * FROM planning_room_owners WHERE owner='session:one'").fetchone())
+        conn.execute("DELETE FROM planning_room_meta WHERE key='sessions_only_v1'")
+        slots=json.dumps([dict(room_id='r1',date='2027-01-04',start_min=0,end_min=1440)])
+        conn.execute("INSERT INTO planning_room_owners(owner,revision,slots,title,url,pending_slots,pending_revision,pending_token) VALUES('formation:3',?,?,?,?,?,?,?)",('0'*64,slots,'Ancien BTS','https://old.test/formation/3/modifier',slots,'1'*64,'old-pending'))
+    result=client.get(BASE+'/rooms/schedule?start=2027-01-04&end=2027-01-10')
+    assert result.status_code==200
+    assert {r.get('owner',r.get('id')) for r in result.json['reservations']}=={'session:one',c['id']}
+    assert all(r['url'].startswith('/admin/salles') for r in result.json['reservations'])
+    with db() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'formation:%'").fetchone()[0]==0
+        assert tuple(conn.execute("SELECT * FROM planning_room_owners WHERE owner='session:one'").fetchone())==real
+        audit=json.loads(conn.execute("SELECT value FROM planning_room_meta WHERE key='sessions_only_v1'").fetchone()[0])
+        assert audit==dict(owners=1,slots=1)
+    assert event(client,room_id='r1').status_code==200
+    response=machine(client,'reconcile',dict(owners=[reservation(room='r2')],complete=True))
+    assert response.json['scope']=='sessions' and response.json['excluded_owners']==0
+    assert response.json['removed_legacy']==dict(owners=1,slots=1)
+
+
+def test_old_planner_cannot_reserve_or_reappear_in_proxy(linked,client,monkeypatch):
+    assert machine(client,'prepare',reservation(owner='formation:3')).status_code==400
+    assert machine(client,'reconcile',dict(owners=[reservation(owner='formation:3')])).status_code==400
+    calls=[]
+    def remote(*args):
+        calls.append(args)
+        return dict(sessions=[dict(owner='session:one'),dict(owner='formation:3')])
+    monkeypatch.setattr(planning_rooms,'remote',remote)
+    response=client.get(BASE+'/rooms/sessions')
+    assert response.json['sessions']==[dict(owner='session:one')]
+    assert call(client,'/rooms/sessions',dict(owner='formation:3',room_id='r1')).status_code==400
+    assert len(calls)==1
+
+
+@pytest.mark.parametrize('kind',['event','course'])
+def test_assign_from_room_calendar_preserves_course_and_rechecks_resources(linked,client,db,kind):
+    setup_school(client)
+    c=event(client,room_id='r2').json['course'] if kind=='event' else add(client,room_id='r2')
+    prepared=machine(client,'prepare',reservation()).json['token']
+    machine(client,'finish',dict(token=prepared,commit=True))
+    endpoint='/rooms/courses/'+c['id']+'/assign'
+    assert call(client,endpoint,dict(version=c['version'],room_id='r1')).status_code==409
+    with db() as conn:
+        before=dict(conn.execute('SELECT * FROM planning_courses WHERE id=?',(c['id'],)).fetchone())
+        conn.execute("UPDATE planning_subjects SET planned_hours=1 WHERE id='s1'")
+    response=call(client,endpoint,dict(version=c['version'],room_id='r2'))
+    assert response.status_code==200,response.json
+    with db() as conn:
+        after=dict(conn.execute('SELECT * FROM planning_courses WHERE id=?',(c['id'],)).fetchone())
+        assert {k:v for k,v in after.items() if k not in ('version','updated_at')}=={k:v for k,v in before.items() if k not in ('version','updated_at')}
+        assert after['version']==before['version']+1
+    assert call(client,endpoint,dict(version=c['version'],room_id=None)).status_code==409
+    assert call(client,endpoint,dict(version=after['version'],room_id=None)).status_code==200
+
+
+def test_assign_shared_course_updates_single_reservation_and_requires_admin_csrf(client,app,db):
+    setup_school(client)
+    c=add(client,shared=[dict(promotion_id='p2',subject_id='s2')])
+    endpoint=BASE+'/rooms/courses/'+c['id']+'/assign'
+    assert app.test_client().post(endpoint,json=dict(version=1,room_id='r2')).status_code==403
+    assert client.post(endpoint,json=dict(version=1,room_id='r2')).status_code==400
+    assert call(client,endpoint,dict(version=1,room_id='r2')).status_code==200
+    with db() as conn:
+        assert {row['room_id'] for pid in ('p1','p2') for row in planning._load_courses(conn,promotion_id=pid)}=={'r2'}
+        assert conn.execute('SELECT COUNT(*) FROM planning_courses').fetchone()[0]==1
