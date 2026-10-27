@@ -33,7 +33,7 @@ import planning_years
 
 KINDS={'school','company','holiday','closed'}
 MAX_BATCH=500
-COURSE_TEMPLATE_FIELDS=('subject_id','trainer_id','room_id','start','end','title','shared','zoom_url')
+COURSE_TEMPLATE_FIELDS=('subject_id','trainer_id','room_id','start','end','title','shared','zoom_url','kind')
 
 
 def _has_table(conn,name):
@@ -72,6 +72,10 @@ def ensure_planning_schema(conn):
             conn.execute('INSERT INTO planning_migrations(name) VALUES(?)',('shared_courses_v1',))
         if 'zoom_url' not in {r[1] for r in conn.execute('PRAGMA table_info(planning_courses)')}:
             conn.execute("ALTER TABLE planning_courses ADD COLUMN zoom_url TEXT NOT NULL DEFAULT ''")
+        if 'kind' not in {r[1] for r in conn.execute('PRAGMA table_info(planning_courses)')}:
+            conn.execute("ALTER TABLE planning_courses ADD COLUMN kind TEXT NOT NULL DEFAULT 'course'")
+        import planning_rooms
+        planning_rooms.schema(conn)
         subject_references.schema(conn)
         subject_catalog.schema(conn)
         planning_years.schema(conn)
@@ -194,6 +198,7 @@ def _load_courses(conn,start=None,end=None,promotion_id=None,trainer_id=None):
         return promotion_rows[pid]
     for row in conn.execute(sql,args):
         item=dict(row);item['start']=_clock(item['start_min']);item['end']=_clock(item['end_min'])
+        item.setdefault('kind','course');is_event=item['kind']=='event'
         item['duration_minutes']=item['end_min']-item['start_min']
         item['trainer_name']=person_name(item.pop('trainer_nom'),item.pop('trainer_prenom'))
         groups=[dict(group) for group in conn.execute('''SELECT g.promotion_id,g.subject_id,p.nom AS promotion_name,s.name AS subject_name,s.color
@@ -201,6 +206,9 @@ def _load_courses(conn,start=None,end=None,promotion_id=None,trainer_id=None):
             WHERE g.course_id=? ORDER BY g.promotion_id''',(item['id'],))] if has_groups else []
         if not any(group['promotion_id']==item['promotion_id'] for group in groups):groups.append({key:item[key] for key in ('promotion_id','subject_id','promotion_name','subject_name','color')})
         groups.sort(key=lambda group:group['promotion_id']!=item['promotion_id'])
+        if is_event:
+            item.update(subject_name=item['title'],color='#7c3aed')
+            for group in groups:group.update(subject_name=item['title'],color='#7c3aed')
         item['groups']=groups;item['promotion_ids']=[group['promotion_id'] for group in groups]
         item['shared']=[dict(promotion_id=group['promotion_id'],subject_id=group['subject_id']) for group in groups if group['promotion_id']!=item['promotion_id']]
         item['is_shared']=len(groups)>1
@@ -210,28 +218,29 @@ def _load_courses(conn,start=None,end=None,promotion_id=None,trainer_id=None):
                 value=dict(code=code,message=message)
                 if promotion_id:value['promotion_id']=promotion_id
                 warnings.append(value)
-        if not item['room_id']:warn('room_missing','Salle non affectée')
-        elif item['room_name'] is None:warn('room_missing','Salle introuvable')
-        elif not item['room_active']:warn('room_inactive','Salle désactivée')
-        if item['trainer_active'] is None or not item['trainer_name']:warn('trainer_missing','Formateur à renseigner')
-        elif not item['trainer_active']:warn('trainer_inactive','Formateur désactivé')
+        if not item['room_id'] and not is_event:warn('room_missing','Salle non affectée')
+        elif item['room_id'] and item['room_name'] is None:warn('room_missing','Salle introuvable')
+        elif item['room_id'] and not item['room_active']:warn('room_inactive','Salle désactivée')
+        if (not is_event or item['trainer_id']) and (item['trainer_active'] is None or not item['trainer_name']):warn('trainer_missing','Formateur à renseigner')
+        elif (not is_event or item['trainer_id']) and not item['trainer_active']:warn('trainer_inactive','Formateur désactivé')
         for group in groups:
             subject=subject_info(group['subject_id']);promotion=promotion_info(group['promotion_id'])
             suffix=' · '+group['promotion_name'] if group.get('promotion_name') else ''
-            if not subject or not subject['name']:warn('subject_missing','Matière à renseigner'+suffix,group['promotion_id'])
-            elif _budget_minutes(subject['planned_hours']) is None:warn('annual_hours_missing','Volume annuel à renseigner : '+subject['name']+suffix,group['promotion_id'])
+            if not is_event:
+                if not subject or not subject['name']:warn('subject_missing','Matière à renseigner'+suffix,group['promotion_id'])
+                elif _budget_minutes(subject['planned_hours']) is None:warn('annual_hours_missing','Volume annuel à renseigner : '+subject['name']+suffix,group['promotion_id'])
             if not promotion:warn('promotion_missing','Promotion introuvable',group['promotion_id'])
             elif not promotion['active']:warn('promotion_inactive','Promotion archivée : '+promotion['nom'],group['promotion_id'])
             grant=(item['trainer_id'],group['promotion_id'])
             if grant not in grants:grants[grant]=bool(conn.execute('SELECT 1 FROM trainer_promotions WHERE trainer_id=? AND promotion_id=?',grant).fetchone())
-            if not grants[grant]:warn('trainer_assignment_missing','Formateur non affecté à la promotion'+suffix,group['promotion_id'])
+            if not grants[grant] and (not is_event or item['trainer_id']):warn('trainer_assignment_missing','Formateur non affecté à la promotion'+suffix,group['promotion_id'])
         holiday=public_holiday_name(item['date'])
         if holiday:warn('public_holiday','Cours à déplacer : jour férié ('+holiday+')')
         item['incomplete']=bool(warnings);item['warnings']=warnings;item['warning_labels']=[value['message'] for value in warnings]
         displayed=next((group for group in groups if group['promotion_id']==promotion_id),groups[0])
         item['display_subject_name']=displayed['subject_name'] or 'Matière à renseigner';item['display_color']=displayed['color'] or '#9a7538';item['display_subject_id']=displayed['subject_id']
         item['subject_name']=item['subject_name'] or 'Matière à renseigner';item['color']=item['color'] or '#9a7538'
-        item['trainer_name']=item['trainer_name'] or 'Formateur à renseigner';item['promotion_name']=item['promotion_name'] or 'Promotion à renseigner'
+        item['trainer_name']=item['trainer_name'] or ('Événement ponctuel' if is_event else 'Formateur à renseigner');item['promotion_name']=item['promotion_name'] or 'Promotion à renseigner'
         items.append(item)
     return items
 
@@ -289,7 +298,9 @@ def _subjects(conn,promotion_id=None,period_id=None):
             if item['catalog_subject_id'] else subject_references.details(conn,item['id']))
         item['scheduled_minutes']=_subject_minutes(conn,item['id']);item['scheduled_hours']=item['scheduled_minutes']/60
         item['planned_minutes']=_budget_minutes(item['planned_hours']);item['budget_configured']=item['planned_minutes'] is not None
-        item['remaining_minutes']=max(0,item['planned_minutes']-item['scheduled_minutes']) if item['budget_configured'] else None
+        item['remaining_minutes']=item['planned_minutes']-item['scheduled_minutes'] if item['budget_configured'] else None
+        item['over_budget']=bool(item['budget_configured'] and item['remaining_minutes']<0)
+        item['budget_reached']=bool(item['budget_configured'] and item['remaining_minutes']==0)
         item['remaining_hours']=item['remaining_minutes']/60 if item['budget_configured'] else None
         items.append(item)
     return items
@@ -368,6 +379,12 @@ def _groups(course):
 def _course(conn,data,existing=None,*,pending_trainer_assignments=(),pending_trainers=None):
     if not isinstance(data,dict):raise PlanningError('Les données du cours sont invalides.')
     merged=dict(existing or {});merged.update(data)
+    kind=merged.get('kind','course')
+    if kind not in ('course','event'):raise PlanningError('Choisissez un cours ou un événement ponctuel.')
+    if existing and kind!=existing.get('kind','course'):raise PlanningError('Le type d’un créneau existant ne peut pas changer.')
+    if kind=='event':
+        from planning_events import build
+        return build(conn,merged)
     promotion_id=merged.get('promotion_id');_promotion(conn,promotion_id,ready=True)
     if not isinstance(merged.get('subject_id'),str):raise PlanningError('Choisissez une matière valide.')
     subject=conn.execute('SELECT * FROM planning_subjects WHERE id=? AND promotion_id=?',(merged.get('subject_id'),promotion_id)).fetchone()
@@ -404,13 +421,14 @@ def _course(conn,data,existing=None,*,pending_trainer_assignments=(),pending_tra
         meeting = zoom_url(merged.get('zoom_url'))
     except ValueError as error:
         raise PlanningError(str(error)) from None
-    return dict(zoom_url=meeting,promotion_id=promotion_id,subject_id=subject['id'],trainer_id=trainer_id,room_id=room_id,date=day.isoformat(),
+    return dict(kind='course',zoom_url=meeting,promotion_id=promotion_id,subject_id=subject['id'],trainer_id=trainer_id,room_id=room_id,date=day.isoformat(),
                 start=_clock(start),end=_clock(end),start_min=start,end_min=end,title=_text(merged.get('title',''),'le titre du cours',160),
                 groups=groups,shared=[dict(promotion_id=g['promotion_id'],subject_id=g['subject_id']) for g in groups[1:]],
                 promotion_ids=[g['promotion_id'] for g in groups],is_shared=len(groups)>1)
 
 
 def _budget_conflicts(conn,course,exclude_id=None,pending=None):
+    if course.get('kind')=='event':return []
     found=[];duration=course['end_min']-course['start_min']
     for group in _groups(course):
         subject=conn.execute('SELECT name,planned_hours FROM planning_subjects WHERE id=?',(group['subject_id'],)).fetchone()
@@ -443,7 +461,7 @@ def _conflicts(conn,course,exclude_id=None,pool=None,calendar=None,unavailable=N
         rules,exceptions=calendar if calendar is not None and group['promotion_id']==course['promotion_id'] else _calendar(conn,group['promotion_id'])
         day_state=_day(promotion,day,rules,exceptions)
         if day_state['kind']=='public_holiday':found.append(dict(type='public_holiday',message=day_state['label']+' : aucun cours ne peut être planifié un jour férié.',date=course['date'],promotion_id=group['promotion_id']))
-        elif day_state['kind']!='school':found.append(dict(type='not_school',message=promotion['nom']+' : ce jour n’est pas défini comme une journée école ('+day_state['label']+').',date=course['date'],promotion_id=group['promotion_id']))
+        elif day_state['kind']!='school' and course.get('kind')!='event':found.append(dict(type='not_school',message=promotion['nom']+' : ce jour n’est pas défini comme une journée école ('+day_state['label']+').',date=course['date'],promotion_id=group['promotion_id']))
     rows=pool if pool is not None else _load_courses(conn,course['date'],course['date'])
     own_promotions={g['promotion_id'] for g in _groups(course)}
     for other in rows:
@@ -458,13 +476,15 @@ def _conflicts(conn,course,exclude_id=None,pool=None,calendar=None,unavailable=N
         intervals=block['times'] or [{'start':'00:00','end':'24:00'}]
         if any(course['start_min']<_minutes(slot['end'],True) and course['end_min']>_minutes(slot['start']) for slot in intervals):
             found.append(dict(type='unavailable',message='Formateur indisponible : '+block['reason'],date=course['date'],unavailability_id=block.get('id')))
+    from planning_rooms import room_conflicts
+    found.extend(room_conflicts(conn,course))
     if include_budget:found.extend(_budget_conflicts(conn,course,exclude_id,pending))
     return found
 
 
 def _course_issues_for_calendar(conn,promotion_id,rules,exceptions):
     promotion=_promotion(conn,promotion_id);old_rules,old_exceptions=_calendar(conn,promotion_id)
-    return [dict(type='existing_course',message='Un cours existe sur un jour qui ne serait plus à l’école.',date=c['date'],course_id=c['id'],subject_name=c['subject_name'],start=c['start'],end=c['end']) for c in _load_courses(conn,promotion_id=promotion_id) if _day(promotion,_iso(c['date']),rules,exceptions)['kind']!='school' and _day(promotion,_iso(c['date']),old_rules,old_exceptions)['kind']=='school']
+    return [dict(type='existing_course',message='Un cours existe sur un jour qui ne serait plus à l’école.',date=c['date'],course_id=c['id'],subject_name=c['subject_name'],start=c['start'],end=c['end']) for c in _load_courses(conn,promotion_id=promotion_id) if c.get('kind')!='event' and _day(promotion,_iso(c['date']),rules,exceptions)['kind']!='school' and _day(promotion,_iso(c['date']),old_rules,old_exceptions)['kind']=='school']
 
 
 def _base_rule_conflicts(rules):
@@ -581,7 +601,7 @@ def register_planning(app,db_connect,require_admin):
         else:
             course_id=secrets.token_urlsafe(24)
             conn.execute('INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,room_id,date,start_min,end_min,title,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(course_id,*(course[key] for key in ('promotion_id','subject_id','trainer_id','room_id','date','start_min','end_min','title')),now,now))
-        conn.execute('UPDATE planning_courses SET zoom_url=? WHERE id=?',(course.get('zoom_url',''),course_id))
+        conn.execute('UPDATE planning_courses SET zoom_url=?,kind=? WHERE id=?',(course.get('zoom_url',''),course.get('kind','course'),course_id))
         conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course_id,))
         conn.executemany('INSERT INTO planning_course_groups(course_id,promotion_id,subject_id) VALUES(?,?,?)',[(course_id,g['promotion_id'],g['subject_id']) for g in _groups(course)])
         return course_id
@@ -764,14 +784,21 @@ def register_planning(app,db_connect,require_admin):
         def operation(conn,payload):
             old=conn.execute('SELECT * FROM planning_rooms WHERE id=?',(room_id,)).fetchone() if room_id else None
             if room_id and not old:raise PlanningError('Salle introuvable.',status=404)
+            from planning_rooms import room_used
+            if (request.method=='DELETE' or payload.get('active') in (False,0)) and room_id and room_used(conn,room_id):
+                raise PlanningError('Cette salle est réservée par une session. Réaffectez ses réservations dans le planning des salles.',status=409)
             if request.method=='DELETE':
                 reject([dict(type='room_used',message='Cette salle est utilisée par des cours existants. Réaffectez-les avant de la supprimer.')] if conn.execute('SELECT 1 FROM planning_courses WHERE room_id=? LIMIT 1',(room_id,)).fetchone() else [])
+                conn.execute('DELETE FROM planning_room_aliases WHERE room_id=?',(room_id,))
                 conn.execute('DELETE FROM planning_rooms WHERE id=?',(room_id,));return dict(message='Salle supprimée.')
             name=_text(payload.get('name',old['name'] if old else ''),'le nom de la salle',100,True)
             active=payload.get('active',old['active'] if old else 1)
             if active not in (True,False,0,1):raise PlanningError('L’état de la salle est invalide.')
             if not active and room_id:reject([dict(type='room_used',message='La salle reste utilisée par des cours. Réaffectez-les avant de la désactiver.')] if conn.execute('SELECT 1 FROM planning_courses WHERE room_id=? LIMIT 1',(room_id,)).fetchone() else [])
             rid=room_id or secrets.token_urlsafe(24)
+            alias=conn.execute('SELECT room_id FROM planning_room_aliases WHERE name=?',(name.casefold(),)).fetchone()
+            if alias and alias['room_id']!=rid:raise PlanningError('Ce nom désigne déjà une autre salle dans les sessions.',status=409)
+            if old:conn.execute('INSERT OR IGNORE INTO planning_room_aliases(name,room_id) VALUES(?,?)',(old['name'].strip().casefold(),rid))
             conn.execute('INSERT INTO planning_rooms(id,name,active) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,active=excluded.active',(rid,name,int(active)))
             return dict(room=dict(id=rid,name=name,active=bool(active)),message='Salle enregistrée.')
         return transact(operation)
@@ -936,7 +963,7 @@ def register_planning(app,db_connect,require_admin):
             if len(set(weeks))!=len(weeks):raise PlanningError('Chaque semaine doit être sélectionnée une seule fois.')
             if any(day.weekday()!=0 for day in weeks):raise PlanningError('Chaque semaine sélectionnée doit commencer un lundi.')
             if source_start in weeks:raise PlanningError('Choisissez d’autres semaines que la semaine source.')
-            source=_load_courses(conn,source_start.isoformat(),source_end.isoformat(),promotion['id'])
+            source=[c for c in _load_courses(conn,source_start.isoformat(),source_end.isoformat(),promotion['id']) if c.get('kind')!='event']
             if not source:raise PlanningError('La semaine source ne contient aucun cours à dupliquer.')
             if len(source)*len(weeks)>MAX_BATCH:raise PlanningError(f'La sélection dépasse {MAX_BATCH} cours. Sélectionnez moins de semaines.')
             for week in sorted(weeks):
@@ -1062,7 +1089,7 @@ def register_planning(app,db_connect,require_admin):
                 # A changed source week requires a fresh preview. It must never be
                 # treated as an ordinary destination conflict and silently skipped.
                 source_start=_iso(preview['source_start']);source_end=source_start+timedelta(days=6)
-                current_sources={item['id']:item['version'] for item in _load_courses(conn,source_start.isoformat(),source_end.isoformat(),preview['promotion_id'])}
+                current_sources={item['id']:item['version'] for item in _load_courses(conn,source_start.isoformat(),source_end.isoformat(),preview['promotion_id']) if item.get('kind')!='event'}
                 if current_sources!=preview['source_versions']:
                     raise PlanningError('La semaine source a été modifiée entre-temps. Générez un nouvel aperçu. Aucun cours n’a été ajouté.',
                                         [dict(type='stale_source_week')],409)
@@ -1169,5 +1196,7 @@ def register_planning(app,db_connect,require_admin):
             return dict(item=block,message='Indisponibilité enregistrée.')
         return transact(operation)
 
+    import planning_rooms
+    planning_rooms.register(app,connect,guard,result,fail,transact,serializer)
     from planning_import import register_planning_import
     register_planning_import(app, guard, connect, csrf, result, fail, transact, persist)
