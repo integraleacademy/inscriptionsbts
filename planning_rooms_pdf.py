@@ -37,6 +37,9 @@ def build_pdf(data):
             label='Indisponible' if code=='UNAVAILABLE' else code
             pdf.setFillColor(colors.HexColor(bg));pdf.roundRect(x,height-80,87,16,3,fill=1,stroke=0)
             pdf.setFillColor(colors.HexColor(ink));pdf.setFont(bold,8);pdf.drawString(x+6,height-75,label);x+=94
+        pdf.setStrokeColor(colors.HexColor('#20344d'));pdf.setLineWidth(2)
+        pdf.roundRect(x,height-80,87,16,3,fill=0,stroke=1)
+        pdf.setFillColor(colors.HexColor('#20344d'));pdf.drawString(x+6,height-75,'EXAMEN')
         pdf.setFillColor(colors.HexColor('#657187'));pdf.setFont(regular,7)
         pdf.drawString(margin,18,'Export du '+generated+' · Les changements ultérieurs ne figurent pas dans ce document.')
         pdf.drawRightString(width-margin,18,'Page '+str(page))
@@ -59,7 +62,7 @@ def build_pdf(data):
         if row.get('conflict'):lines.append('<b>CONFLIT À CORRIGER</b>')
         if row.get('pending'):lines.append('Confirmation en cours')
         paragraph,h=_paragraph('<br/>'.join(lines),day_width-17,size=7.1,color=colors.HexColor(ink),leading=9.3)
-        return paragraph,h+12,bg,row.get('conflict')
+        return paragraph,h+12,bg,row.get('conflict'),row.get('exam'),ink
 
     while week<=last:
         days=[week+timedelta(days=i) for i in range(7)];new_page(days)
@@ -88,11 +91,12 @@ def build_pdf(data):
                 name.drawOn(pdf,margin+6,y-7-nh)
                 for i,chunk in enumerate(chunks):
                     x=margin+room_width+i*day_width
-                    pdf.setStrokeColor(colors.HexColor('#dce2ea'))
+                    pdf.setStrokeColor(colors.HexColor('#dce2ea'));pdf.setLineWidth(.5)
                     pdf.rect(x,y-row_height,day_width,row_height,fill=0,stroke=1)
                     top=y-5
-                    for para,h,bg,conflict in chunk:
-                        pdf.setFillColor(colors.HexColor(bg));pdf.setStrokeColor(colors.HexColor('#b42338' if conflict else bg))
+                    for para,h,bg,conflict,exam,ink in chunk:
+                        pdf.setFillColor(colors.HexColor(bg));pdf.setStrokeColor(colors.HexColor('#b42338' if conflict else ink if exam else bg))
+                        pdf.setLineWidth(2 if exam else 1 if conflict else .5)
                         pdf.roundRect(x+4,top-h,day_width-8,h,3,fill=1,stroke=1)
                         para.drawOn(pdf,x+8,top-h+6);top-=h+5
                     if not chunk and not continued:
