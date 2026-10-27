@@ -101,8 +101,11 @@ formateurs, volumes annuels et cours sont inchangés. Une préparation reste pro
 Dans un planning, **Préparer une matière du catalogue** propose les matières du
 BTS de la promotion. Le volume annuel est repris de la fiche pour l’année choisie ;
 il reste adaptable avec le formateur ici, indépendamment
-des autres promotions. Une matière utilisée dans un planning ne peut pas être
-supprimée du catalogue ni détachée du diplôme concerné.
+des autres promotions. La suppression d’une matière depuis le catalogue retire
+aussi ses préparations sans cours, dans une seule transaction. Les cours (partagés,
+passés ou hors période inclus), devoirs et évaluations bloquent la suppression ;
+les plannings concernés sont indiqués avec un lien. Une matière préparée dans un
+planning ne peut pas être détachée du diplôme concerné.
 
 ## Importer les matières depuis un référentiel officiel
 

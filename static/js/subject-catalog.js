@@ -19,7 +19,7 @@
       headers: {Accept: 'application/json', ...(method !== 'GET' ? {'Content-Type': 'application/json', 'X-CSRF-Token': root.dataset.csrf} : {})},
       ...(method !== 'GET' ? {body: JSON.stringify(data || {})} : {})});
     const result = await response.json().catch(() => { throw new Error('La connexion a expiré. Rechargez la page avant de réessayer.'); });
-    if (!response.ok || result.ok === false) throw new Error(result.message || 'Cette action n’a pas abouti.');
+    if (!response.ok || result.ok === false) { const error = new Error(result.message || 'Cette action n’a pas abouti.'); error.result = result; throw error; }
     return result;
   }
   function busy(dialog, value) {
@@ -217,13 +217,23 @@
   });
   $('catalog-delete').addEventListener('click', () => {
     if (!state.editing || editor.dataset.busy) return;
-    alert('catalog-confirm-error', ''); $('catalog-confirm-text').textContent = 'Supprimer « ' + state.editing.name + ' » du catalogue et de ses diplômes ? Une matière utilisée dans un planning ne peut pas être supprimée.';
+    alert('catalog-confirm-error', ''); $('catalog-confirm-links').replaceChildren(); $('catalog-confirm-links').hidden = true;
+    $('catalog-confirm-text').textContent = 'Supprimer « ' + state.editing.name + ' » du catalogue et de tous ses diplômes ? Ses rattachements aux plannings sans cours seront retirés automatiquement. La suppression reste bloquée si des cours, des devoirs ou des évaluations existent.';
     show(confirm);
   });
   $('catalog-confirm-action').addEventListener('click', async () => {
     if (!state.editing || confirm.dataset.busy) return; busy(confirm, true);
-    try { const result = await api('/subject-catalog/' + encodeURIComponent(state.editing.id), 'DELETE'); confirm.close(); editor.close(); await load(result.message); }
-    catch (error) { alert('catalog-confirm-error', error.message); }
+    try { const result = await api('/subject-catalog/' + encodeURIComponent(state.editing.id), 'DELETE', {version: state.editing.version}); confirm.close(); editor.close(); await load(result.message); }
+    catch (error) {
+      alert('catalog-confirm-error', error.message); const links = $('catalog-confirm-links'); links.replaceChildren();
+      for (const issue of error.result?.conflicts || []) {
+        if (issue.type !== 'subject_used' || typeof issue.promotion_id !== 'string') continue;
+        const row = node('li'), link = node('a', 'catalog-text-link', (issue.promotion_name || 'Ouvrir le planning') + ' · année ' + issue.study_year + ' · ' + issue.course_count + ' cours');
+        const params = new URLSearchParams({promotion_id: issue.promotion_id}); if (issue.period_id) params.set('period_id', issue.period_id);
+        link.href = '/admin/planning?' + params; link.target = '_blank'; link.rel = 'noopener noreferrer'; row.append(link); links.append(row);
+      }
+      links.hidden = !links.children.length;
+    }
     finally { busy(confirm, false); }
   });
   root.querySelectorAll('[data-catalog-create]').forEach(button => button.addEventListener('click', () => openEditor()));

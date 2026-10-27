@@ -25,7 +25,11 @@ w.fetch=async(url,options={})=>{
   assert.equal(payload.version,item.version);Object.assign(item,payload,{version:item.version+1});
   for(const change of payload.planning_allocations||[])Object.assign(catalog.subjects.find(row=>row.id===change.id),{planned_hours:change.planned_hours});
  }
- if(method==='DELETE')return {ok:false,json:async()=>({ok:false,message:'Cette matière est préparée dans un planning.'})};
+ if(method==='DELETE'){
+  assert.equal(payload.version,catalog.subject_catalog.find(item=>url.endsWith('/'+item.id)).version);
+  if(url.endsWith('/management'))return {ok:false,json:async()=>({ok:false,message:'Cette matière comporte des cours dans un planning.',conflicts:[{type:'subject_used',promotion_id:'p1',promotion_name:'MOS <img src=x>',period_id:'p1:2',study_year:2,course_count:3}]})};
+  catalog.subject_catalog=catalog.subject_catalog.filter(item=>!url.endsWith('/'+item.id));
+ }
  return {ok:true,json:async()=>({ok:true,message:'Matière enregistrée.'})};
 };
 const wait=()=>new Promise(resolve=>setTimeout(resolve,15));
@@ -78,6 +82,10 @@ w.eval(fs.readFileSync('static/js/subject-catalog.js','utf8'));
  filter('MCO');assert(names().includes('Nouvelle matière <img src=x onerror=alert(1)>'));filter('MOS');
  d.querySelector('[data-catalog-edit="management"]').click();$('catalog-delete').click();$('catalog-confirm-action').click();await wait();
  assert($('catalog-confirm').open);assert($('catalog-confirm-error').textContent.includes('planning'));
- console.log('PASS: diploma filters, independent programmes and annual defaults, explicit per-year budget edits, archived preservation, creation without allocations, safe text and protected deletion.');
+ const link=$('catalog-confirm-links').querySelector('a');assert(link.href.includes('promotion_id=p1'));assert(link.href.includes('period_id=p1%3A2'));assert.equal(link.target,'_blank');assert(link.textContent.includes('3 cours'));assert.equal($('catalog-confirm-links').querySelectorAll('img').length,0);
+ $('catalog-confirm').close();$('catalog-editor').close();
+ d.querySelector('[data-catalog-edit="created"]').click();$('catalog-delete').click();assert($('catalog-confirm-links').hidden);assert($('catalog-confirm-text').textContent.includes('sans cours'));
+ $('catalog-confirm-action').click();await wait();assert(!$('catalog-confirm').open);assert(!$('catalog-editor').open);assert(!names().some(name=>name.startsWith('Nouvelle matière')));
+ console.log('PASS: diploma filters, annual budgets, successful deletion, course protection with safe planning links, and versioned delete requests.');
  dom.window.close();
 })().catch(error=>{console.error(error);dom.window.close();process.exitCode=1});
