@@ -270,7 +270,8 @@ def _annual_hours(value):
 
 def _subjects(conn,promotion_id=None,period_id=None):
     if not _has_table(conn,'trainers'):return []
-    sql='''SELECT s.*,t.nom,t.prenom,p.nom AS promotion_name,p.bts AS diploma_code FROM planning_subjects s
+    sql='''SELECT s.*,t.nom,t.prenom,p.nom AS promotion_name,p.bts AS diploma_code,
+        p.niveau AS promotion_level,p.active AS promotion_active FROM planning_subjects s
         LEFT JOIN trainers t ON t.id=s.trainer_id JOIN promotions p ON p.id=s.promotion_id'''
     args=[]
     if promotion_id:sql+=' WHERE s.promotion_id=?';args.append(promotion_id)
@@ -280,6 +281,7 @@ def _subjects(conn,promotion_id=None,period_id=None):
         period=planning_years.allocation(conn,item['id'])
         if period_id and (not period or period['id']!=period_id):continue
         item['period_id']=period['id'] if period else None
+        item['study_year']=subject_catalog.study_year({'niveau':item.pop('promotion_level')},period)
         item['period_start']=period['start_date'] if period else None
         item['period_end']=period['end_date'] if period else None
         item['catalog_subject_id']=subject_catalog.linked_subject(conn,item['id'])
@@ -336,7 +338,7 @@ def get_planning_snapshot(conn,promotion_id,start=None,end=None,period_id=None):
     outside=[c for c in _load_courses(conn,promotion_id=promotion_id) if not any(planning_years.contains(y,c['date']) for y in choices)]
     if _has_table(conn,'trainers'):
         trainers=[dict(row) for row in conn.execute('SELECT t.id,t.nom,t.prenom,t.email FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE a.promotion_id=? AND t.active=1 ORDER BY t.nom,t.prenom',(promotion_id,))]
-    return dict(promotion=promotion,cohort=cohort,period=period,periods=choices,outside_courses=outside,days=days,rules=rules,exceptions=exceptions,subjects=subjects,
+    return dict(promotion=promotion,cohort=cohort,period=period,periods=choices,study_year=subject_catalog.study_year(cohort,period),outside_courses=outside,days=days,rules=rules,exceptions=exceptions,subjects=subjects,
                 rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms ORDER BY name')],trainers=trainers,
                 courses=courses,scheduled_days=scheduled_days,calendar_configured=bool(rules or exceptions),calendar_revision=_period_revision(conn,period),
                 catalog=get_planning_catalog(conn),start=start,end=end)
@@ -810,6 +812,8 @@ def register_planning(app,db_connect,require_admin):
                 data.update(name=master['name'],color=master['color'])
             name=_text(data.get('name',''),'le nom de la matière',120,True);color=data.get('color','#626b4e')
             if not isinstance(color,str) or not re.fullmatch('#[0-9a-fA-F]{6}',color):raise PlanningError('La couleur de la matière doit être au format #RRGGBB.')
+            if not old and master and 'planned_hours' not in payload:
+                data['planned_hours']=subject_catalog.annual_hours(conn,catalog_id,promotion,period)
             hours=None if imported and data.get('planned_hours') in (None,'') else _annual_hours(data.get('planned_hours'))
             used=_subject_minutes(conn,subject_id) if subject_id else 0
             reject([dict(type='subject_budget',subject_id=subject_id,planned_minutes=_budget_minutes(hours),scheduled_minutes=used,message='Le volume annuel ne peut pas être inférieur aux heures déjà planifiées.')] if used and used>(_budget_minutes(hours) or 0) else [])

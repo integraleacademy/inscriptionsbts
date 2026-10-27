@@ -13,6 +13,58 @@ from flask import request
 from promotions import BTS_LABELS
 import subject_references as references
 
+ANNUAL_FIELDS = {1: 'annual_hours_first', 2: 'annual_hours_second'}
+
+
+def study_year(promotion, period):
+    return (promotion.get('niveau') or 1) + ((period or {}).get('number', 1) - 1)
+
+
+def annual_hours(conn, subject_id, promotion, period):
+    field = ANNUAL_FIELDS.get(study_year(promotion, period))
+    return diploma_details(conn, subject_id, promotion['bts']).get(field) if field else None
+
+
+def validate_details(changes, previous):
+    from planning import _annual_hours
+    result = references.validate_details(changes, previous)
+    for field in ANNUAL_FIELDS.values():
+        if field in changes:
+            value = changes[field]
+            result[field] = None if value is None or value == '' else _annual_hours(value)
+    return result
+
+
+def save_allocations(conn, subject_id, changes):
+    """Explicit edits only; a catalogue default never overwrites a promotion."""
+    from planning import PlanningError, _annual_hours, _budget_minutes, _subject_minutes
+    if not isinstance(changes, list) or len(changes) > 1000:
+        raise PlanningError('Les volumes des plannings sont invalides.')
+    seen = set()
+    for change in changes:
+        if not isinstance(change, dict) or not isinstance(change.get('id'), str) or change['id'] in seen:
+            raise PlanningError('Choisissez chaque planning une seule fois.')
+        seen.add(change['id'])
+        row = conn.execute('''SELECT s.*,p.nom AS promotion_name,p.active FROM planning_subjects s
+            JOIN planning_subject_catalog_links l ON l.planning_subject_id=s.id
+            JOIN promotions p ON p.id=s.promotion_id WHERE s.id=? AND l.subject_id=?''',
+            (change['id'], subject_id)).fetchone()
+        if not row:
+            raise PlanningError('Ce planning ne correspond plus à la matière. Rechargez le catalogue.', status=409)
+        if not row['active']:
+            raise PlanningError('Le planning « '+row['promotion_name']+' » est archivé.', status=409)
+        previous = change.get('previous_planned_hours')
+        if ('previous_planned_hours' not in change or
+                (previous is not None and type(previous) not in (int, float)) or previous != row['planned_hours']):
+            raise PlanningError('Le volume du planning « '+row['promotion_name']+' » a changé. Rechargez le catalogue.', status=409)
+        hours = _annual_hours(change.get('planned_hours'))
+        used = _subject_minutes(conn, row['id'])
+        if used > _budget_minutes(hours):
+            raise PlanningError('Le volume du planning « '+row['promotion_name']+' » ne peut pas être inférieur aux '+
+                format(used / 60, '.2f').rstrip('0').rstrip('.').replace('.', ',')+' h déjà planifiées.',
+                [dict(type='subject_budget', subject_id=row['id'], planned_minutes=_budget_minutes(hours), scheduled_minutes=used)], 409)
+        conn.execute('UPDATE planning_subjects SET planned_hours=? WHERE id=?', (hours, row['id']))
+
 
 def diploma_codes(value):
     from planning import PlanningError
@@ -134,7 +186,8 @@ def save(conn, payload, subject_id=None):
             WHERE l.subject_id=? AND p.bts=? LIMIT 1''', (subject_id, removed)).fetchone()
         if used:
             raise PlanningError('Le BTS '+removed+' est utilisé dans le planning « '+used['nom']+' ». Retirez d’abord cette matière de ce planning pour détacher le diplôme.', status=409)
-    details = {code: references.validate_details(changes.get(code, {}), previous.get(code, {})) for code in codes}
+    details = {code: validate_details(changes.get(code, {}), previous.get(code, {})) for code in codes}
+    save_allocations(conn, subject_id, payload.get('planning_allocations', []))
     sid = subject_id or secrets.token_urlsafe(24)
     if old:
         conn.execute('UPDATE planning_subject_catalog SET name=?,name_key=?,color=?,version=version+1 WHERE id=?', (name, key, color, sid))
@@ -202,5 +255,5 @@ def register(app, connect, guard, result, fail, transact):
                 conn.execute('DELETE FROM planning_subject_catalog WHERE id=?', (subject_id,))
                 return dict(message='Matière supprimée du catalogue.')
             sid = save(conn, payload, subject_id)
-            return dict(subject=next(row for row in subjects(conn) if row['id'] == sid), message='Matière et diplômes enregistrés.')
+            return dict(subject=next(row for row in subjects(conn) if row['id'] == sid), message='Matière, diplômes et volumes annuels enregistrés.')
         return transact(operation)

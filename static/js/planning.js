@@ -535,6 +535,15 @@
     if (!exceptions.children.length) exceptions.append(el('p', 'planning-muted', 'Aucune exception.'));
   }
   const trainerName = trainer => trainer.name || trainer.trainer_name || AcademyNames.fullName(trainer.nom, trainer.prenom);
+  function prefillSubjectHours() {
+    if (state.subjectEdit || !state.data) return;
+    const form = $('planning-subject-form'), entry = (state.data.catalog?.subject_catalog || []).find(item => item.id === form.elements.catalog_subject_id.value);
+    const field = ({1: 'annual_hours_first', 2: 'annual_hours_second'})[state.data.study_year];
+    const value = field ? entry?.diploma_details?.[state.data.promotion.bts]?.[field] : null;
+    form.elements.planned_hours.value = value ?? '';
+    $('planning-subject-hours-help').textContent = value == null ? 'Vous pouvez définir les volumes annuels dans la fiche matière du catalogue.' : 'Volume repris de la fiche matière pour cette année. Vous pouvez l’adapter à cette promotion.';
+  }
+  $('planning-subject-form').elements.catalog_subject_id.addEventListener('change', prefillSubjectHours);
   function openSubject(subject = null, requested = '') {
     if (!state.data || state.loading || state.quickBusy) return; state.subjectEdit = subject; const form = $('planning-subject-form'); form.reset();
     const code = state.data.promotion.bts, prepared = new Set((state.data.subjects || []).map(item => item.catalog_subject_id));
@@ -542,6 +551,8 @@
     populate(form.elements.catalog_subject_id, entries, item => item.name, 'Choisir une matière', subject?.catalog_subject_id || requested);
     form.elements.catalog_subject_id.disabled = !!subject;
     form.elements.planned_hours.value = subject?.planned_hours ?? '';
+    $('planning-subject-hours-help').textContent = 'Ce volume concerne uniquement l’année de ce planning.';
+    prefillSubjectHours();
     $('planning-subject-diploma-help').textContent = 'Matières rattachées au BTS ' + code + '. Les autres diplômes se gèrent depuis le catalogue.';
     $('planning-subject-catalog-link').href = '/admin/matieres?diploma=' + encodeURIComponent(code);
     populate(form.elements.trainer_id, state.data.trainers || [], trainerName, 'Choisir un formateur', subject?.trainer_id);
