@@ -472,8 +472,8 @@ L’assistant accepte les PDF texte « Planning groupe » hebdomadaires Yparéo
 (10 Mo, 100 pages et 500 cours au maximum). Il lit les horaires sur la grille et
 vérifie chaque total hebdomadaire. Un PDF scanné, ambigu ou différent est refusé
 sans écriture. Les matières tronquées et les initiales des formateurs font
-l’objet de correspondances à vérifier ; les matières de l’année et les formateurs
-affectés à la promotion doivent être préparés au préalable.
+l’objet de correspondances à vérifier ; les matières de l’année et les fiches
+actives des formateurs doivent être préparées au préalable.
 
 Chaque matière du PDF dispose de son propre choix de formateur, sur la même
 ligne que la matière du planning. Ce choix s’applique à tous les cours importés
@@ -482,6 +482,14 @@ même si elles partageaient un formateur dans Yparéo. Les noms du PDF restent
 visibles pour vérification. Si plusieurs formateurs sont repérés pour une même
 matière, aucun n’est présélectionné et l’écran signale leur remplacement par le
 formateur choisi. Les fiches matières existantes ne sont pas modifiées.
+
+Le choix propose tous les formateurs actifs, y compris ceux qui ne sont pas
+encore rattachés à la promotion. Leur future affectation et l’accès à la promotion
+sont signalés sur la ligne puis dans l’aperçu. Seuls les formateurs des cours
+effectivement sélectionnés et ajoutés sont affectés lors de la validation, dans
+la même transaction que les cours. L’analyse et l’aperçu n’accordent aucun accès.
+Une affectation retirée depuis l’aperçu ne peut pas être rétablie sans avoir été
+annoncée dans cet aperçu. Les autres promotions du formateur sont conservées.
 
 L’analyse et l’aperçu n’ajoutent aucun cours. Le récapitulatif distingue les cours
 prêts, les doublons et les conflits. L’administrateur coche les cours à reprendre

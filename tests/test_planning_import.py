@@ -261,3 +261,88 @@ def test_pages_opened_before_subject_mapping_update_remain_usable(client, db):
     result = preview(client, extracted['source_token'], mappings=mappings).json
     assert result['summary']['ready'] == 1
     assert commit(client, result['preview_token']).json['count'] == 1
+
+
+def assigned(db, trainer='unassigned', promotion='p1'):
+    with db() as conn:
+        return bool(conn.execute('SELECT 1 FROM trainer_promotions WHERE trainer_id=? AND promotion_id=?', (trainer, promotion)).fetchone())
+
+
+def test_active_trainer_can_be_matched_and_assigned_only_when_import_is_confirmed(client, db):
+    with db() as conn:
+        conn.execute("UPDATE trainers SET nom='EXEMPLE',prenom='Frédérique' WHERE id='unassigned'")
+        conn.execute("INSERT INTO trainer_promotions VALUES('unassigned','p2')")
+        conn.execute('CREATE TABLE trainer_access_tokens(id TEXT,trainer_id TEXT,consumed INTEGER)')
+        conn.execute("INSERT INTO trainer_access_tokens VALUES('token','unassigned',0)")
+    extracted = analyze(client, pdf_bytes(teacher='Mme EXEMPLE F.')).json
+    trainers = {t['id']: t for t in extracted['trainers']}
+    assert trainers['unassigned']['prenom'] == 'Frédérique' and trainers['unassigned']['assigned'] == 0
+    assert trainers['t1']['assigned'] == 1 and 'inactive' not in trainers
+    assert extracted['mappings']['subject_trainers']['Matiere s1'] == 'unassigned'
+    assert not assigned(db)
+    # The old client does not approve granting access to another promotion.
+    assert preview(client, extracted['source_token'], mappings=extracted['mappings']).json['summary']['blocked'] == 1
+    result = preview(client, extracted['source_token'], mappings=extracted['mappings'], assign_trainers=True).json
+    assert result['summary']['ready'] == 1 and [t['id'] for t in result['trainer_assignments']] == ['unassigned']
+    assert not assigned(db) and count(db) == 0
+    with db() as conn:
+        assert conn.execute("SELECT version FROM trainers WHERE id='unassigned'").fetchone()[0] == 1
+        assert conn.execute('SELECT consumed FROM trainer_access_tokens').fetchone()[0] == 0
+    assert commit(client, result['preview_token']).json['count'] == 1
+    assert assigned(db) and assigned(db, promotion='p2')
+    repeated = commit(client, result['preview_token']).json
+    assert repeated['count'] == 0 and repeated['duplicates'] == 1
+    with db() as conn:
+        assert conn.execute("SELECT version FROM trainers WHERE id='unassigned'").fetchone()[0] == 2
+        assert conn.execute('SELECT consumed FROM trainer_access_tokens').fetchone()[0] == 1
+
+
+def test_deselected_courses_do_not_assign_their_trainer(client, db):
+    extracted = analyze(client, two_weeks(subject='Matiere s3')).json
+    mappings = dict(extracted['mappings'], subject_trainers={'Matiere s1':'unassigned', 'Matiere s3':'t2'})
+    result = preview(client, extracted['source_token'], mappings=mappings, assign_trainers=True).json
+    assert result['summary']['ready'] == 2 and len(result['trainer_assignments']) == 1
+    assert commit(client, result['preview_token'], ['1']).json['count'] == 1
+    assert not assigned(db)
+    assert commit(client, result['preview_token'], ['0']).json['count'] == 1
+    assert assigned(db)
+
+
+def test_trainer_assignment_is_rolled_back_if_course_insert_fails(client, db):
+    extracted = analyze(client).json
+    mappings = dict(extracted['mappings'], subject_trainers={'Matiere s1':'unassigned'})
+    result = preview(client, extracted['source_token'], mappings=mappings, assign_trainers=True).json
+    with db() as conn:
+        conn.execute("CREATE TRIGGER reject_course BEFORE INSERT ON planning_courses BEGIN SELECT RAISE(ABORT, 'synthetic failure'); END")
+    assert commit(client, result['preview_token']).status_code == 409
+    assert not assigned(db) and count(db) == 0
+    with db() as conn:
+        assert conn.execute("SELECT version FROM trainers WHERE id='unassigned'").fetchone()[0] == 1
+        assert not conn.execute('SELECT 1 FROM planning_day_exceptions').fetchone()
+
+
+def test_removed_assignment_cannot_be_restored_without_being_in_the_preview(client, db):
+    extracted = analyze(client).json
+    result = preview(client, extracted['source_token'], assign_trainers=True).json
+    assert result['trainer_assignments'] == []
+    with db() as conn:
+        conn.execute("DELETE FROM trainer_promotions WHERE trainer_id='t1' AND promotion_id='p1'")
+    assert commit(client, result['preview_token']).status_code == 409
+    assert not assigned(db, 't1') and count(db) == 0
+
+
+def test_disabled_trainer_cannot_be_assigned_from_an_old_preview(client, db):
+    extracted = analyze(client).json
+    mappings = dict(extracted['mappings'], subject_trainers={'Matiere s1':'unassigned'})
+    result = preview(client, extracted['source_token'], mappings=mappings, assign_trainers=True).json
+    with db() as conn:
+        conn.execute("UPDATE trainers SET active=0 WHERE id='unassigned'")
+    assert commit(client, result['preview_token']).status_code == 409
+    assert not assigned(db) and count(db) == 0
+
+
+def test_normal_course_endpoint_cannot_grant_trainer_access(client, db):
+    body = dict(promotion_id='p1', subject_id='s1', trainer_id='unassigned', date='2027-01-04', start='09:00', end='11:00',
+                assign_trainers=True, pending_trainer_assignments=[['unassigned','p1']])
+    assert call(client, '/courses', body).status_code == 400
+    assert not assigned(db) and count(db) == 0

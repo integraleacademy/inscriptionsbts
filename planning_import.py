@@ -44,7 +44,13 @@ def _signature(course):
     return tuple(course[k] for k in ('date', 'start_min', 'end_min', 'trainer_id'))
 
 
-def review(conn, source, mappings, school_days, room_id, selected_keys=None):
+def _trainers(conn, promotion_id):
+    return [dict(row) for row in conn.execute('''SELECT t.id,t.nom,t.prenom,
+        EXISTS(SELECT 1 FROM trainer_promotions g WHERE g.trainer_id=t.id AND g.promotion_id=?) AS assigned
+        FROM trainers t WHERE t.active=1 ORDER BY t.nom,t.prenom''', (promotion_id,))]
+
+
+def review(conn, source, mappings, school_days, room_id, selected_keys=None, *, assign_trainers=False, allowed_assignments=None):
     promotion, period = _context(conn, source['promotion_id'], source['period_id'])
     if period['start_date'] != source['start_date'] or period['end_date'] != source['end_date']:
         raise p.PlanningError('Les dates de l’année ont changé. Analysez à nouveau le PDF.', status=409)
@@ -56,6 +62,8 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None):
         raise p.PlanningError('Vérifiez les correspondances de matières et de formateurs.')
     if not isinstance(school_days, bool):
         raise p.PlanningError('Confirmez le traitement des journées école.')
+    if not isinstance(assign_trainers, bool):
+        raise p.PlanningError('Vérifiez les affectations des formateurs.')
     if room_id is not None and (not isinstance(room_id, str) or not conn.execute(
             'SELECT 1 FROM planning_rooms WHERE id=? AND active=1', (room_id,)).fetchone()):
         raise p.PlanningError('Choisissez une salle active ou laissez la salle à compléter.')
@@ -69,6 +77,11 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None):
     rules, exceptions = p._calendar(conn, promotion['id'])
     existing = p._load_courses(conn, min(r['date'] for r in rows), max(r['date'] for r in rows))
     unavailable = p._unavailability(conn)
+    trainers = {t['id']: t for t in _trainers(conn, promotion['id'])}
+    # Only this import can propose new grants; normal course APIs remain strict.
+    pending_assignments = {(tid, promotion['id']) for tid, trainer in trainers.items()
+        if assign_trainers and not trainer['assigned'] and (allowed_assignments is None or tid in allowed_assignments)}
+    trainer_assignments = {}
     accepted, results, changed_days, calendar_before = [], [], {}, {}
     for row in rows:
         item = dict(row, status='blocked', issues=[])
@@ -82,7 +95,8 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None):
             if not allocation or allocation['id'] != period['id']:
                 raise p.PlanningError('Choisissez une matière préparée pour cette année du planning.')
             course = p._course(conn, dict(promotion_id=promotion['id'], subject_id=sid, trainer_id=tid,
-                                        room_id=room_id, date=row['date'], start=row['start'], end=row['end']))
+                                        room_id=room_id, date=row['date'], start=row['start'], end=row['end']),
+                               pending_trainer_assignments=pending_assignments)
             item.update(subject_name=course['groups'][0]['subject_name'], trainer_id=tid)
             duplicate = next((c for c in existing + accepted if _signature(c) == _signature(course) and
                               any(g['promotion_id'] == promotion['id'] and g['subject_id'] == sid for g in p._groups(c))), None)
@@ -101,6 +115,8 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None):
                 else:
                     item['status'] = 'ready'
                     accepted.append(course)
+                    if (tid, promotion['id']) in pending_assignments:
+                        trainer_assignments[tid] = trainers[tid]
                     calendar_before[row['date']] = {k: day[k] for k in ('kind', 'label')}
                     if day['kind'] != 'school':
                         changed_days[row['date']] = dict(date=row['date'], previous=day['label'], kind=day['kind'])
@@ -109,7 +125,9 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None):
         results.append(item)
     summary = {status: sum(r['status'] == status for r in results) for status in ('ready', 'duplicate', 'blocked')}
     summary.update(total=len(results), minutes=sum(c['end_min']-c['start_min'] for c in accepted), school_days=len(changed_days))
-    return dict(items=results, summary=summary, calendar_before=calendar_before, calendar_changes=sorted(changed_days.values(), key=lambda d: d['date'])), accepted
+    return dict(items=results, summary=summary, calendar_before=calendar_before,
+        trainer_assignments=list(trainer_assignments.values()),
+        calendar_changes=sorted(changed_days.values(), key=lambda d: d['date'])), accepted
 
 
 def register_planning_import(app, guard, connect, csrf, result, fail, transact, persist):
@@ -154,9 +172,7 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
             with closing(connect()) as conn:
                 promotion, period = _context(conn, request.form.get('promotion_id'), request.form.get('period_id'))
                 subjects = p._subjects(conn, promotion['id'], period['id'])
-                trainers = [dict(row) for row in conn.execute('''SELECT t.id,t.nom,t.prenom FROM trainers t
-                    JOIN trainer_promotions g ON g.trainer_id=t.id WHERE g.promotion_id=? AND t.active=1
-                    ORDER BY t.nom,t.prenom''', (promotion['id'],))]
+                trainers = _trainers(conn, promotion['id'])
                 rooms = [dict(row) for row in conn.execute('SELECT id,name FROM planning_rooms WHERE active=1 ORDER BY name')]
             try:
                 document = parse_ypareo_pdf(upload.stream.read(MAX_BYTES + 1), period)
@@ -189,12 +205,15 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                 raise p.PlanningError('Les données de l’import sont invalides.')
             source = verify(payload.get('source_token'), 'source')
             mappings, school_days, room_id = payload.get('mappings'), payload.get('school_days'), payload.get('room_id') or None
+            assign_trainers = payload.get('assign_trainers', False)
             with closing(connect()) as conn:
                 conn.execute('BEGIN')
-                preview, _ = review(conn, source, mappings, school_days, room_id)
+                preview, _ = review(conn, source, mappings, school_days, room_id, assign_trainers=assign_trainers)
             ready = [r['key'] for r in preview['items'] if r['status'] == 'ready']
             token = sign(dict(source=source, mappings=mappings, school_days=school_days,
-                              room_id=room_id, ready=ready, calendar_before=preview['calendar_before']), 'review')
+                              room_id=room_id, ready=ready, calendar_before=preview['calendar_before'],
+                              assign_trainers=assign_trainers,
+                              trainer_assignment_ids=[t['id'] for t in preview['trainer_assignments']]), 'review')
             return result(preview, preview_token=token)
         except p.PlanningError as error:
             return fail(error)
@@ -207,7 +226,9 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
             if not isinstance(selected, list) or any(not isinstance(k, str) for k in selected) or not set(selected) <= set(approved['ready']):
                 raise p.PlanningError('Choisissez uniquement les cours prêts dans cet aperçu.')
             preview, courses = review(conn, approved['source'], approved['mappings'],
-                                      approved['school_days'], approved['room_id'], selected)
+                                      approved['school_days'], approved['room_id'], selected,
+                                      assign_trainers=approved.get('assign_trainers', False),
+                                      allowed_assignments=approved.get('trainer_assignment_ids', []))
             if any(approved['calendar_before'].get(day) != state for day, state in preview['calendar_before'].items()):
                 raise p.PlanningError('L’alternance a changé depuis l’aperçu. Vérifiez à nouveau les cours avant d’importer.', status=409)
             if preview['summary']['blocked']:
@@ -216,6 +237,11 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                      for r in preview['items'] if r['status'] == 'blocked'], 409)
             # BEGIN IMMEDIATE from transact serializes duplicate/conflict checks.
             promotion_id = approved['source']['promotion_id']
+            for trainer in preview['trainer_assignments']:
+                conn.execute('INSERT INTO trainer_promotions(trainer_id,promotion_id) VALUES(?,?)', (trainer['id'], promotion_id))
+                conn.execute('UPDATE trainers SET version=version+1 WHERE id=?', (trainer['id'],))
+                if p._has_table(conn, 'trainer_access_tokens'):
+                    conn.execute('UPDATE trainer_access_tokens SET consumed=1 WHERE trainer_id=?', (trainer['id'],))
             for change in preview['calendar_changes']:
                 conn.execute('''INSERT INTO planning_day_exceptions(promotion_id,date,kind,label) VALUES(?,?,'school',?)
                     ON CONFLICT(promotion_id,date) DO UPDATE SET kind=excluded.kind,label=excluded.label''',
