@@ -5,7 +5,7 @@ then finish. Both the previous and proposed slots remain occupied until finish.
 A crashed writer reconciles against the durable source before its next change.
 """
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import hmac
 import json
 import os
@@ -307,7 +307,16 @@ def register(app, connect, guard, result, fail, transact, serializer):
                 raise PlanningError('Choisissez une session de la page Sessions.')
             data=remote('/sessions',request.method,payload)
             if request.method=='GET':
-                data['sessions']=[row for row in data.get('sessions',[]) if isinstance(row.get('owner'),str) and row['owner'].startswith('session:')]
+                visible=[]
+                for row in data.get('sessions',[]):
+                    if not isinstance(row.get('owner'),str) or not row['owner'].startswith('session:'):
+                        continue
+                    try:
+                        if date.fromisoformat(row.get('start')) >= date(2026,10,26):
+                            visible.append(row)
+                    except (TypeError,ValueError):
+                        continue
+                data['sessions']=visible
                 data['source']='sessions'
             return result(data)
         except PlanningError as exc:

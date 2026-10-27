@@ -267,10 +267,15 @@ def test_old_planner_cannot_reserve_or_reappear_in_proxy(linked,client,monkeypat
     calls=[]
     def remote(*args):
         calls.append(args)
-        return dict(sessions=[dict(owner='session:one'),dict(owner='formation:3')])
+        return dict(sessions=[dict(owner='session:one',start='2026-10-26',name='DESP OCTOBRE 2026'),
+                              dict(owner='session:future',start='2027-01-04'),
+                              dict(owner='session:old',start='2026-10-25'),
+                              dict(owner='session:missing'),dict(owner='session:invalid',start='2026-13-01'),
+                              dict(owner='formation:3',start='2026-11-10')])
     monkeypatch.setattr(planning_rooms,'remote',remote)
     response=client.get(BASE+'/rooms/sessions')
-    assert response.json['sessions']==[dict(owner='session:one')]
+    assert response.json['sessions']==[dict(owner='session:one',start='2026-10-26',name='DESP OCTOBRE 2026'),
+                                       dict(owner='session:future',start='2027-01-04')]
     assert call(client,'/rooms/sessions',dict(owner='formation:3',room_id='r1')).status_code==400
     assert len(calls)==1
 

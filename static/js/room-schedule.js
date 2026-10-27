@@ -7,11 +7,13 @@
  const add=(d,n)=>{const x=date(d);x.setDate(x.getDate()+n);return iso(x);};
  const monday=d=>add(d,-((date(d).getDay()+6)%7));
  const today=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Paris'}).format(new Date());
- const label=d=>date(d).toLocaleDateString('fr-FR',{weekday:'short',day:'numeric',month:'short'});
+ const frenchDate=d=>/^\d{4}-\d{2}-\d{2}$/.test(d||'')?d.split('-').reverse().join('/'):'—';
+ const label=d=>date(d).toLocaleDateString('fr-FR',{weekday:'short'})+' '+frenchDate(d);
+ const sessionName=s=>s.name || s.title.replace(/ · \d{4}-\d{2}-\d{2}$/, '');
  const error=(id,msg)=>{$(id).textContent=msg||'';$(id).hidden=!msg;};
  const courseDialog=$('rooms-course-dialog'), courseForm=$('rooms-course-form');
  let rooms=[], sessions=[], sequence=0, sessionsPromise=null, editingCourse=null;
- async function request(path,data){const response=await fetch('/admin/planning/api/rooms'+path,{method:data?'POST':'GET',credentials:'same-origin',headers:{Accept:'application/json',...(data?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},...(data?{body:JSON.stringify(data)}:{})});const result=await response.json().catch(()=>({}));if(!response.ok || result.ok===false)throw new Error([result.message || 'Chargement impossible.',...(result.conflicts||[]).map(c=>(c.date?c.date+' · ':'')+c.message)].join('\n'));return result;}
+ async function request(path,data){const response=await fetch('/admin/planning/api/rooms'+path,{method:data?'POST':'GET',credentials:'same-origin',headers:{Accept:'application/json',...(data?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},...(data?{body:JSON.stringify(data)}:{})});const result=await response.json().catch(()=>({}));if(!response.ok || result.ok===false)throw new Error([result.message || 'Chargement impossible.',...(result.conflicts||[]).map(c=>(c.date?frenchDate(c.date)+' · ':'')+c.message)].join('\n'));return result;}
  function roomOptions(){const old=form.elements.room_id.value;form.elements.room_id.replaceChildren(new Option('Choisir une salle',''));for(const r of rooms.filter(r=>r.active))form.elements.room_id.add(new Option(r.name,r.id));form.elements.room_id.value=old;}
  async function load(){
   const seq=++sequence,start=monday($('rooms-date').value || today());$('rooms-date').value=start;error('rooms-error','');table.setAttribute('aria-busy','true');
@@ -24,11 +26,11 @@
   }catch(e){if(seq===sequence)error('rooms-error',e.message);}finally{if(seq===sequence)table.removeAttribute('aria-busy');}
  }
  function selected(){return sessions.find(s=>s.owner===form.elements.owner.value);}
- function details(){const s=selected();$('rooms-session-fallback').hidden=!s || s.generated;error('rooms-session-error','');$('rooms-session-detail').textContent=s?(s.start+' → '+s.end+' · '+(s.generated?s.count+' créneau(x) de présence à réserver.':'Réservation sur les jours et horaires ci-dessous.')):'';form.elements.room_id.value=s?.config?.room_id || '';form.elements.start.value=s?.config?.start || '08:00';form.elements.end.value=s?.config?.end || '18:00';for(const input of form.querySelectorAll('[name=weekdays]'))input.checked=(s?.config?.weekdays || [0,1,2,3,4]).includes(Number(input.value));}
+ function details(){const s=selected();$('rooms-session-fallback').hidden=!s || s.generated;error('rooms-session-error','');$('rooms-session-detail').textContent=s?(frenchDate(s.start)+' → '+frenchDate(s.end)+' · '+(s.generated?s.count+' créneau(x) de présence à réserver.':'Réservation sur les jours et horaires ci-dessous.')):'';form.elements.room_id.value=s?.config?.room_id || '';form.elements.start.value=s?.config?.start || '08:00';form.elements.end.value=s?.config?.end || '18:00';for(const input of form.querySelectorAll('[name=weekdays]'))input.checked=(s?.config?.weekdays || [0,1,2,3,4]).includes(Number(input.value));}
  function loadSessions(){
   if(sessionsPromise)return sessionsPromise;
   sessionsPromise=(async()=>{error('rooms-session-error','');const old=form.elements.owner.value;
-   try{const result=await request('/sessions');sessions=result.sessions.filter(s=>s.owner.startsWith('session:')).sort((a,b)=>(b.start || '').localeCompare(a.start || ''));form.elements.owner.replaceChildren(new Option('Choisir une session',''));for(const s of sessions)form.elements.owner.add(new Option(s.title+' · '+(s.assigned?'salle affectée':'À AFFECTER'),s.owner));const requested=new URLSearchParams(location.search).get('session_id');form.elements.owner.value=old || (requested?'session:'+requested:'');details();return true;}
+   try{const result=await request('/sessions');sessions=result.sessions.filter(s=>s.owner.startsWith('session:')).sort((a,b)=>(b.start || '').localeCompare(a.start || ''));form.elements.owner.replaceChildren(new Option(sessions.length?'Choisir une session':'Aucune session à partir du 26/10/2026',''));for(const s of sessions)form.elements.owner.add(new Option(sessionName(s)+' · '+frenchDate(s.start)+' · '+(s.assigned?'salle affectée':'À AFFECTER'),s.owner));const requested=new URLSearchParams(location.search).get('session_id');form.elements.owner.value=old || (requested?'session:'+requested:'');details();return true;}
    catch(e){error('rooms-session-error',e.message);return false;}
    finally{sessionsPromise=null;}
   })();return sessionsPromise;
