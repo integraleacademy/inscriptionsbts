@@ -130,7 +130,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <script src="{{ url_for('static', filename='js/planning.js') }}?v=13" defer></script>
   {% elif is_planning_catalog %}
     {% if request.path == '/admin/matieres' %}
-    <script src="{{ url_for('static', filename='js/subject-catalog.js') }}?v=3" defer></script>
+    <script src="{{ url_for('static', filename='js/subject-catalog.js') }}?v=4" defer></script>
     {% else %}
     <script src="{{ url_for('static', filename='js/planning-catalog.js') }}?v=5" defer></script>
     {% endif %}

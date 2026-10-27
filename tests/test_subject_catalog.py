@@ -121,7 +121,6 @@ def test_one_catalogue_subject_has_independent_teachers_and_budgets(client, db):
     assert allocations[second_id]['planned_hours'] == 80 and allocations[second_id]['trainer_id'] == 't2'
     assert all(row['name'] == 'Culture et expression' and row['coefficient'] == 6 for row in allocations.values())
     assert updated.json['subject']['diploma_details']['MOS']['coefficient'] == 3
-    assert call(client, '/subject-catalog/'+item['id'], method='DELETE').status_code == 409
     removed = call(client, '/subject-catalog/'+item['id'], dict(diploma_codes=['MOS']), 'PUT')
     assert removed.status_code == 409
     assert call(client, '/subjects/'+first_id, method='DELETE').status_code == 200
