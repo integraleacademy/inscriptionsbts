@@ -123,7 +123,7 @@ def test_school_transport_uses_selected_sender_and_reply_to_without_rewrapping(m
 
 
 @pytest.mark.parametrize('layout',['crm','letter'])
-def test_school_email_has_centered_signature_italic_accent_and_complete_crm_footer(layout):
+def test_school_email_has_readable_body_side_by_side_signature_and_complete_crm_footer(layout):
     from bs4 import BeautifulSoup
     from school_email import render_school_email
     html,sender=render_school_email('Votre semaine','Bonjour,\n\nLes informations de la semaine.','clement',layout,
@@ -131,11 +131,14 @@ def test_school_email_has_centered_signature_italic_accent_and_complete_crm_foot
     soup=BeautifulSoup(html,'html.parser')
     assert soup.select_one('.email-hero')['align']=='center'
     assert soup.select_one('.email-title').parent['align']=='center'
+    assert soup.select_one('.email-message')['align']=='left'
     assert soup.select_one('.email-accent em').text=='Ensemble, à vos côtés.'
     assert 'Georgia' in soup.select_one('.email-accent')['style']
     assert soup.find('a',string=lambda s:s and 'Mon espace' in s).find_parent('table')['align']=='center'
     signature=soup.select_one('.email-signature')
-    assert signature['align']=='center' and signature.strong.text=='Clément VAILLANT'
+    assert signature['align']=='left' and signature.strong.text=='Clément VAILLANT'
+    assert signature.img.find_parent('td').find_next_sibling('td')==signature.select_one('.email-signature-details')
+    assert signature.select_one('.email-signature-details')['align']=='left'
     assert 'border-radius:50%' in signature.img['style']
     footer=soup.select_one('.email-footer')
     assert footer['align']=='center'

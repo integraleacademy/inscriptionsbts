@@ -435,7 +435,8 @@ passées sont grisées et leur restriction est explicitement expliquée.
   `static/admissions/aurelie.webp` et le visuel public de Clément sur
   `https://www.integraleconnect.com/static/images/connect-home/clement-memoji.png`.
   Les copies PNG sont servies localement pour les clients de messagerie.
-  Le logo, les titres, le bouton et la signature sont centrés. Une phrase en
+  Le logo, les titres et le bouton sont centrés. Le texte et la signature sont
+  alignés à gauche, avec le memoji à côté des coordonnées. Une phrase en
   italique à empattements, inspirée de la brochure BTS, peut être personnalisée
   ou retirée. Le pied de page reprend intégralement les mentions du modèle CRM.
 - Les identités structurées s’affichent au format **Prénom NOM**, accents et

@@ -30,17 +30,23 @@
           {% if accent_title %}<p class="email-accent" style="margin:9px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:34px;line-height:1.35;font-weight:400;color:#008b79;overflow-wrap:anywhere"><em style="font-style:italic">{{ accent_title }}</em></p>{% endif %}
         </td></tr>
         {% endif %}
-        <tr><td align="{{ 'center' if layout == 'crm' else 'left' }}" class="email-pad email-message" style="padding:34px 44px 8px;font-size:16px;line-height:1.75;color:#344158;text-align:{{ 'center' if layout == 'crm' else 'left' }};overflow-wrap:anywhere;word-break:break-word">
+        <tr><td align="left" class="email-pad email-message" style="padding:34px 44px 8px;font-size:16px;line-height:1.75;color:#344158;text-align:left;overflow-wrap:anywhere;word-break:break-word">
           {% for paragraph in paragraphs %}<p style="margin:0 0 20px">{% for line in paragraph.split('\n') %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endfor %}
           {% if action_url %}<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:26px auto 22px"><tr><td align="center" bgcolor="#3269da" style="border-radius:9px;background:#3269da;mso-padding-alt:15px 24px;text-align:center"><a href="{{ action_url }}" style="display:inline-block;padding:15px 24px;border:1px solid #3269da;border-radius:9px;color:#fff;font-size:14px;line-height:20px;font-weight:700;text-decoration:none">{{ action_label }} &nbsp;→</a></td></tr></table>{% endif %}
         </td></tr>
-        <tr><td align="center" class="email-pad" style="padding:8px 44px 34px;text-align:center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-top:1px solid #e5ebf3"><tr><td class="email-signature" align="center" style="padding-top:27px;text-align:center;font-size:13px;line-height:1.75;color:#64748b;overflow-wrap:anywhere;word-break:break-word">
-            <img src="{{ avatar_url }}" width="80" height="80" alt="Memoji de {{ sender.name }}" style="display:block;width:80px;height:80px;margin:0 auto 13px;border-radius:50%;border:3px solid #e9eef8;background:#fff;object-fit:cover">
-            <strong style="font-size:18px;line-height:1.5;color:#102c5c">{{ sender.name }}</strong><br>
-            {{ sender.role }}<br>
-            <a href="mailto:{{ sender.email }}" style="color:#3269da;text-decoration:none">{{ sender.email }}</a><br>
-            <a href="tel:{{ sender.phone_link }}" style="color:#344158;font-weight:700;text-decoration:none">{{ sender.phone }}</a>
+        <tr><td align="left" class="email-pad" style="padding:8px 44px 34px;text-align:left">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-top:1px solid #e5ebf3"><tr><td class="email-signature" align="left" style="padding-top:24px;text-align:left;font-size:13px;line-height:1.75;color:#64748b;overflow-wrap:anywhere;word-break:break-word">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;table-layout:fixed"><tr>
+              <td width="88" valign="middle" style="width:88px;padding-right:18px">
+                <img src="{{ avatar_url }}" width="72" height="72" alt="Memoji de {{ sender.name }}" style="display:block;width:72px;height:72px;border-radius:50%;border:3px solid #e9eef8;background:#fff;object-fit:cover">
+              </td>
+              <td align="left" valign="middle" class="email-signature-details" style="text-align:left;font-size:13px;line-height:1.75;color:#64748b;overflow-wrap:anywhere;word-break:break-word">
+                <strong style="font-size:16px;line-height:1.5;color:#102c5c">{{ sender.name }}</strong><br>
+                {{ sender.role }}<br>
+                <a href="mailto:{{ sender.email }}" style="color:#3269da;text-decoration:none">{{ sender.email }}</a><br>
+                <a href="tel:{{ sender.phone_link }}" style="color:#344158;font-weight:700;text-decoration:none">{{ sender.phone }}</a>
+              </td>
+            </tr></table>
           </td></tr></table>
         </td></tr>
         {% include 'school_email_footer.html' %}
