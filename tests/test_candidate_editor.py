@@ -261,7 +261,7 @@ def test_original_certificate_model_all_courses_annexes_and_future_cohort(mode, 
         reader = PdfReader(io.BytesIO(data))
         assert len(reader.pages) == 3
         text = '\n'.join(page.extract_text() for page in reader.pages)
-        assert 'DUPONT Élodie' in text and '{{' not in text and '00/00/0000' not in text
+        assert 'Élodie DUPONT' in text and '{{' not in text and '00/00/0000' not in text
         assert f'{year}-{year+2}' in text and 'Confirmation d’inscription' in text and 'Contrat d’apprentissage' in text
         assert 'SERVICE SCOLARITÉ' not in text
         if year >= 2027: assert '6000€' not in text and 'septembre 2026' not in text

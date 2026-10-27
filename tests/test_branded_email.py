@@ -120,3 +120,37 @@ def test_school_transport_uses_selected_sender_and_reply_to_without_rewrapping(m
     assert data['htmlContent']==html and data['htmlContent'].count(BRAND_MARKER)==1
     assert sender['name'] in data['textContent'] and sender['email'] in data['textContent']
     assert data['to']==[{'email':'student@example.test'}]
+
+
+@pytest.mark.parametrize('layout',['crm','letter'])
+def test_school_email_has_centered_signature_italic_accent_and_complete_crm_footer(layout):
+    from bs4 import BeautifulSoup
+    from school_email import render_school_email
+    html,sender=render_school_email('Votre semaine','Bonjour,\n\nLes informations de la semaine.','clement',layout,
+        accent_title='Ensemble, à vos côtés.',action_url='https://school.example.test/espace',action_label='Mon espace')
+    soup=BeautifulSoup(html,'html.parser')
+    assert soup.select_one('.email-hero')['align']=='center'
+    assert soup.select_one('.email-title').parent['align']=='center'
+    assert soup.select_one('.email-accent em').text=='Ensemble, à vos côtés.'
+    assert 'Georgia' in soup.select_one('.email-accent')['style']
+    assert soup.find('a',string=lambda s:s and 'Mon espace' in s).find_parent('table')['align']=='center'
+    signature=soup.select_one('.email-signature')
+    assert signature['align']=='center' and signature.strong.text=='Clément VAILLANT'
+    assert 'border-radius:50%' in signature.img['style']
+    footer=soup.select_one('.email-footer')
+    assert footer['align']=='center'
+    for detail in ['Faites le premier pas vers votre futur métier','142 rue de Rivoli','840 899 884','93830600283',
+                   '03169 du 21/10/2024','0831774C','0756548K','FOR-083-2027-02-08-20200755135',
+                   '1487614/2020/SST-01/O/07','La déclaration d’activité ne vaut pas agrément de l’État.']:
+        assert detail in footer.get_text()
+    assert footer.a['href']=='https://www.integraleacademy.com'
+
+
+def test_school_italic_accent_is_optional_escaped_and_validated():
+    from school_email import render_school_email
+    html,_=render_school_email('Titre','Texte',accent_title='<script>bad</script>')
+    assert '<script>' not in html and '&lt;script&gt;' in html
+    html,_=render_school_email('Titre','Texte',accent_title='')
+    assert '<em' not in html
+    for value in ['a'*121,'Titre\nAutre ligne',{},None]:
+        with pytest.raises(ValueError):render_school_email('Titre','Texte',accent_title=value)

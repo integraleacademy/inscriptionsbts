@@ -91,8 +91,8 @@ def mail_html(template_name, **kwargs):
           <tr>
             <td style="padding-left:4px;font-size:14px;line-height:1.6;">
               <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
-              <div><strong>Nom :</strong> {form_nom}</div>
               <div><strong>Prénom :</strong> {form_prenom}</div>
+              <div><strong>Nom :</strong> {form_nom}</div>
               <div><strong>Email :</strong> {form_email}</div>
               <div><strong>Téléphone :</strong> {form_tel}</div>
               <div><strong>Formation :</strong> {bts_label}</div>
@@ -270,8 +270,8 @@ def mail_html(template_name, **kwargs):
           <tr>
             <td style="padding-left:4px;font-size:14px;line-height:1.6;">
               <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
-              <div><strong>Nom :</strong> {form_nom}</div>
               <div><strong>Prénom :</strong> {form_prenom}</div>
+              <div><strong>Nom :</strong> {form_nom}</div>
               <div><strong>Email :</strong> {form_email}</div>
               <div><strong>Téléphone :</strong> {form_tel}</div>
               <div><strong>Formation :</strong> {bts_label}</div>
@@ -432,8 +432,8 @@ def mail_html(template_name, **kwargs):
   <tr>
     <td style="padding-left:4px;font-size:14px;line-height:1.6;">
       <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
-      <div><strong>Nom :</strong> {form_nom}</div>
       <div><strong>Prénom :</strong> {form_prenom}</div>
+      <div><strong>Nom :</strong> {form_nom}</div>
       <div><strong>Email :</strong> {form_email}</div>
       <div><strong>Téléphone :</strong> {form_tel}</div>
       <div><strong>Formation :</strong> {bts_label}</div>
@@ -894,8 +894,8 @@ def mail_html(template_name, **kwargs):
           <tr>
             <td style="padding-left:4px;font-size:14px;line-height:1.6;">
               <div><strong>Numéro de dossier :</strong> {numero_dossier}</div>
-              <div><strong>Nom :</strong> {form_nom}</div>
               <div><strong>Prénom :</strong> {form_prenom}</div>
+              <div><strong>Nom :</strong> {form_nom}</div>
               <div><strong>Email :</strong> {form_email}</div>
               <div><strong>Téléphone :</strong> {form_tel}</div>
               <div><strong>Formation :</strong> {bts_label}</div>

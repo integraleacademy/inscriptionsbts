@@ -427,7 +427,7 @@ passées sont grisées et leur restriction est explicitement expliquée.
   l’historique permet de reprendre les destinataires restants dans la même
   session. « Envoyé » signifie accepté par le fournisseur, pas nécessairement lu.
 - La messagerie propose **Signature CRM** (bandeau bleu) et **Courrier personnel**,
-  avec les expéditeurs VAILLANT Clément et CHAUSSEZ Aurélie. Leur nom, adresse
+  avec les expéditeurs Clément VAILLANT et Aurélie CHAUSSEZ. Leur nom, adresse
   d’envoi, adresse de réponse, fonction et memoji rond sont liés au choix effectué.
   L’identité et le HTML sont figés ensemble dans l’aperçu (`sender_json`, migration
   additive) ; les aperçus historiques conservent leur identité d’origine.
@@ -435,6 +435,12 @@ passées sont grisées et leur restriction est explicitement expliquée.
   `static/admissions/aurelie.webp` et le visuel public de Clément sur
   `https://www.integraleconnect.com/static/images/connect-home/clement-memoji.png`.
   Les copies PNG sont servies localement pour les clients de messagerie.
+  Le logo, les titres, le bouton et la signature sont centrés. Une phrase en
+  italique à empattements, inspirée de la brochure BTS, peut être personnalisée
+  ou retirée. Le pied de page reprend intégralement les mentions du modèle CRM.
+- Les identités structurées s’affichent au format **Prénom NOM**, accents et
+  prénoms composés conservés. Python, Jinja et JavaScript suivent la même règle,
+  également appliquée aux initiales, listes, recherches et documents générés.
 - La barre d’administration reste visible au défilement. Le menu réduit affiche
   le nom de chaque rubrique au survol et au focus clavier. Le menu mobile se
   positionne sous la hauteur réelle de la barre et se ferme avec Échap.

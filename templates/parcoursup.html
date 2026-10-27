@@ -225,8 +225,8 @@
     <thead>
       <tr>
         <th>Sel.</th>
-        <th>Nom</th>
         <th>Prénom</th>
+        <th>Nom</th>
         <th>Téléphone</th>
         <th>Email</th>
         <th>Formation</th>
@@ -257,10 +257,10 @@
       📩 Relancé
     </span>
   {% endif %}
-  {{ last_name(r.nom) }}
+  {{ first_name(r.prenom) }}
 </td>
 
-        <td>{{ first_name(r.prenom) }}</td>
+        <td>{{ last_name(r.nom) }}</td>
         <td>{{ r.telephone }}</td>
         <td>{{ r.email }}</td>
         <td>{{ r.formation }}</td>

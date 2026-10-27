@@ -23,10 +23,14 @@
 .message-layout-swatch.letter i:first-child { margin:3px 0; background:#102c5c; width:65%; }
 .messaging-page .message-envelope { font-size:12px; margin:7px 0 0; color:#526789; overflow-wrap:anywhere; }
 .message-preview { scroll-margin-top:100px; }
-.messaging-page #message-preview-frame { border-color:#dfe6ef; background:#eef2f7; height:900px; }
+.messaging-page #message-preview-frame { border-color:#dfe6ef; background:#eef2f7; height:1180px; }
 .messaging-page .btn.primary { background:#3269da; border-color:#3269da; color:#fff; box-shadow:none; }
 .messaging-page .btn.primary:hover { background:#2458c6; }
 .messaging-page .message-channel { margin-bottom:8px; }
 .messaging-page #message-email-options[hidden] { display:none; }
 @media(max-width:1150px) and (min-width:861px) { .message-sender-options { grid-template-columns:1fr; } }
-@media(max-width:580px) { .message-sender-options { grid-template-columns:1fr; } .messaging-page .message-preview-layout { display:block; } .messaging-page #message-preview-frame { height:1050px; } .message-layouts>div { gap:8px; } }
+@media(max-width:580px) { .message-sender-options { grid-template-columns:1fr; } .messaging-page .message-preview-layout { display:block; } .messaging-page #message-preview-frame { height:1500px; } .message-layouts>div { gap:8px; } }
+
+.message-accent-field { margin:0 0 22px; }
+.message-accent-field small { color:#6b7a90; font-size:11px; font-weight:400; line-height:1.5; }
+.message-accent-field input { font-family:Georgia,serif!important; font-style:italic!important; font-size:18px!important; color:#008b79!important; }

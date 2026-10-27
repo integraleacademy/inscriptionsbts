@@ -15,8 +15,8 @@ def first_name(value):
 
 
 def person_name(nom, prenom):
-    return ' '.join(filter(None, (last_name(nom), first_name(prenom))))
+    return ' '.join(filter(None, (first_name(prenom), last_name(nom))))
 
 
 def person_initials(nom, prenom):
-    return (last_name(nom)[:1] + first_name(prenom)[:1]).upper()
+    return (first_name(prenom)[:1] + last_name(nom)[:1]).upper()

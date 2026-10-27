@@ -302,7 +302,7 @@ def test_state_scheduled_hours_and_used_resource_deletion_guards(client,db):
     state=client.get(BASE+'/state?promotion_id=p1&start=2027-01-04&end=2027-01-04').json
     assert len(state['courses'])==1
     assert next(row for row in state['subjects'] if row['id']=='s1')['scheduled_hours']==3.5
-    assert state['courses'][0]['trainer_name']=='NOM T1 Prénom'
+    assert state['courses'][0]['trainer_name']=='Prénom NOM T1'
     assert call(client,'/subjects/s1',{},method='DELETE').status_code==409
     assert call(client,'/rooms/r1',dict(active=False),method='PUT').status_code==409
     assert call(client,'/rooms/r1',{},method='DELETE').status_code==409

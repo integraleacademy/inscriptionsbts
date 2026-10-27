@@ -6,52 +6,45 @@
   <meta name="color-scheme" content="light">
   <title>{{ subject }}</title>
   <style>
-    @media(max-width:680px){.email-shell{width:100%!important}.email-pad{padding-left:24px!important;padding-right:24px!important}.email-title{font-size:26px!important;line-height:1.25!important}.email-outer{padding:16px 8px!important}}
-    @media(max-width:480px){.signature-cell{display:block!important;width:auto!important;padding:0 0 14px!important}}
+    @media(max-width:680px){.email-shell{width:100%!important}.email-pad{padding-left:24px!important;padding-right:24px!important}.email-title{font-size:27px!important;line-height:1.25!important}.email-accent{font-size:29px!important;line-height:1.3!important}.email-outer{padding:16px 8px!important}}
   </style>
 </head>
 <body data-academy-email="v1" style="margin:0;padding:0;background:#eef2f7;color:#172033;font-family:Arial,Helvetica,sans-serif">
   <div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all">{{ preview_text }}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;background:#eef2f7">
     <tr><td align="center" class="email-outer" style="padding:32px 12px">
-      <table role="presentation" width="640" class="email-shell" cellpadding="0" cellspacing="0" border="0" style="width:640px;max-width:640px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 12px 36px rgba(20,37,63,.09)">
-        <tr><td class="email-pad" bgcolor="#102c5c" style="padding:26px 40px;background:#102c5c;background-image:linear-gradient(125deg,#102c5c 0%,#3269da 100%)">
-          <img src="{{ logo_url }}" width="200" height="60" alt="Intégrale Academy" style="display:block;width:200px;max-width:100%;height:auto;border:0">
+      <table role="presentation" width="640" class="email-shell" cellpadding="0" cellspacing="0" border="0" style="width:640px;max-width:640px;background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 12px 36px rgba(20,37,63,.10)">
+        <tr><td align="center" class="email-pad email-hero" bgcolor="#102c5c" style="padding:34px 44px 32px;background:#102c5c;background-image:linear-gradient(135deg,#102c5c 0%,#3269da 100%);text-align:center;color:#fff">
+          <img src="{{ logo_url }}" width="208" height="62" alt="Intégrale Academy" style="display:block;width:208px;max-width:100%;height:auto;margin:0 auto;border:0">
+          {% if layout == 'crm' %}
+          <p style="margin:28px 0 13px;font-size:10px;line-height:16px;letter-spacing:2px;font-weight:700;color:#dce7ff">LA VIE DE VOTRE ÉCOLE</p>
+          <h1 class="email-title" style="margin:0;font-size:32px;line-height:1.3;letter-spacing:-.5px;font-weight:700;color:#fff;overflow-wrap:anywhere">{{ subject }}</h1>
+          {% if accent_title %}<p class="email-accent" style="margin:9px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:34px;line-height:1.35;font-weight:400;color:#acd5c9;overflow-wrap:anywhere"><em style="font-style:italic">{{ accent_title }}</em></p>{% endif %}
+          <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:22px auto 0"><tr><td width="52" height="3" bgcolor="#f4c45a" style="width:52px;height:3px;background:#f4c45a;border-radius:3px;font-size:0;line-height:0">&nbsp;</td></tr></table>
+          {% endif %}
         </td></tr>
-        {% if layout == 'crm' %}
-        <tr><td class="email-pad" bgcolor="#102c5c" style="padding:34px 40px 36px;background:#102c5c;background-image:linear-gradient(125deg,#102c5c 0%,#3269da 100%);color:#fff">
-          <p style="margin:0 0 15px;font-size:10px;line-height:16px;letter-spacing:2px;font-weight:700;color:#dce7ff">LA VIE DE VOTRE ÉCOLE</p>
-          <h1 class="email-title" style="margin:0;font-size:30px;line-height:1.3;letter-spacing:-.6px;font-weight:700;color:#fff;overflow-wrap:anywhere">{{ subject }}</h1>
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="44" height="3" style="padding-top:20px"><div style="height:3px;background:#f4c45a;border-radius:3px"></div></td></tr></table>
+        {% if layout == 'letter' %}
+        <tr><td align="center" class="email-pad" style="padding:32px 44px 0;text-align:center">
+          <p style="margin:0 0 12px;font-size:10px;line-height:16px;letter-spacing:2px;font-weight:700;color:#64748b">UN MESSAGE DE VOTRE ÉCOLE</p>
+          <h1 class="email-title" style="margin:0;font-size:32px;line-height:1.3;font-weight:700;letter-spacing:-.5px;color:#102c5c;overflow-wrap:anywhere">{{ subject }}</h1>
+          {% if accent_title %}<p class="email-accent" style="margin:9px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:34px;line-height:1.35;font-weight:400;color:#008b79;overflow-wrap:anywhere"><em style="font-style:italic">{{ accent_title }}</em></p>{% endif %}
         </td></tr>
         {% endif %}
-        <tr><td class="email-pad" style="padding:34px 40px 8px;font-size:16px;line-height:1.75;color:#344158;overflow-wrap:anywhere;word-break:break-word">
-          {% if layout == 'letter' %}<p style="margin:0 0 12px;font-size:10px;letter-spacing:2px;font-weight:700;color:#64748b">UN MESSAGE DE VOTRE ÉCOLE</p><h1 class="email-title" style="margin:0 0 26px;font-size:30px;line-height:1.3;color:#102c5c;letter-spacing:-.6px">{{ subject }}</h1>{% endif %}
+        <tr><td align="{{ 'center' if layout == 'crm' else 'left' }}" class="email-pad email-message" style="padding:34px 44px 8px;font-size:16px;line-height:1.75;color:#344158;text-align:{{ 'center' if layout == 'crm' else 'left' }};overflow-wrap:anywhere;word-break:break-word">
           {% for paragraph in paragraphs %}<p style="margin:0 0 20px">{% for line in paragraph.split('\n') %}{{ line }}{% if not loop.last %}<br>{% endif %}{% endfor %}</p>{% endfor %}
-          {% if action_url %}<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 22px"><tr><td bgcolor="#3269da" style="border-radius:9px;background:#3269da;mso-padding-alt:15px 24px"><a href="{{ action_url }}" style="display:inline-block;padding:15px 24px;border:1px solid #3269da;border-radius:9px;color:#fff;font-size:14px;line-height:20px;font-weight:700;text-decoration:none">{{ action_label }} &nbsp;→</a></td></tr></table>{% endif %}
+          {% if action_url %}<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:26px auto 22px"><tr><td align="center" bgcolor="#3269da" style="border-radius:9px;background:#3269da;mso-padding-alt:15px 24px;text-align:center"><a href="{{ action_url }}" style="display:inline-block;padding:15px 24px;border:1px solid #3269da;border-radius:9px;color:#fff;font-size:14px;line-height:20px;font-weight:700;text-decoration:none">{{ action_label }} &nbsp;→</a></td></tr></table>{% endif %}
         </td></tr>
-        <tr><td class="email-pad" style="padding:8px 40px 34px">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-top:1px solid #e5ebf3"><tr><td style="padding-top:26px">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%"><tr>
-              <td class="signature-cell" width="90" valign="top" style="width:90px;padding-right:18px">
-                <img src="{{ avatar_url }}" width="76" height="76" alt="Memoji de {{ sender.name }}" style="display:block;width:76px;height:76px;border-radius:50%;border:3px solid #e9eef8;background:#fff;object-fit:cover">
-              </td>
-              <td class="signature-cell" valign="middle" style="font-size:12px;line-height:1.7;color:#64748b;overflow-wrap:anywhere;word-break:break-word">
-                <strong style="font-size:16px;line-height:1.5;color:#102c5c">{{ sender.name }}</strong><br>
-                {{ sender.role }}<br>
-                <a href="mailto:{{ sender.email }}" style="color:#3269da;text-decoration:none">{{ sender.email }}</a><br>
-                <a href="tel:{{ sender.phone_link }}" style="color:#344158;font-weight:700;text-decoration:none">{{ sender.phone }}</a>
-              </td>
-            </tr></table>
+        <tr><td align="center" class="email-pad" style="padding:8px 44px 34px;text-align:center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-top:1px solid #e5ebf3"><tr><td class="email-signature" align="center" style="padding-top:27px;text-align:center;font-size:13px;line-height:1.75;color:#64748b;overflow-wrap:anywhere;word-break:break-word">
+            <img src="{{ avatar_url }}" width="80" height="80" alt="Memoji de {{ sender.name }}" style="display:block;width:80px;height:80px;margin:0 auto 13px;border-radius:50%;border:3px solid #e9eef8;background:#fff;object-fit:cover">
+            <strong style="font-size:18px;line-height:1.5;color:#102c5c">{{ sender.name }}</strong><br>
+            {{ sender.role }}<br>
+            <a href="mailto:{{ sender.email }}" style="color:#3269da;text-decoration:none">{{ sender.email }}</a><br>
+            <a href="tel:{{ sender.phone_link }}" style="color:#344158;font-weight:700;text-decoration:none">{{ sender.phone }}</a>
           </td></tr></table>
         </td></tr>
-        <tr><td class="email-pad" bgcolor="#0f1f33" style="padding:24px 40px;background:#0f1f33;font-size:11px;line-height:1.8;color:#c3cede">
-          <strong style="font-size:13px;color:#f4c45a">Intégrale Academy</strong><br>
-          54 chemin du Carréou · 83480 Puget-sur-Argens<br>
-          <a href="https://www.integraleacademy.com" style="color:#fff;text-decoration:none">integraleacademy.com &nbsp;↗</a>
-        </td></tr>
+        {% include 'school_email_footer.html' %}
       </table>
-      <p style="margin:18px 12px 0;font-size:11px;line-height:1.6;color:#76849a">Une question ? Répondez directement à ce message.</p>
     </td></tr>
   </table>
 </body>

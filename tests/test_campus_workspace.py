@@ -146,17 +146,18 @@ def test_sms_selection_invalid_and_failure_not_retried(campus,monkeypatch):
     assert c.post('/admin/messagerie/apercu',json=payload).status_code==400
 
 
-@pytest.mark.parametrize('sender_id,name',[('clement','VAILLANT Clément'),('aurelie','CHAUSSEZ Aurélie')])
+@pytest.mark.parametrize('sender_id,name',[('clement','Clément VAILLANT'),('aurelie','Aurélie CHAUSSEZ')])
 @pytest.mark.parametrize('layout',['crm','letter'])
 def test_sender_signature_preview_and_actual_delivery_share_frozen_identity(campus,monkeypatch,sender_id,name,layout):
     from school_email import SENDERS
     c,h,sent=campus
-    payload=message(sender_id=sender_id,layout=layout)
+    payload=message(sender_id=sender_id,layout=layout,accent_title='Notre rentrée, ensemble.')
     payload['body']='Bonjour,\n\n<script>ne pas exécuter</script> & à bientôt.'
     response=c.post('/admin/messagerie/apercu',json=payload,headers=h)
     assert response.status_code==200,response.json
     preview=response.json
     assert preview['sender']['name']==name and name in preview['html']
+    assert 'Notre rentrée, ensemble.' in preview['html']
     assert '<script>' not in preview['html'] and '&lt;script&gt;' in preview['html']
     assert '/static/messaging/'+sender_id+'.png' in preview['html']
     assert 'border-radius:50%' in preview['html']

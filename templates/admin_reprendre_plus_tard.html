@@ -10,8 +10,8 @@
   <table style="width:100%;border-collapse:collapse;">
     <thead>
       <tr style="background:#f4c45a;color:#111;">
-        <th style="padding:10px;">Nom</th>
         <th style="padding:10px;">Prénom</th>
+        <th style="padding:10px;">Nom</th>
         <th style="padding:10px;">Email</th>
         <th style="padding:10px;">Téléphone</th>
         <th style="padding:10px;">BTS</th>
@@ -24,8 +24,8 @@
     <tbody>
       {% for r in rows %}
       <tr style="border-bottom:1px solid #ddd;" data-id="{{ r.id }}">
-        <td style="padding:8px;">{{ last_name(r.nom) }}</td>
         <td style="padding:8px;">{{ first_name(r.prenom) }}</td>
+        <td style="padding:8px;">{{ last_name(r.nom) }}</td>
         <td style="padding:8px;">{{ r.email }}</td>
         <td style="padding:8px;">{{ r.tel }}</td>
         <td style="padding:8px;">{{ r.bts }}<br>{{ study_mode(r.mode) }}</td>

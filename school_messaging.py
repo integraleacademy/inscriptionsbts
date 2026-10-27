@@ -7,7 +7,7 @@ import time
 from urllib.parse import urlsplit
 
 from flask import abort, jsonify, render_template, request, session
-from school_email import SENDERS, LAYOUTS, render_school_email
+from school_email import SENDERS, LAYOUTS, DEFAULT_ACCENT, render_school_email
 from candidate_messages import _equal, _recipient
 from campus_admin import ENROLLED, csrf
 from promotions import list_promotions
@@ -88,7 +88,8 @@ def content(data):
     html, sender = '', {}
     if channel == 'email':
         html, sender = render_school_email(subject, body, data.get('sender_id', 'clement'),
-            data.get('layout', 'crm'), action_url=action_url, action_label=action_label)
+            data.get('layout', 'crm'), action_url=action_url, action_label=action_label,
+            accent_title=data.get('accent_title', DEFAULT_ACCENT))
     return dict(channel=channel,subject=subject if channel=='email' else '',body=body,html=html,sender=sender)
 
 
@@ -121,7 +122,8 @@ def register_school_messaging(app, db_connect, require_admin, send_mail, send_sm
                 FROM school_messages m JOIN school_message_recipients r ON r.message_id=m.id
                 GROUP BY m.id ORDER BY m.created_at DESC LIMIT 30''')]
         return render_template('school_messages.html',title='Messagerie · Intégrale Academy',
-                               promotions=promotions,history=history,senders=SENDERS.values(),layouts=LAYOUTS)
+                               promotions=promotions,history=history,senders=SENDERS.values(),layouts=LAYOUTS,
+                               default_accent=DEFAULT_ACCENT)
 
     @app.post('/admin/messagerie/destinataires')
     def school_message_audience():

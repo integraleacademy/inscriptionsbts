@@ -291,7 +291,7 @@ def test_flask_export_for_secondary_promotion_uses_local_subject_and_full_year_b
     if view == 'weekly':
         assert len(reader.pages) == 1
         assert '3 h de cours' in text and '6 h de cours' not in text
-        assert text.count('EXEMPLE Camille') == 1
+        assert text.count('Camille EXEMPLE') == 1
         assert 'Salle : Salle Acacia' in text and 'Cours commun - 2 promotions' in text
     else:
         assert len(reader.pages) == 2  # annual calendar followed by the subject budget

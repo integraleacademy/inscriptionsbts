@@ -10,8 +10,8 @@
   <form method="post" id="candidate-create-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <section class="create-card"><h2>{{ icon('person') }} Identité et coordonnées</h2><p>Les champs marqués d’un * sont obligatoires. Les autres informations pourront être complétées sur la fiche.</p><div class="create-fields">
-      <label>Nom *<input name="nom" value="{{ values.nom }}" maxlength="100" autocomplete="family-name" required></label>
       <label>Prénom *<input name="prenom" value="{{ values.prenom }}" maxlength="100" autocomplete="given-name" required></label>
+      <label>Nom *<input name="nom" value="{{ values.nom }}" maxlength="100" autocomplete="family-name" required></label>
       <label>E-mail *<input name="email" type="email" value="{{ values.email }}" maxlength="254" autocomplete="email" required></label>
       <label>Téléphone<input name="tel" type="tel" value="{{ values.tel }}" maxlength="25" autocomplete="tel" placeholder="06 12 34 56 78"></label>
       <label>Date de naissance<input name="date_naissance" type="date" value="{{ values.date_naissance }}" min="1900-01-01" autocomplete="bday"></label>

@@ -19,8 +19,8 @@
     <table class="admin-table">
       <thead>
         <tr>
-          <th>Nom</th>
           <th>Prénom</th>
+          <th>Nom</th>
           <th>BTS</th>
           <th>Mode</th>
           <th>Téléphone</th>
@@ -33,8 +33,8 @@
       <tbody>
         {% for r in rows %}
         <tr data-id="{{ r.id }}">
-          <td>{{ last_name(r.nom) }}</td>
           <td>{{ first_name(r.prenom) }}</td>
+          <td>{{ last_name(r.nom) }}</td>
           <td>{{ r.bts }}</td>
           <td>{{ study_mode(r.mode) }}</td>
           <td>{{ r.tel }}</td>
