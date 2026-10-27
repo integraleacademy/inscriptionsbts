@@ -22,14 +22,15 @@ BREVO_KEY = os.getenv("BREVO_API_KEY")
 # =====================================================
 # ✉️ Envoi d’e-mail via Brevo API (avec suivi)
 # =====================================================
-def send_mail(to, subject, html, attachments=None, *, copy_admin=True):
+def send_mail(to, subject, html, attachments=None, *, copy_admin=True,
+              sender_email=None, sender_name=None, reply_to=None):
     """
     Envoie un e-mail via l’API Brevo
     → + copie automatique à gestion@integraleacademy.com
     """
     html = brand_existing_email(subject, html)
     api_key = BREVO_KEY
-    sender_email = MAIL_FROM
+    sender_email = sender_email or MAIL_FROM
 
     if not api_key:
         print("❌ Clé Brevo manquante, mail non envoyé.")
@@ -48,13 +49,15 @@ def send_mail(to, subject, html, attachments=None, *, copy_admin=True):
     }
 
     data = {
-        "sender": {"email": sender_email, "name": "Intégrale Academy"},
+        "sender": {"email": sender_email, "name": sender_name or "Intégrale Academy"},
         "to": to_list,
         "subject": subject,
         "htmlContent": html,
         "textContent": email_plain_text(html),
         "tags": ["parcoursup"],
     }
+    if reply_to:
+        data["replyTo"] = {"email": reply_to, "name": sender_name or "Intégrale Academy"}
 
     # 📎 Pièces jointes
     if attachments:

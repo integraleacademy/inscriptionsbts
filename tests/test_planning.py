@@ -564,7 +564,7 @@ def test_course_loader_trainer_filter_intersects_promotion_scope(client, db):
         assert planning._load_courses(conn, promotion_id='p2', trainer_id='t2') == []
 
 
-def test_zoom_belongs_to_saved_course_and_is_not_duplicated(client,db):
+def test_zoom_belongs_to_saved_course_and_is_copied(client,db):
     setup_school(client)
     source=add(client,zoom_url='https://school.zoom.us/j/123?pwd=secret')
     assert source['zoom_url']=='https://school.zoom.us/j/123?pwd=secret'
@@ -574,9 +574,41 @@ def test_zoom_belongs_to_saved_course_and_is_not_duplicated(client,db):
     result=call(client,'/courses/batch',dict(preview_token=preview['preview_token'],selected_keys=['0']))
     assert result.status_code==200
     with db() as conn:
-        assert conn.execute("SELECT zoom_url FROM planning_courses WHERE date='2027-01-11'").fetchone()[0]==''
+        assert conn.execute("SELECT zoom_url FROM planning_courses WHERE date='2027-01-11'").fetchone()[0]==source['zoom_url']
         planning.ensure_planning_schema(conn)
         planning.ensure_planning_schema(conn)
         assert conn.execute('SELECT zoom_url FROM planning_courses WHERE id=?',(source['id'],)).fetchone()[0]==source['zoom_url']
     invalid=call(client,'/courses',course(date='2027-01-05',zoom_url='https://zoom.us.example.test/j/123'))
     assert invalid.status_code==400
+
+
+@pytest.mark.parametrize('mode',['dates','template_dates','weeks','repeat','duplicate'])
+@pytest.mark.parametrize('meeting',['','https://school.zoom.us/j/456?pwd=for-this-promo'])
+def test_all_course_copy_modes_keep_zoom_and_copies_remain_independent(client,db,mode,meeting):
+    setup_school(client)
+    source=add(client,zoom_url=meeting,shared=[{'promotion_id':'p2','subject_id':'s2'}])
+    template={key:source[key] for key in planning.COURSE_TEMPLATE_FIELDS}
+    payload=dict(promotion_id='p1',mode=mode)
+    if mode=='dates':
+        payload.update(promotion_id='p2',source_course_id=source['id'],source_version=source['version'],dates=['2027-01-11'])
+    elif mode=='template_dates':
+        payload.update(mode='dates',template=template,dates=['2027-01-11'])
+    elif mode=='weeks':
+        payload.update(promotion_id='p2',source_start='2027-01-04',target_weeks=['2027-01-11'])
+    elif mode=='repeat':
+        payload.update(template=template,start_date='2027-01-11',end_date='2027-01-11',weekdays=[0])
+    else:
+        payload.update(promotion_id='p2',course_ids=[source['id']],target_start='2027-01-11')
+    preview=call(client,'/courses/preview',payload)
+    assert preview.status_code==200,preview.json
+    assert preview.json['items'][0]['valid']
+    assert preview.json['items'][0]['course']['zoom_url']==meeting
+    saved=call(client,'/courses/batch',dict(preview_token=preview.json['preview_token'],selected_keys=['0']))
+    assert saved.status_code==200,saved.json
+    with db() as conn:
+        copied=dict(conn.execute("SELECT * FROM planning_courses WHERE date='2027-01-11'").fetchone())
+    assert copied['zoom_url']==meeting
+    edited=call(client,'/courses/'+copied['id'],dict(version=copied['version'],zoom_url='https://school.zoom.us/j/789'),method='PUT')
+    assert edited.status_code==200
+    with db() as conn:
+        assert conn.execute('SELECT zoom_url FROM planning_courses WHERE id=?',(source['id'],)).fetchone()[0]==meeting

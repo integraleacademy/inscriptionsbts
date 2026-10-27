@@ -33,7 +33,7 @@ import planning_years
 
 KINDS={'school','company','holiday','closed'}
 MAX_BATCH=500
-COURSE_TEMPLATE_FIELDS=('subject_id','trainer_id','room_id','start','end','title','shared')
+COURSE_TEMPLATE_FIELDS=('subject_id','trainer_id','room_id','start','end','title','shared','zoom_url')
 
 
 def _has_table(conn,name):
@@ -936,7 +936,7 @@ def register_planning(app,db_connect,require_admin):
                 for item in source:
                     try:target_day=(week+timedelta(days=(_iso(item['date'])-source_start).days)).isoformat()
                     except OverflowError:raise PlanningError('Les dates de duplication dépassent les limites du calendrier.')
-                    items.append({**{key:item[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title','shared')},
+                    items.append({**{key:item[key] for key in ('promotion_id', *COURSE_TEMPLATE_FIELDS)},
                                   'date':target_day,'_source_course_id':item['id'],'_source_version':item['version'],'_source_date':item['date']})
         elif mode=='dates':
             chosen=payload.get('dates')
@@ -948,7 +948,7 @@ def register_planning(app,db_connect,require_admin):
                 if not isinstance(source_id,str):raise PlanningError('Choisissez un cours à dupliquer.')
                 source=existing_course(conn,source_id,dict(version=payload.get('source_version')),require_version=True)
                 if promotion['id'] not in source['promotion_ids']:raise PlanningError('Ce cours n’appartient pas à cette promotion.')
-                template={key:source[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title','shared')}
+                template={key:source[key] for key in ('promotion_id', *COURSE_TEMPLATE_FIELDS)}
                 template.update(_source_course_id=source['id'],_source_version=source['version'])
             else:
                 template=payload.get('template')
@@ -979,7 +979,7 @@ def register_planning(app,db_connect,require_admin):
             for item in source:
                 try:target_day=(_iso(item['date'])+offset).isoformat()
                 except OverflowError:raise PlanningError('Les dates de duplication dépassent les limites du calendrier.')
-                items.append({**{key:item[key] for key in ('promotion_id','subject_id','trainer_id','room_id','start','end','title','shared')},'date':target_day})
+                items.append({**{key:item[key] for key in ('promotion_id', *COURSE_TEMPLATE_FIELDS)},'date':target_day})
         else:raise PlanningError('Choisissez des dates, des semaines, une récurrence ou une duplication.')
         if not items or len(items)>MAX_BATCH:raise PlanningError(f'Choisissez entre 1 et {MAX_BATCH} occurrences.')
         return items

@@ -146,6 +146,57 @@ def test_sms_selection_invalid_and_failure_not_retried(campus,monkeypatch):
     assert c.post('/admin/messagerie/apercu',json=payload).status_code==400
 
 
+@pytest.mark.parametrize('sender_id,name',[('clement','VAILLANT Clément'),('aurelie','CHAUSSEZ Aurélie')])
+@pytest.mark.parametrize('layout',['crm','letter'])
+def test_sender_signature_preview_and_actual_delivery_share_frozen_identity(campus,monkeypatch,sender_id,name,layout):
+    from school_email import SENDERS
+    c,h,sent=campus
+    payload=message(sender_id=sender_id,layout=layout)
+    payload['body']='Bonjour,\n\n<script>ne pas exécuter</script> & à bientôt.'
+    response=c.post('/admin/messagerie/apercu',json=payload,headers=h)
+    assert response.status_code==200,response.json
+    preview=response.json
+    assert preview['sender']['name']==name and name in preview['html']
+    assert '<script>' not in preview['html'] and '&lt;script&gt;' in preview['html']
+    assert '/static/messaging/'+sender_id+'.png' in preview['html']
+    assert 'border-radius:50%' in preview['html']
+    assert 'Gardons le lien' not in preview['html'] and not sent
+    # Changing a future profile or forging a new sender at send time must not
+    # change the already-reviewed identity, signature or reply address.
+    monkeypatch.setitem(SENDERS[sender_id],'email','future@example.test')
+    path='/admin/messagerie/'+preview['id']+'/envoyer'
+    assert c.post(path,json={'confirm':True,'sender_id':'forged'},headers=h).json['ok']
+    assert sent[0][1][2]==preview['html']
+    options=sent[0][2]
+    assert options['sender_email']==sender_id+'@integraleacademy.com'
+    assert options['reply_to']==options['sender_email']
+    assert options['sender_name']==name+' · Intégrale Academy'
+    assert c.get('/admin/messagerie/'+preview['id']).json['sender']==preview['sender']
+
+
+@pytest.mark.parametrize('field,value',[('sender_id','outsider'),('sender_id',{}),('layout','unknown')])
+def test_messaging_rejects_unknown_sender_or_layout(campus,field,value):
+    c,h,sent=campus
+    payload=message();payload[field]=value
+    response=c.post('/admin/messagerie/apercu',json=payload,headers=h)
+    assert response.status_code==400 and not sent
+
+
+def test_old_message_preview_migration_preserves_original_sender(campus):
+    from school_messaging import schema
+    c,h,sent=campus
+    with application.db() as conn:
+        # A preview created before sender selection was introduced.
+        conn.execute('CREATE TABLE school_messages(id TEXT PRIMARY KEY,channel TEXT NOT NULL,subject TEXT NOT NULL,body TEXT NOT NULL,html TEXT NOT NULL,created_at REAL NOT NULL,started_at REAL,owner TEXT NOT NULL)')
+        conn.execute('INSERT INTO school_messages VALUES(?,?,?,?,?,?,?,?)',('legacy','email','Objet','Texte','<p>Ancien aperçu</p>',time.time(),None,h['X-CSRF-Token']))
+        conn.commit();schema(conn);schema(conn)
+        conn.execute("INSERT INTO school_message_recipients(message_id,recipient,name,kind,updated_at) VALUES('legacy','example@example.test','EXEMPLE Alex','Étudiant',?)",(time.time(),))
+    preview=c.get('/admin/messagerie/legacy').json
+    assert preview['sender']=={} and preview['html']=='<p>Ancien aperçu</p>'
+    assert c.post('/admin/messagerie/legacy/envoyer',json={'confirm':True},headers=h).json['ok']
+    assert sent[0][2]=={'copy_admin':False}
+
+
 def test_student_access_mail_preserves_password_and_previews(campus):
     c,h,sent=campus
     c.get('/admin/candidat/onsite')

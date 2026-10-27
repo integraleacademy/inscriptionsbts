@@ -49,6 +49,16 @@ async function run(){
   $('planning-batch-week-clear').click();assert.equal(a.state.batch.weeks.size,0);assert.equal($('planning-batch-preview').disabled,true);
   assert.throws(()=>a.batchPreviewPayload($('planning-batch-form')),/semaine/);checks+=17;
 
+  // Weekly repetitions send the saved Zoom URL with the course's other resources.
+  const weekBatch=a.state.batch;
+  a.state.batch={...weekBatch,course:{...course,zoom_url:'https://school.zoom.us/j/123?pwd=promo'}};
+  a.setBatchMode('repeat');
+  const batchForm=$('planning-batch-form');batchForm.elements.start_date.value='2027-05-10';batchForm.elements.end_date.value='2027-05-31';
+  batchForm.querySelector('[name=weekdays][value="0"]').checked=true;
+  assert.equal(a.batchPreviewPayload(batchForm).template.zoom_url,'https://school.zoom.us/j/123?pwd=promo');
+  a.state.batch.course.zoom_url='';assert.equal(a.batchPreviewPayload(batchForm).template.zoom_url,'');
+  a.state.batch=weekBatch;a.setBatchMode('weeks');checks+=2;
+
   // Week mode automatically leaves impossible occurrences out. Date mode retains explicit consent.
   const preview={preview_token:'test-token',mode:'weeks',partial:true,items:[{key:'a',valid:true,course:{...course,date:'2027-05-24'},conflicts:[]},{key:'b',valid:false,course:{...course,date:'2027-05-17'},conflicts:[{type:'public_holiday',message:'Lundi de Pentecôte : aucun cours possible.'}]}]};
   a.state.batch.preview=preview;a.renderBatchPreview(preview);

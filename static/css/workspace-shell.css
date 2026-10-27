@@ -1,0 +1,44 @@
+/* Keep the administration's navigation available throughout long pages. */
+body.academy-ui.workspace-page #academy-header {
+  position:sticky; top:0; z-index:210; min-height:76px; height:auto; gap:20px;
+  padding:14px var(--academy-workspace-gutter) !important;
+  background:#fff; border-bottom:1px solid #e2e8f1; box-shadow:0 3px 16px #172b4605;
+}
+body.academy-ui.workspace-page #academy-header .academy-header-identity { gap:16px; flex-shrink:0; }
+body.academy-ui.workspace-page #academy-header .academy-sigle { width:38px; height:36px; }
+body.academy-ui.workspace-page #academy-header .academy-wordmark { font-size:12px; letter-spacing:.6px; flex-direction:column; align-items:flex-start; gap:4px; }
+body.academy-ui.workspace-page #academy-header .menu-toggle {
+  display:grid; place-items:center; width:42px; min-width:42px; height:42px; min-height:42px;
+  padding:10px; border:0; border-radius:12px; background:#f0f4fa; color:#526789; cursor:pointer; box-shadow:none;
+}
+body.academy-ui.workspace-page #academy-header .menu-toggle:hover { background:#e4edfd; color:#2458c6; }
+body.academy-ui.workspace-page #academy-header .menu-toggle:focus-visible { outline:3px solid #3269da; outline-offset:3px; }
+.workspace-menu-icon { display:block; width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.menu-toggle[aria-expanded=true] .workspace-menu-open,.menu-toggle[aria-expanded=false] .workspace-menu-close { display:none; }
+body.academy-ui.workspace-page #academy-header .global-search { min-width:0; max-width:600px; margin:0; }
+body.academy-ui.workspace-page #academy-header .global-search>input { height:43px; padding:10px 64px 10px 41px; border-color:#e2e8f1; border-radius:12px; background:#f6f8fc; font:500 12px/1.5 Manrope,Arial,sans-serif; color:#172b46; }
+body.academy-ui.workspace-page #academy-header .global-search>input:focus { background:#fff; outline:2px solid #dce8ff; border-color:#3269da; }
+.global-search-symbol { position:absolute; top:13px; left:14px; width:17px; height:17px; color:#8090a7; pointer-events:none; }
+body.academy-ui.workspace-page #academy-header .global-search>kbd { right:12px; top:12px; border:1px solid #dfe6ef; border-radius:4px; padding:1px 4px; font:10px/15px Arial,sans-serif; color:#7888a0; background:#fff; }
+body.academy-ui.workspace-page #academy-header .global-search-results { min-width:0; width:max(100%, min(430px, calc(100vw - 40px))); max-height:min(65vh,520px); overflow-y:auto; border-color:#dfe6ef; box-shadow:0 15px 40px #14253f26; }
+body.academy-ui.workspace-page #academy-header .academy-preview-link { color:#6b7a90; }
+body.academy-ui.workspace-page #academy-header .academy-account-toggle { padding:10px 15px; min-height:40px; font-size:12px; }
+.workspace-nav-tooltip { position:fixed; z-index:220; max-width:260px; padding:10px 14px; background:#172b46; color:#fff; border:1px solid #ffffff24; border-radius:9px; box-shadow:0 6px 22px #172b4630; font:650 12px/1.5 Manrope,Arial,sans-serif; pointer-events:none; }
+.workspace-nav-tooltip::before { content:''; position:absolute; top:50%; left:-5px; width:8px; height:8px; background:#172b46; transform:translateY(-50%) rotate(45deg); }
+.workspace-nav-tooltip[hidden] { display:none; }
+body.workspace-page :target { scroll-margin-top:calc(var(--workspace-header-height, 76px) + 20px); }
+@media(max-width:1250px) { body.academy-ui.workspace-page #academy-header .academy-preview-link { display:none; } }
+@media(max-width:960px) {
+  body.academy-ui.workspace-page #academy-header { min-height:68px; gap:14px; padding:12px 18px !important; }
+  body.academy-ui.workspace-page .workspace-sidebar { top:var(--workspace-header-height, 68px); }
+  body.academy-ui.workspace-page .sidebar-scrim { top:var(--workspace-header-height, 68px); height:calc(100% - var(--workspace-header-height, 68px)); }
+}
+@media(max-width:760px) {
+  body.academy-ui.workspace-page #academy-header { flex-wrap:nowrap; gap:12px; }
+  body.academy-ui.workspace-page #academy-header .academy-header-brand { display:none; }
+  body.academy-ui.workspace-page #academy-header .global-search { order:initial; flex:1; width:auto; margin:0; }
+  body.academy-ui.workspace-page #academy-header .global-search>input { font-size:16px; padding-right:30px; }
+  body.academy-ui.workspace-page #academy-header .global-search>kbd { display:none; }
+  body.academy-ui.workspace-page #academy-header .global-search-results { left:-54px; width:calc(100vw - 36px); }
+  body.academy-ui.workspace-page #academy-header .academy-header-actions { display:none; }
+}

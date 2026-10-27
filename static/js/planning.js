@@ -869,7 +869,7 @@
       if (batch.calendarLoading || !batch.calendar || !batch.dates.size) throw Error('Choisissez au moins une journée école dans le calendrier.');
       Object.assign(data, {dates: [...batch.dates].sort(), source_course_id: batch.course.id, source_version: batch.course.version});
     } else if (batch.mode === 'repeat') {
-      const course = batch.course; Object.assign(data, {start_date: form.elements.start_date.value, end_date: form.elements.end_date.value, weekdays: selectedWeekdays(form), interval_weeks: Number(form.elements.interval_weeks.value), template: {subject_id: course.subject_id, trainer_id: course.trainer_id, room_id: course.room_id || null, start: course.start, end: course.end, title: course.title || '', shared: course.shared || []}});
+      const course = batch.course; Object.assign(data, {start_date: form.elements.start_date.value, end_date: form.elements.end_date.value, weekdays: selectedWeekdays(form), interval_weeks: Number(form.elements.interval_weeks.value), template: {zoom_url: course.zoom_url || '', subject_id: course.subject_id, trainer_id: course.trainer_id, room_id: course.room_id || null, start: course.start, end: course.end, title: course.title || '', shared: course.shared || []}});
       if (!data.weekdays.length) throw Error('Sélectionnez au moins un jour à répéter.');
     } else if (batch.mode === 'weeks') {
       if (batch.calendarLoading || !batch.calendar || !batch.weeks.size) throw Error('Choisissez au moins une semaine dans le calendrier.');

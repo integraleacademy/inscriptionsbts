@@ -103,3 +103,20 @@ def test_smtp_has_html_and_plain_alternatives(monkeypatch):
     assert [part.get_content_type() for part in parts]==['text/plain','text/html']
     assert 'Vérifier le service.' in parts[0].get_payload(decode=True).decode()
     assert BRAND_MARKER in parts[1].get_payload(decode=True).decode()
+
+
+def test_school_transport_uses_selected_sender_and_reply_to_without_rewrapping(monkeypatch):
+    import utils
+    from school_email import render_school_email
+    html, sender=render_school_email('La semaine prochaine','Bonjour,\n\nÀ bientôt.','aurelie')
+    monkeypatch.setattr(utils,'BREVO_KEY','fake-key-no-real-request')
+    response=Mock(ok=True,text='{}');response.json.return_value={'messageId':'test-id'}
+    post=Mock(return_value=response);monkeypatch.setattr(utils.requests,'post',post)
+    name=sender['name']+' · Intégrale Academy'
+    utils.send_mail('student@example.test','La semaine prochaine',html,copy_admin=False,
+                    sender_email=sender['email'],sender_name=name,reply_to=sender['email'])
+    data=post.call_args.kwargs['json']
+    assert data['sender']==data['replyTo']=={'email':sender['email'],'name':name}
+    assert data['htmlContent']==html and data['htmlContent'].count(BRAND_MARKER)==1
+    assert sender['name'] in data['textContent'] and sender['email'] in data['textContent']
+    assert data['to']==[{'email':'student@example.test'}]

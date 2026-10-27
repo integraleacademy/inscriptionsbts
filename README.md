@@ -426,12 +426,24 @@ passées sont grisées et leur restriction est explicitement expliquée.
   de réponse réseau incertaine. La page reste ouverte pendant les envois ;
   l’historique permet de reprendre les destinataires restants dans la même
   session. « Envoyé » signifie accepté par le fournisseur, pas nécessairement lu.
+- La messagerie propose **Signature CRM** (bandeau bleu) et **Courrier personnel**,
+  avec les expéditeurs VAILLANT Clément et CHAUSSEZ Aurélie. Leur nom, adresse
+  d’envoi, adresse de réponse, fonction et memoji rond sont liés au choix effectué.
+  L’identité et le HTML sont figés ensemble dans l’aperçu (`sender_json`, migration
+  additive) ; les aperçus historiques conservent leur identité d’origine.
+  Les memojis proviennent des visuels existants de l’école :
+  `static/admissions/aurelie.webp` et le visuel public de Clément sur
+  `https://www.integraleconnect.com/static/images/connect-home/clement-memoji.png`.
+  Les copies PNG sont servies localement pour les clients de messagerie.
+- La barre d’administration reste visible au défilement. Le menu réduit affiche
+  le nom de chaque rubrique au survol et au focus clavier. Le menu mobile se
+  positionne sous la hauteur réelle de la barre et se ferme avec Échap.
 - **Communication → Envoyer l’accès à l’espace étudiant** ouvre un e-mail
   prérempli avec aperçu, bouton de connexion et explications de première
   connexion/récupération. L’envoi ne modifie aucun mot de passe.
 - Le champ **Lien Zoom de ce cours** appartient à `planning_courses.zoom_url`.
-  Seuls les liens HTTPS Zoom sont admis. Les duplications/répétitions ne copient
-  pas le lien : chaque nouveau cours a son propre réglage. Les étudiants en
+  Seuls les liens HTTPS Zoom sont admis. Les duplications de cours et de semaines, ainsi que les répétitions,
+  conservent le lien. Il reste modifiable indépendamment sur chaque cours. Les étudiants en
   distanciel le retrouvent dans leur planning et leur cours ; les réponses
   destinées au présentiel et aux entreprises ne contiennent pas le lien.
 - Planning et Mes cours affichent Présent, Absent ou En retard selon l’appel

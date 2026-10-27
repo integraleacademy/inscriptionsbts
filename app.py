@@ -1080,7 +1080,7 @@ register_student_workspace(app, db, lambda: UPLOAD_DIR, require_admin)
 from campus_admin import register_campus_admin, sheet_context, ENROLLED
 register_campus_admin(app, db, require_admin)
 from school_messaging import register_school_messaging
-register_school_messaging(app, db, require_admin, lambda *args: send_mail(*args, copy_admin=False), lambda *args: send_sms_brevo(*args))
+register_school_messaging(app, db, require_admin, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args: send_sms_brevo(*args))
 
 
 @app.route("/ouverture.ics")

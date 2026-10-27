@@ -79,6 +79,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-admin.css') }}?v=1">{% endif %}
 {% if request.endpoint in ['admin_candidate_sheet', 'admin'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-editor.css') }}?v=4">{% endif %}
 {% if is_admin or is_student_portal or is_trainer_portal or (is_company_space and not is_company_auth) %}<link rel="stylesheet" href="{{ url_for('static', filename='css/campus.css') }}?v=1">{% endif %}
+{% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace-shell.css') }}?v=2">{% endif %}
 </head>
 
 <body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if has_student_navigation %}student-portal-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_trainer_portal %}trainer-portal-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
@@ -97,7 +98,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <span class="nav-caption">VOTRE ESPACE ÉQUIPE</span>
     <nav aria-label="Navigation administration">
       {% for href,label,symbol in [('/admin','Candidatures','grid'),('/admin/inscriptions','Inscriptions','person'),('/admin/messagerie','Messagerie','mail'),('/admin/promotions','Promotions','briefcase'),('/admin/planning','Plannings','clock'),('/admin/matieres','Matières','book'),('/admin/salles','Salles','home'),('/admin/formateurs','Formateurs','book'),('/admin/entreprises','Entreprises','briefcase'),('/admin/assiduite','Absences et retards','clock'),('/admin/reprendre-plus-tard','Dossiers à reprendre','clock'),('/parcoursup','Parcoursup','arrow'),('/admin/voyage-londres','Voyage à Londres','globe'),('/admin/parametres','Paramètres','settings')] %}
-      <a href="{{ href }}" title="{{ label }}" class="{% if request.path == href or (href == '/admin/assiduite' and request.path.startswith('/admin/assiduite/')) or (href == '/admin/entreprises' and request.path.startswith('/admin/entreprises/')) or (href == '/admin' and request.path.startswith('/admin/candidat/') and row and row.statut not in ['confirmee','reconfirmee']) or (href == '/admin/inscriptions' and request.path.startswith('/admin/candidat/') and row and row.statut in ['confirmee','reconfirmee']) %}active{% endif %}">{{ icon(symbol) }}<span class="nav-text">{{ label }}</span></a>
+      <a href="{{ href }}" title="{{ label }}" aria-label="{{ label }}" class="{% if request.path == href or (href == '/admin/assiduite' and request.path.startswith('/admin/assiduite/')) or (href == '/admin/entreprises' and request.path.startswith('/admin/entreprises/')) or (href == '/admin' and request.path.startswith('/admin/candidat/') and row and row.statut not in ['confirmee','reconfirmee']) or (href == '/admin/inscriptions' and request.path.startswith('/admin/candidat/') and row and row.statut in ['confirmee','reconfirmee']) %}active{% endif %}">{{ icon(symbol) }}<span class="nav-text">{{ label }}</span></a>
       {% endfor %}
     </nav>
     <div class="sidebar-bottom"><div class="sidebar-intake"><p>RENTRÉE SEPTEMBRE 2027</p><small>Ouverture le 1er décembre<br>à 10 h · Heure de Paris</small></div><a href="/candidature?preview=1" title="Aperçu du formulaire" target="_blank" rel="noopener">{{ icon('file') }}<span class="nav-text">Aperçu du formulaire ↗</span></a><a href="/" title="Page d’attente" target="_blank" rel="noopener">{{ icon('globe') }}<span class="nav-text">Page d’attente ↗</span></a><a href="/logout" title="Se déconnecter">{{ icon('arrow') }}<span class="nav-text">Se déconnecter</span></a></div>
@@ -123,10 +124,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   </main>
 
   <footer class="footer-signature"><span>Intégrale Academy · Puget-sur-Argens, Côte d’Azur</span><a href="https://integraleacademy.com" target="_blank" rel="noopener">integraleacademy.com</a>{% if not is_trainer_space and not is_admin and not has_student_navigation %}<a href="/formateur/connexion">Espace formateur</a>{% endif %}<small>Une école Intégrale Group</small></footer>
-  <script src="{{ url_for('static', filename='js/workspace-shell.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/workspace-shell.js') }}?v=2" defer></script>
   <script src="{{ url_for('static', filename='js/academy-header.js') }}?v=2" defer></script>
   {% if is_planning_admin %}
-    <script src="{{ url_for('static', filename='js/planning.js') }}?v=10" defer></script>
+    <script src="{{ url_for('static', filename='js/planning.js') }}?v=11" defer></script>
   {% elif is_planning_catalog %}
     {% if request.path == '/admin/matieres' %}
     <script src="{{ url_for('static', filename='js/subject-catalog.js') }}?v=2" defer></script>

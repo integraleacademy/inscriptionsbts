@@ -112,7 +112,7 @@ def test_settings_page_moves_secret_form_out_of_importer(connected):
     page = client.get('/admin/parametres')
     assert page.status_code == 200 and page.headers['Cache-Control'] == 'no-store'
     assert 'id="openai-key"' in page.text and 'data-csrf="' in page.text
-    assert 'href="/admin/parametres" title="Paramètres" class="active"' in page.text
+    assert 'href="/admin/parametres" title="Paramètres" aria-label="Paramètres" class="active"' in page.text
     for unwanted in ('googletagmanager.com', 'brevo.com', 'js/main_front.js', 'js/main_admin.js', 'Pôle Alternance'):
         assert unwanted not in page.text
     subjects = client.get('/admin/matieres').text

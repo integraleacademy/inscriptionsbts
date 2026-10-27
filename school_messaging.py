@@ -1,14 +1,13 @@
 """Previewed school communications with frozen recipients and durable delivery claims."""
 from person_names import person_name
 from contextlib import closing
-from html import escape
 import json
 import secrets
 import time
 from urllib.parse import urlsplit
 
 from flask import abort, jsonify, render_template, request, session
-from branded_email import render_branded_email
+from school_email import SENDERS, LAYOUTS, render_school_email
 from candidate_messages import _equal, _recipient
 from campus_admin import ENROLLED, csrf
 from promotions import list_promotions
@@ -17,13 +16,16 @@ from promotions import list_promotions
 def schema(conn):
     conn.execute('''CREATE TABLE IF NOT EXISTS school_messages(
         id TEXT PRIMARY KEY,channel TEXT NOT NULL,subject TEXT NOT NULL,body TEXT NOT NULL,
-        html TEXT NOT NULL,created_at REAL NOT NULL,started_at REAL,owner TEXT NOT NULL)''')
+        html TEXT NOT NULL,created_at REAL NOT NULL,started_at REAL,owner TEXT NOT NULL,
+        sender_json TEXT NOT NULL DEFAULT '{}')''')
     conn.execute('''CREATE TABLE IF NOT EXISTS school_message_recipients(
         message_id TEXT NOT NULL,recipient TEXT NOT NULL,name TEXT NOT NULL,kind TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',provider_id TEXT,updated_at REAL NOT NULL,mode TEXT NOT NULL DEFAULT '',
         PRIMARY KEY(message_id,recipient))''')
     if 'mode' not in {r[1] for r in conn.execute('PRAGMA table_info(school_message_recipients)')}:
         conn.execute("ALTER TABLE school_message_recipients ADD COLUMN mode TEXT NOT NULL DEFAULT ''")
+    if 'sender_json' not in {r[1] for r in conn.execute('PRAGMA table_info(school_messages)')}:
+        conn.execute("ALTER TABLE school_messages ADD COLUMN sender_json TEXT NOT NULL DEFAULT '{}'")
     conn.commit()
 
 
@@ -83,10 +85,11 @@ def content(data):
         if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or len(action_url)>2000 or any(ord(c)<33 for c in action_url):
             raise ValueError('Le bouton doit mener vers une adresse https:// valide.')
         if not action_label or len(action_label)>80: raise ValueError('Nommez le bouton (80 caractères maximum).')
-    html=render_branded_email(subject, ''.join('<p>'+escape(p).replace('\n','<br>')+'</p>' for p in body.split('\n\n')),
-        eyebrow='INTÉGRALE ACADEMY · LA VIE DE L’ÉCOLE',accent_title='Gardons le lien.',
-        action_url=action_url or None,action_label=action_label or None) if channel=='email' else ''
-    return dict(channel=channel,subject=subject if channel=='email' else '',body=body,html=html)
+    html, sender = '', {}
+    if channel == 'email':
+        html, sender = render_school_email(subject, body, data.get('sender_id', 'clement'),
+            data.get('layout', 'crm'), action_url=action_url, action_label=action_label)
+    return dict(channel=channel,subject=subject if channel=='email' else '',body=body,html=html,sender=sender)
 
 
 def register_school_messaging(app, db_connect, require_admin, send_mail, send_sms):
@@ -101,6 +104,7 @@ def register_school_messaging(app, db_connect, require_admin, send_mail, send_sm
         recipients=[dict(r) for r in conn.execute('SELECT recipient,name,kind,status,updated_at,mode FROM school_message_recipients WHERE message_id=? ORDER BY name',(mid,))]
         counts={name:sum(r['status']==name for r in recipients) for name in ('pending','sending','sent','failed')}
         return dict(id=mid,channel=row['channel'],subject=row['subject'],body=row['body'],html=row['html'],
+                    sender=json.loads(row['sender_json']),
                     started=bool(row['started_at']),recipients=recipients,counts=counts,total=len(recipients),
                     can_send=_equal(row['owner'],csrf()) and (bool(row['started_at']) or time.time()-row['created_at']<900),
                     done=not counts['pending'])
@@ -116,7 +120,8 @@ def register_school_messaging(app, db_connect, require_admin, send_mail, send_sm
                 SUM(r.status='pending') AS pending,SUM(r.status='sending') AS sending
                 FROM school_messages m JOIN school_message_recipients r ON r.message_id=m.id
                 GROUP BY m.id ORDER BY m.created_at DESC LIMIT 30''')]
-        return render_template('school_messages.html',title='Messagerie · Intégrale Academy',promotions=promotions,history=history)
+        return render_template('school_messages.html',title='Messagerie · Intégrale Academy',
+                               promotions=promotions,history=history,senders=SENDERS.values(),layouts=LAYOUTS)
 
     @app.post('/admin/messagerie/destinataires')
     def school_message_audience():
@@ -140,8 +145,8 @@ def register_school_messaging(app, db_connect, require_admin, send_mail, send_sm
                 recipients,invalid,duplicate=audience(conn,data)
                 if not recipients: raise ValueError('Aucun destinataire joignable dans cette sélection.')
                 mid,now=secrets.token_urlsafe(24),time.time()
-                conn.execute('INSERT INTO school_messages(id,channel,subject,body,html,created_at,owner) VALUES(?,?,?,?,?,?,?)',
-                             (mid,message['channel'],message['subject'],message['body'],message['html'],now,csrf()))
+                conn.execute('INSERT INTO school_messages(id,channel,subject,body,html,created_at,owner,sender_json) VALUES(?,?,?,?,?,?,?,?)',
+                             (mid,message['channel'],message['subject'],message['body'],message['html'],now,csrf(),json.dumps(message['sender'])))
                 conn.executemany('INSERT INTO school_message_recipients(message_id,recipient,name,kind,updated_at,mode) VALUES(?,?,?,?,?,?)',
                                  [(mid,p['recipient'],p['name'],p['kind'],now,p.get('mode','')) for p in recipients])
                 conn.commit()
@@ -179,7 +184,15 @@ def register_school_messaging(app, db_connect, require_admin, send_mail, send_sm
             conn.commit()
         provider=None
         try:
-            provider=send_mail(recipient['recipient'],message['subject'],message['html']) if message['channel']=='email' else send_sms(recipient['recipient'],message['body'])
+            if message['channel']=='email':
+                sender=json.loads(message['sender_json'])
+                # Send the identity frozen with the preview, never a new client value.
+                # Historical previews retain the school's original sender.
+                options=dict(sender_email=sender['email'],sender_name=sender['name']+' · Intégrale Academy',
+                             reply_to=sender['email']) if sender else {}
+                provider=send_mail(recipient['recipient'],message['subject'],message['html'],**options)
+            else:
+                provider=send_sms(recipient['recipient'],message['body'])
         except Exception:
             app.logger.warning('School message delivery unconfirmed; no automatic retry (%s)',message['channel'])
         with closing(db_connect()) as conn:
