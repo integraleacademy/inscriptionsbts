@@ -59,6 +59,59 @@ def bulk(courses, **changes):
     return payload
 
 
+def test_room_promotions_lists_active_bts_and_each_year_even_without_courses(client,app,db):
+    with db() as conn:
+        conn.execute("UPDATE promotions SET date_debut='2026-09-01',date_fin='2028-07-01' WHERE id='p1'")
+        conn.execute("UPDATE promotions SET active=0 WHERE id='p2'")
+        conn.execute("UPDATE planning_rooms SET active=0 WHERE id='r2'")
+    assert app.test_client().get(BASE+'/rooms/promotions').status_code==403
+    response=client.get(BASE+'/rooms/promotions')
+    assert response.status_code==200,response.json
+    choices={p['id']:p for p in response.json['promotions']}
+    assert set(choices)=={'p1','undated'}
+    assert choices['p1']['name']=='BTS MCO p1'
+    assert [p['id'] for p in choices['p1']['periods']]==['p1:1','p1:2']
+    assert choices['p1']['periods'][0]['start_date']=='2026-09-01'
+    assert choices['undated']['periods']==[]
+    assert [r['id'] for r in response.json['rooms']]==['r1']
+
+
+def test_promotion_room_candidates_and_assignment_stay_in_selected_year(client,db):
+    with db() as conn:
+        conn.execute("UPDATE promotions SET date_fin='2028-03-31' WHERE id='p1'")
+    first=event(client).json['course']
+    second=event(client,date='2028-01-04').json['course']
+    url=BASE+'/rooms/courses?promotion_id=p1&period_id=p1:2&start=2028-01-01&end=2028-03-31'
+    response=client.get(url)
+    assert response.status_code==200,response.json
+    assert [c['id'] for c in response.json['courses']]==[second['id']]
+    assert client.get(url.replace('period_id=p1:2','period_id=p1:1')).status_code==409
+    assert client.get(url.replace('period_id=p1:2','period_id=p2:1')).status_code==409
+    assert call(client,'/rooms/bulk-preview',bulk([first],period_id='p1:2')).status_code==400
+    preview=call(client,'/rooms/bulk-preview',bulk([second],period_id='p1:2'))
+    assert preview.status_code==200,preview.json
+    assert call(client,'/rooms/bulk-commit',dict(token=preview.json['token'])).status_code==200
+    with db() as conn:
+        rows={c['id']:c for c in planning._load_courses(conn,promotion_id='p1')}
+        assert rows[first['id']]['room_id'] is None
+        assert rows[second['id']]['room_id']=='r2'
+
+
+def test_bulk_assignment_from_secondary_promotion_keeps_one_shared_reservation(client,db):
+    setup_school(client)
+    shared=add(client,shared=[dict(promotion_id='p2',subject_id='s2')])
+    response=client.get(BASE+'/rooms/courses?promotion_id=p2&period_id=p2:1&start=2027-01-01&end=2027-03-31')
+    assert response.status_code==200,response.json
+    assert [c['id'] for c in response.json['courses']]==[shared['id']]
+    preview=call(client,'/rooms/bulk-preview',bulk(response.json['courses'],promotion_id='p2',period_id='p2:1'))
+    assert preview.status_code==200 and preview.json['shared']==1
+    assert call(client,'/rooms/bulk-commit',dict(token=preview.json['token'])).status_code==200
+    with db() as conn:
+        assert conn.execute('SELECT COUNT(*) FROM planning_courses').fetchone()[0]==1
+        for pid in ('p1','p2'):
+            assert planning._load_courses(conn,promotion_id=pid)[0]['room_id']=='r2'
+
+
 def test_bulk_updates_all_selected_once_without_touching_times(client, db):
     setup_school(client)
     a, b = add(client), add(client, date='2027-01-05')

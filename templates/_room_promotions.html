@@ -1,0 +1,35 @@
+<details id="rooms-promotion-panel" open>
+ <summary>Affecter une salle à une promotion BTS</summary>
+ <p>Choisissez la promotion et ses cours, puis affectez-leur une salle en une fois. La salle sera réservée uniquement pendant les créneaux sélectionnés.</p>
+ <form id="rooms-promotion-form" aria-busy="true">
+  <div class="room-session-fields">
+   <label>Promotion BTS<select name="promotion_id" required disabled><option value="">Chargement des promotions…</option></select></label>
+   <label>Année du planning<select name="period_id" required disabled><option value="">Choisir une année</option></select></label>
+  </div>
+  <p id="rooms-promotion-help" role="status"></p>
+  <div class="room-promotion-dates">
+   <label>Du<input type="date" name="from" required disabled></label>
+   <label>Au<input type="date" name="to" required disabled></label>
+   <button type="button" class="catalog-button" id="rooms-promotion-load" disabled>Afficher les cours</button>
+  </div>
+  <div class="room-session-fields">
+   <label>Salle à affecter<select name="room_id" required disabled><option value="">Choisir une salle</option></select></label>
+   <label class="room-promotion-toggle"><input type="checkbox" name="unassigned" checked disabled>Afficher uniquement les créneaux sans salle</label>
+  </div>
+  <div class="bulk-room-selection">
+   <button type="button" class="catalog-button" id="rooms-promotion-all" disabled>Tout cocher</button>
+   <button type="button" class="catalog-button" id="rooms-promotion-none" disabled>Tout décocher</button>
+   <strong id="rooms-promotion-count" aria-live="polite">Choisissez une promotion.</strong>
+  </div>
+  <div id="rooms-promotion-courses" class="bulk-room-list"><p>Les cours de la promotion s’afficheront ici.</p></div>
+  <p id="rooms-promotion-error" class="rooms-error" role="alert" hidden></p>
+  <p id="rooms-promotion-preview" class="room-promotion-preview" role="status" hidden></p>
+  <p id="rooms-promotion-success" class="room-promotion-success" role="status" hidden></p>
+  <div class="room-promotion-actions">
+   <button type="submit" class="catalog-button" id="rooms-promotion-check" disabled>Vérifier les disponibilités</button>
+   <button type="button" class="catalog-button primary" id="rooms-promotion-save" disabled>Confirmer l’affectation</button>
+   <button type="button" class="catalog-button" id="rooms-promotions-reload">Actualiser les promotions</button>
+   <a class="catalog-button" id="rooms-promotion-planning" href="/admin/planning">Ouvrir le planning de la promotion</a>
+  </div>
+ </form>
+</details>
