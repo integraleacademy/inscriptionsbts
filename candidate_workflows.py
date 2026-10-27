@@ -3,6 +3,7 @@
     Previews never update a dossier or contact a transport. Confirmation sends
     the stored HTML/SMS/PDF bytes once, after checking the dossier is unchanged.
 """
+from person_names import person_name
 import base64
 import io
 import json
@@ -50,7 +51,7 @@ def _schema(conn):
 def prepare_workflow(row, kind, data):
     """Pure preparation: planned database changes are applied only on confirmation."""
     row = dict(row)
-    item = dict(cid=row['id'], name=f"{row.get('prenom') or ''} {row.get('nom') or ''}".strip(),
+    item = dict(cid=row['id'], name=person_name(row.get('nom'),row.get('prenom')),
                 snapshot=_hash(_json(row)), changes={}, messages=[], files=[], warnings=[])
     changes = item['changes']
     now = datetime.now()

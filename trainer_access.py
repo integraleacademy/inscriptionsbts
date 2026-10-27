@@ -3,6 +3,7 @@
 This module never exposes candidate bearer links, uploads, identity documents,
 health/identity numbers, birth dates or administrative record actions.
 """
+from person_names import person_name
 from contextlib import closing
 from datetime import datetime, timezone
 import hashlib
@@ -389,7 +390,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 context['account_promotions'] = [item for item in list_promotions(conn) if item['active'] or item['id'] in current]
                 context['account_promotion_ids'] = current
             conn.commit()
-        return page('trainer_detail.html', title=trainer['prenom']+' '+trainer['nom']+' · Fiche formateur', **context)
+        return page('trainer_detail.html', title=person_name(trainer['nom'],trainer['prenom'])+' · Fiche formateur', **context)
 
     @app.post('/admin/formateurs/<trainer_id>/tarif')
     def admin_trainer_hourly_rate(trainer_id):

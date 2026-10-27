@@ -1,10 +1,11 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 <!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"></head>
 <body style="font-family:Arial,sans-serif;color:#222;">
   <h3>📥 Nouvelles pièces déposées</h3>
   <p><strong>Dossier :</strong> {{ numero }}</p>
-  <p><strong>Candidat :</strong> {{ prenom }} {{ nom }}</p>
+  <p><strong>Candidat :</strong> {{ person_name(nom,prenom) }}</p>
   <p><strong>Fichiers reçus :</strong></p>
   <ul>
     {% for f in fichiers %}

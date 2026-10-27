@@ -3,6 +3,7 @@
 Only an exact SIRET match can be imported. Registry information never supplies
 login credentials or contact details. The signed preview is saved on form submit.
 """
+from person_names import person_name
 from datetime import datetime, timezone
 from pathlib import Path
 import json
@@ -134,7 +135,7 @@ def project_company(payload, siret):
             for leader in leaders[:50]:
                 if not isinstance(leader, dict):
                     continue
-                name = clean(leader.get('denomination')) or ' '.join(filter(None, [clean(leader.get('prenoms')), clean(leader.get('nom'))]))
+                name = clean(leader.get('denomination')) or person_name(leader.get('nom'),leader.get('prenoms'))
                 quality = clean(leader.get('qualite'))
                 if name:
                     add('Dirigeant · '+quality if quality else 'Dirigeant', name)

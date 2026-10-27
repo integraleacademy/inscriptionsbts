@@ -21,7 +21,7 @@
   const duration = minutes => { if (minutes === null || minutes === undefined) return 'À définir'; const amount = Math.max(0, Math.round(minutes)); const h = Math.floor(amount / 60), m = amount % 60; return m ? (h ? number(h) + ' h ' : '') + m + ' min' : number(h) + ' h'; };
   const budget = item => item.budget_configured !== false && (minuteValue(item, 'planned') || 0) > 0;
   const promotionOf = item => state.data?.promotions.find(promotion => String(promotion.id) === String(item.promotion_id));
-  const trainerName = trainer => [trainer.prenom, trainer.nom].filter(Boolean).join(' ');
+  const trainerName = trainer => AcademyNames.fullName(trainer.nom, trainer.prenom);
   const icon = name => { const template = document.querySelector('[data-catalog-create] svg') || document.querySelector('.catalog-stat-icon svg'); if (!template) return el('span'); const svg = template.cloneNode(true); if (name === 'person') { svg.replaceChildren(); for (const [tag, attrs] of [['circle', {cx: 12, cy: 7, r: 4}], ['path', {d: 'M4 21v-2a8 8 0 0 1 16 0v2'}]]) { const part = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [key, value] of Object.entries(attrs)) part.setAttribute(key, value); svg.append(part); } } return svg; };
   function action(label, handler, cls = '') { const node = el('button', 'catalog-button ' + cls, label); node.type = 'button'; node.addEventListener('click', handler); return node; }
   function notice(message, error = false) { const node = $('catalog-notice'); node.textContent = message || ''; node.hidden = !message; node.classList.toggle('error', error); }

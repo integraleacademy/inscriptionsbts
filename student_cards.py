@@ -1,4 +1,5 @@
 """Print student cards on the original, unmodified two-sided PDF artwork."""
+from person_names import person_name, first_name, last_name
 from contextlib import closing
 from datetime import date, datetime
 from io import BytesIO
@@ -108,7 +109,7 @@ def student_card_pdf(row, photo, *, start=None, end=None, layout='carte'):
     if FONT not in pdfmetrics.getRegisteredFontNames():
         pdfmetrics.registerFont(TTFont(FONT, str(ROOT / 'assets/certificates/fonts/LiberationSans-Regular.ttf')))
     street, city = ADDRESSES[row['mode']]
-    values = dict(nom=row['nom'].upper(), prenom=row['prenom'], birth=birth.strftime('%d/%m/%Y'),
+    values = dict(nom=last_name(row['nom']), prenom=first_name(row['prenom']), birth=birth.strftime('%d/%m/%Y'),
                   validity=f'{first:%d/%m/%Y} au {last:%d/%m/%Y}', director='Clément VAILLANT',
                   website='integraleacademy.com', school='CFA Intégrale Academy', street=street,
                   city=city, phone='04 22 47 07 68')
@@ -144,7 +145,7 @@ def student_card_pdf(row, photo, *, start=None, end=None, layout='carte'):
     writer.root_object[NameObject('/ViewerPreferences')] = DictionaryObject({
         NameObject('/PrintScaling'): NameObject('/None'),
     })
-    writer.add_metadata({'/Title': f"Carte étudiante - {row['prenom']} {row['nom'].upper()}", '/Author': 'Intégrale Academy'})
+    writer.add_metadata({'/Title': 'Carte étudiante - '+person_name(row['nom'],row['prenom']), '/Author': 'Intégrale Academy'})
     output = BytesIO()
     writer.write(output)
     return output.getvalue()

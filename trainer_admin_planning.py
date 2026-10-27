@@ -1,4 +1,5 @@
 """Timetable and availability panels inside the administrator's trainer file."""
+from person_names import person_name
 from contextlib import closing
 from datetime import date, datetime, timedelta
 import hashlib
@@ -43,7 +44,7 @@ def get_admin_trainer_planning(conn, trainer_id, day=None):
             courses=[c for c in courses if c['date']==value.isoformat()]))
     minutes=sum(c['duration_minutes'] for c in courses)
     trainer=conn.execute('SELECT nom,prenom FROM trainers WHERE id=?',(trainer_id,)).fetchone()
-    return dict(role='trainer',heading='Planning de '+(' '.join([trainer['prenom'],trainer['nom']]) if trainer else 'formateur'),
+    return dict(role='trainer',heading='Planning de '+(person_name(trainer['nom'],trainer['prenom']) if trainer else 'formateur'),
         today=_now().date().isoformat(),date=selected.isoformat(),year=selected.year,month=selected.month,
         week_start=beginning.isoformat(),week_end=ending.isoformat(),week_label=_date_label(beginning)+' — '+_date_label(ending),
         previous=(beginning-timedelta(days=7)).isoformat(),next=(beginning+timedelta(days=7)).isoformat(),

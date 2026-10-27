@@ -3,6 +3,7 @@
 WEDOF OpenAPI checked 2026-10-26. No unrestricted CERFA, NIR or banking data
 is retained. Missing amounts remain unknown, never converted to zero.
 """
+from person_names import person_name
 import datetime as dt
 import hashlib
 import json
@@ -154,10 +155,10 @@ def raw_fields(raw, contract):
               "apprentice_first_name": text(apprentice.get("prenom")), "apprentice_last_name": text(apprentice.get("nom")),
               "apprentice_email": text(apprentice.get("courriel")), "apprentice_phone": text(apprentice.get("telephone")),
               "apprentice_birth_date": date(apprentice.get("dateNaissance")),
-              "employer_name": text(employer.get("denomination")) or " ".join(filter(None, (text(employer.get("prenom")), text(employer.get("nom"))))),
+              "employer_name": text(employer.get("denomination")) or person_name(employer.get("nom"),employer.get("prenom")),
               "employer_siret": text(employer.get("siret")), "employer_email": text(employer.get("courriel")),
               "employer_phone": text(employer.get("telephone")),
-              "tutor_name": " ".join(filter(None, (text(tutor.get("prenom")), text(tutor.get("nom"))))),
+              "tutor_name": person_name(tutor.get("nom"),tutor.get("prenom")),
               "tutor_email": text(tutor.get("courriel")),
               "training_title": text(training.get("intituleQualification")), "rncp": text(training.get("rncp")),
               "diploma_code": text(training.get("codeDiplome")), "training_start": date(training.get("dateDebutFormation")),

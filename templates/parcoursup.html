@@ -1,3 +1,4 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends "base.html" %}
 {% block body_class %}parcoursup-page{% endblock %}
 {% block content %}
@@ -256,10 +257,10 @@
       📩 Relancé
     </span>
   {% endif %}
-  {{ r.nom }}
+  {{ last_name(r.nom) }}
 </td>
 
-        <td>{{ r.prenom }}</td>
+        <td>{{ first_name(r.prenom) }}</td>
         <td>{{ r.telephone }}</td>
         <td>{{ r.email }}</td>
         <td>{{ r.formation }}</td>

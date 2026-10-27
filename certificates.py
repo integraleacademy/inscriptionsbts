@@ -1,4 +1,5 @@
 """Personalise legacy Word templates without changing their run formatting."""
+from person_names import person_name
 import re
 from datetime import datetime
 from io import BytesIO
@@ -20,7 +21,7 @@ def certificate_word(row):
     filename = 'certificat_scolarite_presentiel.docx' if mode == 'presentiel' else 'certificat de scolarité 2026.docx'
     doc = Document(root / 'static' / 'templates' / filename)
     year = candidate_year(row)
-    name = f"{row.get('prenom') or ''} {row.get('nom') or ''}".strip().upper()
+    name = person_name(row.get('nom'),row.get('prenom'))
     course = BTS_LABELS.get((row.get('bts') or '').upper(), row.get('bts') or '')
     personalize_certificate(doc, {'{{NOM_PRENOM}}':name, '{{FORMATION}}':course,
         '{{DATE_AUJOURDHUI}}':datetime.now(ZoneInfo('Europe/Paris')).strftime('%d/%m/%Y'),
@@ -61,7 +62,7 @@ def certificate_pdf(row):
         font = 'CertificateOriginal-' + style
         if font not in pdfmetrics.getRegisteredFontNames():
             pdfmetrics.registerFont(TTFont(font, str(folder/'fonts'/f'LiberationSans-{style}.ttf')))
-    values = dict(name=f"{row.get('prenom') or ''} {row.get('nom') or ''}".strip().upper(),
+    values = dict(name=person_name(row.get('nom'),row.get('prenom')),
                   date=datetime.now(ZoneInfo('Europe/Paris')).strftime('%d/%m/%Y'),
                   year=str(year), end_year=str(year+2))
     reader = PdfReader(folder/template['file'])

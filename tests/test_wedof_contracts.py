@@ -131,13 +131,13 @@ def test_environment_key_cannot_be_removed_or_returned(setup, monkeypatch):
 def test_preview_and_link_never_write_remote_or_expose_sensitive_fields(setup):
     preview = inspect(setup)
     assert preview['identity']['status'] == 'matched'
-    assert 'Camille Exemple' in preview['html']
+    assert 'EXEMPLE Camille' in preview['html']
     setup[3].reset_mock()
     assert post(setup,'/rattacher',{'token':preview['token']}).status_code == 200
     setup[3].assert_not_called()
     response = setup[0].get('/admin/candidat/alice/contrats-apprentissage')
     assert response.status_code == 200
-    assert 'Alex Tutor' in response.json['html']
+    assert 'TUTOR Alex' in response.json['html']
     assert 'Ouverte à facturation' in response.json['html']
     assert '9\u202f000,00' in response.json['html']
     assert 'SECRET-' not in response.text and 'evil.invalid' not in response.text

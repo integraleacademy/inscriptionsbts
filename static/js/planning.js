@@ -534,7 +534,7 @@
     for (const exception of (state.data.exceptions || []).slice(0, 12)) { const day = knownDay(exception.date), locked = isPublicHoliday(day), card = el('article', 'planning-rule kind-' + (locked ? 'public_holiday' : exception.kind)); card.append(el('b', '', locked ? day.label + ' · Férié verrouillé' : exception.label || kinds[exception.kind]), el('span', '', formatDate(exception.date))); if (locked) card.append(el('small', '', 'L’ancienne couleur est ignorée : aucun cours ne peut être placé.')); else card.append(button('Modifier', 'planning-text-button', () => openException(exception.date))); exceptions.append(card); }
     if (!exceptions.children.length) exceptions.append(el('p', 'planning-muted', 'Aucune exception.'));
   }
-  const trainerName = trainer => trainer.name || trainer.trainer_name || [trainer.prenom, trainer.nom].filter(Boolean).join(' ');
+  const trainerName = trainer => trainer.name || trainer.trainer_name || AcademyNames.fullName(trainer.nom, trainer.prenom);
   function openSubject(subject = null, requested = '') {
     if (!state.data || state.loading || state.quickBusy) return; state.subjectEdit = subject; const form = $('planning-subject-form'); form.reset();
     const code = state.data.promotion.bts, prepared = new Set((state.data.subjects || []).map(item => item.catalog_subject_id));

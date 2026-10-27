@@ -3,6 +3,7 @@
 A bearer dossier URL never grants timetable access. Every page and PDF resolves
 an existing version-bound login and rebuilds its current promotion scope.
 """
+from person_names import person_name
 from contextlib import closing
 from datetime import date, datetime, timedelta
 from io import BytesIO
@@ -70,7 +71,7 @@ def _identity_scope(conn, role, identity_id):
     promotions = [dict(row) for row in conn.execute('''SELECT p.* FROM promotions p
         JOIN trainer_promotions a ON a.promotion_id=p.id
         WHERE a.trainer_id=? AND p.active=1 ORDER BY p.nom''', (identity_id,))]
-    full_name = f"{trainer['prenom'] or ''} {trainer['nom'] or ''}".strip()
+    full_name = person_name(trainer['nom'],trainer['prenom'])
     return {'promotions': promotions, 'heading': 'Planning de ' + full_name, 'empty_message': '' if promotions else 'Vos cours apparaîtront après votre affectation à une promotion.'}
 
 

@@ -1,9 +1,10 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends "email_base.html" %}
 
 {% block email_title %}Documents non conformes 🟠{% endblock %}
 
 {% block email_content %}
-<p>Bonjour {{ prenom }},</p>
+<p>Bonjour {{ first_name(prenom) }},</p>
 
 <p>Après vérification, un ou plusieurs de vos documents transmis ont été jugés <strong>non conformes</strong> par notre équipe.</p>
 

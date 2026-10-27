@@ -1,3 +1,4 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends "base.html" %}
 {% block content %}
 
@@ -23,8 +24,8 @@
     <tbody>
       {% for r in rows %}
       <tr style="border-bottom:1px solid #ddd;" data-id="{{ r.id }}">
-        <td style="padding:8px;">{{ r.nom }}</td>
-        <td style="padding:8px;">{{ r.prenom }}</td>
+        <td style="padding:8px;">{{ last_name(r.nom) }}</td>
+        <td style="padding:8px;">{{ first_name(r.prenom) }}</td>
         <td style="padding:8px;">{{ r.email }}</td>
         <td style="padding:8px;">{{ r.tel }}</td>
         <td style="padding:8px;">{{ r.bts }}<br>{{ study_mode(r.mode) }}</td>

@@ -1,0 +1,15 @@
+{# Same presentation rule as person_names.py and js/person-names.js. #}
+{% macro last_name(value) -%}{{ ' '.join((value|default('',true)|string).split()).upper() }}{%- endmacro %}
+{% macro first_name(value) -%}
+  {%- set state=namespace(start=true) -%}
+  {%- for char in ' '.join((value|default('',true)|string).split()).lower() -%}
+    {{- char.upper() if state.start else char -}}
+    {%- set state.start=char in " '’‐‑‒–—-" -%}
+  {%- endfor -%}
+{%- endmacro %}
+{% macro person_name(nom,prenom) -%}
+  {%- set n=' '.join((nom|default('',true)|string).split()).upper() %}
+  {%- set p=first_name(prenom) -%}
+  {{- n -}}{% if n and p %} {% endif %}{{- p -}}
+{%- endmacro %}
+{% macro person_initials(nom,prenom) -%}{{ (' '.join((nom|default('',true)|string).split())[:1] ~ ' '.join((prenom|default('',true)|string).split())[:1]).upper() }}{%- endmacro %}

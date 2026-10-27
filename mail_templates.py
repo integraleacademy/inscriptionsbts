@@ -2,6 +2,7 @@
 # ✉️ TEMPLATES E-MAILS – Intégrale Academy (version finale unifiée)
 # =====================================================
 
+from person_names import first_name, last_name
 import os
 from campaign import ADMISSION_YEAR, candidate_year
 import unicodedata
@@ -23,7 +24,7 @@ def mail_html(template_name, **kwargs):
 
     rentree = kwargs.get("rentree_annee") or (candidate_year(kwargs) if kwargs.get("numero_dossier") else ADMISSION_YEAR)
     # === Variables de base ===
-    prenom = kwargs.get("prenom", "") or ""
+    prenom = first_name(kwargs.get("prenom"))
     lien_espace = kwargs.get("lien_espace", "#") or "#"
     lien_confirmation = kwargs.get("lien_confirmation", "#") or "#"
 
@@ -37,8 +38,8 @@ def mail_html(template_name, **kwargs):
 
     # 🔹 Variables pour le récap
     numero_dossier   = kwargs.get("numero_dossier", "") or ""
-    form_nom         = kwargs.get("form_nom", "") or ""
-    form_prenom      = kwargs.get("form_prenom", "") or ""
+    form_nom         = last_name(kwargs.get("form_nom"))
+    form_prenom      = first_name(kwargs.get("form_prenom"))
     form_email       = kwargs.get("form_email", "") or ""
     form_tel         = kwargs.get("form_tel", "") or ""
     form_mode_label_raw = kwargs.get("form_mode_label", "") or ""

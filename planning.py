@@ -10,6 +10,7 @@ Every participating subject receives the full duration, checked in integer
 minutes against its annual target. Calendar painting is one transaction guarded
 by the snapshot's ``calendar_revision`` sent as ``expected_revision``.
 """
+from person_names import person_name
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation, localcontext
@@ -194,7 +195,7 @@ def _load_courses(conn,start=None,end=None,promotion_id=None,trainer_id=None):
     for row in conn.execute(sql,args):
         item=dict(row);item['start']=_clock(item['start_min']);item['end']=_clock(item['end_min'])
         item['duration_minutes']=item['end_min']-item['start_min']
-        item['trainer_name']=f"{item.pop('trainer_prenom') or ''} {item.pop('trainer_nom') or ''}".strip()
+        item['trainer_name']=person_name(item.pop('trainer_nom'),item.pop('trainer_prenom'))
         groups=[dict(group) for group in conn.execute('''SELECT g.promotion_id,g.subject_id,p.nom AS promotion_name,s.name AS subject_name,s.color
             FROM planning_course_groups g LEFT JOIN promotions p ON p.id=g.promotion_id LEFT JOIN planning_subjects s ON s.id=g.subject_id
             WHERE g.course_id=? ORDER BY g.promotion_id''',(item['id'],))] if has_groups else []
@@ -275,7 +276,7 @@ def _subjects(conn,promotion_id=None,period_id=None):
     if promotion_id:sql+=' WHERE s.promotion_id=?';args.append(promotion_id)
     items=[]
     for row in conn.execute(sql+' ORDER BY p.nom,s.name',args):
-        item=dict(row);item['trainer_name']=f"{item.pop('prenom') or ''} {item.pop('nom') or ''}".strip()
+        item=dict(row);item['trainer_name']=person_name(item.pop('nom'),item.pop('prenom'))
         period=planning_years.allocation(conn,item['id'])
         if period_id and (not period or period['id']!=period_id):continue
         item['period_id']=period['id'] if period else None

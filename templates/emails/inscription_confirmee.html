@@ -1,4 +1,5 @@
-<p>Bonjour {{ prenom }},</p>
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
+<p>Bonjour {{ first_name(prenom) }},</p>
 
 <p>
 Votre inscription au <strong>{{ bts_label }}</strong> est désormais

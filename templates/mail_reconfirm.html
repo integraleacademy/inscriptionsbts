@@ -1,9 +1,10 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends "email_base.html" %}
 
 {% block email_title %}Reconfirmation d’inscription 📩{% endblock %}
 
 {% block email_content %}
-<p>Bonjour {{ prenom }},</p>
+<p>Bonjour {{ first_name(prenom) }},</p>
 
 <p>Il est temps de <strong>reconfirmer votre inscription</strong> pour la prochaine rentrée de septembre à <strong>Intégrale Academy</strong>.</p>
 

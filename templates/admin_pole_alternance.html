@@ -1,3 +1,4 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends "base.html" %}
 {% block body_class %}admin-page{% endblock %}
 {% block content %}
@@ -32,8 +33,8 @@
       <tbody>
         {% for r in rows %}
         <tr data-id="{{ r.id }}">
-          <td>{{ r.nom }}</td>
-          <td>{{ r.prenom }}</td>
+          <td>{{ last_name(r.nom) }}</td>
+          <td>{{ first_name(r.prenom) }}</td>
           <td>{{ r.bts }}</td>
           <td>{{ study_mode(r.mode) }}</td>
           <td>{{ r.tel }}</td>

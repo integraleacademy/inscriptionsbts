@@ -1034,7 +1034,7 @@ let html = `
       box-shadow:0 2px 8px rgba(0,0,0,0.05);
     ">
       <h4 style="margin-top:0;color:#333;">🧍‍♂️ Informations personnelles</h4>
-      <p>👤 <strong>${prenom} ${nom}</strong></p>
+      <p>👤 <strong>${AcademyNames.fullName(nom,prenom).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</strong></p>
       <p>📧 ${email}</p>
       <p>📱 ${tel}</p>
       <p>🏠 ${adresse || ""} ${cp || ""} ${ville || ""}</p>

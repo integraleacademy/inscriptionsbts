@@ -58,7 +58,7 @@
       form.elements.prenom.value = account?.prenom || '';
       form.elements.nom.value = account?.nom || '';
       form.elements.email.value = account?.email || '';
-      $('trainer-account-title').textContent = account ? 'Le compte de ' + account.prenom : 'Nouveau formateur';
+      $('trainer-account-title').textContent = account ? 'Le compte de ' + AcademyNames.fullName(account.nom, account.prenom) : 'Nouveau formateur';
       $('trainer-account-save').textContent = account ? 'Enregistrer les modifications' : 'Créer le compte';
       $('trainer-existing-actions').hidden = !account; $('trainer-new-guidance').hidden = !!account;
       if (account) {

@@ -1,2 +1,3 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 <p><strong>[ADMIN]</strong> Nouvelle pré‑inscription reçue.</p>
-<p>Dossier <strong>{{ numero }}</strong> — {{ prenom }} {{ nom }}</p>
+<p>Dossier <strong>{{ numero }}</strong> — {{ person_name(nom,prenom) }}</p>

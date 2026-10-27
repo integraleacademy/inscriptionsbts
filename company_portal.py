@@ -4,6 +4,7 @@ Companies only receive a projection of their linked students, within the link's
 period. No application documents, personal notes or medical reasons are exposed.
 Every route/export rechecks grants and account version. Admin writes are atomic.
 """
+from person_names import person_name
 from calendar import monthrange
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
@@ -129,7 +130,7 @@ def scoped_week(conn, student, day):
             day.update(courses=[], kind='unconfigured', day_label='Hors période de rattachement', public_holiday=False)
     minutes = sum(c['duration_minutes'] for c in week['courses'])
     week['summary'] = dict(courses=len(week['courses']), hours=minutes/60, minutes=minutes)
-    week['heading'] = 'Planning de ' + student['prenom'] + ' ' + student['nom']
+    week['heading'] = 'Planning de ' + person_name(student['nom'],student['prenom'])
     return week
 
 

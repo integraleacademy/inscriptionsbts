@@ -61,7 +61,7 @@ def test_lookup_selects_requested_branch_not_headquarters_and_excludes_contact_b
     assert result['fields']['activity_label'] == 'Formation continue d’adultes'
     assert 'simplifiée' in result['fields']['legal_form']
     serialized = json.dumps(result, ensure_ascii=False)
-    assert 'Camille MARTIN' in serialized and '3 à 5 salariés (2024)' in serialized
+    assert 'MARTIN Camille' in serialized and '3 à 5 salariés (2024)' in serialized
     assert '1970' not in serialized and 'Française' not in serialized and 'do-not-use' not in serialized
     assert not {'email', 'phone', 'contact'} & result['fields'].keys()
     args, options = http.call_args
@@ -163,7 +163,7 @@ def test_import_is_persisted_after_explicit_save_and_can_be_edited(env, payload)
     assert response.status_code == 303
     location = response.headers['Location']
     page = client.get(location)
-    assert 'NOVA SERVICES SAS' in page.text and 'Camille MARTIN' in page.text
+    assert 'NOVA SERVICES SAS' in page.text and 'MARTIN Camille' in page.text
     assert '1970' not in page.text and 'data-registry-saved' in page.text
     with env[1]() as conn:
         row = dict(conn.execute('SELECT * FROM companies WHERE email=?', (fields['email'],)).fetchone())

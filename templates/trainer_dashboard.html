@@ -1,3 +1,4 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends 'base.html' %}
 {% from 'ui_icons.html' import icon %}
 {% block body_class %}trainer-dashboard-page{% endblock %}
@@ -5,7 +6,7 @@
 {% set promotions = promotions|selectattr('active')|list %}
 <div class="trainer-dashboard">
   <div class="trainer-dashboard-topline"><span>{{ icon('shield') }} VOTRE ESPACE FORMATEUR</span><form method="post" action="{{ url_for('trainer_logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="trainer-button">Me déconnecter</button></form></div>
-  <header class="trainer-dashboard-heading"><div><p class="trainer-kicker">INTÉGRALE ACADEMY · ÉQUIPE PÉDAGOGIQUE</p><h1>Bonjour {{ trainer.prenom }}<span>.</span></h1><p>Vos promotions, leurs étudiants, un espace pour vous retrouver.</p></div><span class="trainer-dashboard-avatar" aria-hidden="true">{{ (trainer.prenom or '')[:1]|upper }}{{ (trainer.nom or '')[:1]|upper }}</span></header>
+  <header class="trainer-dashboard-heading"><div><p class="trainer-kicker">INTÉGRALE ACADEMY · ÉQUIPE PÉDAGOGIQUE</p><h1>Bonjour {{ first_name(trainer.prenom) }}<span>.</span></h1><p>Vos promotions, leurs étudiants, un espace pour vous retrouver.</p></div><span class="trainer-dashboard-avatar" aria-hidden="true">{{ person_initials(trainer.nom,trainer.prenom) }}</span></header>
 
   {% include "_portal_today.html" %}
   <div class="trainer-dashboard-summary">
@@ -31,8 +32,8 @@
         <div class="trainer-promotion-roster-title"><div><h3>{{ promotion.nom }}</h3><p>BTS {{ promotion.bts }} · {{ ('1re année' if promotion.niveau == 1 else '2e année') if promotion.niveau else 'Niveau à compléter' }} · Rentrée {{ promotion.rentree_annee }}</p></div><span data-promotion-result>{{ group_students|length }} étudiant{{ 's' if group_students|length != 1 else '' }}</span></div>
         <div class="trainer-table-wrap"><table class="trainer-table trainer-students-table"><thead><tr><th scope="col">Étudiant</th><th scope="col">BTS & rentrée</th><th scope="col">Format</th><th scope="col">Coordonnées</th><th scope="col">Inscription</th></tr></thead><tbody>
         {% for student in group_students %}
-        <tr data-student-row data-promotion="{{ promotion.id }}" data-search="{{ student.prenom or '' }} {{ student.nom or '' }} {{ student.email or '' }}">
-          <td><div class="trainer-person"><span class="trainer-avatar" aria-hidden="true">{{ (student.prenom or '')[:1]|upper }}{{ (student.nom or '')[:1]|upper }}</span><div><b>{{ student.prenom or '' }} {{ (student.nom or '')|upper }}</b>{% if student.numero_dossier %}<small>Dossier {{ student.numero_dossier }}</small>{% endif %}</div></div></td>
+        <tr data-student-row data-promotion="{{ promotion.id }}" data-search="{{ person_name(student.nom,student.prenom) }} {{ student.email or '' }}">
+          <td><div class="trainer-person"><span class="trainer-avatar" aria-hidden="true">{{ person_initials(student.nom,student.prenom) }}</span><div><b>{{ person_name(student.nom,student.prenom) }}</b>{% if student.numero_dossier %}<small>Dossier {{ student.numero_dossier }}</small>{% endif %}</div></div></td>
           <td><span class="trainer-group-tag trainer-promotion-tag">BTS {{ student.bts }} <i>· {{ promotion.rentree_annee }}</i></span></td><td>{{ study_mode(student.mode) }}</td>
           <td><div class="trainer-student-contact">{% if student.email %}<a href="mailto:{{ student.email }}">{{ icon('mail') }} {{ student.email }}</a>{% endif %}{% if student.tel %}<a href="tel:{{ student.tel }}">{{ icon('phone') }} {{ student.tel }}</a>{% endif %}{% if not student.email and not student.tel %}<small>Coordonnées non renseignées</small>{% endif %}</div></td><td><span class="trainer-confirmed">{{ icon('check') }} {{ 'Reconfirmée' if student.statut == 'reconfirmee' else 'Confirmée' }}</span></td>
         </tr>{% endfor %}</tbody></table></div>

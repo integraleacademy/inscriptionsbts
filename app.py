@@ -1,3 +1,4 @@
+from person_names import person_name
 from contextlib import closing
 
 import os, sqlite3, json, uuid, shutil
@@ -1629,7 +1630,7 @@ def admin_candidate_sheet(cid):
     year = candidate_year(row)
     columns = {"qualites": "projet_qualites", "motivation": "projet_motivation", "valeurs": "projet_recherche", "travail": "projet_travail"}
     profile_display = {g["name"]: [dict(g["options"]).get(v, v) for v in (parse_list(row.get(columns[g["name"]])) or [v.strip() for v in (row.get(columns[g["name"]]) or "").split(",") if v.strip()])] for g in PROFILE_GROUPS}
-    return render_template("candidate_sheet.html", **school_context, current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
+    return render_template("candidate_sheet.html", **school_context, current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=person_name(row.get('nom'),row.get('prenom'))+' · Plateforme de gestion des BTS', row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
 
 
 @app.post("/admin/candidat/<cid>/informations")

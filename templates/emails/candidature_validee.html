@@ -1,4 +1,5 @@
-<p>Bonjour {{ prenom }},</p>
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
+<p>Bonjour {{ first_name(prenom) }},</p>
 
 <p>
 Nous revenons vers vous suite à votre candidature concernant notre
@@ -47,8 +48,8 @@ Après avoir étudié votre dossier, notre commission d'admission a décidé de 
   <tr>
     <td style="padding-left:4px;font-size:14px;line-height:1.6;">
       <div><strong>Numéro de dossier :</strong> {{ numero_dossier }}</div>
-      <div><strong>Nom :</strong> {{ form_nom }}</div>
-      <div><strong>Prénom :</strong> {{ form_prenom }}</div>
+      <div><strong>Nom :</strong> {{ last_name(form_nom) }}</div>
+      <div><strong>Prénom :</strong> {{ first_name(form_prenom) }}</div>
       <div><strong>Email :</strong> {{ form_email }}</div>
       <div><strong>Téléphone :</strong> {{ form_tel }}</div>
       <div><strong>Formation :</strong> {{ bts_label }}</div>

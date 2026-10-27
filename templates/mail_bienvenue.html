@@ -1,9 +1,10 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends "email_base.html" %}
 
 {% block email_title %}Bienvenue à Intégrale Academy 🎓{% endblock %}
 
 {% block email_content %}
-<p>Bonjour {{ prenom }},</p>
+<p>Bonjour {{ first_name(prenom) }},</p>
 
 <p>Nous vous remercions chaleureusement d’avoir confirmé votre inscription au sein de <strong>Intégrale Academy</strong>.</p>
 

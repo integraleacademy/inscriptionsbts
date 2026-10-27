@@ -1,3 +1,4 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -124,7 +125,7 @@
 <header>
   <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Logo Intégrale Academy">
   <div>
-    <h1>{{ row.nom|upper }} {{ row.prenom|title }}</h1>
+    <h1>{{ person_name(row.nom,row.prenom) }}</h1>
     <div class="sub-info">
       {{ row.bts|btsfull }} — 
       {% if row.mode == "presentiel" %}🧑‍🏫 Présentiel
@@ -140,8 +141,8 @@
 </div>
 
 <h2>1. INFORMATIONS PERSONNELLES</h2>
-<div class="box"><span class="label">Nom :</span> {{ row.nom }}</div>
-<div class="box"><span class="label">Prénom :</span> {{ row.prenom }}</div>
+<div class="box"><span class="label">Nom :</span> {{ last_name(row.nom) }}</div>
+<div class="box"><span class="label">Prénom :</span> {{ first_name(row.prenom) }}</div>
 <div class="box"><span class="label">Date de naissance :</span> {{ row.date_naissance|dmy }}</div>
 <div class="box"><span class="label">Pays de naissance :</span> {{ row.pays_naissance }}</div>
 <div class="box"><span class="label">Code postal de naissance :</span> {{ row.cp_naissance }}</div>
@@ -155,7 +156,7 @@
 {% if is_mineur or has_resp %}
 <div class="box">
   <span class="label">Responsable légal :</span><br>
-  {{ (row.resp_prenom or "—") }} {{ (row.resp_nom or "") }}<br>
+  {{ person_name(row.resp_nom,row.resp_prenom) or "—" }}<br>
   📧 {{ (row.resp_email or "—") }} — 📞 {{ (row.resp_tel or "—") }}
 </div>
 {% endif %}

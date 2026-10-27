@@ -1392,8 +1392,8 @@ async function refreshRow(id) {
 
     // 🔁 Reconstruit uniquement les colonnes éditables et les étiquettes
     const html = `
-      <td contenteditable="true" data-field="nom">${escapeCell(data.row.nom)}</td>
-      <td contenteditable="true" data-field="prenom">${escapeCell(data.row.prenom)}</td>
+      <td contenteditable="true" data-field="nom">${escapeCell(AcademyNames.lastName(data.row.nom))}</td>
+      <td contenteditable="true" data-field="prenom">${escapeCell(AcademyNames.firstName(data.row.prenom))}</td>
       <td contenteditable="true" data-field="bts">${escapeCell(data.row.bts)}</td>
       <td contenteditable="true" data-field="mode">${escapeCell(data.row.mode)}</td>
       <td contenteditable="true" data-field="tel">${escapeCell(data.row.tel)}</td>

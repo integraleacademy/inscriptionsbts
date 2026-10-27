@@ -1,8 +1,9 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends "base.html" %}
 {% block content %}
 <div style="max-width:700px;margin:60px auto;background:white;padding:50px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,0.1);text-align:center;">
   <h2>🔁 Reconfirmation d’inscription</h2>
-  <p>Bonjour {{ prenom }},</p>
+  <p>Bonjour {{ first_name(prenom) }},</p>
   <p>Merci de confirmer à nouveau votre inscription pour le <strong>{{ bts_label }}</strong>.</p>
 
   <form method="POST" action="/reconfirm-validate">

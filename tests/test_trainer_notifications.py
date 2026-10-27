@@ -59,7 +59,7 @@ def test_commit_sends_exactly_two_branded_messages_with_full_deleted_class(mail_
     assert {c['recipient'] for c in calls}==set(notifications.RECIPIENTS)
     assert len(calls)==2
     for call in calls:
-        assert 'FORMATEUR t1' in call['subject']
+        assert 'FORMATEUR T1 Camille' in call['subject']
         html=call['html']
         for value in ('academy-official-logo.png','font-style:italic','5 janvier 2027','09:00','11:00','Cours shared','PROMOTION LOCALE','PROMOTION AUTRE','Salle locale','2 h','tab=availability'):
             assert value in html

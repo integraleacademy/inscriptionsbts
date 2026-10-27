@@ -1,4 +1,5 @@
 """Previewed school communications with frozen recipients and durable delivery claims."""
+from person_names import person_name
 from contextlib import closing
 from html import escape
 import json
@@ -45,11 +46,11 @@ def audience(conn, data):
             LEFT JOIN student_promotions s ON s.candidate_id=c.id WHERE c.statut IN (?,?) ORDER BY c.nom,c.prenom''',ENROLLED):
             if promotions and r['promotion_id'] not in promotions: continue
             if mode and r['mode']!=mode: continue
-            people.append(dict(r,kind='Étudiant',name=f"{r['prenom']} {r['nom']}"))
+            people.append(dict(r,kind='Étudiant',name=person_name(r['nom'],r['prenom'])))
     if 'trainers' in groups and 'trainers' in tables:
         phones={r['trainer_id']:r['phone'] for r in conn.execute('SELECT * FROM teaching_contacts')} if 'teaching_contacts' in tables else {}
         for r in conn.execute('SELECT id,nom,prenom,email FROM trainers WHERE active=1 ORDER BY nom,prenom'):
-            people.append(dict(r,tel=phones.get(r['id'],''),kind='Formateur',name=f"{r['prenom']} {r['nom']}"))
+            people.append(dict(r,tel=phones.get(r['id'],''),kind='Formateur',name=person_name(r['nom'],r['prenom'])))
     if 'companies' in groups and 'companies' in tables:
         people += [dict(r,tel=r['phone'],kind='Entreprise') for r in conn.execute('SELECT name,email,phone FROM companies ORDER BY name')]
     recipients, invalid, duplicate = {}, [], 0

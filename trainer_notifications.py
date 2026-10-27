@@ -3,6 +3,7 @@
 The mutation and two recipient jobs are committed together. Delivery only runs
 outside that transaction; each recipient has its own claim and retry state.
 """
+from person_names import person_name
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,7 +63,7 @@ def _date_label(value):
 
 
 def render_availability_notification(snapshot):
-    full_name = ' '.join((str(snapshot['prenom']) + ' ' + str(snapshot['nom'])).split())
+    full_name = person_name(snapshot['nom'],snapshot['prenom'])
     unavailable = snapshot['action'] == 'unavailable'
     courses = [dict(course, date_label=_date_label(course['date'])) for course in snapshot['courses']]
     total_minutes = sum(int(course.get('duration_minutes') or 0) for course in courses)

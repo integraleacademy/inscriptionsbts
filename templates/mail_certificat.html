@@ -1,7 +1,8 @@
+{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends "email_base.html" %}
 {% block email_title %}Votre certificat de scolarité{% endblock %}
 {% block email_content %}
-<p>Bonjour {{ prenom }},</p>
+<p>Bonjour {{ first_name(prenom) }},</p>
 
 <p>Veuillez trouver ci-joint votre <strong>certificat de scolarité</strong> pour la formation :</p>
 
