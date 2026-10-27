@@ -394,3 +394,53 @@ Validation : `python -m pytest -q tests/test_student_workspace.py`.
 Le calendrier d’indisponibilités ouvre les mois restants de l’année en cours.
 Les mois antérieurs restent consultables avec « Toute l’année » ; les dates
 passées sont grisées et leur restriction est explicitement expliquée.
+
+## Inscriptions, suivi étudiant et messagerie
+
+- **Candidatures** (`/admin`) contient les dossiers hors `confirmee` et
+  `reconfirmee`. **Inscriptions** (`/admin/inscriptions`) réunit ces deux statuts,
+  toutes rentrées par défaut, avec recherche, filtres BTS/modalité/promotion/
+  contrat/rentrée et affectation individuelle ou groupée. Une affectation est
+  atomique et vérifie le BTS et la rentrée d’origine pour chaque étudiant.
+  L’indicateur de contrat reflète les contrats WEDOF rattachés, sans déduire
+  l’existence d’un contrat de la seule présence d’une entreprise.
+- La recherche en haut de chaque page d’administration retrouve les étudiants
+  de toutes les rentrées et les fonctions de l’application (`Ctrl/⌘ K`). Elle
+  exige une session administrateur. Les listes affichent la modalité de suivi,
+  y compris l’appel, les notes, les entreprises et les destinataires des messages.
+- Les fiches proposent **Assiduité** (événements, justificatifs et accès à leur
+  traitement), **Pédagogie** (évaluations, notes, appréciations et moyenne
+  pondérée sur 20) et **Londres** pour le présentiel. Le suivi Londres utilise
+  les mêmes inscriptions que la page voyage ; aucun dossier parallèle.
+- **Messagerie** (`/admin/messagerie`) prépare un e-mail ou un SMS pour les
+  inscrits, une sélection de promotions, les formateurs actifs, les entreprises
+  ou tous ces groupes. Les coordonnées invalides sont signalées et les doublons
+  retirés par canal. L’aperçu fige le contenu et les destinataires pendant
+  15 minutes avant le premier envoi. Chaque destinataire reçoit un message
+  individuel, sans copie collective. Le modèle e-mail inclut le logo et un
+  bouton facultatif. L’envoi réutilise Brevo et le crédit SMS du compte.
+- Les tables additives `school_messages` et `school_message_recipients`
+  conservent l’aperçu, les destinataires et les résultats. Chaque livraison est
+  réclamée en transaction avant l’appel au fournisseur. Un destinataire déjà
+  traité n’est jamais renvoyé automatiquement, même en cas de double clic ou
+  de réponse réseau incertaine. La page reste ouverte pendant les envois ;
+  l’historique permet de reprendre les destinataires restants dans la même
+  session. « Envoyé » signifie accepté par le fournisseur, pas nécessairement lu.
+- **Communication → Envoyer l’accès à l’espace étudiant** ouvre un e-mail
+  prérempli avec aperçu, bouton de connexion et explications de première
+  connexion/récupération. L’envoi ne modifie aucun mot de passe.
+- Le champ **Lien Zoom de ce cours** appartient à `planning_courses.zoom_url`.
+  Seuls les liens HTTPS Zoom sont admis. Les duplications/répétitions ne copient
+  pas le lien : chaque nouveau cours a son propre réglage. Les étudiants en
+  distanciel le retrouvent dans leur planning et leur cours ; les réponses
+  destinées au présentiel et aux entreprises ne contiennent pas le lien.
+- Planning et Mes cours affichent Présent, Absent ou En retard selon l’appel
+  enregistré et les corrections du registre. Sans appel, la présence n’est pas
+  présumée. Le guide des motifs est intégré à `/espace/absences/guide`, protégé
+  par la connexion et organisé par situation/document attendu.
+
+Vérifications : `tests/test_campus_workspace.py`, ajout de couverture Zoom dans
+`tests/test_planning.py`, tests de régression des espaces existants. Le parcours
+Chromium à 1440 et 390 px couvre recherche, affectation, fiches, suivi Londres,
+aperçus et envois simulés, présence, confidentialité Zoom et guide des absences.
+Aucun e-mail ou SMS réel n’est envoyé par les tests.

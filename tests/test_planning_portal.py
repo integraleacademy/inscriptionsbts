@@ -43,7 +43,7 @@ def portal_db(tmp_path):
             conn.execute("INSERT INTO student_accounts VALUES(?,'fixture-unused',0,1,0,0)",(cid,))
             conn.execute('INSERT INTO student_account_members VALUES(?,?)',(cid,cid))
         def course(cid,pid,sid,tid,day,start=480,end=600,room='r1'):
-            conn.execute("INSERT INTO planning_courses VALUES(?,?,?,?,?,?,?,?,?,1,'now','now')",(cid,pid,sid,tid,room,day,start,end,''))
+            conn.execute("INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,room_id,date,start_min,end_min,title,version,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,1,'now','now')",(cid,pid,sid,tid,room,day,start,end,''))
             conn.execute('INSERT INTO planning_course_groups VALUES(?,?,?)',(cid,pid,sid))
         course('common','p1','s1','t1','2026-10-26')
         conn.execute("INSERT INTO planning_course_groups VALUES('common','p2','s2')")

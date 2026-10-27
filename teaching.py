@@ -129,12 +129,16 @@ def course_access(conn, course_id, role, identity_id):
     course['start'] = f"{course['start_min']//60:02}:{course['start_min']%60:02}"
     course['end'] = f"{course['end_min']//60:02}:{course['end_min']%60:02}"
     course['promotion_names'] = ' · '.join(g['nom'] for g in groups)
+    if role == 'student':
+        from student_course_details import student_details
+        course.update(student_details(conn, identity_id, course))
     return course
 
 
 def roster(conn, course):
     groups = [g['promotion_id'] for g in course['groups']]
-    return [dict(row) for row in conn.execute('''SELECT c.id,c.nom,c.prenom,p.nom AS promotion_name
+    mode = 'c.mode' if 'mode' in {r[1] for r in conn.execute('PRAGMA table_info(candidats)')} else "''"
+    return [dict(row) for row in conn.execute(f'''SELECT c.id,c.nom,c.prenom,{mode} AS mode,p.nom AS promotion_name
         FROM candidats c JOIN student_promotions sp ON sp.candidate_id=c.id
         JOIN promotions p ON p.id=sp.promotion_id
         WHERE p.active=1 AND upper(trim(c.bts))=p.bts

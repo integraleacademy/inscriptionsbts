@@ -33,7 +33,7 @@
         {% for student in group_students %}
         <tr data-student-row data-promotion="{{ promotion.id }}" data-search="{{ student.prenom or '' }} {{ student.nom or '' }} {{ student.email or '' }}">
           <td><div class="trainer-person"><span class="trainer-avatar" aria-hidden="true">{{ (student.prenom or '')[:1]|upper }}{{ (student.nom or '')[:1]|upper }}</span><div><b>{{ student.prenom or '' }} {{ (student.nom or '')|upper }}</b>{% if student.numero_dossier %}<small>Dossier {{ student.numero_dossier }}</small>{% endif %}</div></div></td>
-          <td><span class="trainer-group-tag trainer-promotion-tag">BTS {{ student.bts }} <i>· {{ promotion.rentree_annee }}</i></span></td><td><span class="trainer-study-mode">{{ 'À distance' if student.mode == 'distanciel' else ('Présentiel' if student.mode == 'presentiel' else 'Non renseigné') }}</span></td>
+          <td><span class="trainer-group-tag trainer-promotion-tag">BTS {{ student.bts }} <i>· {{ promotion.rentree_annee }}</i></span></td><td>{{ study_mode(student.mode) }}</td>
           <td><div class="trainer-student-contact">{% if student.email %}<a href="mailto:{{ student.email }}">{{ icon('mail') }} {{ student.email }}</a>{% endif %}{% if student.tel %}<a href="tel:{{ student.tel }}">{{ icon('phone') }} {{ student.tel }}</a>{% endif %}{% if not student.email and not student.tel %}<small>Coordonnées non renseignées</small>{% endif %}</div></td><td><span class="trainer-confirmed">{{ icon('check') }} {{ 'Reconfirmée' if student.statut == 'reconfirmee' else 'Confirmée' }}</span></td>
         </tr>{% endfor %}</tbody></table></div>
       </section>

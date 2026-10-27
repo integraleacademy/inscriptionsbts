@@ -168,15 +168,19 @@ def test_candidate_deletion_removes_placement_but_keeps_the_promotion(client, cl
 
 def test_cohort_migration_idempotent_and_isolated_admin(client):
     seed(2026,'old');seed(2027,'new')
+    seed(2026,'old-applicant','preinscription');seed(2027,'new-applicant','preinscription')
     application.ensure_campaign_schema();application.ensure_campaign_schema()
     auth(client)
-    assert [r['id'] for r in client.get('/admin/json').json['rows']]==['new']
-    assert [r['id'] for r in client.get('/admin/json?rentree=2026').json['rows']]==['old']
+    assert [r['id'] for r in client.get('/admin/json').json['rows']]==['new-applicant']
+    assert [r['id'] for r in client.get('/admin/json?rentree=2026').json['rows']]==['old-applicant']
     assert len(client.get('/admin/json?rentree=all').json['rows'])==2
-    assert client.get('/api/kpi?rentree=2027').json['confirmee']==1
+    assert client.get('/api/kpi?rentree=2027').json['confirmee']==0
+    assert client.get('/api/kpi?rentree=2027').json['preinscription']==1
     assert client.get('/admin/count_confirmed?rentree=2026').json['count']==1
-    assert [r['id'] for r in client.get('/admin/export.json?rentree=2027').json]==['new']
+    assert [r['id'] for r in client.get('/admin/export.json?rentree=2027').json]==['new-applicant']
     assert 'old' not in client.get('/admin/export.csv?rentree=2027').text
+    enrolled=client.get('/admin/inscriptions?rentree=2027').text
+    assert 'data-enrollment-id="new"' in enrolled and 'data-enrollment-id="old"' not in enrolled
 
 
 def test_complete_submission_saves_cohort_permit_and_both_identity_sides(client,monkeypatch):

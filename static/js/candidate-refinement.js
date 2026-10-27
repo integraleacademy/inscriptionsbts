@@ -40,6 +40,7 @@
   const error = $('student-message-error'), success = $('student-message-success');
   const initialSubject = 'Intégrale Academy — Votre inscription en BTS ' + sheet.dataset.course;
   const drafts = {email: {subject: initialSubject, body: '', files: []}, sms: {subject: '', body: '', files: []}};
+  let accessTemplate = false;
   let channel = 'email', files = [], previewToken = '', busy = false, lastOpener = null;
   const basePath = '/admin/candidat/' + encodeURIComponent(sheet.dataset.candidateId);
   const report = message => { error.textContent = message; error.hidden = !message; };
@@ -74,6 +75,7 @@
   function switchChannel(next, save = true) {
     if (busy) return;
     if (save) remember();
+    accessTemplate = false;
     channel = next === 'sms' ? 'sms' : 'email';
     const mail = channel === 'email', draft = drafts[channel];
     dialog.dataset.channel = channel;
@@ -109,6 +111,7 @@
   function payload() {
     const data = new FormData();
     data.append('type', channel); data.append('subject', channel === 'email' ? subject.value : '');
+    if (accessTemplate && channel === 'email') data.append('template', 'student_access');
     data.append('body', body.value); data.append('csrf_token', sheet.dataset.messageCsrf);
     if (channel === 'email') files.forEach(file => data.append('attachment', file, file.name));
     if (previewToken) data.append('preview_token', previewToken);
@@ -123,6 +126,12 @@
   document.querySelectorAll('[data-compose]').forEach(button => button.addEventListener('click', () => {
     lastOpener = button;
     switchChannel(button.dataset.compose, false);
+    if (button.hasAttribute('data-access-message')) {
+      accessTemplate = true;
+      subject.value = 'Votre espace étudiant Intégrale Academy vous attend';
+      body.value = 'Bonjour,\n\nRetrouvez votre planning, vos cours, vos notes, le suivi de vos absences et les informations de votre entreprise dans votre espace étudiant.\n\nPour vous connecter, utilisez votre adresse e-mail (' + sheet.dataset.email + ') ou votre nom de famille, puis votre mot de passe personnel.\n\nPremière connexion : votre mot de passe initial est votre date de naissance au format JJMMAAAA. Vous serez invité à le remplacer par un mot de passe personnel. Si vous l’avez déjà changé, utilisez le mot de passe que vous avez choisi.\n\nMot de passe oublié ? Cliquez sur « Mot de passe oublié » sur la page de connexion.\n\nÀ très bientôt,\nL’équipe Intégrale Academy';
+      files = []; renderFiles(); count(); invalidatePreview();
+    }
     dialog.showModal();
     (channel === 'email' ? subject : body).focus();
   }));

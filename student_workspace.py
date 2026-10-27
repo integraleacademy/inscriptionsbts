@@ -341,7 +341,7 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
 
     def page(template, **context):
         return private(render_template(template, reasons=REASON_MAP, reason_groups=REASON_GROUPS, states=STATES,
-                                       guide_url=GUIDE_URL, law_url=LAW_URL, **context))
+                                       guide_url=('/admin/assiduite/guide' if request.path.startswith('/admin') else '/espace/absences/guide'), law_url=LAW_URL, **context))
 
     def evidence_context(conn, event, submission, identity=None):
         files = [dict(r) for r in conn.execute('SELECT id,filename,size FROM absence_files WHERE request_id=? ORDER BY created_at,id', (submission['id'],))] if submission else []
@@ -350,6 +350,16 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
         events = submission_events(conn,submission,identity) if submission else [event]
         return dict(event=event, events=events, group_versions={e['id']:e['version'] for e in events},
                     submission=submission, files=files, history=history, state=state, state_label=state_label)
+
+    @app.get('/espace/absences/guide')
+    @student_required
+    def student_absence_guide(identity):
+        return page('absence_guide.html', title='Motifs et justificatifs · Intégrale Academy', guide_admin=False)
+
+    @app.get('/admin/assiduite/guide')
+    def admin_absence_guide():
+        if not require_admin(): abort(403)
+        return page('absence_guide.html', title='Motifs et justificatifs · Administration', guide_admin=True)
 
     @app.get('/espace/absences')
     @student_required
@@ -461,7 +471,7 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
         with closing(connect()) as conn:
             rows = [dict(r) for r in conn.execute('''SELECT r.id,r.attendance_id,r.status,r.reason,r.submitted_at,
                 MIN(a.date) AS date,MAX(a.date) AS end_date,COUNT(*) AS event_count,
-                a.kind,c.nom,c.prenom,c.bts FROM absence_requests r
+                a.kind,c.nom,c.prenom,c.mode,c.bts FROM absence_requests r
                 JOIN absence_request_events l ON l.request_id=r.id
                 JOIN student_attendance a ON a.id=l.attendance_id AND a.candidate_id=l.candidate_id AND a.deleted=0
                 JOIN candidats c ON c.id=r.candidate_id GROUP BY r.id ORDER BY r.submitted_at DESC''')]

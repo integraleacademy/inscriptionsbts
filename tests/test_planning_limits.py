@@ -338,7 +338,7 @@ def legacy_planning(tmp_path):
             INSERT INTO planning_rooms VALUES('legacy-room','Salle historique',1);
             INSERT INTO planning_subjects VALUES('legacy-subject','legacy-promotion','Matière historique','default-teacher','#445566',NULL);
             INSERT INTO planning_calendar_rules VALUES('legacy-rule','legacy-promotion','2027-01-01','2027-03-31','[0,1,2,3,4]','school','École');
-            INSERT INTO planning_courses VALUES('legacy-course','legacy-promotion','legacy-subject','actual-teacher','legacy-room','2027-01-04',540,660,'Cours historique',5,'old-created','old-updated');
+            INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,room_id,date,start_min,end_min,title,version,created_at,updated_at) VALUES('legacy-course','legacy-promotion','legacy-subject','actual-teacher','legacy-room','2027-01-04',540,660,'Cours historique',5,'old-created','old-updated');
         ''')
         conn.execute("INSERT INTO promotions VALUES('legacy-promotion','Promotion historique','MCO',1,2026,'2027-01-01','2027-03-31',1,0,'old-created','old-updated')")
         for tid in ('default-teacher', 'actual-teacher'):

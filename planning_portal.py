@@ -144,7 +144,11 @@ def _courses(conn, role, identity_id, promotions, start, end, now=None):
         groups = [group for group in course.get('groups') or [] if group.get('promotion_id') in allowed]
         if not groups:
             continue
-        courses.append(_course_dto(course, groups, role, now))
+        item = _course_dto(course, groups, role, now)
+        if role == 'student':
+            from student_course_details import student_details
+            item.update(student_details(conn, identity_id, course))
+        courses.append(item)
     return courses
 
 

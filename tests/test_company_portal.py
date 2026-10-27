@@ -46,10 +46,11 @@ def env(tmp_path, monkeypatch):
                          (cid,'Entreprise '+str(n),'Contact '+str(n),'contact'+str(n)+'@example.test',generate_password_hash(PASSWORD),'now','now'))
             conn.execute('INSERT INTO company_students VALUES(?,?,?,?,?,?)', ('s'+str(n),cid,'2026-10-01','2027-06-30','Tuteur '+str(n),'link-v1'))
             conn.execute('INSERT INTO planning_subjects VALUES(?,?,?,?,?,?)', ('subject'+str(n),'p'+str(n),'Matière '+str(n),'t1','#1255aa',20))
-            conn.execute('INSERT INTO planning_courses VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', ('course'+str(n),'p'+str(n),'subject'+str(n),'t1',None,'2026-10-19',510,750,'Cours '+str(n),1,'now','now'))
+            conn.execute('INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,room_id,date,start_min,end_min,title,version,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)', ('course'+str(n),'p'+str(n),'subject'+str(n),'t1',None,'2026-10-19',510,750,'Cours '+str(n),1,'now','now'))
             conn.execute('INSERT INTO planning_course_groups VALUES(?,?,?)', ('course'+str(n),'p'+str(n),'subject'+str(n)))
             conn.execute('INSERT INTO student_attendance(id,candidate_id,date,start_min,end_min,kind,justification,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?)',
                          ('a'+str(n),'s'+str(n),'2026-10-20',510,600,'absence','pending','now','now'))
+        conn.execute("ALTER TABLE candidats ADD COLUMN mode TEXT NOT NULL DEFAULT 'presentiel'")
     mails = []
     def send(*args):
         mails.append(args)

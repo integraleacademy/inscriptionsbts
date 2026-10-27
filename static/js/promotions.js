@@ -40,7 +40,7 @@
       state.textContent = promotion.active ? (promotion.needs_setup ? 'À compléter' : 'Promotion active') : 'Promotion archivée';
       state.className = 'promotion-state ' + (!promotion.active ? 'archived' : promotion.needs_setup ? 'setup' : 'active');
       $('promotion-toggle').textContent = promotion.active ? 'Archiver la promotion' : 'Réactiver la promotion';
-      $('promotion-students-link').href = '/admin?' + new URLSearchParams({bts: promotion.bts, rentree: promotion.rentree_annee});
+      $('promotion-students-link').href = '/admin/inscriptions?' + new URLSearchParams({promotion: promotion.id});
       $('promotion-trainers-link').href = '/admin/formateurs?' + new URLSearchParams({promotion: promotion.id});
     }
     updateActions(); dialog.showModal(); form.elements.nom.focus();

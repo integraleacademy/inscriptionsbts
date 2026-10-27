@@ -262,7 +262,7 @@ def test_batch_internal_conflicts_cannot_be_bypassed_by_forged_selection(client,
     setup_school(client);source=add(client)
     # A migrated inconsistent source range must not be reproduced by trusting preview checkboxes.
     with db() as conn:
-        conn.execute('INSERT INTO planning_courses SELECT ?,promotion_id,subject_id,trainer_id,room_id,date,start_min+30,end_min+30,title,version,created_at,updated_at FROM planning_courses WHERE id=?',('legacy-overlap',source['id']))
+        conn.execute('INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,room_id,date,start_min,end_min,title,version,created_at,updated_at) SELECT ?,promotion_id,subject_id,trainer_id,room_id,date,start_min+30,end_min+30,title,version,created_at,updated_at FROM planning_courses WHERE id=?',('legacy-overlap',source['id']))
     preview=call(client,'/courses/preview',dict(promotion_id='p1',mode='duplicate',source_start='2027-01-04',source_end='2027-01-04',target_start='2027-01-11')).json
     assert all(not row['valid'] for row in preview['items'])
     response=call(client,'/courses/batch',dict(preview_token=preview['preview_token'],selected_keys=['0','1']))
@@ -562,3 +562,21 @@ def test_course_loader_trainer_filter_intersects_promotion_scope(client, db):
         assert [item['id'] for item in planning._load_courses(conn, trainer_id='t2')] == [second['id']]
         assert [item['id'] for item in planning._load_courses(conn, promotion_id='p2', trainer_id='t1')] == [first['id']]
         assert planning._load_courses(conn, promotion_id='p2', trainer_id='t2') == []
+
+
+def test_zoom_belongs_to_saved_course_and_is_not_duplicated(client,db):
+    setup_school(client)
+    source=add(client,zoom_url='https://school.zoom.us/j/123?pwd=secret')
+    assert source['zoom_url']=='https://school.zoom.us/j/123?pwd=secret'
+    changed=call(client,'/courses/'+source['id'],{'version':source['version'],'title':'Nouveau titre'},method='PUT')
+    assert changed.status_code==200 and changed.json['course']['zoom_url']==source['zoom_url']
+    preview=call(client,'/courses/preview',dict(promotion_id='p1',mode='duplicate',source_start='2027-01-04',source_end='2027-01-04',target_start='2027-01-11')).json
+    result=call(client,'/courses/batch',dict(preview_token=preview['preview_token'],selected_keys=['0']))
+    assert result.status_code==200
+    with db() as conn:
+        assert conn.execute("SELECT zoom_url FROM planning_courses WHERE date='2027-01-11'").fetchone()[0]==''
+        planning.ensure_planning_schema(conn)
+        planning.ensure_planning_schema(conn)
+        assert conn.execute('SELECT zoom_url FROM planning_courses WHERE id=?',(source['id'],)).fetchone()[0]==source['zoom_url']
+    invalid=call(client,'/courses',course(date='2027-01-05',zoom_url='https://zoom.us.example.test/j/123'))
+    assert invalid.status_code==400

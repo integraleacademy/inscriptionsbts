@@ -27,7 +27,7 @@
         <td style="padding:8px;">{{ r.prenom }}</td>
         <td style="padding:8px;">{{ r.email }}</td>
         <td style="padding:8px;">{{ r.tel }}</td>
-        <td style="padding:8px;">{{ r.bts }}</td>
+        <td style="padding:8px;">{{ r.bts }}<br>{{ study_mode(r.mode) }}</td>
 
         <td style="padding:8px;">
           {% if r.updated_at %}

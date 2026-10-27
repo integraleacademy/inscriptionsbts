@@ -3,6 +3,7 @@
     {% if is_admin %}<button type="button" class="menu-toggle" aria-controls="workspace-sidebar" aria-expanded="true" aria-label="Réduire le menu" title="Réduire le menu">{{ icon('menu') }}</button>{% endif %}
     <a href="{{ '/espace/mon-dossier' if has_student_navigation else '/' }}" class="academy-header-brand" aria-label="Intégrale Academy — Accueil">{{ academy_logo() }}</a>
   </div>
+  {% if is_admin %}<div class="global-search" data-global-search><label class="sr-only" for="global-search-input">Rechercher un étudiant ou une fonction</label><input id="global-search-input" type="search" autocomplete="off" placeholder="Rechercher un étudiant, une fonction…" aria-controls="global-search-results" aria-expanded="false"><kbd>⌘ K</kbd><div id="global-search-results" class="global-search-results" hidden><p data-search-status role="status"></p><div data-search-items></div></div></div>{% endif %}
   <div class="academy-header-actions">
     {% if is_admin %}<a class="academy-preview-link" href="/candidature?preview=1" target="_blank" rel="noopener">Aperçu de l’inscription ↗</a>{% endif %}
     {% if has_student_navigation %}<span class="sw-kicker">ESPACE ÉTUDIANT</span>{% else %}

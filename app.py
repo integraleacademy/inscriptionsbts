@@ -963,6 +963,7 @@ def admin_reprendre_plus_tard():
             "email": email,
             "tel": form.get("tel", "—"),
             "bts": form.get("bts", "—"),
+            "mode": form.get("mode", ""),
             "updated_at": d.get("timestamp", "—"),
             "resume_link": d.get("resume_link", "#"),
             "deja_inscrit": deja_inscrit   # 👈 Pour afficher ✔️ / ❌
@@ -1075,6 +1076,10 @@ from teaching import register_teaching
 register_teaching(app, db, lambda: UPLOAD_DIR, require_admin)
 from student_workspace import register_student_workspace, student_home_summary
 register_student_workspace(app, db, lambda: UPLOAD_DIR, require_admin)
+from campus_admin import register_campus_admin, sheet_context, ENROLLED
+register_campus_admin(app, db, require_admin)
+from school_messaging import register_school_messaging
+register_school_messaging(app, db, require_admin, lambda *args: send_mail(*args, copy_admin=False), lambda *args: send_sms_brevo(*args))
 
 
 @app.route("/ouverture.ics")
@@ -1595,6 +1600,8 @@ def _admin_filtered_rows(args, *, admission_only=False):
             ok &= is_checked(row.get("label_cheque_ok", 0))
         return ok
 
+    if request.endpoint in {"admin", "admin_json", "admin_export_filtered_xlsx", "admin_export_csv", "admin_export_json"}:
+        rows = [r for r in rows if r.get("statut") not in ENROLLED]
     return [r for r in rows if match(r)]
 
 
@@ -1604,7 +1611,7 @@ def admin():
         return redirect(url_for("login"))
 
     rows = _admin_filtered_rows(request.args)
-    return render_template("admin.html", title="Plateforme de gestion des BTS", rows=rows, statuts=STATUTS + [EMPLOYMENT_STATUS])
+    return render_template("admin.html", title="Plateforme de gestion des BTS", rows=rows, statuts=[s for s in STATUTS + [EMPLOYMENT_STATUS] if s[0] not in ENROLLED])
 
 
 @app.route("/admin/candidat/<cid>")
@@ -1614,6 +1621,7 @@ def admin_candidate_sheet(cid):
     with closing(db()) as conn:
         row = get_candidat(conn, cid)
         if row:
+            school_context = sheet_context(conn, cid)
             annotate_candidate_statuses(conn, [row])
             current_promotion = get_candidate_promotion(conn, cid)
             available_promotions = list_promotions(conn, bts=row.get('bts'), rentree_annee=candidate_year(row), active_only=True)
@@ -1621,7 +1629,7 @@ def admin_candidate_sheet(cid):
     year = candidate_year(row)
     columns = {"qualites": "projet_qualites", "motivation": "projet_motivation", "valeurs": "projet_recherche", "travail": "projet_travail"}
     profile_display = {g["name"]: [dict(g["options"]).get(v, v) for v in (parse_list(row.get(columns[g["name"]])) or [v.strip() for v in (row.get(columns[g["name"]]) or "").split(",") if v.strip()])] for g in PROFILE_GROUPS}
-    return render_template("candidate_sheet.html", current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
+    return render_template("candidate_sheet.html", **school_context, current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=f"{row.get('prenom', '')} {row.get('nom', '')} · Plateforme de gestion des BTS", row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
 
 
 @app.post("/admin/candidat/<cid>/informations")
@@ -1714,7 +1722,7 @@ def api_kpi():
         abort(403)
     stats = {key: 0 for key, _, _ in STATUTS + [EMPLOYMENT_STATUS]}
     for row in _admin_filtered_rows({"rentree": request.args.get("rentree", str(ADMISSION_YEAR))}):
-        if row.get("display_status") in stats:
+        if row.get("statut") not in ENROLLED and row.get("display_status") in stats:
             stats[row["display_status"]] += 1
     return jsonify(stats)
 
@@ -3423,7 +3431,7 @@ def _voyage_csrf():
     return bool(token and token == session.get("voyage_csrf"))
 
 def _voyage_rows(conn):
-    return [dict(r) for r in conn.execute("""SELECT v.*, c.nom, c.prenom, c.email, c.tel,
+    return [dict(r) for r in conn.execute("""SELECT v.*, c.nom, c.prenom, c.email, c.tel,c.mode,
       (SELECT COUNT(*) FROM voyage_londres_documents d WHERE d.inscription_id=v.id) document_count
       FROM voyage_londres_inscriptions v JOIN candidats c ON c.id=v.candidat_id
       ORDER BY CASE v.statut WHEN 'active' THEN 0 ELSE 1 END, c.nom COLLATE NOCASE, c.prenom COLLATE NOCASE""")]
@@ -3467,7 +3475,7 @@ def voyage_londres_search():
     q = re.sub(r"[\s\-]+", "", _normalize(request.args.get("q", "")).lower())
     if not q: return jsonify(ok=True, personnes=[])
     conn=db(); candidates=[]
-    for row in conn.execute("""SELECT c.id,c.nom,c.prenom,c.email,v.id inscription_id,v.statut
+    for row in conn.execute("""SELECT c.id,c.nom,c.prenom,c.email,c.mode,v.id inscription_id,v.statut
       FROM candidats c LEFT JOIN voyage_londres_inscriptions v ON v.candidat_id=c.id ORDER BY c.nom LIMIT 500"""):
         item=dict(row); hay=re.sub(r"[\s\-]+", "", _normalize((item['nom'] or '')+(item['prenom'] or '')).lower())
         if q in hay: candidates.append(item)

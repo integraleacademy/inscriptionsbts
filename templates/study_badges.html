@@ -1,0 +1,1 @@
+{% macro study_mode(mode) -%}{% set mode=(mode|default('',true)|string|lower)|replace('é','e') %}<span class="study-badge mode-{{ mode if mode in ['presentiel','distanciel'] else 'unknown' }}">{{ 'En présentiel' if mode == 'presentiel' else 'En distanciel' if mode == 'distanciel' else 'Modalité à préciser' }}</span>{%- endmacro %}

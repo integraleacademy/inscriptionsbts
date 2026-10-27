@@ -106,7 +106,7 @@ def ensure_company_schema(conn):
 
 def linked_students(conn, company_id):
     # A cancelled student is never exposed, even if a stale link remains.
-    return [dict(row) for row in conn.execute('''SELECT c.id,c.nom,c.prenom,c.bts,c.rentree_annee,
+    return [dict(row) for row in conn.execute('''SELECT c.id,c.nom,c.prenom,c.mode,c.bts,c.rentree_annee,
         s.start_date,s.end_date,s.tutor,p.nom AS promotion_name
         FROM company_students s JOIN candidats c ON c.id=s.candidate_id
         LEFT JOIN student_promotions sp ON sp.candidate_id=c.id
@@ -121,6 +121,8 @@ def scoped_week(conn, student, day):
     week = get_portal_week(conn, 'student', student['id'], day)
     def allowed(day):
         return day >= student['start_date'] and (not student['end_date'] or day <= student['end_date'])
+    for course in week['courses']:
+        course.pop('zoom_url', None)
     week['courses'] = [c for c in week['courses'] if allowed(c['date'])]
     for day in week['days']:
         if not allowed(day['date']):
@@ -133,7 +135,7 @@ def scoped_week(conn, student, day):
 
 def attendance_rows(conn, start, end, students=None):
     query = '''SELECT a.id,a.candidate_id,a.date,a.start_min,a.end_min,a.kind,a.justification,a.version,
-        c.nom,c.prenom,c.bts FROM student_attendance a JOIN candidats c ON c.id=a.candidate_id
+        c.nom,c.prenom,c.mode,c.bts FROM student_attendance a JOIN candidats c ON c.id=a.candidate_id
         WHERE a.deleted=0 AND a.date BETWEEN ? AND ?'''
     args = [start, end]
     if students is not None:
@@ -402,9 +404,9 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                     error = 'Cette adresse e-mail possède déjà un espace entreprise.'
                     conn.rollback()
             company = admin_company(conn, company_id)
-            students = [dict(row) for row in conn.execute('''SELECT c.id,c.nom,c.prenom,c.bts,c.statut,c.rentree_annee,s.start_date,s.end_date,s.tutor,s.updated_at
+            students = [dict(row) for row in conn.execute('''SELECT c.id,c.nom,c.prenom,c.mode,c.bts,c.statut,c.rentree_annee,s.start_date,s.end_date,s.tutor,s.updated_at
                 FROM company_students s JOIN candidats c ON c.id=s.candidate_id WHERE s.company_id=? ORDER BY c.nom,c.prenom''', (company_id,))]
-            available = [dict(row) for row in conn.execute('''SELECT c.id,c.nom,c.prenom,c.bts,c.rentree_annee FROM candidats c
+            available = [dict(row) for row in conn.execute('''SELECT c.id,c.nom,c.prenom,c.mode,c.bts,c.rentree_annee FROM candidats c
                 WHERE lower(trim(c.statut)) IN (?,?,?) AND NOT EXISTS (SELECT 1 FROM company_students s WHERE s.candidate_id=c.id)
                 ORDER BY c.nom,c.prenom''', STATUSES)]
         day = today().isoformat()
@@ -703,7 +705,7 @@ def register_company_portal(app, db_connect, send_mail, require_admin):
                 except ValueError as exc:
                     error = str(exc)
                     conn.rollback()
-            students = [dict(r) for r in conn.execute('SELECT id,nom,prenom,bts FROM candidats WHERE lower(trim(statut)) IN (?,?,?) ORDER BY nom,prenom', STATUSES)]
+            students = [dict(r) for r in conn.execute('SELECT id,nom,prenom,mode,bts FROM candidats WHERE lower(trim(statut)) IN (?,?,?) ORDER BY nom,prenom', STATUSES)]
             rows = attendance_rows(conn, start, end)
             selected = request.args.get('student', '')
             if selected:

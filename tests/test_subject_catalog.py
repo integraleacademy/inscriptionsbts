@@ -51,7 +51,7 @@ def test_migration_groups_same_subject_by_diploma_without_rewriting_history(clie
         conn.execute("UPDATE planning_subjects SET name='Culture générale' WHERE id IN ('s1','s2')")
         refs.save_details(conn, 's1', dict(coefficient=4, objectives='Programme MCO', source_url=refs.MOS_URL))
         refs.save_details(conn, 's2', dict(coefficient=3, objectives='Programme MOS'))
-        conn.execute("INSERT INTO planning_courses VALUES('history','p1','s1','t1',NULL,'2027-01-05',510,630,'Cours conservé',1,'now','now')")
+        conn.execute("INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,room_id,date,start_min,end_min,title,version,created_at,updated_at) VALUES('history','p1','s1','t1',NULL,'2027-01-05',510,630,'Cours conservé',1,'now','now')")
         conn.execute("INSERT INTO planning_course_groups VALUES('history','p1','s1')")
         before = {table: [tuple(row) for row in conn.execute('SELECT * FROM '+table+' ORDER BY 1')]
             for table in ['planning_subjects', 'planning_subject_details', 'planning_courses', 'planning_course_groups']}

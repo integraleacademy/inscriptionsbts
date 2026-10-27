@@ -69,6 +69,8 @@ def ensure_planning_schema(conn):
         if not conn.execute('SELECT 1 FROM planning_migrations WHERE name=?',('shared_courses_v1',)).fetchone():
             conn.execute('INSERT OR IGNORE INTO planning_course_groups(course_id,promotion_id,subject_id) SELECT id,promotion_id,subject_id FROM planning_courses')
             conn.execute('INSERT INTO planning_migrations(name) VALUES(?)',('shared_courses_v1',))
+        if 'zoom_url' not in {r[1] for r in conn.execute('PRAGMA table_info(planning_courses)')}:
+            conn.execute("ALTER TABLE planning_courses ADD COLUMN zoom_url TEXT NOT NULL DEFAULT ''")
         subject_references.schema(conn)
         subject_catalog.schema(conn)
         planning_years.schema(conn)
@@ -391,7 +393,12 @@ def _course(conn,data,existing=None):
     if room_id and not conn.execute('SELECT 1 FROM planning_rooms WHERE id=? AND active=1',(room_id,)).fetchone():raise PlanningError('Choisissez une salle active.')
     day=_iso(merged.get('date'));start=_minutes(merged.get('start'));end=_minutes(merged.get('end'),end=True)
     if end<=start:raise PlanningError('L’heure de fin doit être postérieure à l’heure de début.')
-    return dict(promotion_id=promotion_id,subject_id=subject['id'],trainer_id=trainer_id,room_id=room_id,date=day.isoformat(),
+    from student_course_details import zoom_url
+    try:
+        meeting = zoom_url(merged.get('zoom_url'))
+    except ValueError as error:
+        raise PlanningError(str(error)) from None
+    return dict(zoom_url=meeting,promotion_id=promotion_id,subject_id=subject['id'],trainer_id=trainer_id,room_id=room_id,date=day.isoformat(),
                 start=_clock(start),end=_clock(end),start_min=start,end_min=end,title=_text(merged.get('title',''),'le titre du cours',160),
                 groups=groups,shared=[dict(promotion_id=g['promotion_id'],subject_id=g['subject_id']) for g in groups[1:]],
                 promotion_ids=[g['promotion_id'] for g in groups],is_shared=len(groups)>1)
@@ -568,6 +575,7 @@ def register_planning(app,db_connect,require_admin):
         else:
             course_id=secrets.token_urlsafe(24)
             conn.execute('INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,room_id,date,start_min,end_min,title,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)',(course_id,*(course[key] for key in ('promotion_id','subject_id','trainer_id','room_id','date','start_min','end_min','title')),now,now))
+        conn.execute('UPDATE planning_courses SET zoom_url=? WHERE id=?',(course.get('zoom_url',''),course_id))
         conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course_id,))
         conn.executemany('INSERT INTO planning_course_groups(course_id,promotion_id,subject_id) VALUES(?,?,?)',[(course_id,g['promotion_id'],g['subject_id']) for g in _groups(course)])
         return course_id

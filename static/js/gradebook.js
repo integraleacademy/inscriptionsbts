@@ -129,7 +129,7 @@
     if (!item.students.length) rows.append(el('p','Aucun étudiant confirmé dans cette promotion.','teach-empty'));
     item.students.forEach(student => {
       const grade = item.grades.find(g => g.candidate_id === student.id), row = el('div',undefined,'teach-grade-row'); row.dataset.gradeStudent = student.id;
-      const name = el('strong', student.prenom + ' ' + student.nom.toUpperCase()); name.append(el('small', student.promotion_name));
+      const name = el('strong', student.prenom + ' ' + student.nom.toUpperCase()); name.append(el('small', student.promotion_name)); name.append(el('span', student.mode === 'presentiel' ? 'En présentiel' : student.mode === 'distanciel' ? 'En distanciel' : 'Modalité à préciser', 'study-badge mode-' + (['presentiel','distanciel'].includes(student.mode) ? student.mode : 'unknown')));
       const statusLabel = el('label','Statut'), status = el('select'); status.dataset.gradeStatus = '';
       [['pending','Non noté'],['graded','Noté'],['absent','Absent'],['exempt','Dispensé']].forEach(([value,label]) => option(status,value,label)); status.value = grade?.status || 'pending'; statusLabel.append(status);
       const scoreLabel = el('label','Sur ' + numeric(item.scale)), score = el('input'); score.type = 'number'; score.min = '0'; score.max = item.scale; score.step = '.01'; score.dataset.gradeScore = ''; score.value = grade?.score ?? ''; scoreLabel.append(score);

@@ -113,15 +113,25 @@ def _payload(row, data):
     recipient = _recipient(row, kind)
     envelope = dict(type=kind, recipient=recipient, subject=subject, body=body,
                     attachments=[(name, hashlib.sha256(content).hexdigest()) for name, content in attachments])
+    if data.get('template') == 'student_access' and kind == 'email':
+        from branded_email import DEFAULT_BASE
+        import os
+        envelope['template'] = 'student_access'
+        envelope['action_url'] = os.getenv('BASE_URL', DEFAULT_BASE).rstrip('/') + '/espace/connexion'
     digest = _hash(json.dumps(envelope, sort_keys=True, ensure_ascii=False))
     return envelope, attachments, digest
 
 
 def _email_html(envelope):
     paragraphs = ['<p>' + escape(part).replace('\n', '<br>') + '</p>' for part in envelope['body'].split('\n\n')]
-    return render_template('email_base.html',
-                           logo_url='https://inscriptionsbts.onrender.com/static/academy-official-logo.png',
-                           email_title=envelope['subject'], email_content=''.join(paragraphs), official_brand=True)
+    from branded_email import render_branded_email
+    access = envelope.get('template') == 'student_access'
+    return render_branded_email(envelope['subject'], ''.join(paragraphs),
+        eyebrow='INTÉGRALE ACADEMY · VOTRE ESPACE ÉTUDIANT' if access else 'INTÉGRALE ACADEMY · À VOS CÔTÉS',
+        accent_title='Votre école, à portée de main.' if access else 'Gardons le lien.',
+        action_url=envelope.get('action_url'), action_label='Accéder à mon espace étudiant' if access else None,
+        security_note='Votre mot de passe personnel reste inchangé. Ne partagez jamais vos identifiants.' if access else None)
+
 
 
 def register_candidate_messages(app, db_connect, send_mail, send_sms, log_event):

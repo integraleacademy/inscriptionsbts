@@ -79,19 +79,22 @@ def test_directory_kpi_and_api_use_display_status_while_campaign_keeps_admission
     import candidate_statuses
     original = candidate_statuses.annotate_candidate_statuses
     monkeypatch.setattr(application, 'annotate_candidate_statuses', lambda conn, rows: original(conn, rows, TODAY))
-    seed(2026,'employed'); seed(2026,'confirmed'); auth(client)
+    seed(2026,'employed'); seed(2026,'confirmed'); seed(2026,'employed-applicant','validee'); auth(client)
     with application.db() as conn:
         ensure_wedof(conn)
         payload = dict(state='accepted',employer_name='Entreprise Exemple',contract_start='2026-09-01',contract_end='2028-08-31')
         conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)', ('101','employed',json.dumps(payload),0,'now'))
+        conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)', ('102','employed-applicant',json.dumps(payload),0,'now'))
         conn.commit()
     employed = client.get('/admin?rentree=2026&statut=en_entreprise')
     assert employed.status_code == 200
-    assert 'data-id="employed"' in employed.text and 'data-id="confirmed"' not in employed.text
-    confirmed = client.get('/admin?rentree=2026&statut=confirmee')
-    assert 'data-id="confirmed"' in confirmed.text and 'data-id="employed"' not in confirmed.text
+    assert 'data-id="employed-applicant"' in employed.text
+    assert 'data-id="employed"' not in employed.text and 'data-id="confirmed"' not in employed.text
+    confirmed = client.get('/admin/inscriptions?rentree=2026')
+    assert 'data-enrollment-id="confirmed"' in confirmed.text and 'data-enrollment-id="employed"' in confirmed.text
+    assert 'data-enrollment-id="employed-applicant"' not in confirmed.text and 'En entreprise' in confirmed.text
     counts = client.get('/api/kpi?rentree=2026').json
-    assert counts['en_entreprise'] == 1 and counts['confirmee'] == 1
+    assert counts['en_entreprise'] == 1 and counts['confirmee'] == 0
     row = client.get('/admin/row/employed').json['row']
     assert row['display_status'] == 'en_entreprise' and row['statut'] == 'confirmee'
     with application.app.test_request_context('/?rentree=2026'):
