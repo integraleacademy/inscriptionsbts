@@ -15,6 +15,8 @@
   const changed = () => window.dispatchEvent(new CustomEvent('academy:rooms-changed', {detail: {origin: 'calendar'}}));
   let rooms = [], sessions = [], sequence = 0, fingerprint = '', lastSync = 0, sessionsPromise = null;
   let multiple = false, moving = [], editingBlock = null;
+  let dragging = null, dragBusy = false, pointerHeld = false, refreshAfterDrag = false, syncAfterDrag = false, suppressClickUntil = 0;
+  let reservations = [];
   const selection = new Map();
   const moveDialog = $('rooms-course-dialog'), moveForm = $('rooms-course-form');
   const blockDialog = $('rooms-unavailable-dialog'), blockForm = $('rooms-unavailable-form');
@@ -85,7 +87,7 @@
     }
   }
   function render(result, start) {
-    rooms = result.rooms; roomOptions(form.elements.room_id);
+    rooms = result.rooms; reservations = result.reservations; roomOptions(form.elements.room_id);
     table.replaceChildren();
     const head = node('thead'), header = node('tr'); header.append(node('th', 'Salle'));
     for (let i = 0; i < 7; i++) header.append(node('th', label(add(start, i))));
@@ -94,21 +96,30 @@
       const row = node('tr'), heading = node('th', room.name + (room.active ? '' : ' · inactive')); heading.scope = 'row'; row.append(heading);
       for (let i = 0; i < 7; i++) {
         const cell = node('td'), day = add(start, i);
+        cell.dataset.roomId = room.id || ''; cell.dataset.date = day;
         const bookings = result.reservations.filter(b => b.room_id === room.id && b.date === day).sort((a, b) => a.start_min - b.start_min);
         for (const b of bookings) {
           const formation = ['A3P', 'APS', 'DESP', 'SSIAP', 'BTS', 'UNAVAILABLE'].includes(b.formation) ? b.formation.toLowerCase() : 'other';
-          const card = node('button', undefined, 'room-booking ' + b.source + ' formation-' + formation + (b.conflict ? ' conflict' : ''));
+          const card = node('button', undefined, 'room-booking ' + b.source + ' formation-' + formation + (b.conflict ? ' conflict' : '') + (b.exam ? ' room-exam' : ''));
           card.type = 'button'; card.dataset.key = b.key;
+          card.draggable = b.source !== 'unavailable' && !b.pending;
+          if (card.draggable) {
+            card.setAttribute('aria-describedby', 'rooms-drag-help');
+            card.addEventListener('dragstart', event => startDrag(event, b, card));
+            card.addEventListener('dragend', endDrag);
+          }
           const action = b.source === 'unavailable' ? 'Modifier l’indisponibilité' : 'Changer la salle';
-          card.setAttribute('aria-label', action + ' · ' + b.title + ' · ' + label(b.date) + ' · ' + b.start + '–' + b.end);
+          card.setAttribute('aria-label', (b.exam ? 'EXAMEN · ' : '') + action + ' · ' + b.title + ' · ' + label(b.date) + ' · ' + b.start + '–' + b.end);
+          if (b.exam) card.append(node('span', 'EXAMEN', 'room-exam-badge'));
           card.append(node('strong', b.start === '00:00' && b.end === '24:00' ? 'Journée entière' : b.start + '–' + b.end), node('span', b.title));
           if (b.source === 'session') card.append(node('small', 'Présentiel : ' + frenchDate(b.presence_start)));
           else if (b.promotion_name) card.append(node('small', b.promotion_name));
-          if (b.exam) card.append(node('b', b.exam_full_day ? 'EXAMEN · journée réservée' : 'EXAMEN'));
+          if (b.exam_full_day) card.append(node('b', 'Journée réservée pour l’examen'));
           if (b.conflict) card.append(node('b', '⚠ Chevauchement à corriger'));
           if (b.pending) card.append(node('small', 'Réservation en cours de confirmation'));
           card.append(node('small', action));
           card.addEventListener('click', () => {
+            if (dragging || dragBusy || Date.now() < suppressClickUntil) return;
             if (b.source === 'unavailable') return openBlock(b);
             if (b.pending) return error('rooms-error', 'Ce créneau attend une confirmation de la session. Réessayez après l’actualisation.');
             if (multiple) { selection.has(b.key) ? selection.delete(b.key) : selection.set(b.key, b); updateSelection(); }
@@ -132,6 +143,7 @@
     $('rooms-status').classList.toggle('rooms-error', Boolean(conflicts || (result.connected && !result.ready)));
   }
   async function load(forceSync = false) {
+    if (pointerHeld || dragging || dragBusy) { refreshAfterDrag = true; syncAfterDrag ||= forceSync; return; }
     const dateDisplay = $('rooms-date-display');
     if (!dateDisplay.validity.valid || (document.activeElement === dateDisplay && !dateDisplay.value)) return;
     const seq = ++sequence, start = monday($('rooms-date').value || today()); $('rooms-date').value = start;
@@ -140,13 +152,104 @@
     table.setAttribute('aria-busy', 'true');
     try {
       const result = await request('/schedule?' + new URLSearchParams({start, end: add(start, 6), sync: sync ? '1' : '0'}));
-      if (seq !== sequence) return;
+      if (seq !== sequence || pointerHeld || dragging || dragBusy) return;
       error('rooms-error', result.sync_warning);
       const next = JSON.stringify(result);
       if (next !== fingerprint) { render(result, start); fingerprint = next; }
     } catch (e) { if (seq === sequence) error('rooms-error', e.message); }
     finally { if (seq === sequence) table.removeAttribute('aria-busy'); }
   }
+
+  function dragMessage(message, tone = '') {
+    const feedback = $('rooms-drag-status');
+    feedback.textContent = message; feedback.hidden = !message;
+    feedback.classList.toggle('is-error', tone === 'error');
+    feedback.classList.toggle('is-success', tone === 'success');
+  }
+  function dropTarget(cell) {
+    const booking = dragging?.booking;
+    const room = rooms.find(r => r.id && r.id === cell?.dataset.roomId);
+    if (!booking || !room?.active) return {message: 'Choisissez une salle active.'};
+    if (cell.dataset.date !== booking.date) return {message: 'Restez dans la colonne du ' + frenchDate(booking.date) + ' pour changer uniquement la salle.'};
+    if (room.id === booking.room_id) return {message: 'Ce créneau est déjà affecté à ' + room.name + '.'};
+    const occupied = reservations.find(r => r.key !== booking.key && r.room_id === room.id && r.date === booking.date && r.start_min < booking.end_min && r.end_min > booking.start_min);
+    if (occupied) return {message: room.name + ' indisponible sur ce créneau : ' + occupied.title + '.'};
+    return {room, message: 'Relâchez pour affecter « ' + booking.title + ' » à ' + room.name + ' · ' + frenchDate(booking.date) + ' · ' + booking.start + '–' + booking.end + '.'};
+  }
+  function clearDrag() {
+    dragging = null; pointerHeld = false; suppressClickUntil = Date.now() + 350;
+    table.classList.remove('is-dragging');
+    for (const element of table.querySelectorAll('.room-dragging, .room-drop-allowed, .room-drop-blocked, .room-drop-active')) {
+      element.classList.remove('room-dragging', 'room-drop-allowed', 'room-drop-blocked', 'room-drop-active');
+    }
+  }
+  function resumeRefresh() {
+    if (refreshAfterDrag && !pointerHeld && !dragging && !dragBusy) {
+      const sync = syncAfterDrag; refreshAfterDrag = syncAfterDrag = false; load(sync);
+    }
+  }
+  // A refresh must also wait between pressing the mouse and dragstart.
+  table.addEventListener('pointerdown', event => {
+    if (event.button !== 0 || event.pointerType === 'touch' || !event.target.closest?.('button[draggable=true]')) return;
+    pointerHeld = true; refreshAfterDrag = true; sequence++; table.removeAttribute('aria-busy');
+  });
+  for (const name of ['pointerup', 'pointercancel']) document.addEventListener(name, () => {
+    if (!pointerHeld) return;
+    pointerHeld = false; setTimeout(resumeRefresh, 0);
+  });
+  function startDrag(event, booking, card) {
+    if (dragBusy || !event.dataTransfer) { event.preventDefault(); return; }
+    dragging = {booking}; refreshAfterDrag = true;
+    // Invalidate an older fetch so polling cannot remove the card mid-drag.
+    sequence++; table.removeAttribute('aria-busy');
+    event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', booking.title);
+    table.classList.add('is-dragging'); card.classList.add('room-dragging');
+    for (const cell of table.querySelectorAll('td[data-room-id]')) {
+      if (cell.dataset.date === booking.date && cell.dataset.roomId !== (booking.room_id || '')) {
+        cell.classList.add(dropTarget(cell).room ? 'room-drop-allowed' : 'room-drop-blocked');
+      }
+    }
+    dragMessage('Déplacez « ' + booking.title + ' » vers une autre salle, dans la colonne du ' + frenchDate(booking.date) + '.');
+  }
+  function endDrag() {
+    if (!dragging) return;
+    const reason = dragging.rejection;
+    clearDrag(); dragMessage(reason || 'Déplacement annulé. Le créneau conserve sa salle.', reason ? 'error' : ''); resumeRefresh();
+  }
+  table.addEventListener('dragover', event => {
+    if (!dragging || dragBusy) return;
+    const cell = event.target.closest?.('td[data-room-id]');
+    if (!cell || !table.contains(cell)) return;
+    event.preventDefault();
+    for (const previous of table.querySelectorAll('.room-drop-active')) previous.classList.remove('room-drop-active');
+    const target = dropTarget(cell); event.dataTransfer.dropEffect = target.room ? 'move' : 'none';
+    dragging.rejection = target.room ? '' : target.message;
+    if (!target.room) cell.classList.add('room-drop-blocked');
+    cell.classList.add('room-drop-active'); dragMessage(target.message, target.room ? '' : 'error');
+  });
+  table.addEventListener('dragleave', event => {
+    const cell = event.target.closest?.('td[data-room-id]');
+    if (cell && !cell.contains(event.relatedTarget)) cell.classList.remove('room-drop-active');
+  });
+  table.addEventListener('drop', async event => {
+    if (!dragging || dragBusy) return;
+    const cell = event.target.closest?.('td[data-room-id]');
+    if (!cell || !table.contains(cell)) return;
+    event.preventDefault();
+    const booking = dragging.booking, target = dropTarget(cell); clearDrag();
+    if (!target.room) { dragMessage(target.message, 'error'); resumeRefresh(); return; }
+    dragBusy = true; table.setAttribute('aria-busy', 'true');
+    dragMessage('Vérification de la disponibilité de ' + target.room.name + '…');
+    try {
+      await request('/calendar-move', {room_id: target.room.id, slots: [{key: booking.key, date: booking.date,
+        version: booking.version, revision: booking.revision, room_version: booking.room_version}]});
+      for (const [key, item] of selection) if (key === booking.key || (booking.owner && item.owner === booking.owner)) selection.delete(key);
+      updateSelection();
+      dragMessage('« ' + booking.title + ' » affecté à ' + target.room.name + ' · ' + frenchDate(booking.date) + ' · ' + booking.start + '–' + booking.end + '.', 'success');
+      changed();
+    } catch (error) { dragMessage(error.message + '\nLe créneau n’a pas été déplacé.', 'error'); }
+    finally { dragBusy = false; table.removeAttribute('aria-busy'); resumeRefresh(); }
+  });
   function show(dialog) { dialog._opener = document.activeElement; dialog.showModal(); }
   async function dialogWork(dialog, errorId, operation) {
     if (dialog.dataset.busy) return;
