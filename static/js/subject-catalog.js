@@ -4,9 +4,10 @@
   const root = document.querySelector('.catalog-app[data-kind="subjects"]');
   if (!root) return;
   const $ = id => document.getElementById(id), form = $('catalog-form'), editor = $('catalog-editor'), confirm = $('catalog-confirm');
-  const state = {data: null, loading: true, sequence: 0, editing: null, drafts: {}, detail: ''};
+  const state = {data: null, loading: true, sequence: 0, editing: null, drafts: {}, detail: '', allocationDrafts: {}};
   const textFields = ['exam_unit', 'objectives', 'curriculum_topics', 'pedagogical_content', 'exam_format', 'review_note'];
-  const numberFields = ['coefficient', 'weekly_hours_first', 'weekly_hours_second'];
+  const numberFields = ['coefficient', 'weekly_hours_first', 'weekly_hours_second', 'annual_hours_first', 'annual_hours_second'];
+  const annualField = year => ({1: 'annual_hours_first', 2: 'annual_hours_second'})[year];
   const normal = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr');
   const node = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
   const safeColor = value => /^#[0-9a-f]{6}$/i.test(value || '') ? value : '#2563eb';
@@ -76,7 +77,10 @@
     for (const code of item.diploma_codes.filter(code => !filter || code === filter)) {
       const data = item.diploma_details[code] || {}, row = node('li');
       const info = [data.exam_unit, data.coefficient !== null && data.coefficient !== undefined ? 'Coefficient ' + number(data.coefficient) : 'Coefficient à renseigner', data.optional ? 'Facultative' : ''].filter(Boolean).join(' · ');
-      row.append(node('b', '', 'BTS ' + code), node('span', '', info)); curricula.append(row);
+      const description = node('span', '', info);
+      const volumes = [1, 2].map(year => (year === 1 ? '1re' : '2e') + ' année : ' + (data[annualField(year)] == null ? 'à renseigner' : number(data[annualField(year)]) + ' h'));
+      description.append(node('small', 'subject-annual-summary', volumes.join(' · ')));
+      row.append(node('b', '', 'BTS ' + code), description); curricula.append(row);
     }
     article.append(curricula, node('p', 'subject-catalog-use', item.planning_count ? 'Préparée dans ' + item.planning_count + ' planning' + (item.planning_count > 1 ? 's' : '') + '.' : 'Disponible pour les plannings des diplômes cochés.'));
     const actions = node('div', 'catalog-card-actions'), edit = node('button', 'catalog-button', 'Modifier la matière'); edit.type = 'button'; edit.dataset.catalogEdit = item.id;
@@ -123,6 +127,7 @@
     const item = state.drafts[state.detail] || {};
     for (const key of [...textFields, ...numberFields]) form.elements[key].value = item[key] ?? '';
     form.elements.optional.checked = !!item.optional;
+    renderAllocations(); alert('catalog-hours-status', '');
     const source = $('subject-reference-provenance'); source.replaceChildren(); source.hidden = !item.source_url;
     if (item.source_url) {
       try {
@@ -139,6 +144,36 @@
       } catch (_) { source.hidden = true; }
     }
   }
+  function allocations(code = state.detail) {
+    return (state.data?.subjects || []).filter(item => state.editing && item.catalog_subject_id === state.editing.id && item.diploma_code === code);
+  }
+  function renderAllocations() {
+    const items = allocations(), container = $('catalog-allocations'); container.replaceChildren();
+    $('catalog-allocation-section').hidden = !items.length;
+    $('catalog-apply-hours').disabled = !items.some(item => item.promotion_active && annualField(item.study_year));
+    for (const item of items) {
+      const row = node('div', 'subject-allocation'), description = node('div');
+      const period = [item.period_start, item.period_end].filter(Boolean).map(value => value.split('-').reverse().join('/')).join(' – ');
+      description.append(node('strong', '', item.promotion_name), node('small', '', 'Année ' + item.study_year + (period ? ' · ' + period : '') + (item.promotion_active ? '' : ' · Archivée')),
+        node('small', '', number(item.scheduled_hours) + ' h déjà planifiées'));
+      const label = node('label', 'catalog-field', 'Volume annuel · h'), input = node('input');
+      input.type = 'number'; input.min = String(Math.max(item.scheduled_hours || 0, 1 / 60)); input.max = '5000'; input.step = 'any';
+      input.value = state.allocationDrafts[item.id] ?? item.planned_hours ?? ''; input.dataset.allocationId = item.id;
+      input.disabled = !item.promotion_active; input.placeholder = 'À renseigner';
+      input.setAttribute('aria-label', 'Volume annuel · ' + item.promotion_name + ' · année ' + item.study_year);
+      input.addEventListener('input', () => { state.allocationDrafts[item.id] = input.value; alert('catalog-hours-status', ''); });
+      label.append(input); row.append(description, label); container.append(row);
+    }
+  }
+  $('catalog-apply-hours').addEventListener('click', () => {
+    saveDetail(); let count = 0;
+    for (const item of allocations()) {
+      const value = state.drafts[state.detail]?.[annualField(item.study_year)];
+      if (item.promotion_active && value != null && Number.isFinite(value) && value > 0) { state.allocationDrafts[item.id] = String(value); count++; }
+    }
+    renderAllocations();
+    alert('catalog-hours-status', count ? 'Volumes reportés dans ' + count + ' planning(s). Enregistrez les modifications pour les appliquer.' : 'Renseignez le volume de l’année concernée avant de l’appliquer.');
+  });
   function updateDiplomas() {
     saveDetail(); const codes = checkedCodes(), select = $('catalog-detail-diploma');
     if (!codes.includes(state.detail)) state.detail = codes.includes($('catalog-diploma-filter').value) ? $('catalog-diploma-filter').value : codes[0] || '';
@@ -147,7 +182,7 @@
   }
   function openEditor(item = null) {
     if (state.loading || !state.data) return;
-    state.editing = item; state.drafts = JSON.parse(JSON.stringify(item?.diploma_details || {})); state.detail = '';
+    state.editing = item; state.drafts = JSON.parse(JSON.stringify(item?.diploma_details || {})); state.detail = ''; state.allocationDrafts = {};
     form.reset(); alert('catalog-form-error', ''); $('catalog-delete').hidden = !item;
     $('catalog-editor-title').textContent = item ? 'Modifier la matière' : 'Ajouter une matière';
     $('catalog-save').textContent = item ? 'Enregistrer les modifications' : 'Créer la matière'; form.elements.name.value = item?.name || '';
@@ -160,7 +195,7 @@
     form.elements.color.querySelector('[data-existing-color]')?.remove();
     const color = safeColor(item?.color);
     if (![...form.elements.color.options].some(option => option.value === color)) { const option = new Option('Couleur actuelle', color); option.dataset.existingColor = '1'; form.elements.color.add(option); }
-    form.elements.color.value = color; updateDiplomas(); $('subject-reference-fields').open = true;
+    form.elements.color.value = color; updateDiplomas(); $('subject-reference-fields').open = false;
     show(editor); form.elements.name.focus();
   }
   $('catalog-detail-diploma').addEventListener('change', () => { saveDetail(); state.detail = $('catalog-detail-diploma').value; renderDetail(); });
@@ -171,7 +206,10 @@
     if (!form.reportValidity()) return; saveDetail(); busy(editor, true);
     try {
       const payload = {name: form.elements.name.value.trim(), color: form.elements.color.value, diploma_codes: codes,
-        diploma_details: Object.fromEntries(codes.map(code => [code, editable(state.drafts[code] || {})])), ...(state.editing ? {version: state.editing.version} : {})};
+        diploma_details: Object.fromEntries(codes.map(code => [code, editable(state.drafts[code] || {})])), ...(state.editing ? {version: state.editing.version} : {}),
+        planning_allocations: (state.data.subjects || []).filter(item => item.catalog_subject_id === state.editing?.id && item.promotion_active &&
+          Object.hasOwn(state.allocationDrafts, item.id) && (state.allocationDrafts[item.id] === '' ? null : Number(state.allocationDrafts[item.id])) !== item.planned_hours)
+          .map(item => ({id: item.id, previous_planned_hours: item.planned_hours, planned_hours: state.allocationDrafts[item.id] === '' ? null : Number(state.allocationDrafts[item.id])}))};
       const result = await api('/subject-catalog' + (state.editing ? '/' + encodeURIComponent(state.editing.id) : ''), state.editing ? 'PUT' : 'POST', payload);
       editor.close(); await load(result.message);
     } catch (error) { alert('catalog-form-error', error.message); }

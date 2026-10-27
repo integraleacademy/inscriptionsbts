@@ -78,7 +78,17 @@ Une matière possède une fiche commune et peut être rattachée à plusieurs di
 (par exemple MOS et MCO). La page **Matières** permet de rechercher, filtrer par
 diplôme et trier par nom, diplôme ou nombre de diplômes. Les coefficients,
 objectifs, contenus, horaires scolaires et sources sont enregistrés séparément
-pour chaque BTS dans la même fiche.
+pour chaque BTS dans la même fiche. Les champs **Volumes horaires annuels**
+permettent aussi d’enregistrer les heures de 1re et de 2e année pour chaque BTS.
+Ces valeurs facultatives préremplissent les nouvelles préparations du planning ;
+elles ne sont jamais calculées à partir des horaires hebdomadaires du référentiel.
+
+La fiche affiche les **Volumes des plannings existants**, modifiables par promotion
+et par année. Le bouton d’application reporte les valeurs annuelles dans ces
+champs, puis **Enregistrer les modifications** valide le tout. Un changement de
+valeur par défaut seul conserve les budgets propres aux promotions. Les volumes
+inférieurs aux cours déjà planifiés (y compris partagés), les modifications
+concurrentes et les promotions archivées sont refusés sans enregistrement partiel.
 
 Les tables `planning_subject_catalog` et `planning_subject_diplomas` portent ce
 catalogue. La migration regroupe les anciens libellés identiques, reprend leurs
@@ -89,7 +99,8 @@ formateurs, volumes annuels et cours sont inchangés. Une préparation reste pro
 à sa promotion, et n’est pas créée automatiquement à l’import d’un référentiel.
 
 Dans un planning, **Préparer une matière du catalogue** propose les matières du
-BTS de la promotion. Le formateur et le volume annuel se règlent ici, indépendamment
+BTS de la promotion. Le volume annuel est repris de la fiche pour l’année choisie ;
+il reste adaptable avec le formateur ici, indépendamment
 des autres promotions. Une matière utilisée dans un planning ne peut pas être
 supprimée du catalogue ni détachée du diplôme concerné.
 
@@ -120,7 +131,8 @@ retournée par la recherche ; les informations proposées restent à vérifier.
 L’aperçu permet de cocher/décocher les matières et de modifier leurs noms,
 coefficients, unités, objectifs, contenus, modalités d’examen et horaires
 hebdomadaires. Les épreuves facultatives et les doublons sont décochés par défaut.
-Les formateurs et volumes annuels se règlent dans chaque planning, après l’import.
+Les volumes annuels se complètent dans la fiche matière après l’import ; les
+formateurs se choisissent dans chaque planning.
 Les horaires scolaires ne sont jamais convertis en
 volumes annuels d’apprentissage. Les données sont ajoutées uniquement lors de la
 validation de la sélection, dans une transaction atomique et idempotente ; les

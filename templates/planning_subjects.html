@@ -3,7 +3,7 @@
 {% block body_class %}planning-catalog-page subjects-catalog-page{% endblock %}
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static',filename='css/subject-references.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static',filename='css/subject-catalog.css') }}?v=1">
+<link rel="stylesheet" href="{{ url_for('static',filename='css/subject-catalog.css') }}?v=2">
 {% endblock %}
 {% block content %}
 <div class="catalog-app" data-kind="subjects" data-csrf="{{ planning_csrf_token|default(csrf_token, true) }}" data-selected-diploma="{{ request.args.get('diploma','') }}" data-legacy-promotion="{{ selected_promotion|default('') }}" aria-busy="true">
@@ -37,10 +37,25 @@
     <fieldset class="subject-diplomas"><legend>Diplômes concernés</legend><p>Cochez un ou plusieurs BTS pour cette matière.</p><div id="catalog-diploma-choices"></div></fieldset>
     <label class="catalog-field">Repère visuel<select name="color"><option value="#2563eb">Bleu</option><option value="#0891b2">Turquoise</option><option value="#7c3aed">Violet</option><option value="#db2777">Rose</option><option value="#d97706">Ambre</option></select></label>
     <div id="catalog-diploma-programme" hidden>
-      <label class="catalog-field">Programme et examen pour<select id="catalog-detail-diploma"></select><small>Les coefficients, objectifs et contenus sont enregistrés séparément pour chaque diplôme.</small></label>
+      <label class="catalog-field">Volumes et programme pour<select id="catalog-detail-diploma"></select><small>Les volumes annuels et le programme sont enregistrés séparément pour chaque diplôme.</small></label>
+      <section class="subject-annual-hours" aria-labelledby="subject-annual-title">
+        <h3 id="subject-annual-title">Volumes horaires annuels</h3>
+        <p>Indiquez les heures prévues en centre pour chaque année. Elles seront proposées lors de la préparation d’un nouveau planning.</p>
+        <div class="catalog-form-row">
+          <label class="catalog-field">1re année · heures<input name="annual_hours_first" type="number" min="0.016666666666666666" max="5000" step="any" placeholder="Ex. 120"><small>Facultatif · à compléter selon votre formation</small></label>
+          <label class="catalog-field">2e année · heures<input name="annual_hours_second" type="number" min="0.016666666666666666" max="5000" step="any" placeholder="Ex. 100"><small>Facultatif · à compléter selon votre formation</small></label>
+        </div>
+        <div id="catalog-allocation-section" hidden>
+          <h4>Volumes des plannings existants</h4>
+          <p>Modifiez le volume de chaque promotion ici. Les heures déjà planifiées servent de minimum.</p>
+          <button type="button" class="catalog-button" id="catalog-apply-hours">Appliquer les volumes annuels aux plannings ci-dessous</button>
+          <p id="catalog-hours-status" role="status" aria-live="polite" hidden></p>
+          <div id="catalog-allocations"></div>
+        </div>
+      </section>
       {% include '_subject_detail_fields.html' %}
     </div>
-    <p class="catalog-edit-note">Les formateurs et volumes annuels se règlent lors de la préparation des matières dans chaque planning.</p>
+    <p class="catalog-edit-note">Les formateurs se choisissent lors de la préparation des matières dans chaque planning.</p>
     <p id="catalog-form-error" class="catalog-form-error" role="alert" hidden></p>
   </div><footer><button type="button" class="catalog-button danger" id="catalog-delete" hidden>Supprimer</button><button type="button" class="catalog-button" data-catalog-close>Annuler</button><button type="submit" class="catalog-button primary" id="catalog-save">Créer la matière</button></footer></form>
 </dialog>

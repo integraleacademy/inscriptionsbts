@@ -23,6 +23,7 @@ w.fetch=async(url,options={})=>{
  if(method==='PUT'){
   const item=catalog.subject_catalog.find(item=>url.endsWith('/'+item.id));
   assert.equal(payload.version,item.version);Object.assign(item,payload,{version:item.version+1});
+  for(const change of payload.planning_allocations||[])Object.assign(catalog.subjects.find(row=>row.id===change.id),{planned_hours:change.planned_hours});
  }
  if(method==='DELETE')return {ok:false,json:async()=>({ok:false,message:'Cette matière est préparée dans un planning.'})};
  return {ok:true,json:async()=>({ok:true,message:'Matière enregistrée.'})};
@@ -43,26 +44,40 @@ w.eval(fs.readFileSync('static/js/subject-catalog.js','utf8'));
  search('culture generale');assert.deepEqual(names(),['Culture générale']);
  search('BTS MCO');assert.deepEqual(names(),['Culture générale']);search('');
  $('catalog-sort').value='name-desc';change($('catalog-sort'));assert.deepEqual(names(),['Management','Culture générale']);
+ catalog.subjects=[
+  {id:'first',catalog_subject_id:'culture',diploma_code:'MOS',promotion_name:'MOS 2026–2028',promotion_active:1,study_year:1,planned_hours:40,scheduled_hours:10,period_start:'2026-09-01',period_end:'2027-07-01'},
+  {id:'second',catalog_subject_id:'culture',diploma_code:'MOS',promotion_name:'MOS 2026–2028',promotion_active:1,study_year:2,planned_hours:30,scheduled_hours:0},
+  {id:'archived',catalog_subject_id:'culture',diploma_code:'MOS',promotion_name:'MOS archive',promotion_active:0,study_year:1,planned_hours:20,scheduled_hours:20}
+ ];
  d.querySelector('[data-catalog-edit="culture"]').click();
  const form=$('catalog-form');assert(!form.elements.promotion_id&&!form.elements.trainer_id&&!form.elements.planned_hours);
  assert.equal($('catalog-detail-diploma').value,'MOS');assert.equal(form.elements.coefficient.value,'3');
  form.elements.coefficient.value='9';form.elements.objectives.value='Objectifs MOS modifiés';
+ form.elements.annual_hours_first.value='120';form.elements.annual_hours_second.value='80';$('catalog-apply-hours').click();
+ const allocation=id=>d.querySelector('[data-allocation-id="'+id+'"]');
+ assert.equal(allocation('first').value,'120');assert.equal(allocation('second').value,'80');
+ assert(allocation('archived').disabled);assert.equal(allocation('archived').value,'20');
+ allocation('first').value='125';allocation('first').dispatchEvent(new w.Event('input',{bubbles:true}));
  $('catalog-detail-diploma').value='MCO';change($('catalog-detail-diploma'));assert.equal(form.elements.coefficient.value,'4');
+ assert.equal(form.elements.annual_hours_first.value,'');assert($('catalog-allocation-section').hidden);form.elements.annual_hours_first.value='60';
  form.elements.coefficient.value='6';form.elements.objectives.value='Objectifs MCO modifiés';check('CI',true);
  $('catalog-detail-diploma').value='CI';change($('catalog-detail-diploma'));assert.equal(form.elements.coefficient.value,'');form.elements.coefficient.value='2';
  $('catalog-detail-diploma').value='MOS';change($('catalog-detail-diploma'));assert.equal(form.elements.coefficient.value,'9');
+ assert.equal(form.elements.annual_hours_first.value,'120');assert.equal(allocation('first').value,'125');
  submit();await wait();assert.equal(writes.length,1);
  const payload=writes[0].payload;assert.deepEqual([...payload.diploma_codes].sort(),['CI','MCO','MOS']);
  assert.equal(payload.diploma_details.MOS.coefficient,9);assert.equal(payload.diploma_details.MCO.coefficient,6);assert.equal(payload.diploma_details.CI.coefficient,2);
  assert.equal(payload.diploma_details.MOS.objectives,'Objectifs MOS modifiés');assert.equal(payload.diploma_details.MCO.objectives,'Objectifs MCO modifiés');
+ assert.equal(payload.diploma_details.MOS.annual_hours_first,120);assert.equal(payload.diploma_details.MOS.annual_hours_second,80);assert.equal(payload.diploma_details.MCO.annual_hours_first,60);
+ assert.deepEqual(payload.planning_allocations,[{id:'first',previous_planned_hours:40,planned_hours:125},{id:'second',previous_planned_hours:30,planned_hours:80}]);
  assert(!('promotion_id' in payload));assert(!$('catalog-editor').open);
  filter('');d.querySelector('[data-catalog-create]').click();form.elements.name.value='Nouvelle matière <img src=x onerror=alert(1)>';
  submit();await wait();assert.equal(writes.length,1);assert(!$('catalog-form-error').hidden);
  check('MOS',true);check('MCO',true);submit();await wait();assert.equal(writes.length,2);assert.equal(writes[1].method,'POST');
- assert.equal(d.querySelectorAll('#catalog-grid img').length,0);assert.equal(catalog.subjects.length,0);
+ assert.equal(d.querySelectorAll('#catalog-grid img').length,0);assert.equal(catalog.subjects.length,3);assert.deepEqual(writes[1].payload.planning_allocations,[]);
  filter('MCO');assert(names().includes('Nouvelle matière <img src=x onerror=alert(1)>'));filter('MOS');
  d.querySelector('[data-catalog-edit="management"]').click();$('catalog-delete').click();$('catalog-confirm-action').click();await wait();
  assert($('catalog-confirm').open);assert($('catalog-confirm-error').textContent.includes('planning'));
- console.log('PASS: diploma filters, accent search, sorting, multiple diploma choices, independent programmes, creation without promotions, safe text and protected deletion.');
+ console.log('PASS: diploma filters, independent programmes and annual defaults, explicit per-year budget edits, archived preservation, creation without allocations, safe text and protected deletion.');
  dom.window.close();
 })().catch(error=>{console.error(error);dom.window.close();process.exitCode=1});
