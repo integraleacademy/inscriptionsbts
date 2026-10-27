@@ -31,18 +31,29 @@
       card.append(node('strong', value), node('small', label)); return card;
     }));
   }
-  function correspondence(target, mapping, choices, label) {
-    $(target).replaceChildren(...Object.entries(mapping).map(([source, suggestion]) => {
-      const field = node('label', undefined, 'pi-map-row'), select = node('select');
-      field.append(node('span', source)); select.required = true; select.dataset.source = source;
-      select.append(new Option('Choisir ' + label, ''));
-      choices.forEach(c => select.append(new Option(c.name || [c.prenom, c.nom].filter(Boolean).join(' '), c.id)));
-      select.value = suggestion; field.append(select); return field;
+  function mappingField(source, kind, title, choices, suggestion, placeholder) {
+    const field = node('label', undefined, 'pi-map-field'), select = node('select');
+    field.append(node('span', title)); select.required = true; select.dataset.source = source; select.dataset.mapping = kind;
+    select.setAttribute('aria-label', title + ' · ' + source);
+    select.append(new Option(placeholder, ''));
+    choices.forEach(c => select.append(new Option(c.name || [c.prenom, c.nom].filter(Boolean).join(' '), c.id)));
+    select.value = suggestion || ''; field.append(select); return field;
+  }
+  function correspondences() {
+    $('pi-subjects').replaceChildren(...Object.entries(extracted.mappings.subjects).map(([source, suggestion]) => {
+      const row = node('div', undefined, 'pi-subject-row');
+      const trainers = [...new Set(extracted.document.rows.filter(r => r.subject_key === source).map(r => r.trainer))];
+      const subject = mappingField(source, 'subjects', source, extracted.subjects, suggestion, 'Choisir une matière de cette année');
+      const trainer = mappingField(source, 'subject_trainers', 'Formateur pour cette matière', extracted.trainers,
+        extracted.mappings.subject_trainers[source], 'Choisir un formateur');
+      trainer.append(node('small', 'Dans le PDF : ' + trainers.join(' · ')));
+      if (trainers.length > 1) trainer.append(node('small', 'Plusieurs formateurs dans le PDF : le choix ci-dessus les remplacera pour cette matière.', 'pi-map-notice'));
+      row.append(subject, trainer); return row;
     }));
   }
   function mapping() {
-    return Object.fromEntries(['subjects', 'trainers'].map(kind => [kind,
-      Object.fromEntries([...$('pi-' + kind).querySelectorAll('select')].map(n => [n.dataset.source, n.value]))]));
+    return Object.fromEntries(['subjects', 'subject_trainers'].map(kind => [kind,
+      Object.fromEntries([...$('pi-subjects').querySelectorAll('select[data-mapping="' + kind + '"]')].map(n => [n.dataset.source, n.value]))]));
   }
   function invalidate() { preview = null; $('pi-preview-section').hidden = true; $('pi-commit').disabled = true; }
   $('pi-upload-form').addEventListener('submit', async event => {
@@ -52,8 +63,7 @@
     busy(true); invalidate(); message('Lecture des pages et vérification des durées… Cela peut prendre quelques secondes.');
     try {
       extracted = await api('analyze', data); const doc = extracted.document;
-      correspondence('pi-subjects', extracted.mappings.subjects, extracted.subjects, 'une matière de cette année');
-      correspondence('pi-trainers', extracted.mappings.trainers, extracted.trainers, 'un formateur');
+      correspondences();
       $('pi-room').replaceChildren(new Option('Salle à compléter après l’import', ''), ...extracted.rooms.map(r => new Option(r.name, r.id)));
       stats('pi-document-summary', [[doc.rows.length, 'cours repérés'], [duration(doc.minutes), 'volume dans le PDF'], [doc.pages, 'semaines vérifiées'], [Object.keys(extracted.mappings.subjects).length, 'matières à associer']]);
       $('pi-source').textContent = 'Groupe du PDF : ' + doc.group + ' · Cours du ' + day(doc.first_date) + ' au ' + day(doc.last_date) + '.';

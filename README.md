@@ -475,6 +475,14 @@ sans écriture. Les matières tronquées et les initiales des formateurs font
 l’objet de correspondances à vérifier ; les matières de l’année et les formateurs
 affectés à la promotion doivent être préparés au préalable.
 
+Chaque matière du PDF dispose de son propre choix de formateur, sur la même
+ligne que la matière du planning. Ce choix s’applique à tous les cours importés
+de cette matière ; deux matières peuvent donc recevoir des formateurs différents
+même si elles partageaient un formateur dans Yparéo. Les noms du PDF restent
+visibles pour vérification. Si plusieurs formateurs sont repérés pour une même
+matière, aucun n’est présélectionné et l’écran signale leur remplacement par le
+formateur choisi. Les fiches matières existantes ne sont pas modifiées.
+
 L’analyse et l’aperçu n’ajoutent aucun cours. Le récapitulatif distingue les cours
 prêts, les doublons et les conflits. L’administrateur coche les cours à reprendre
 et confirme l’import. Les jours fériés, indisponibilités, réservations de salle,
