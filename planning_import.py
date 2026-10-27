@@ -48,7 +48,11 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None):
     promotion, period = _context(conn, source['promotion_id'], source['period_id'])
     if period['start_date'] != source['start_date'] or period['end_date'] != source['end_date']:
         raise p.PlanningError('Les dates de l’année ont changé. Analysez à nouveau le PDF.', status=409)
-    if not isinstance(mappings, dict) or any(not isinstance(mappings.get(key), dict) for key in ('subjects', 'trainers')):
+    if not isinstance(mappings, dict) or not isinstance(mappings.get('subjects'), dict):
+        raise p.PlanningError('Vérifiez les correspondances de matières et de formateurs.')
+    # Keep signed previews and pages opened before the per-subject UI usable.
+    trainer_key = 'subject_trainers' if 'subject_trainers' in mappings else 'trainers'
+    if not isinstance(mappings.get(trainer_key), dict):
         raise p.PlanningError('Vérifiez les correspondances de matières et de formateurs.')
     if not isinstance(school_days, bool):
         raise p.PlanningError('Confirmez le traitement des journées école.')
@@ -68,7 +72,8 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None):
     accepted, results, changed_days, calendar_before = [], [], {}, {}
     for row in rows:
         item = dict(row, status='blocked', issues=[])
-        sid, tid = mappings['subjects'].get(row['subject_key']), mappings['trainers'].get(row['trainer'])
+        sid = mappings['subjects'].get(row['subject_key'])
+        tid = mappings[trainer_key].get(row['subject_key'] if trainer_key == 'subject_trainers' else row['trainer'])
         try:
             planning_years.require_dates(period, row['date'])
             if not isinstance(sid, str) or not sid or not isinstance(tid, str) or not tid:
@@ -164,9 +169,14 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                 start_date=period['start_date'], end_date=period['end_date'], rows=document['rows'])
             source_subjects = sorted({r['subject_key'] for r in document['rows']})
             source_trainers = sorted({r['trainer'] for r in document['rows']})
+            trainer_matches = {t: suggest_trainer(t, trainers) for t in source_trainers}
+            subject_trainers = {}
+            for subject in source_subjects:
+                matches = {trainer_matches[r['trainer']] for r in document['rows'] if r['subject_key'] == subject}
+                subject_trainers[subject] = next(iter(matches)) if len(matches) == 1 else ''
             return result(document=document, source_token=sign(source, 'source'), subjects=subjects, trainers=trainers,
                 rooms=rooms, mappings=dict(subjects={s: suggest_subject(s, subjects) for s in source_subjects},
-                                          trainers={t: suggest_trainer(t, trainers) for t in source_trainers}))
+                                          subject_trainers=subject_trainers, trainers=trainer_matches))
         except p.PlanningError as error:
             return fail(error)
 

@@ -5,6 +5,7 @@ from io import BytesIO
 from unittest.mock import patch
 
 import pytest
+from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 
 import planning
@@ -77,9 +78,10 @@ def analyze(client, content=None, period='p1:1', **extra):
 
 
 def preview(client, token, **extra):
-    return call(client, '/import/preview', dict(source_token=token,
-        mappings=dict(subjects={'Matiere s1':'s1'},trainers={'M. NOM t1 P.':'t1'}),
-        room_id=None,school_days=True,**extra))
+    data = dict(source_token=token,
+        mappings=dict(subjects={'Matiere s1':'s1'},subject_trainers={'Matiere s1':'t1'}),
+        room_id=None,school_days=True)
+    return call(client, '/import/preview', dict(data, **extra))
 
 
 def commit(client, token, keys=None):
@@ -95,6 +97,7 @@ def test_analyze_and_preview_do_not_write_then_commit_adds_only_the_course_day(c
     extraction = analyze(client)
     assert extraction.status_code == 200, extraction.json
     assert extraction.json['mappings']['subjects']['Matiere s1'] == 's1'
+    assert extraction.json['mappings']['subject_trainers']['Matiere s1'] == 't1'
     assert count(db) == 0
     result = preview(client, extraction.json['source_token'])
     assert result.status_code == 200, result.json
@@ -138,7 +141,7 @@ def test_annual_isolation_and_wrong_year_subject(client, db):
     with db() as conn:
         sid = conn.execute("SELECT subject_id FROM planning_subject_periods WHERE period_id='p1:2' LIMIT 1").fetchone()[0]
     data = dict(source_token=extracted['source_token'],school_days=True,room_id=None,
-                mappings=dict(subjects={'Matiere s1':sid},trainers={'M. NOM t1 P.':'t1'}))
+                mappings=dict(subjects={'Matiere s1':sid},subject_trainers={'Matiere s1':'t1'}))
     result = call(client,'/import/preview',data)
     assert result.json['summary']['blocked'] == 1
     assert count(db) == 0
@@ -147,7 +150,7 @@ def test_annual_isolation_and_wrong_year_subject(client, db):
 def test_holiday_unavailability_budget_and_calendar_are_enforced(client, db):
     extracted = analyze(client).json
     data = dict(source_token=extracted['source_token'],school_days=False,room_id=None,
-                mappings=dict(subjects={'Matiere s1':'s1'},trainers={'M. NOM t1 P.':'t1'}))
+                mappings=dict(subjects={'Matiere s1':'s1'},subject_trainers={'Matiere s1':'t1'}))
     assert call(client,'/import/preview',data).json['summary']['blocked'] == 1
     with db() as conn:
         conn.execute("UPDATE planning_subjects SET planned_hours=1 WHERE id='s1'")
@@ -184,7 +187,7 @@ def test_empty_selection_unreviewed_selection_and_wrong_room_cannot_write(client
     assert call(client,'/import/commit',dict(preview_token=result['preview_token'],selected_keys=[])).status_code == 400
     assert commit(client,result['preview_token'],['123']).status_code == 400
     data = dict(source_token=extracted['source_token'],school_days=True,room_id=['bad'],
-                mappings=dict(subjects={'Matiere s1':'s1'},trainers={'M. NOM t1 P.':'t1'}))
+                mappings=dict(subjects={'Matiere s1':'s1'},subject_trainers={'Matiere s1':'t1'}))
     assert call(client,'/import/preview',data).status_code == 400
     assert count(db) == 0
 
@@ -196,3 +199,65 @@ def test_concurrent_double_submission_creates_one_copy(app, client, db):
         responses = list(executor.map(lambda _:commit(admin(app),token), range(2)))
     assert sorted(r.json['count'] for r in responses) == [0,1]
     assert count(db) == 1
+
+
+def two_weeks(**second_week):
+    writer, stream = PdfWriter(), BytesIO()
+    for content in (pdf_bytes(), pdf_bytes(monday=date(2027, 1, 11), **second_week)):
+        writer.add_page(PdfReader(BytesIO(content)).pages[0])
+    writer.write(stream)
+    return stream.getvalue()
+
+
+def test_subjects_with_same_pdf_trainer_can_import_different_trainers(client, db):
+    extracted = analyze(client, two_weeks(subject='Matiere s3')).json
+    assert extracted['mappings']['subject_trainers'] == {'Matiere s1':'t1', 'Matiere s3':'t1'}
+    mappings = dict(extracted['mappings'], subject_trainers={'Matiere s1':'t2', 'Matiere s3':'t1'})
+    result = preview(client, extracted['source_token'], mappings=mappings)
+    assert result.json['summary']['ready'] == 2, result.json
+    assert [r['trainer_id'] for r in result.json['items']] == ['t2', 't1']
+    saved = commit(client, result.json['preview_token'], ['0','1'])
+    assert saved.json['count'] == 2, saved.json
+    with db() as conn:
+        assert [tuple(r) for r in conn.execute('SELECT subject_id,trainer_id FROM planning_courses ORDER BY date')] == [('s1','t2'),('s3','t1')]
+        assert conn.execute("SELECT trainer_id FROM planning_subjects WHERE id='s1'").fetchone()[0] == 't1'
+    repeated = commit(client, result.json['preview_token'], ['0','1'])
+    assert repeated.json['count'] == 0 and repeated.json['duplicates'] == 2
+
+
+def test_several_pdf_trainers_for_one_subject_require_an_explicit_choice(client):
+    extracted = analyze(client, two_weeks(teacher='M. NOM t2 P.')).json
+    assert extracted['mappings']['subject_trainers'] == {'Matiere s1':''}
+    assert preview(client, extracted['source_token'], mappings=extracted['mappings']).json['summary']['blocked'] == 2
+    mappings = dict(extracted['mappings'], subject_trainers={'Matiere s1':'t2'})
+    result = preview(client, extracted['source_token'], mappings=mappings).json
+    assert result['summary']['ready'] == 2
+    assert [r['trainer_id'] for r in result['items']] == ['t2', 't2']
+
+
+@pytest.mark.parametrize('trainer', ['', None, [], {}, 'unassigned', 'inactive'])
+def test_invalid_subject_trainer_does_not_fall_back_to_pdf_mapping(client, db, trainer):
+    extracted = analyze(client).json
+    mappings = dict(extracted['mappings'], subject_trainers={'Matiere s1':trainer})
+    assert preview(client, extracted['source_token'], mappings=mappings).json['summary']['blocked'] == 1
+    assert count(db) == 0
+
+
+def test_chosen_subject_trainer_is_checked_again_at_commit(client, db):
+    extracted = analyze(client).json
+    mappings = dict(extracted['mappings'], subject_trainers={'Matiere s1':'t2'})
+    result = preview(client, extracted['source_token'], mappings=mappings).json
+    assert result['summary']['ready'] == 1
+    with db() as conn:
+        conn.execute('INSERT INTO planning_trainer_unavailability VALUES(?,?,?,?,?,?,?)',
+                     ('u','t2','2027-01-04','2027-01-04','[0]','[]','Indisponible'))
+    assert commit(client, result['preview_token']).status_code == 409
+    assert count(db) == 0
+
+
+def test_pages_opened_before_subject_mapping_update_remain_usable(client, db):
+    extracted = analyze(client).json
+    mappings = dict(subjects=extracted['mappings']['subjects'], trainers=extracted['mappings']['trainers'])
+    result = preview(client, extracted['source_token'], mappings=mappings).json
+    assert result['summary']['ready'] == 1
+    assert commit(client, result['preview_token']).json['count'] == 1
