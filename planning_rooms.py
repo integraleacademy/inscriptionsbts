@@ -13,7 +13,7 @@ import secrets
 from urllib.parse import quote
 
 import requests
-from flask import request, session, abort
+from flask import request, session, abort, g, has_request_context
 from itsdangerous import BadSignature, SignatureExpired
 
 
@@ -34,11 +34,16 @@ def ready(conn):
     return not configured() or bool(conn.execute("SELECT 1 FROM planning_room_meta WHERE key='ready' AND value='1'").fetchone())
 
 
-def external_slots(conn, exclude_owner=None):
+def external_slots(conn, exclude_owner=None, room_day=None):
+    # Reuse the parsed ledger during one availability request, but invalidate
+    # after either this connection or another writer changes the database.
+    ledger_key=(conn.total_changes,conn.execute('PRAGMA data_version').fetchone()[0])
+    cached=getattr(g,'_room_ledger',None) if has_request_context() else None
+    if cached and cached[0] is conn and cached[1]==ledger_key:
+        rows=cached[3].get(room_day,[]) if room_day else cached[2]
+        return [row for row in rows if row['owner']!=exclude_owner]
     result = []
     for row in conn.execute('SELECT * FROM planning_room_owners'):
-        if row['owner'] == exclude_owner:
-            continue
         seen = set()
         for field in ('slots', 'pending_slots'):
             for slot in json.loads(row[field] or '[]'):
@@ -47,7 +52,11 @@ def external_slots(conn, exclude_owner=None):
                     result.append(dict(slot, owner=row['owner'], title=row['title'], url=row['url'],
                                        source='session', pending=bool(row['pending_token'])))
                     seen.add(key)
-    return result
+    index={}
+    for row in result:index.setdefault((row['room_id'],row['date']),[]).append(row)
+    if has_request_context():g._room_ledger=(conn,ledger_key,result,index)
+    rows=index.get(room_day,[]) if room_day else result
+    return [row for row in rows if row['owner']!=exclude_owner]
 
 
 def overlap(a, b):
@@ -61,7 +70,7 @@ def room_conflicts(conn, course, exclude_owner=None, include_courses=False, excl
         return []
     if not ready(conn):
         return [dict(type='room_sync', message='La liaison des salles est en cours d’initialisation. Réessayez après la synchronisation des sessions.')]
-    rows = external_slots(conn, exclude_owner)
+    rows = external_slots(conn, exclude_owner, (course['room_id'],course['date']))
     if include_courses:
         rows += [dict(c, source='bts') for c in _load_courses(conn, course['date'], course['date']) if c['id'] not in exclude_ids]
     return [dict(type='room', date=c['date'], room_id=c['room_id'], owner=c.get('owner'), course_id=c.get('id'),

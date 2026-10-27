@@ -213,3 +213,24 @@ def test_deleted_source_recovers_pending_release(linked,client,db):
     assert event(client,room_id='r1').status_code==409
     machine(client,'reconcile',dict(owners=[],complete=True))
     assert event(client,room_id='r1').status_code==200
+
+
+def test_request_cache_observes_other_writer_and_own_changes(linked,app,client,db):
+    first=machine(client,'prepare',reservation()).json['token']
+    machine(client,'finish',dict(token=first,commit=True))
+    with app.test_request_context(),db() as conn:
+        reads=[]
+        conn.set_trace_callback(lambda sql:reads.append(sql) if sql=='SELECT * FROM planning_room_owners' else None)
+        assert {s['room_id'] for s in planning_rooms.external_slots(conn)}=={'r1'}
+        assert planning_rooms.external_slots(conn,room_day=('r2','2027-01-04'))==[]
+        assert len(reads)==1
+        with db() as other:
+            row=other.execute('SELECT slots FROM planning_room_owners').fetchone()
+            slots=json.loads(row['slots']);slots[0]['room_id']='r2'
+            other.execute('UPDATE planning_room_owners SET slots=?',(json.dumps(slots),))
+        assert planning_rooms.external_slots(conn,room_day=('r1','2027-01-04'))==[]
+        assert len(planning_rooms.external_slots(conn,room_day=('r2','2027-01-04')))==1
+        assert len(reads)==2
+        conn.execute("UPDATE planning_room_owners SET slots='[]'")
+        assert planning_rooms.external_slots(conn)==[]
+        assert len(reads)==3
