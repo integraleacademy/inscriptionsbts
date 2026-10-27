@@ -2,6 +2,11 @@
 
 L’onglet administrateur « Contrat d’apprentissage » recherche automatiquement le contrat
 lorsqu’il est ouvert sur une fiche sans contrat. Le rattachement manuel reste disponible.
+La page Inscriptions lance également cette recherche pour les étudiants concernés par
+ses filtres, un étudiant et une étape à la fois. Elle réutilise les mêmes contrôles
+d’identité, caches, limites de lecture et suspensions de rattachement. Les erreurs
+de connexion ou de quota interrompent la file ; le bouton « Vérifier les contrats »
+permet de reprendre les dossiers encore à vérifier sans effacer les contrats trouvés.
 Il ne modifie jamais WEDOF et n’importe aucun dossier globalement. Il ne modifie pas
 non plus les affectations d’entreprises locales.
 
@@ -35,7 +40,7 @@ Authentification `X-Api-Key`, hôte fixe https://www.wedof.fr/api, redirections 
   `GET /workingContracts/{id}/raw` pour les données CFA Dock et échéances.
 - Actualisation : mêmes lectures ciblées, au plus une fois par 30 minutes et par
   contrat, y compris après échec. Le GET de la liste reste une lecture du cache local ;
-  la découverte utilise des POST avec CSRF à l’ouverture du seul onglet concerné.
+  la découverte utilise des POST avec CSRF depuis la fiche ou la liste filtrée.
   Chaque requête traite une étape bornée (au plus trois lectures externes). Les
   résultats de découverte, même vides ou en erreur, sont conservés 30 minutes entre
   les sessions admin. Une modification de l’identité ou de la clé invalide ce cache.
@@ -44,6 +49,28 @@ Chaque lecture est sans retry, timeout connexion 3 s / lecture 5 s. Une opérati
 WEDOF à la fois, verrou SQLite partagé entre workers. Plafonds internes locaux :
 100 lectures par heure et 500 par jour. Ils ne représentent pas le quota du compte
 WEDOF partagé avec d’autres sites.
+
+## Liste des inscriptions
+
+Les six KPI sont calculés après tous les filtres : effectif, avec contrat, sans
+contrat identifié, contrat à vérifier, sans promotion et distanciel. Un étudiant
+ayant plusieurs contrats est compté une seule fois. « Avec contrat » indique un
+rattachement existant, y compris un contrat en instruction ou historique : l’état
+WEDOF (engagé, en instruction, rompu, etc.) est affiché séparément et ne prétend pas
+indiquer un emploi en cours. « Sans contrat identifié » exige une recherche complète
+et réussie, sans résultat, encore valide pour l’identité et la connexion courantes.
+Une erreur, un résultat ambigu, un retrait volontaire ou une absence de recherche
+reste « À vérifier ». Les trois catégories partitionnent l’effectif filtré.
+
+La recherche conserve les autres filtres même lorsque le filtre contrat masque les
+étudiants non encore vérifiés. Les résultats et tous les KPI sont relus à chaque
+découverte, avec les mêmes filtres. Le GET `/admin/inscriptions/donnees` ne lit que
+les données locales, exige la session administrateur et interdit le cache. La clé
+WEDOF et les informations d’identité utilisées pour la vérification ne sont pas
+incluses dans sa réponse.
+
+Les portraits utilisent la route privée existante de la fiche, avec le recadrage
+enregistré. Les initiales restent affichées en l’absence de fichier utilisable.
 
 ## Intégrité
 
