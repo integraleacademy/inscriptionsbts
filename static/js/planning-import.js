@@ -36,8 +36,20 @@
     field.append(node('span', title)); select.required = true; select.dataset.source = source; select.dataset.mapping = kind;
     select.setAttribute('aria-label', title + ' · ' + source);
     select.append(new Option(placeholder, ''));
-    choices.forEach(c => select.append(new Option(c.name || [c.prenom, c.nom].filter(Boolean).join(' '), c.id)));
-    select.value = suggestion || ''; field.append(select); return field;
+    if (kind === 'subject_trainers') {
+      [true, false].forEach(assigned => {
+        const group = node('optgroup'); group.label = assigned ? 'Déjà affectés à cette promotion' : 'Autres formateurs actifs';
+        choices.filter(c => Boolean(c.assigned) === assigned).forEach(c => group.append(new Option([c.prenom, c.nom].filter(Boolean).join(' '), c.id)));
+        if (group.children.length) select.append(group);
+      });
+    } else choices.forEach(c => select.append(new Option(c.name, c.id)));
+    select.value = suggestion || ''; field.append(select);
+    if (kind === 'subject_trainers') {
+      const notice = node('small', 'Sera affecté à cette promotion lors de l’import.', 'pi-map-notice');
+      const update = () => { const choice = choices.find(c => c.id === select.value); notice.hidden = !choice || Boolean(choice.assigned); };
+      select.addEventListener('change', update); update(); field.append(notice);
+    }
+    return field;
   }
   function correspondences() {
     $('pi-subjects').replaceChildren(...Object.entries(extracted.mappings.subjects).map(([source, suggestion]) => {
@@ -80,6 +92,10 @@
     $('pi-commit').disabled = !chosen.length;
     $('pi-select-all').checked = ready.length > 0 && ready.length === chosen.length;
     $('pi-select-all').indeterminate = chosen.length > 0 && chosen.length < ready.length;
+    const trainers = new Set(ready.filter(r => chosen.includes(r.key)).map(r => r.trainer_id));
+    const assignments = (preview?.trainer_assignments || []).filter(t => trainers.has(t.id));
+    $('pi-trainer-assignments').hidden = !assignments.length;
+    $('pi-trainer-assignment-list').replaceChildren(...assignments.map(t => node('li', [t.prenom, t.nom].filter(Boolean).join(' '))));
   }
   function renderPreview() {
     const sum = preview.summary;
@@ -106,7 +122,7 @@
     event.preventDefault(); if (working || !extracted || !event.target.reportValidity()) return;
     busy(true); message('Vérification des doublons, des disponibilités et des volumes annuels…');
     try {
-      preview = await api('preview', {source_token: extracted.source_token, mappings: mapping(), school_days: $('pi-school-days').checked, room_id: $('pi-room').value || null});
+      preview = await api('preview', {source_token: extracted.source_token, mappings: mapping(), school_days: $('pi-school-days').checked, room_id: $('pi-room').value || null, assign_trainers: true});
       renderPreview(); message();
     } catch (error) { message(error.message, true); }
     finally { busy(false); if (preview) selectedCount(); }
