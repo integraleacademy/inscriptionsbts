@@ -122,7 +122,7 @@ def _course_dto(course, groups, role, now=None):
     subject = local.get('subject_name') or 'Matière à confirmer'
     warnings = _safe_warnings(course, {group['promotion_id'] for group in groups})
     safe_groups = [{'promotion_id': group['promotion_id'], 'promotion_name': group.get('promotion_name') or 'Promotion', 'subject_name': group.get('subject_name') or 'Matière à confirmer'} for group in groups]
-    return dict(id=course['id'], date=course['date'], date_label=_date_label(date.fromisoformat(course['date'])), start=course['start'], end=course['end'],
+    return dict(id=course['id'], kind=course.get('kind','course'), date=course['date'], date_label=_date_label(date.fromisoformat(course['date'])), start=course['start'], end=course['end'],
                 title=course.get('title') or '', subject_name=subject, display_subject_name=subject,
                 trainer_name=course.get('trainer_name') or 'Formateur à confirmer', room_name=course.get('room_name') or '',
                 promotion_names=[group['promotion_name'] for group in safe_groups], groups=safe_groups,

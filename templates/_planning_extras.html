@@ -1,0 +1,19 @@
+<dialog class="planning-dialog" id="planning-event-dialog" aria-labelledby="planning-event-heading">
+  <header><div><p class="planning-kicker">HORS MATIÈRE</p><h2 id="planning-event-heading">Événement ponctuel</h2></div><button type="button" class="planning-dialog-close" data-close-dialog aria-label="Fermer">×</button></header><form id="planning-event-form">
+  <div class="planning-dialog-content"><p>Réunion de rentrée, intervention ou autre temps collectif. Cet événement réserve le créneau de la promotion et, si vous les choisissez, la salle et l’intervenant. Il ne consomme aucun volume de matière et n’est pas repris lors de la duplication d’une semaine.</p>
+    <label class="planning-label">Nom de l’événement<input name="title" required maxlength="160" placeholder="Réunion de rentrée"></label>
+    <div class="planning-form-row"><label class="planning-label">Date<input name="date" type="date" required></label><label class="planning-label">Début<input name="start" type="time" required></label><label class="planning-label">Fin<input name="end" type="time" required></label></div>
+    <label class="planning-label">Salle (facultative)<select name="room_id"></select></label>
+    <label class="planning-label">Intervenant (facultatif)<select name="trainer_id"></select></label><p class="planning-form-error" role="alert" hidden></p>
+  </div><footer><button type="button" class="planning-button danger" id="planning-event-delete" hidden>Supprimer l’événement</button><button type="button" class="planning-button" data-close-dialog>Annuler</button><button class="planning-button primary" type="submit">Enregistrer l’événement</button></footer></form>
+</dialog>
+<dialog class="planning-dialog wide" id="planning-bulk-room-dialog" aria-labelledby="planning-bulk-room-heading">
+ <header><div><p class="planning-kicker">AFFECTATION EN MASSE</p><h2 id="planning-bulk-room-heading">Une salle, plusieurs créneaux</h2></div><button type="button" class="planning-dialog-close" data-close-dialog aria-label="Fermer">×</button></header><form id="planning-bulk-room-form">
+ <div class="planning-dialog-content"><p>Choisissez une période et cochez les cours ou événements concernés. Un cours commun changera de salle pour toutes ses promotions. Tous les créneaux sont vérifiés avant la validation.</p>
+ <div class="planning-form-row"><label class="planning-label">Du<input name="from" type="date" required></label><label class="planning-label">Au<input name="to" type="date" required></label><button type="button" class="planning-button" id="planning-bulk-room-load">Afficher les créneaux</button></div>
+ <div class="planning-form-row"><label class="planning-label">Matière / événement<select name="subject"><option value="">Tous les créneaux</option></select></label><label class="planning-label">Salle à affecter<select name="room_id" required></select></label></div>
+ <label class="planning-consent"><input type="checkbox" name="unassigned" checked>Afficher seulement les créneaux sans salle</label>
+ <div class="bulk-room-selection"><button type="button" class="planning-text-button" id="planning-bulk-room-all">Tout cocher</button><button type="button" class="planning-text-button" id="planning-bulk-room-none">Tout décocher</button><strong id="planning-bulk-room-count" aria-live="polite"></strong></div>
+ <div id="planning-bulk-room-list" class="bulk-room-list"></div><p class="planning-form-error" role="alert" hidden></p><p id="planning-bulk-room-preview" role="status" hidden></p>
+ </div><footer><button type="button" class="planning-button" data-close-dialog>Annuler</button><button type="submit" class="planning-button" id="planning-bulk-room-check">Vérifier les disponibilités</button><button type="button" class="planning-button primary" id="planning-bulk-room-save" disabled>Confirmer l’affectation</button></footer></form>
+</dialog>

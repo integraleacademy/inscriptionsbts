@@ -20,6 +20,8 @@ from planning_portal import get_portal_week, get_portal_today
 _ADMIN_TABLES = {
     'planning_courses': '*', 'planning_course_groups': '*',
     'planning_subjects': '*', 'planning_rooms': '*',
+    'planning_room_owners': 'owner,revision,slots,pending_revision,pending_slots,title,url',
+    'planning_room_meta': '*',
     'planning_periods': '*', 'planning_subject_periods': '*',
     'planning_subject_catalog': '*', 'planning_subject_diplomas': '*',
     'planning_subject_catalog_links': '*',

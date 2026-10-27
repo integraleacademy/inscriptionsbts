@@ -17,6 +17,8 @@ def zoom_url(value):
 
 def student_details(conn, candidate_id, course):
     """Call only after authorizing access to this course. Never assume presence."""
+    if course.get('kind')=='event':
+        return dict(zoom_url='',attendance_status='not_applicable',attendance_label='Événement ponctuel · hors volume matière',late_minutes=0)
     columns = {r[1] for r in conn.execute('PRAGMA table_info(candidats)')}
     row = conn.execute('SELECT mode FROM candidats WHERE id=?', (candidate_id,)).fetchone() if 'mode' in columns else None
     link = ''
