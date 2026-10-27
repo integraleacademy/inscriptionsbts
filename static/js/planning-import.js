@@ -31,22 +31,23 @@
       card.append(node('strong', value), node('small', label)); return card;
     }));
   }
+  function trainerChoices() { return [...extracted.trainers, ...(extracted.new_trainers || [])]; }
   function mappingField(source, kind, title, choices, suggestion, placeholder) {
     const field = node('label', undefined, 'pi-map-field'), select = node('select');
     field.append(node('span', title)); select.required = true; select.dataset.source = source; select.dataset.mapping = kind;
     select.setAttribute('aria-label', title + ' · ' + source);
     select.append(new Option(placeholder, ''));
     if (kind === 'subject_trainers') {
-      [true, false].forEach(assigned => {
-        const group = node('optgroup'); group.label = assigned ? 'Déjà affectés à cette promotion' : 'Autres formateurs actifs';
-        choices.filter(c => Boolean(c.assigned) === assigned).forEach(c => group.append(new Option([c.prenom, c.nom].filter(Boolean).join(' '), c.id)));
+      [['assigned', 'Déjà affectés à cette promotion'], ['existing', 'Autres formateurs actifs'], ['new', 'À créer à l’import']].forEach(([kind, title]) => {
+        const group = node('optgroup'); group.label = title;
+        choices.filter(c => (c.new ? 'new' : c.assigned ? 'assigned' : 'existing') === kind).forEach(c => group.append(new Option([c.prenom, c.nom].filter(Boolean).join(' '), c.id)));
         if (group.children.length) select.append(group);
       });
     } else choices.forEach(c => select.append(new Option(c.name, c.id)));
     select.value = suggestion || ''; field.append(select);
     if (kind === 'subject_trainers') {
       const notice = node('small', 'Sera affecté à cette promotion lors de l’import.', 'pi-map-notice');
-      const update = () => { const choice = choices.find(c => c.id === select.value); notice.hidden = !choice || Boolean(choice.assigned); };
+      const update = () => { const choice = choices.find(c => c.id === select.value); notice.hidden = !choice || Boolean(choice.assigned); notice.textContent = choice?.new ? 'Fiche créée et affectée à cette promotion lors de l’import.' : 'Sera affecté à cette promotion lors de l’import.'; };
       select.addEventListener('change', update); update(); field.append(notice);
     }
     return field;
@@ -56,7 +57,7 @@
       const row = node('div', undefined, 'pi-subject-row');
       const trainers = [...new Set(extracted.document.rows.filter(r => r.subject_key === source).map(r => r.trainer))];
       const subject = mappingField(source, 'subjects', source, extracted.subjects, suggestion, 'Choisir une matière de cette année');
-      const trainer = mappingField(source, 'subject_trainers', 'Formateur pour cette matière', extracted.trainers,
+      const trainer = mappingField(source, 'subject_trainers', 'Formateur pour cette matière', trainerChoices(),
         extracted.mappings.subject_trainers[source], 'Choisir un formateur');
       trainer.append(node('small', 'Dans le PDF : ' + trainers.join(' · ')));
       if (trainers.length > 1) trainer.append(node('small', 'Plusieurs formateurs dans le PDF : le choix ci-dessus les remplacera pour cette matière.', 'pi-map-notice'));
@@ -67,6 +68,43 @@
     return Object.fromEntries(['subjects', 'subject_trainers'].map(kind => [kind,
       Object.fromEntries([...$('pi-subjects').querySelectorAll('select[data-mapping="' + kind + '"]')].map(n => [n.dataset.source, n.value]))]));
   }
+  function updateDraftVisibility() {
+    const used = new Set([...$('pi-subjects').querySelectorAll('select[data-mapping=subject_trainers]')].map(n => n.value));
+    let visible = 0;
+    $('pi-new-trainer-fields').querySelectorAll('fieldset').forEach(field => {
+      field.hidden = !used.has(field.dataset.trainer); if (!field.hidden) visible++;
+      field.querySelectorAll('input').forEach(input => { input.disabled = field.hidden; });
+    });
+    $('pi-new-trainers').hidden = !visible;
+  }
+  function draftValues() {
+    return [...$('pi-new-trainer-fields').querySelectorAll('fieldset')].filter(field => !field.hidden).map(field => ({id: field.dataset.trainer,
+      ...Object.fromEntries([...field.querySelectorAll('input')].map(input => [input.name, input.value]))}));
+  }
+  function renderNewTrainers() {
+    $('pi-trainer-warnings').textContent = (extracted.trainer_warnings || []).join('\n');
+    $('pi-trainer-warnings').hidden = !extracted.trainer_warnings?.length;
+    $('pi-new-trainer-fields').replaceChildren(...(extracted.new_trainers || []).map(trainer => {
+      const field = node('fieldset', undefined, 'pi-new-trainer'); field.dataset.trainer = trainer.id;
+      field.append(node('legend', 'Dans le PDF : ' + trainer.source));
+      const grid = node('div', undefined, 'pi-new-trainer-grid');
+      [['nom', 'Nom'], ['prenom', 'Prénom (ou initiale)'], ['email', 'E-mail (facultatif)']].forEach(([key, title]) => {
+        const label = node('label', undefined, 'pi-map-field'), input = node('input');
+        input.name = key; input.value = trainer[key] || ''; input.type = key === 'email' ? 'email' : 'text';
+        input.maxLength = key === 'email' ? 254 : 100; input.required = key !== 'email';
+        input.addEventListener('input', () => {
+          trainer[key] = input.value;
+          $('pi-subjects').querySelectorAll('select[data-mapping=subject_trainers] option').forEach(option => {
+            if (option.value === trainer.id) option.textContent = [trainer.prenom, trainer.nom].filter(Boolean).join(' ');
+          });
+          invalidate();
+        });
+        label.append(node('span', title), input); grid.append(label);
+      });
+      field.append(grid); return field;
+    }));
+    updateDraftVisibility();
+  }
   function invalidate() { preview = null; $('pi-preview-section').hidden = true; $('pi-commit').disabled = true; }
   $('pi-upload-form').addEventListener('submit', async event => {
     event.preventDefault(); if (working || !event.target.reportValidity()) return;
@@ -76,6 +114,7 @@
     try {
       extracted = await api('analyze', data); const doc = extracted.document;
       correspondences();
+      renderNewTrainers();
       $('pi-room').replaceChildren(new Option('Salle à compléter après l’import', ''), ...extracted.rooms.map(r => new Option(r.name, r.id)));
       stats('pi-document-summary', [[doc.rows.length, 'cours repérés'], [duration(doc.minutes), 'volume dans le PDF'], [doc.pages, 'semaines vérifiées'], [Object.keys(extracted.mappings.subjects).length, 'matières à associer']]);
       $('pi-source').textContent = 'Groupe du PDF : ' + doc.group + ' · Cours du ' + day(doc.first_date) + ' au ' + day(doc.last_date) + '.';
@@ -84,7 +123,7 @@
     finally { busy(false); }
   });
   $('pi-new-file').addEventListener('click', () => { invalidate(); extracted = null; $('pi-mapping-section').hidden = true; $('pi-upload-section').hidden = false; message(); step(1); });
-  $('pi-mapping-form').addEventListener('change', invalidate);
+  $('pi-mapping-form').addEventListener('change', () => { invalidate(); updateDraftVisibility(); });
   function selection() { return [...$('pi-courses').querySelectorAll('input:checked')].map(n => n.value); }
   function selectedCount() {
     const chosen = selection(), ready = preview?.items.filter(r => r.status === 'ready') || [];
@@ -93,9 +132,13 @@
     $('pi-select-all').checked = ready.length > 0 && ready.length === chosen.length;
     $('pi-select-all').indeterminate = chosen.length > 0 && chosen.length < ready.length;
     const trainers = new Set(ready.filter(r => chosen.includes(r.key)).map(r => r.trainer_id));
-    const assignments = (preview?.trainer_assignments || []).filter(t => trainers.has(t.id));
+    const creations = (preview?.trainer_creations || []).filter(t => trainers.has(t.id));
+    const createdIds = new Set(creations.map(t => t.id));
+    const assignments = (preview?.trainer_assignments || []).filter(t => trainers.has(t.id) && !createdIds.has(t.id));
     $('pi-trainer-assignments').hidden = !assignments.length;
     $('pi-trainer-assignment-list').replaceChildren(...assignments.map(t => node('li', [t.prenom, t.nom].filter(Boolean).join(' '))));
+    $('pi-trainer-creations').hidden = !creations.length;
+    $('pi-trainer-creation-list').replaceChildren(...creations.map(t => node('li', [t.prenom, t.nom].filter(Boolean).join(' ') + (t.email ? ' · ' + t.email : ' · E-mail à renseigner'))));
   }
   function renderPreview() {
     const sum = preview.summary;
@@ -103,7 +146,7 @@
     $('pi-calendar').hidden = !preview.calendar_changes.length;
     $('pi-calendar-title').textContent = preview.calendar_changes.length + ' journée(s) à définir comme école';
     $('pi-calendar-list').replaceChildren(...preview.calendar_changes.map(c => node('li', day(c.date) + ' : ' + c.previous + ' → École')));
-    const trainerNames = new Map(extracted.trainers.map(t => [t.id, [t.prenom, t.nom].filter(Boolean).join(' ')]));
+    const trainerNames = new Map([...trainerChoices(), ...(preview.trainer_creations || [])].map(t => [t.id, [t.prenom, t.nom].filter(Boolean).join(' ')]));
     const statuses = {ready: 'Prêt à importer', duplicate: 'Déjà présent', blocked: 'À vérifier'};
     $('pi-courses').replaceChildren(...preview.items.map(item => {
       const row = node('tr'), selectCell = node('td'), dateCell = node('td'), subjectCell = node('td'), trainerCell = node('td'), checkCell = node('td');
@@ -122,7 +165,7 @@
     event.preventDefault(); if (working || !extracted || !event.target.reportValidity()) return;
     busy(true); message('Vérification des doublons, des disponibilités et des volumes annuels…');
     try {
-      preview = await api('preview', {source_token: extracted.source_token, mappings: mapping(), school_days: $('pi-school-days').checked, room_id: $('pi-room').value || null, assign_trainers: true});
+      preview = await api('preview', {source_token: extracted.source_token, mappings: mapping(), school_days: $('pi-school-days').checked, room_id: $('pi-room').value || null, assign_trainers: true, new_trainers: draftValues()});
       renderPreview(); message();
     } catch (error) { message(error.message, true); }
     finally { busy(false); if (preview) selectedCount(); }

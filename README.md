@@ -473,7 +473,7 @@ L’assistant accepte les PDF texte « Planning groupe » hebdomadaires Yparéo
 vérifie chaque total hebdomadaire. Un PDF scanné, ambigu ou différent est refusé
 sans écriture. Les matières tronquées et les initiales des formateurs font
 l’objet de correspondances à vérifier ; les matières de l’année et les fiches
-actives des formateurs doivent être préparées au préalable.
+actives des formateurs existants sont proposées automatiquement.
 
 Chaque matière du PDF dispose de son propre choix de formateur, sur la même
 ligne que la matière du planning. Ce choix s’applique à tous les cours importés
@@ -490,6 +490,21 @@ effectivement sélectionnés et ajoutés sont affectés lors de la validation, d
 la même transaction que les cours. L’analyse et l’aperçu n’accordent aucun accès.
 Une affectation retirée depuis l’aperçu ne peut pas être rétablie sans avoir été
 annoncée dans cet aperçu. Les autres promotions du formateur sont conservées.
+
+Les formateurs absents sont proposés à la création avec leur nom et leur prénom
+ou initiale du PDF. Les champs restent modifiables et l’e-mail est facultatif.
+Une même personne utilisée dans plusieurs matières n’a qu’une fiche à compléter.
+Les homonymes ambigus et les comptes désactivés ne déclenchent pas de création
+automatique. Les fiches, affectations et cours sélectionnés sont enregistrés dans
+la même transaction ; les doublons et créations concurrentes sont revérifiés.
+Un aperçu abandonné, un cours décoché ou un import refusé ne crée aucune fiche.
+Aucun accès n’est envoyé automatiquement. Sans e-mail, la fiche reste utilisable
+dans le planning et affiche « E-mail à renseigner » ; les coordonnées peuvent
+être complétées dans la fiche formateur avant l’envoi des accès.
+
+La colonne e-mail accepte désormais NULL, tout en conservant l’unicité des
+adresses renseignées. La migration transactionnelle conserve les identités,
+hashes de mots de passe, versions, index et déclencheurs de la table existante.
 
 L’analyse et l’aperçu n’ajoutent aucun cours. Le récapitulatif distingue les cours
 prêts, les doublons et les conflits. L’administrateur coche les cours à reprendre

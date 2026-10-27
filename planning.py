@@ -363,7 +363,7 @@ def _groups(course):
     return course.get('groups') or [dict(promotion_id=course['promotion_id'],subject_id=course['subject_id'])]
 
 
-def _course(conn,data,existing=None,*,pending_trainer_assignments=()):
+def _course(conn,data,existing=None,*,pending_trainer_assignments=(),pending_trainers=None):
     if not isinstance(data,dict):raise PlanningError('Les données du cours sont invalides.')
     merged=dict(existing or {});merged.update(data)
     promotion_id=merged.get('promotion_id');_promotion(conn,promotion_id,ready=True)
@@ -388,6 +388,7 @@ def _course(conn,data,existing=None,*,pending_trainer_assignments=()):
         if catalog_id:subject_catalog.available(conn,catalog_id,promotion['bts'])
         trainer=conn.execute('''SELECT EXISTS(SELECT 1 FROM trainer_promotions a WHERE a.trainer_id=t.id AND a.promotion_id=?) AS assigned
             FROM trainers t WHERE t.id=? AND t.active=1''',(group['promotion_id'],trainer_id)).fetchone() if _has_table(conn,'trainers') else None
+        if trainer is None and trainer_id in (pending_trainers or {}):trainer={'assigned':False}
         if not trainer or (not trainer['assigned'] and (trainer_id,group['promotion_id']) not in pending_trainer_assignments):raise PlanningError('Le formateur de la séance doit être actif et affecté à chacune des promotions participantes.')
         group.update(promotion_name=promotion['nom'],subject_name=matched['name'],color=matched['color'])
     room_id=merged.get('room_id')
