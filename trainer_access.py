@@ -17,6 +17,7 @@ import time
 
 from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
 from branded_email import render_branded_email
+from trainer_records import ensure_optional_trainer_email
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from promotions import (BTS_LABELS, ensure_promotion_schema, list_promotions,
@@ -34,7 +35,7 @@ def _schema(conn):
     conn.executescript('''
         CREATE TABLE IF NOT EXISTS trainers (
             id TEXT PRIMARY KEY, nom TEXT NOT NULL, prenom TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE, password_hash TEXT,
+            email TEXT UNIQUE, password_hash TEXT,
             active INTEGER NOT NULL DEFAULT 1, version INTEGER NOT NULL DEFAULT 1,
             created_at TEXT NOT NULL, updated_at TEXT NOT NULL, invited_at TEXT
         );
@@ -56,6 +57,7 @@ def _schema(conn):
         CREATE INDEX IF NOT EXISTS trainer_access_ip_time
             ON trainer_access_requests(ip_key,created_at);
     ''')
+    ensure_optional_trainer_email(conn)
     ensure_promotion_schema(conn)
 
 
@@ -143,7 +145,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
             raise ValueError('Sélectionnez les promotions à attribuer à ce formateur.')
         return sorted(set(raw))
 
-    def fields_from(data):
+    def fields_from(data, allow_missing_email=False):
         if any(not isinstance(data.get(key,''),str) for key in ('nom','prenom','email')):
             raise ValueError('Vérifiez le nom, le prénom et l’adresse e-mail.')
         nom=data.get('nom','').strip().upper()
@@ -151,9 +153,9 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         email=data.get('email','').strip().lower()
         if not nom or not prenom or max(len(nom),len(prenom))>100 or any(ord(c)<32 for c in nom+prenom):
             raise ValueError('Indiquez un nom et un prénom valides (100 caractères maximum).')
-        if len(email)>254 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email):
+        if (not email and not allow_missing_email) or (email and (len(email)>254 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+',email))):
             raise ValueError('Indiquez une adresse e-mail valide.')
-        return nom,prenom,email,assignments_from(data)
+        return nom,prenom,email or None,assignments_from(data)
 
     def get_assignments(conn,trainer_id):
         return get_trainer_promotions(conn,trainer_id)
@@ -277,7 +279,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         admin_guard()
         check_csrf()
         try:
-            nom,prenom,email,assignments=fields_from(payload())
+            nom,prenom,email,assignments=fields_from(payload(), allow_missing_email=True)
         except ValueError as error:
             return admin_reply(False,str(error),400)
         try:
@@ -287,6 +289,8 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 trainer=conn.execute('SELECT * FROM trainers WHERE id=?',(trainer_id,)).fetchone()
                 if not trainer:
                     abort(404)
+                if trainer['email'] and not email:
+                    return admin_reply(False,'Indiquez une adresse e-mail valide.',400)
                 previous=sorted(a['id'] for a in get_assignments(conn,trainer_id))
                 from planning import validate_trainer_promotions_change
                 planning_conflicts=validate_trainer_promotions_change(conn,trainer_id,assignments)
@@ -444,6 +448,8 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 abort(404)
             if not trainer['active']:
                 return admin_reply(False,'Réactivez le compte avant d’envoyer un accès.',400)
+            if not trainer['email']:
+                return admin_reply(False,'Renseignez l’adresse e-mail du formateur avant d’envoyer ses accès.',400)
             if not limit(conn,'invitation',trainer_id,5):
                 return admin_reply(False,'Trop de demandes récentes. Réessayez dans 15 minutes.',429)
             purpose='reset' if trainer['password_hash'] else 'activation'
