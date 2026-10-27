@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% from 'ui_icons.html' import icon %}
+{% block body_class %}planning-admin-page{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-import.css') }}?v=1">
+<div class="planning-import" data-promotion="{{ promotion.id }}" data-period="{{ period.id }}" data-csrf="{{ csrf_token }}">
+  <a class="planning-import-back" href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}">← Retour au planning</a>
+  <header class="planning-heading"><div><p class="planning-kicker">REPRENDRE VOTRE ORGANISATION</p><h1>Vos cours, <em>sans ressaisie.</em></h1><p>Importez votre planning Yparéo, vérifiez les correspondances, puis choisissez les cours à ajouter.</p></div></header>
+  <div class="pi-destination"><span class="pi-pill">ANNÉE {{ period.number }}</span><div><strong>{{ promotion.nom }}</strong><p>Du {{ period.start_date|dmy }} au {{ period.end_date|dmy }} · Seule cette année reçoit les cours.</p></div></div>
+  <ol class="pi-steps" aria-label="Étapes de l’import"><li aria-current="step"><span>1</span>Le document</li><li><span>2</span>Les correspondances</li><li><span>3</span>La vérification</li></ol>
+  <div class="pi-message" id="pi-message" role="status" aria-live="polite" hidden></div>
+  <section class="pi-card" id="pi-upload-section">
+    <div class="pi-card-heading"><div><p class="planning-kicker">01 · VOTRE DOCUMENT</p><h2>Déposez le planning existant.</h2></div><span class="pi-pill">PDF YPARÉO</span></div>
+    <form id="pi-upload-form">
+      <label class="pi-drop"><span class="pi-drop-icon" aria-hidden="true">↑</span><strong>Planning groupe hebdomadaire</strong><span>Le PDF exporté depuis Yparéo · 10 Mo maximum · 100 pages maximum</span><input id="pi-file" type="file" name="file" accept="application/pdf,.pdf" required></label>
+      <p class="pi-help">Les cours sont lus dans la grille et leurs durées sont comparées au total de chaque semaine. Les PDF scannés et les autres présentations ne sont pas pris en charge.</p>
+      <div class="pi-actions"><button class="planning-button primary" type="submit" id="pi-analyze">Analyser le PDF</button></div>
+    </form>
+  </section>
+  <section class="pi-card" id="pi-mapping-section" hidden>
+    <div class="pi-card-heading"><div><p class="planning-kicker">02 · LES CORRESPONDANCES</p><h2>Chaque cours à sa place.</h2></div><button class="planning-button" id="pi-new-file" type="button">Changer de fichier</button></div>
+    <div id="pi-document-summary" class="pi-summary"></div>
+    <p class="pi-source" id="pi-source"></p>
+    <div class="pi-info">Vérifiez le groupe indiqué dans le PDF et les horaires de l’aperçu. Les intitulés coupés et les initiales des formateurs doivent être associés aux bonnes fiches.</div>
+    <form id="pi-mapping-form">
+      <div class="pi-mapping-grid"><section><h3>Les matières</h3><div id="pi-subjects"></div></section><section><h3>Les formateurs</h3><div id="pi-trainers"></div></section></div>
+      <p class="pi-help">Une matière ou un formateur manque ? Préparez les matières pour cette année et affectez les formateurs à la promotion, puis relancez l’analyse. <a href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}" target="_blank" rel="noopener">Ouvrir le planning</a> · <a href="/admin/formateurs" target="_blank" rel="noopener">Gérer les formateurs</a></p>
+      <div class="pi-options"><label class="planning-label">Salle des cours importés<select id="pi-room"><option value="">Salle à compléter après l’import</option></select></label><label class="pi-check"><input id="pi-school-days" type="checkbox"><span><strong>Définir les dates des cours importés comme journées école</strong><small>Les jours actuellement « entreprise », « vacances », « fermé » ou « à définir » seront listés dans l’aperçu. Les dates sans cours ne sont pas modifiées. Les jours fériés restent bloqués.</small></span></label></div>
+      <div class="pi-actions"><span>Les volumes annuels et les cours existants sont conservés.</span><button class="planning-button primary" type="submit">Vérifier les cours</button></div>
+    </form>
+  </section>
+  <section class="pi-card" id="pi-preview-section" hidden>
+    <div class="pi-card-heading"><div><p class="planning-kicker">03 · AVANT L’IMPORT</p><h2>Un dernier regard sur vos cours.</h2></div><button class="planning-button" id="pi-back" type="button">Modifier les correspondances</button></div>
+    <div class="pi-summary" id="pi-preview-summary"></div>
+    <details class="pi-calendar" id="pi-calendar" hidden><summary id="pi-calendar-title"></summary><p>Seules les dates des cours que vous cochez ci-dessous seront modifiées.</p><ul id="pi-calendar-list"></ul></details>
+    <p class="pi-help">Les doublons sont ignorés. Les conflits d’horaires, d’indisponibilité, de journée école ou de volume annuel doivent être résolus avant de pouvoir importer les cours concernés.</p>
+    <div class="pi-table-tools"><label><input type="checkbox" id="pi-select-all"> Sélectionner tous les cours prêts</label><strong id="pi-selected-count" role="status" aria-live="polite"></strong></div>
+    <div class="pi-table-wrap"><table><thead><tr><th scope="col">Importer</th><th scope="col">Date / horaires</th><th scope="col">Matière</th><th scope="col">Formateur</th><th scope="col">Vérification</th></tr></thead><tbody id="pi-courses"></tbody></table></div>
+    <div class="pi-actions pi-commit"><p>L’import ajoute les cours sélectionnés. Les semaines vides du PDF restent inchangées.</p><button type="button" id="pi-commit" class="planning-button primary" disabled>Importer la sélection</button></div>
+  </section>
+  <section class="pi-card pi-success" id="pi-success" hidden><span aria-hidden="true">✓</span><h2>Votre planning est repris.</h2><p id="pi-success-message"></p><a class="planning-button primary" href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}">Voir le planning</a></section>
+</div>
+<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=1" defer></script>
+{% endblock %}

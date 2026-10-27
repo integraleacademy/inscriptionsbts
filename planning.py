@@ -1161,3 +1161,6 @@ def register_planning(app,db_connect,require_admin):
             conn.execute('INSERT INTO planning_trainer_unavailability(id,trainer_id,start_date,end_date,weekdays,times,reason) VALUES(?,?,?,?,?,?,?)',(block['id'],trainer_id,block['start_date'],block['end_date'],json.dumps(weekdays),json.dumps(normalized),reason))
             return dict(item=block,message='Indisponibilité enregistrée.')
         return transact(operation)
+
+    from planning_import import register_planning_import
+    register_planning_import(app, guard, connect, csrf, result, fail, transact, persist)
