@@ -359,9 +359,22 @@ def register(app, connect, guard, result, fail, transact, serializer):
                 start, end = _iso(request.args.get('start')), _iso(request.args.get('end'))
                 if not 0 <= (end-start).days <= 400:
                     raise PlanningError('Choisissez une période de 400 jours au maximum.')
+                if request.args.get('period_id'):
+                    import planning_years
+                    planning_years.require_dates(_planning_period(conn,pid),start.isoformat(),end.isoformat())
                 return result(courses=_load_courses(conn, start.isoformat(), end.isoformat(), pid))
         except PlanningError as exc:
             return fail(exc)
+
+    @app.get('/admin/planning/api/rooms/promotions')
+    def room_promotions():
+        guard()
+        import planning_years
+        from promotions import list_promotions
+        with closing(connect()) as conn:
+            return result(promotions=[dict(id=p['id'],name=p['nom'],periods=planning_years.periods(p))
+                                      for p in list_promotions(conn,active_only=True)],
+                          rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms WHERE active=1 ORDER BY name')])
 
     def selection(conn, payload):
         pid = payload.get('promotion_id'); _promotion(conn, pid, ready=True)
