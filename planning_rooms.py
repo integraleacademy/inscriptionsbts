@@ -7,6 +7,7 @@ A crashed writer reconciles against the durable source before its next change.
 from contextlib import closing
 from datetime import date, datetime, timezone
 import hmac
+import hashlib
 import json
 import os
 import secrets
@@ -24,6 +25,14 @@ def schema(conn):
         title TEXT NOT NULL, url TEXT NOT NULL)''')
     conn.execute('CREATE TABLE IF NOT EXISTS planning_room_meta(key TEXT PRIMARY KEY,value TEXT NOT NULL)')
     conn.execute('CREATE TABLE IF NOT EXISTS planning_room_aliases(name TEXT PRIMARY KEY,room_id TEXT NOT NULL)')
+    columns={row[1] for row in conn.execute('PRAGMA table_info(planning_room_owners)')}
+    for name,definition in [('metadata',"TEXT NOT NULL DEFAULT '{}'"),('pending_metadata','TEXT'),('room_version','INTEGER NOT NULL DEFAULT 1')]:
+        if name not in columns:conn.execute(f'ALTER TABLE planning_room_owners ADD COLUMN {name} {definition}')
+    conn.execute('''CREATE TABLE IF NOT EXISTS planning_room_overrides(owner TEXT NOT NULL,slot_key TEXT NOT NULL,
+        room_id TEXT NOT NULL,PRIMARY KEY(owner,slot_key))''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS planning_room_unavailability(id TEXT PRIMARY KEY,room_id TEXT NOT NULL,
+        start_date TEXT NOT NULL,end_date TEXT NOT NULL,start_min INTEGER NOT NULL,end_min INTEGER NOT NULL,
+        reason TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1)''')
     if not conn.execute("SELECT 1 FROM planning_room_meta WHERE key='sessions_only_v1'").fetchone():
         old=conn.execute("SELECT slots,pending_slots FROM planning_room_owners WHERE owner LIKE 'formation:%'").fetchall()
         counts=dict(owners=len(old),slots=sum(len(json.loads(row['slots'])) for row in old))
@@ -42,6 +51,17 @@ def ready(conn):
     return not configured() or bool(conn.execute("SELECT 1 FROM planning_room_meta WHERE key='ready' AND value='1'").fetchone())
 
 
+def slot_key(slot):
+    return hashlib.sha256(json.dumps([slot[k] for k in ('room_id','date','start_min','end_min')]).encode()).hexdigest()[:32]
+
+
+def effective_slots(conn,owner,slots,metadata,current_metadata=None):
+    overrides={row['slot_key']:row['room_id'] for row in conn.execute('SELECT * FROM planning_room_overrides WHERE owner=?',(owner,))}
+    if current_metadata is not None and metadata.get('assignment','')!=current_metadata.get('assignment',''):
+        overrides={}
+    return [dict(slot,slot_key=slot_key(slot),room_id=overrides.get(slot_key(slot),slot['room_id'])) for slot in slots]
+
+
 def external_slots(conn, exclude_owner=None, room_day=None):
     # Reuse the parsed ledger during one availability request, but invalidate
     # after either this connection or another writer changes the database.
@@ -53,12 +73,18 @@ def external_slots(conn, exclude_owner=None, room_day=None):
     result = []
     for row in conn.execute("SELECT * FROM planning_room_owners WHERE owner LIKE 'session:%'"):
         seen = set()
+        current_meta=json.loads(row['metadata'] or '{}')
         for field in ('slots', 'pending_slots'):
-            for slot in json.loads(row[field] or '[]'):
+            meta=json.loads(row['pending_metadata'] or '{}') if field=='pending_slots' else current_meta
+            for slot in effective_slots(conn,row['owner'],json.loads(row[field] or '[]'),meta,current_meta):
                 key = (slot['room_id'], slot['date'], slot['start_min'], slot['end_min'])
                 if key not in seen:
-                    result.append(dict(slot, owner=row['owner'], title=row['title'], url='/admin/salles?session_id='+quote(row['owner'][8:],safe=''),
-                                       source='session', pending=bool(row['pending_token'])))
+                    result.append(dict(slot,owner=row['owner'],title=meta.get('name') or row['title'],
+                                       formation=meta.get('formation',''),presence_start=meta.get('start'),
+                                       exam=slot['date'] in meta.get('exam_dates',[]),exam_full_day=slot['date'] in meta.get('exam_full_day',[]),
+                                       revision=row['revision'],room_version=row['room_version'],
+                                       key='session:'+row['owner']+':'+slot['slot_key'],
+                                       url='/admin/salles?session_id='+quote(row['owner'][8:],safe=''),source='session',pending=bool(row['pending_token'])))
                     seen.add(key)
     index={}
     for row in result:index.setdefault((row['room_id'],row['date']),[]).append(row)
@@ -74,11 +100,13 @@ def overlap(a, b):
 
 def room_conflicts(conn, course, exclude_owner=None, include_courses=False, exclude_ids=()):
     from planning import _clock, _load_courses
+    from planning_room_calendar import unavailable_slots
     if not course.get('room_id'):
         return []
     if not ready(conn):
         return [dict(type='room_sync', message='La liaison des salles est en cours d’initialisation. Réessayez après la synchronisation des sessions.')]
     rows = external_slots(conn, exclude_owner, (course['room_id'],course['date']))
+    rows += unavailable_slots(conn,course['date'],course['date'])
     if include_courses:
         rows += [dict(c, source='bts') for c in _load_courses(conn, course['date'], course['date']) if c['id'] not in exclude_ids]
     return [dict(type='room', date=c['date'], room_id=c['room_id'], owner=c.get('owner'), course_id=c.get('id'),
@@ -87,7 +115,9 @@ def room_conflicts(conn, course, exclude_owner=None, include_courses=False, excl
 
 
 def room_used(conn, room_id):
-    return any(s['room_id'] == room_id for s in external_slots(conn))
+    if conn.execute('SELECT 1 FROM planning_room_unavailability WHERE room_id=? LIMIT 1',(room_id,)).fetchone():return True
+    return any(s['room_id']==room_id for row in conn.execute('SELECT slots,pending_slots FROM planning_room_owners')
+               for key in ('slots','pending_slots') for s in json.loads(row[key] or '[]')) or any(s['room_id']==room_id for s in external_slots(conn))
 
 
 def normalize(conn, raw, bootstrap=False):
@@ -147,14 +177,17 @@ def prepare(conn, data):
     if not ready(conn):
         raise PlanningError('La première synchronisation des salles doit être terminée avant de modifier les sessions.',status=503)
     owner, revision, title, url = owner_data(data)
+    prior=data.get('previous_projection')
+    if isinstance(prior,dict) and prior.get('owner')==owner and prior.get('revision')==data.get('previous_revision'):
+        reconcile_owner(conn,prior)
     row = conn.execute('SELECT * FROM planning_room_owners WHERE owner=?', (owner,)).fetchone()
     previous = data.get('previous_revision')
     # The caller holds its source lock. Its previous revision is durable truth.
     if row and row['pending_token']:
         if previous == row['pending_revision']:
-            conn.execute('UPDATE planning_room_owners SET revision=pending_revision,slots=pending_slots,pending_revision=NULL,pending_slots=NULL,pending_token=NULL WHERE owner=?', (owner,))
+            finish(conn,dict(token=row['pending_token'],commit=True))
         elif previous == row['revision']:
-            conn.execute('UPDATE planning_room_owners SET pending_revision=NULL,pending_slots=NULL,pending_token=NULL WHERE owner=?', (owner,))
+            finish(conn,dict(token=row['pending_token'],commit=False))
         else:
             raise PlanningError('La réservation attend une réconciliation de la session.', status=409)
         row = conn.execute('SELECT * FROM planning_room_owners WHERE owner=?', (owner,)).fetchone()
@@ -163,8 +196,16 @@ def prepare(conn, data):
     if row and revision == row['revision']:
         return dict(token=None)
     slots = normalize(conn, data.get('slots'))
+    metadata=data.get('metadata') or {}
+    current_metadata=json.loads(row['metadata'] or '{}') if row else {}
+    existing=effective_slots(conn,owner,json.loads(row['slots']),current_metadata) if row else []
+    proposed=effective_slots(conn,owner,slots,metadata,current_metadata)
     issues = []
-    for slot in slots:
+    for i,slot in enumerate(proposed):
+        if any(overlap(slot,other) for other in proposed[:i]):
+            issues.append(dict(type='room',date=slot['date'],message='Plusieurs créneaux de cette session se chevauchent dans la salle choisie.'))
+        if any(all(slot[k]==old[k] for k in ('room_id','date','start_min','end_min')) for old in existing):
+            continue  # A name-only edit must not reintroduce or erase old conflicts.
         issues.extend(room_conflicts(conn, slot, exclude_owner=owner, include_courses=True))
     if issues:
         raise PlanningError('Salle indisponible. La session n’a pas été modifiée.', issues[:80], 409)
@@ -172,9 +213,28 @@ def prepare(conn, data):
     if not row:
         conn.execute('INSERT INTO planning_room_owners(owner,revision,slots,title,url) VALUES(?,?,?,?,?)',
                      (owner, previous or '0' * 64, '[]', title, url))
-    conn.execute('UPDATE planning_room_owners SET pending_revision=?,pending_slots=?,pending_token=?,title=?,url=? WHERE owner=?',
-                 (revision, json.dumps(slots), token, title, url, owner))
+    conn.execute('UPDATE planning_room_owners SET pending_revision=?,pending_slots=?,pending_token=?,pending_metadata=?,title=?,url=? WHERE owner=?',
+                 (revision,json.dumps(slots),token,json.dumps(metadata),title,url,owner))
     return dict(token=token)
+
+
+def reconcile_owner(conn,item):
+    from planning import PlanningError
+    owner,revision,title,url=owner_data(item)
+    row=conn.execute('SELECT * FROM planning_room_owners WHERE owner=?',(owner,)).fetchone()
+    if not row:return
+    versions={revision,item.get('legacy_revision')}
+    if row['pending_token']:
+        if row['pending_revision'] in versions:finish(conn,dict(token=row['pending_token'],commit=True))
+        elif row['revision'] in versions:finish(conn,dict(token=row['pending_token'],commit=False))
+        else:raise PlanningError('Une réservation nécessite une réconciliation manuelle.',status=409)
+        row=conn.execute('SELECT * FROM planning_room_owners WHERE owner=?',(owner,)).fetchone()
+    if item.get('schema')==2 and row['revision']==item.get('legacy_revision'):
+        # Adopt the durable source's v2 projection once, preserving historical
+        # conflicts as visible conflicts instead of dropping real exam bookings.
+        slots=normalize(conn,item['slots'],bootstrap=True)
+        conn.execute('UPDATE planning_room_owners SET revision=?,slots=?,metadata=?,title=?,url=?,room_version=room_version+1 WHERE owner=?',
+                     (revision,json.dumps(slots),json.dumps(item.get('metadata') or {}),title,url,owner))
 
 
 def reconcile(conn, owners, complete=False):
@@ -185,15 +245,7 @@ def reconcile(conn, owners, complete=False):
     for item in owners:
         owner, revision, _, _ = owner_data(item)
         seen.add(owner)
-        row = conn.execute('SELECT * FROM planning_room_owners WHERE owner=?', (owner,)).fetchone()
-        if not row or not row['pending_token']:
-            continue
-        if revision == row['pending_revision']:
-            finish(conn, dict(token=row['pending_token'], commit=True))
-        elif revision == row['revision']:
-            finish(conn, dict(token=row['pending_token'], commit=False))
-        else:
-            raise PlanningError('Une réservation nécessite une réconciliation manuelle.',status=409)
+        reconcile_owner(conn,item)
     if complete:
         for row in conn.execute('SELECT * FROM planning_room_owners WHERE pending_token IS NOT NULL').fetchall():
             if row['owner'] not in seen:
@@ -203,6 +255,7 @@ def reconcile(conn, owners, complete=False):
                     finish(conn,dict(token=row['pending_token'],commit=False))
     audit=conn.execute("SELECT value FROM planning_room_meta WHERE key='sessions_only_v1'").fetchone()
     return dict(scope='sessions',session_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'session:%'").fetchone()[0],
+                calendar_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'session:%' AND metadata!='{}'").fetchone()[0],
                 excluded_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'formation:%'").fetchone()[0],
                 removed_legacy=json.loads(audit[0]) if audit else None)
 
@@ -215,8 +268,16 @@ def finish(conn, data):
     row = conn.execute('SELECT * FROM planning_room_owners WHERE pending_token=?', (token,)).fetchone()
     if row:
         if data['commit']:
-            conn.execute('UPDATE planning_room_owners SET revision=pending_revision,slots=pending_slots WHERE owner=?', (row['owner'],))
-        conn.execute('UPDATE planning_room_owners SET pending_revision=NULL,pending_slots=NULL,pending_token=NULL WHERE owner=?', (row['owner'],))
+            old,new=json.loads(row['metadata'] or '{}'),json.loads(row['pending_metadata'] or '{}')
+            if old.get('assignment','')!=new.get('assignment',''):
+                conn.execute('DELETE FROM planning_room_overrides WHERE owner=?',(row['owner'],))
+            else:
+                live_keys={slot_key(s) for s in json.loads(row['pending_slots'])}
+                for override in conn.execute('SELECT slot_key FROM planning_room_overrides WHERE owner=?',(row['owner'],)).fetchall():
+                    if override['slot_key'] not in live_keys:
+                        conn.execute('DELETE FROM planning_room_overrides WHERE owner=? AND slot_key=?',(row['owner'],override['slot_key']))
+            conn.execute("UPDATE planning_room_owners SET revision=pending_revision,slots=pending_slots,metadata=COALESCE(pending_metadata,'{}'),room_version=room_version+1 WHERE owner=?",(row['owner'],))
+        conn.execute('UPDATE planning_room_owners SET pending_revision=NULL,pending_slots=NULL,pending_token=NULL,pending_metadata=NULL WHERE owner=?',(row['owner'],))
     return {}
 
 
@@ -265,8 +326,8 @@ def register(app, connect, guard, result, fail, transact, serializer):
                     for item in owners:
                         owner, revision, title, url = owner_data(item)
                         slots = normalize(conn, item['slots'], bootstrap=True)
-                        conn.execute('INSERT INTO planning_room_owners(owner,revision,slots,title,url) VALUES(?,?,?,?,?)',
-                                     (owner, revision, json.dumps(slots), title, url))
+                        conn.execute('INSERT INTO planning_room_owners(owner,revision,slots,title,url,metadata) VALUES(?,?,?,?,?,?)',
+                                     (owner,revision,json.dumps(slots),title,url,json.dumps(item.get('metadata') or {})))
                     conn.execute("INSERT INTO planning_room_meta(key,value) VALUES('ready','1')")
                     answer = dict(count=len(owners))
                 else:
@@ -283,17 +344,14 @@ def register(app, connect, guard, result, fail, transact, serializer):
             start, end = _iso(request.args.get('start')), _iso(request.args.get('end'))
             if not 0 <= (end - start).days <= 31:
                 raise PlanningError('Affichez au maximum 31 jours.')
+            warning=''
+            if configured() and request.args.get('sync')=='1':
+                try:remote('/sessions')
+                except PlanningError as exc:warning=str(exc)
             with closing(connect()) as conn:
-                rows = [dict(c, source='event' if c.get('kind') == 'event' else 'bts',
-                             title=c['title'] or c['subject_name'], url='/admin/salles?course_id=' + quote(c['id']) + '&date=' + c['date'])
-                        for c in _load_courses(conn, start.isoformat(), end.isoformat()) if c['room_id']]
-                rows += [c for c in external_slots(conn) if start.isoformat() <= c['date'] <= end.isoformat()]
-                for index, row in enumerate(rows):
-                    row.update(start=_clock(row['start_min']), end=_clock(row['end_min']),
-                               conflict=any(overlap(row, other) and row.get('owner', row.get('id')) != other.get('owner', other.get('id'))
-                                            for i, other in enumerate(rows) if i != index))
-                return result(rooms=[dict(r) for r in conn.execute('SELECT * FROM planning_rooms ORDER BY name')],
-                              reservations=rows, connected=configured(), ready=ready(conn))
+                from planning_room_calendar import snapshot
+                conn.execute('BEGIN')
+                return result(snapshot(conn,start.isoformat(),end.isoformat()),sync_warning=warning)
         except PlanningError as exc:
             return fail(exc)
 
@@ -312,7 +370,7 @@ def register(app, connect, guard, result, fail, transact, serializer):
                     if not isinstance(row.get('owner'),str) or not row['owner'].startswith('session:'):
                         continue
                     try:
-                        if date.fromisoformat(row.get('start')) >= date(2026,10,26):
+                        if date.fromisoformat(row.get('start') or row.get('formation_start')) >= date(2026,10,26):
                             visible.append(row)
                     except (TypeError,ValueError):
                         continue
@@ -430,3 +488,6 @@ def register(app, connect, guard, result, fail, transact, serializer):
                 conn.execute('UPDATE planning_courses SET room_id=?,version=version+1,updated_at=? WHERE id=?', (c['room_id'], now, c['id']))
             return dict(count=len(courses), message='Salle affectée à tous les cours sélectionnés.')
         return transact(operation)
+
+    from planning_room_calendar import register as register_calendar
+    register_calendar(app,connect,guard,result,fail,transact)
