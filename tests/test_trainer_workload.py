@@ -180,7 +180,9 @@ def test_fiche_real_template_has_hours_rates_and_existing_account_actions(worklo
     assert 'Volume mensuel total' in text and 'Montant partiellement chiffré' in text
     assert 'Rubriques de la fiche formateur' in text
     assert 'tab=account' in text and 'tab=planning' in text and 'tab=availability' in text
-    assert 'ANNÉE CIVILE 2027' in text
+    assert 'Année BTS 2026–2027' in text
+    assert 'Septembre 2026 à juillet 2027' in text
+    assert 'ANNÉE CIVILE' not in text
     assert 'trainer-profile-form' not in text
     assert 'ne s’additionnent pas' in text
     assert 'ne constituent pas une validation de présence' in text
