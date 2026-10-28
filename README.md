@@ -552,7 +552,8 @@ Validation : `python -m pytest -q tests/test_planning_import.py`.
 ### Documents dans l’espace étudiant
 
 La rubrique `/espace/documents`, accessible dans le menu et depuis l’accueil,
-propose le certificat de scolarité en PDF (consultation et téléchargement) et
+propose la première page du certificat de scolarité en PDF, ouverte dans un
+nouvel onglet sans téléchargement automatique, et
 les images PNG recto-verso de la carte étudiante (aperçu, agrandissement et
 téléchargement). Les modèles administratifs sont réutilisés avec les données
 du dossier, le parcours, la promotion et le cadrage de photo enregistrés.
@@ -567,3 +568,12 @@ Consulter les documents n’envoie aucune notification et ne modifie pas les
 indicateurs d’envoi ou d’impression administratifs.
 
 Validation : `python -m pytest -q tests/test_student_documents.py tests/test_student_cards.py tests/test_candidate_access.py tests/test_student_home_planning.py`.
+
+L’administration peut ajouter ou remplacer une photo JPG/PNG de 10 Mo maximum
+depuis le bouton sous le portrait de la fiche étudiant. Le fichier est validé et
+réencodé sans métadonnées, son orientation est conservée et les anciennes photos
+restent stockées. Le précédent cadrage est réinitialisé ; le nouveau portrait est
+immédiatement disponible pour la fiche et la carte étudiante. L’accès exige la
+session administrateur et le jeton CSRF, sans envoi de message à l’étudiant.
+
+Validation complémentaire : `python -m pytest -q tests/test_candidate_photo_upload.py tests/test_candidate_editor.py`.

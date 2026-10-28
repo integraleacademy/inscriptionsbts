@@ -20,8 +20,8 @@
       <p class="sw-school-document-notice">{{ certificate_error }}</p>
       {% else %}
       <div class="sw-school-document-actions">
-        <a class="sw-button primary" href="{{ url_for('student_certificate', download=1) }}">{{ icon('download') }} Télécharger le PDF</a>
-        <a class="sw-link" href="{{ url_for('student_certificate') }}" target="_blank" rel="noopener">Ouvrir le certificat ↗</a>
+        <a class="sw-button primary" href="{{ url_for('student_certificate') }}" target="_blank" rel="noopener">{{ icon('file') }} Ouvrir mon certificat ↗</a>
+        <small>PDF · 1 page · Ouverture dans un nouvel onglet</small>
       </div>
       {% endif %}
     </section>

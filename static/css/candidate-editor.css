@@ -12,6 +12,12 @@ body.academy-ui.candidate-sheet-page .sheet-identity { gap:20px; }
 body.academy-ui.candidate-sheet-page .sheet-identity h1 { font-size:30px; margin-bottom:12px; letter-spacing:-.7px; }
 body.academy-ui.candidate-sheet-page .candidate-avatar.large { width:88px; height:110px; border-radius:13px; border-width:4px; }
 body.academy-ui.candidate-sheet-page .sheet-portrait-controls { flex-shrink:0; display:grid; justify-items:center; gap:7px; }
+body.academy-ui.candidate-sheet-page .photo-upload-open { display:inline-flex;align-items:center;justify-content:center;max-width:155px;min-height:32px;margin:3px 0 0;padding:7px 10px;border:1px solid #cbd8ec;border-radius:8px;background:#f4f7fd;color:#285dcc;font:700 11px/1.45 Manrope,Arial,sans-serif;white-space:normal;text-align:center;cursor:pointer; }
+body.academy-ui.candidate-sheet-page .photo-upload-open:disabled { opacity:.6;cursor:wait; }
+body.academy-ui.candidate-sheet-page .photo-upload-help { font:400 10px/1.5 Manrope,Arial,sans-serif;color:#65758e; }
+body.academy-ui.candidate-sheet-page #photo-upload-status { max-width:170px;font-size:11px;line-height:1.5;text-align:center;margin:2px 0;color:#24714a;overflow-wrap:anywhere; }
+body.academy-ui.candidate-sheet-page #photo-upload-status.is-error { color:#a43e38; }
+body.academy-ui.candidate-sheet-page .sheet-portrait-controls [hidden] { display:none!important; }
 .photo-crop-open,.mode-edit-link { color:#285dcc; border:0; background:none; font:600 11px/1.4 Manrope,Arial,sans-serif; padding:3px 0; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
 .mode-edit-link { margin-left:auto; }
 body.academy-ui.candidate-sheet-page .sheet-header-actions { padding-top:15px; }

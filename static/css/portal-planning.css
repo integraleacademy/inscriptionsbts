@@ -68,6 +68,9 @@
 .academy-ui .portal-course-time strong{font-size:12px;letter-spacing:-.2px;color:inherit;font-weight:750}
 .academy-ui .portal-course-time strong>span{opacity:.5;padding:0 1px}
 .academy-ui .portal-course-card h3{font:750 13px/1.45 'DM Sans',sans-serif!important;letter-spacing:-.15px!important;color:inherit!important;margin:9px 0!important}
+.academy-ui .portal-course-card .portal-course-action{display:flex;gap:5px;width:100%;min-width:0;max-width:100%;min-height:34px;height:auto;margin:12px 0 0!important;padding:7px 8px!important;font:650 11px/1.45 'DM Sans',sans-serif!important;white-space:normal;overflow-wrap:normal;word-break:normal;text-align:center;border-radius:8px!important;box-sizing:border-box}
+.academy-ui .portal-course-action>span{flex:0 0 auto}
+.academy-ui .portal-course-card .study-badge{margin-top:9px;max-width:100%;box-sizing:border-box;white-space:normal}
 .academy-ui .portal-course-detail{font-size:11px;line-height:1.5;margin:0 0 9px;color:#68775e}
 .academy-ui .portal-course-meta{display:grid;gap:6px;color:#637159;font-size:11px;line-height:1.4}
 .academy-ui .portal-course-meta>span{display:flex;align-items:flex-start;gap:5px}
