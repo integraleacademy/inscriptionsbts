@@ -5,6 +5,7 @@ from io import BytesIO
 from unittest.mock import patch
 
 import pytest
+from itsdangerous import URLSafeTimedSerializer
 from pypdf import PdfReader, PdfWriter
 from reportlab.pdfgen import canvas
 
@@ -335,14 +336,56 @@ def test_subjects_with_same_pdf_trainer_can_import_different_trainers(client, db
     assert repeated.json['count'] == 0 and repeated.json['duplicates'] == 2
 
 
-def test_several_pdf_trainers_for_one_subject_require_an_explicit_choice(client):
+def test_several_pdf_trainers_for_one_subject_keep_independent_choices(client, db):
     extracted = analyze(client, two_weeks(teacher='M. NOM t2 P.')).json
-    assert extracted['mappings']['subject_trainers'] == {'Matiere s1':''}
-    assert preview(client, extracted['source_token'], mappings=extracted['mappings']).json['summary']['blocked'] == 2
-    mappings = dict(extracted['mappings'], subject_trainers={'Matiere s1':'t2'})
+    first, second = extracted['document']['rows']
+    assert first['subject_label'] == second['subject_label'] == 'Matiere s1'
+    first_key, second_key = first['subject_key'], second['subject_key']
+    assert first_key != second_key
+    assert extracted['mappings']['subjects'] == {first_key:'s1', second_key:'s1'}
+    assert extracted['mappings']['subject_trainers'] == {first_key:'t1', second_key:'t2'}
+    result = preview(client, extracted['source_token'], mappings=extracted['mappings']).json
+    assert result['summary']['ready'] == 2
+    assert [r['trainer_id'] for r in result['items']] == ['t1', 't2']
+    mappings = dict(extracted['mappings'], subject_trainers={first_key:'t2', second_key:'t1'})
     result = preview(client, extracted['source_token'], mappings=mappings).json
     assert result['summary']['ready'] == 2
-    assert [r['trainer_id'] for r in result['items']] == ['t2', 't2']
+    assert [r['trainer_id'] for r in result['items']] == ['t2', 't1']
+    assert commit(client, result['preview_token'], ['0', '1']).json['count'] == 2
+    with db() as conn:
+        assert [tuple(r) for r in conn.execute('SELECT subject_id,trainer_id FROM planning_courses ORDER BY date')] == [('s1','t2'), ('s1','t1')]
+    assert commit(client, result['preview_token'], ['0', '1']).json['duplicates'] == 2
+
+
+def test_missing_split_mapping_cannot_fall_back_to_the_other_trainer(client):
+    extracted = analyze(client, two_weeks(teacher='M. NOM t2 P.')).json
+    first_key, second_key = [r['subject_key'] for r in extracted['document']['rows']]
+    mappings = dict(extracted['mappings'], subject_trainers={first_key:'t1'})
+    result = preview(client, extracted['source_token'], mappings=mappings).json
+    assert result['summary']['ready'] == result['summary']['blocked'] == 1
+    assert result['items'][1]['subject_key'] == second_key
+    assert result['items'][1]['issues'] == ['Associez la matière et le formateur de ce cours.']
+
+
+@pytest.mark.parametrize('action', ['source', 'review'])
+def test_old_merged_trainer_tokens_require_a_new_analysis(app, client, db, action):
+    extracted = analyze(client, two_weeks(teacher='M. NOM t2 P.')).json
+    serializer = URLSafeTimedSerializer(app.secret_key, salt='planning-ypareo-import-v1')
+    if action == 'source':
+        old = serializer.loads(extracted['source_token'])
+        rows = old['rows']
+    else:
+        reviewed = preview(client, extracted['source_token'], mappings=extracted['mappings']).json
+        old = serializer.loads(reviewed['preview_token'])
+        rows = old['source']['rows']
+        old['mappings'] = dict(subjects={'Matiere s1':'s1'}, subject_trainers={'Matiere s1':'t1'})
+    for row in rows:
+        row['subject_key'] = row.pop('subject_label')
+    token = serializer.dumps(old)
+    response = preview(client, token) if action == 'source' else commit(client, token, ['0', '1'])
+    assert response.status_code == 409
+    assert 'correspondance séparément' in response.json['message']
+    assert count(db) == 0
 
 
 @pytest.mark.parametrize('trainer', ['', None, [], {}, 'unassigned', 'inactive'])

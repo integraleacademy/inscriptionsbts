@@ -1,9 +1,11 @@
 """Import catalogue subjects into an unprepared year without separate setup."""
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date
+from io import BytesIO
 import json
 
 import pytest
+from pypdf import PdfReader, PdfWriter
 
 import planning
 import subject_catalog
@@ -103,6 +105,45 @@ def test_truncated_labels_share_one_catalogue_allocation_and_combined_budget(cli
     assert len(reviewed['subject_preparations']) == 1
     assert commit(client, reviewed['preview_token'], ['0']).json['prepared_subjects'] == 1
     assert len(allocations(db, catalog['english'])) == 1
+
+
+def test_truncated_rci_languages_keep_separate_subjects_teachers_and_budgets(client, db):
+    with db() as conn:
+        french = subject_catalog.import_subject(conn, 'Relation commerciale interculturelle en français', 'MCO',
+            dict(annual_hours_first=42))
+        english = subject_catalog.import_subject(conn, 'Relation commerciale interculturelle en anglais', 'MCO',
+            dict(annual_hours_first=52))
+    writer, stream = PdfWriter(), BytesIO()
+    for monday, subject, teacher in [
+        (date(2027, 1, 4), 'RELATION COMMERCIALE INTER…', 'M. NOM t1 P.'),
+        (date(2027, 1, 11), 'RELATION COMMERCIALE INTERC…', 'M. NOM t2 P.'),
+        (date(2027, 1, 18), 'RELATION COMMERCIALE INTERC…', 'M. NOM t1 P.'),
+    ]:
+        writer.add_page(PdfReader(BytesIO(pdf_bytes(monday=monday, subject=subject, teacher=teacher))).pages[0])
+    writer.write(stream)
+    extracted = analyze(client, stream.getvalue()).json
+    first, second, third = extracted['document']['rows']
+    assert first['subject_key'] == third['subject_key'] != second['subject_key']
+    assert len(extracted['mappings']['subjects']) == 2
+    assert set(extracted['mappings']['subjects'].values()) == {''}  # The clipped title does not identify its language.
+    mappings = dict(extracted['mappings'], subjects={
+        first['subject_key']:'catalog:' + french, second['subject_key']:'catalog:' + english})
+    assert mappings['subject_trainers'] == {first['subject_key']:'t1', second['subject_key']:'t2'}
+    reviewed = review_catalog(client, extracted, mappings=mappings).json
+    assert reviewed['summary']['ready'] == 3, reviewed
+    assert {s['catalog_subject_id']:s['planned_hours'] for s in reviewed['subject_preparations']} == {french:42, english:52}
+    assert count(db) == 0 and not allocations(db, french) and not allocations(db, english)
+    saved = commit(client, reviewed['preview_token'], ['0', '1', '2'])
+    assert saved.status_code == 200 and saved.json['count'] == 3, saved.json
+    with db() as conn:
+        assert [tuple(r) for r in conn.execute('''SELECT l.subject_id,c.trainer_id FROM planning_courses c
+            JOIN planning_subject_catalog_links l ON l.planning_subject_id=c.subject_id ORDER BY c.date''')] == [
+                (french, 't1'), (english, 't2'), (french, 't1')]
+    again = analyze(client, stream.getvalue()).json
+    assert [r['subject_key'] for r in again['document']['rows']] == [r['subject_key'] for r in extracted['document']['rows']]
+    choices = {first['subject_key']:allocations(db, french)[0]['id'], second['subject_key']:allocations(db, english)[0]['id']}
+    repeated = review_catalog(client, again, mappings=dict(again['mappings'], subjects=choices)).json
+    assert repeated['summary']['duplicate'] == 3
 
 
 def test_deselected_courses_never_prepare_their_catalogue_subject(client, db, catalog):

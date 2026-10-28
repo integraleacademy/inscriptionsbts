@@ -33,10 +33,10 @@
     }));
   }
   function trainerChoices() { return [...extracted.trainers, ...(extracted.new_trainers || [])]; }
-  function mappingField(source, kind, title, choices, suggestion, placeholder) {
+  function mappingField(source, kind, title, choices, suggestion, placeholder, context = source) {
     const field = node('label', undefined, 'pi-map-field'), select = node('select');
     field.append(node('span', title)); select.required = true; select.dataset.source = source; select.dataset.mapping = kind;
-    select.setAttribute('aria-label', title + ' · ' + source);
+    select.setAttribute('aria-label', title + ' · ' + context);
     select.append(new Option(placeholder, ''));
     if (kind === 'subject_trainers') {
       [['assigned', 'Déjà affectés à cette promotion'], ['existing', 'Autres formateurs actifs'], ['new', 'À créer à l’import']].forEach(([kind, title]) => {
@@ -62,16 +62,19 @@
   function correspondences() {
     $('pi-subjects').replaceChildren(...Object.entries(extracted.mappings.subjects).map(([source, suggestion]) => {
       const row = node('div', undefined, 'pi-subject-row');
-      const trainers = [...new Set(extracted.document.rows.filter(r => r.subject_key === source).map(r => r.trainer))];
-      const subject = mappingField(source, 'subjects', source, extracted.subjects, suggestion, 'Choisir une matière du BTS');
+      const courses = extracted.document.rows.filter(r => r.subject_key === source);
+      const trainers = [...new Set(courses.map(r => r.trainer))];
+      const label = courses[0]?.subject_label || source;
+      const context = label + ' · ' + trainers.join(' · ');
+      const subject = mappingField(source, 'subjects', label, extracted.subjects, suggestion, 'Choisir une matière du BTS', context);
       const notice = node('small', 'Sera ajoutée à cette année lors de l’import.', 'pi-map-notice');
       const select = subject.querySelector('select');
       const update = () => { notice.hidden = !extracted.subjects.find(s => s.id === select.value)?.prepare_on_import; };
       select.addEventListener('change', update); update(); subject.append(notice);
       const trainer = mappingField(source, 'subject_trainers', 'Formateur pour cette matière', trainerChoices(),
-        extracted.mappings.subject_trainers[source], 'Choisir un formateur');
+        extracted.mappings.subject_trainers[source], 'Choisir un formateur', context);
       trainer.append(node('small', 'Dans le PDF : ' + trainers.join(' · ')));
-      if (trainers.length > 1) trainer.append(node('small', 'Plusieurs formateurs dans le PDF : le choix ci-dessus les remplacera pour cette matière.', 'pi-map-notice'));
+      subject.append(node('small', courses.length + ' cours · ' + duration(courses.reduce((total, course) => total + course.duration_minutes, 0))));
       row.append(subject, trainer); return row;
     }));
   }
@@ -154,7 +157,7 @@
       $('pi-empty-subjects').hidden = extracted.subjects.length > 0;
       renderNewTrainers();
       $('pi-room').replaceChildren(new Option('Salle à compléter après l’import', ''), ...extracted.rooms.map(r => new Option(r.name, r.id)));
-      stats('pi-document-summary', [[doc.rows.length, 'cours repérés'], [duration(doc.minutes), 'volume dans le PDF'], [doc.pages, 'semaines vérifiées'], [Object.keys(extracted.mappings.subjects).length, 'matières à associer']]);
+      stats('pi-document-summary', [[doc.rows.length, 'cours repérés'], [duration(doc.minutes), 'volume dans le PDF'], [doc.pages, 'semaines vérifiées'], [Object.keys(extracted.mappings.subjects).length, 'correspondances à vérifier']]);
       $('pi-source').textContent = 'Groupe du PDF : ' + doc.group + ' · Cours du ' + day(doc.first_date) + ' au ' + day(doc.last_date) + '.';
       $('pi-upload-section').hidden = true; $('pi-mapping-section').hidden = false; step(2); message();
     } catch (error) { message(error.message, true); }

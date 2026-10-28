@@ -35,6 +35,19 @@ def suggest_trainer(label, trainers):
     return matches[0] if len(matches) == 1 else ''
 
 
+def separate_subject_trainers(document):
+    """Keep clipped subject labels separate when their PDF trainers differ."""
+    trainers = {}
+    for row in document['rows']:
+        trainers.setdefault(row['subject_key'], set()).add(row['trainer'])
+    for row in document['rows']:
+        label = row['subject_key']
+        row['subject_label'] = label
+        if len(trainers[label]) > 1:
+            identity = (label + '\0' + row['trainer']).encode()
+            row['subject_key'] = 'pdf-group-' + hashlib.sha256(identity).hexdigest()
+
+
 def _context(conn, promotion_id, period_id):
     promotion = p._promotion(conn, promotion_id, ready=True)
     if not isinstance(period_id, str) or not period_id:
@@ -85,6 +98,12 @@ def _review(conn, source, mappings, school_days, room_id, selected_keys=None, *,
             'SELECT 1 FROM planning_rooms WHERE id=? AND active=1', (room_id,)).fetchone()):
         raise p.PlanningError('Choisissez une salle active ou laissez la salle à compléter.')
     rows = source['rows']
+    source_trainers = {}
+    for row in rows:
+        source_trainers.setdefault(row['subject_key'], set()).add(row['trainer'])
+    if any(len(trainers) > 1 for trainers in source_trainers.values()):
+        raise p.PlanningError('Plusieurs formateurs partagent un intitulé dans ce PDF. '
+                              'Rechargez la page, puis analysez-le à nouveau pour vérifier chaque correspondance séparément.', status=409)
     if selected_keys is not None:
         if (not isinstance(selected_keys, list) or not selected_keys or len(selected_keys) > MAX_COURSES or
                 any(not isinstance(k, str) for k in selected_keys) or len(set(selected_keys)) != len(selected_keys) or
@@ -213,9 +232,11 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
             except Exception:
                 app.logger.exception('Unable to read Ypareo planning PDF')
                 raise p.PlanningError('Le PDF est illisible ou son format n’est pas reconnu. Exportez un planning groupe hebdomadaire depuis Yparéo.', status=422) from None
+            separate_subject_trainers(document)
             source = dict(promotion_id=promotion['id'], period_id=period['id'],
                 start_date=period['start_date'], end_date=period['end_date'], rows=document['rows'])
-            source_subjects = sorted({r['subject_key'] for r in document['rows']})
+            source_groups = {r['subject_key']: (r['subject_label'], r['trainer']) for r in document['rows']}
+            source_subjects = sorted(source_groups, key=source_groups.get)
             source_trainers = sorted({r['trainer'] for r in document['rows']})
             trainer_matches = {t: suggest_trainer(t, trainers) for t in source_trainers}
             drafts, proposed_matches, trainer_warnings = new_trainers.propose(source_trainers, known_trainers)
@@ -226,7 +247,7 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                 subject_trainers[subject] = next(iter(matches)) if len(matches) == 1 else ''
             return result(document=document, source_token=sign(source, 'source'), subjects=subjects, trainers=trainers,
                 rooms=rooms, new_trainers=drafts, trainer_warnings=trainer_warnings,
-                mappings=dict(subjects={s: suggest_subject(s, subjects) for s in source_subjects},
+                mappings=dict(subjects={s: suggest_subject(source_groups[s][0], subjects) for s in source_subjects},
                                           subject_trainers=subject_trainers, trainers=trainer_matches))
         except p.PlanningError as error:
             return fail(error)
