@@ -604,6 +604,46 @@
       const field = el('div'); field.append(el('span', 'planning-primary-label', label), el('strong', 'planning-primary-value', value)); return field;
     }));
   }
+  let courseRoomRequest = 0, courseRoomController = null, courseRoomsChecked = null;
+  function courseRoomQuery() {
+    const fields = $('planning-course-form').elements;
+    return new URLSearchParams({date: fields.date.value, start: fields.start.value,
+      end: fields.end_at_midnight.checked ? '24:00' : fields.end.value,
+      ...(state.courseEdit ? {exclude_course_id: state.courseEdit.id} : {})});
+  }
+  async function loadCourseRooms() {
+    const sequence = ++courseRoomRequest, form = $('planning-course-form'), select = form.elements.room_id;
+    courseRoomController?.abort(); courseRoomsChecked = null;
+    const query = courseRoomQuery(), key = query.toString(), selected = select.value;
+    const selectedName = state.data.rooms?.find(room => String(room.id) === selected)?.name || select.selectedOptions[0]?.textContent || selected;
+    populate(select, selected ? [{id: selected, name: selectedName}] : [], room => room.name, 'Sans salle attribuée', selected);
+    select.disabled = true; select.setCustomValidity('');
+    const status = $('planning-course-room-status'), retry = $('planning-course-room-retry'); retry.hidden = true;
+    if (!form.elements.date.value || !form.elements.date.validity.valid || !query.get('start') || !query.get('end') || query.get('start') >= query.get('end')) {
+      status.textContent = 'Renseignez une date et des horaires valides pour voir les salles disponibles.'; return;
+    }
+    status.textContent = 'Recherche des salles disponibles…';
+    courseRoomController = new AbortController();
+    try {
+      const data = await request('/rooms/available?' + query, {signal: courseRoomController.signal});
+      if (sequence !== courseRoomRequest || !$('planning-course-dialog').open || key !== courseRoomQuery().toString()) return;
+      populate(select, data.rooms, room => room.name, 'Sans salle attribuée', selected);
+      const unavailable = selected && !data.rooms.some(room => String(room.id) === selected);
+      if (unavailable) {
+        const option = new Option(selectedName + ' · Indisponible sur ce créneau', selected); option.disabled = true; select.add(option); select.value = selected;
+        select.setCustomValidity('Choisissez une salle disponible ou « Sans salle attribuée ».');
+        status.textContent = 'La salle sélectionnée n’est pas disponible. Choisissez une autre salle ou laissez le cours sans salle.';
+      } else {
+        status.textContent = data.rooms.length ? 'Seules les salles libres sur toute la durée du cours sont proposées.' : 'Aucune salle disponible sur ce créneau. Le cours peut rester sans salle attribuée.';
+      }
+      select.disabled = false; courseRoomsChecked = key;
+    } catch (error) {
+      if (sequence !== courseRoomRequest || error.name === 'AbortError') return;
+      status.textContent = 'Impossible de vérifier les salles. ' + error.message; retry.hidden = false;
+    }
+  }
+  $('planning-course-dialog').addEventListener('close', () => { courseRoomRequest++; courseRoomController?.abort(); courseRoomsChecked = null; });
+  $('planning-course-room-retry').addEventListener('click', loadCourseRooms);
   function openCourse(course = null, overrides = {}) {
     if (state.loading || state.quickBusy || !state.data) return;
     if (course?.kind === 'event') { window.AcademyPlanningExtras?.openEvent(course); return; }
@@ -621,19 +661,25 @@
     renderCoursePrimary();
     $('planning-course-title').replaceChildren(course ? 'Modifier ce ' : 'Un nouveau ', el('em', '', course ? 'cours.' : 'créneau.'));
     renderSharedRows($('planning-course-shared'), state.courseShared, primary, courseSharedChanged);
-    populate(form.elements.room_id, state.data.rooms || [], item => item.name + (item.active === false || item.active === 0 ? ' · Inactive' : ''), 'Sans salle attribuée', Object.prototype.hasOwnProperty.call(values, 'room_id') ? (values.room_id || '') : $('planning-room').value);
+    const selectedRoom = Object.prototype.hasOwnProperty.call(values, 'room_id') ? (values.room_id || '') : $('planning-room').value;
+    populate(form.elements.room_id, selectedRoom ? [{id: selectedRoom, name: state.data.rooms?.find(room => String(room.id) === String(selectedRoom))?.name || selectedRoom}] : [], item => item.name, 'Sans salle attribuée', selectedRoom);
     form.elements.zoom_url.value = values.zoom_url || '';
     form.elements.date.value = values.date || (state.week < state.data.promotion.date_debut ? state.data.promotion.date_debut : state.week); form.elements.start.value = values.start || '09:00'; form.elements.end_at_midnight.checked = values.end === '24:00'; form.elements.end.value = values.end === '24:00' ? '23:59' : values.end || '11:00'; form.elements.end.disabled = form.elements.end_at_midnight.checked; form.elements.end.required = !form.elements.end_at_midnight.checked; form.elements.title.value = values.title || '';
     const warning = $('planning-course-warning'), warnings = course ? courseWarnings(course) : []; warning.textContent = warnings.length ? '⚠︎ À compléter : ' + warnings.join(' · ') : ''; warning.hidden = !warnings.length;
     $('planning-course-delete').hidden = !course; $('planning-course-repeat').hidden = !course; $('planning-course-repeat').disabled = false; openDialog('planning-course-dialog', form.elements.subject_id);
+    loadCourseRooms();
   }
   $('planning-course-form').addEventListener('input', () => { $('planning-course-repeat').disabled = true; $('planning-course-repeat').title = 'Enregistrez les modifications du cours avant de le répéter.'; });
   $('planning-course-form').elements.subject_id.addEventListener('change', event => { const subject = catalogSubjects().find(item => String(item.id) === event.target.value); if (subject) $('planning-course-form').elements.trainer_id.value = subject.trainer_id; renderCoursePrimary(); });
   $('planning-course-form').elements.end_at_midnight.addEventListener('change', event => { const input = $('planning-course-form').elements.end; input.disabled = event.target.checked; input.required = !event.target.checked; });
+  ['date', 'start', 'end', 'end_at_midnight'].forEach(name => $('planning-course-form').elements[name].addEventListener('change', loadCourseRooms));
+  $('planning-course-form').elements.room_id.addEventListener('change', event => { event.target.setCustomValidity(''); });
   function courseSharedChanged() { $('planning-course-repeat').disabled = true; }
   const courseValues = form => ({zoom_url: form.elements.zoom_url.value.trim(), promotion_id: state.courseEdit?.promotion_id || promotionId(), subject_id: form.elements.subject_id.value, trainer_id: form.elements.trainer_id.value, room_id: form.elements.room_id.value || null, date: form.elements.date.value, start: form.elements.start.value, end: form.elements.end_at_midnight.checked ? '24:00' : form.elements.end.value, title: form.elements.title.value.trim(), shared: cleanShared(state.courseShared, state.courseEdit?.promotion_id || promotionId())});
   $('planning-course-form').addEventListener('submit', event => {
-    event.preventDefault(); const form = event.currentTarget; let data; try { data = courseValues(form); } catch (failure) { formError(form, failure.message); return; } if (state.courseEdit) data.version = state.courseEdit.version;
+    event.preventDefault(); const form = event.currentTarget;
+    if (courseRoomsChecked !== courseRoomQuery().toString()) { formError(form, $('planning-course-room-status').textContent); return; }
+    let data; try { data = courseValues(form); } catch (failure) { formError(form, failure.message); return; } if (state.courseEdit) data.version = state.courseEdit.version;
     if (data.start >= data.end) { formError(form, 'L’heure de fin doit suivre l’heure de début.'); return; }
     saveForm(form, () => request('/courses' + (state.courseEdit ? '/' + encodeURIComponent(state.courseEdit.id) : ''), {method: state.courseEdit ? 'PUT' : 'POST', data}), state.courseEdit ? 'Cours mis à jour.' : 'Cours ajouté au planning.');
   });
