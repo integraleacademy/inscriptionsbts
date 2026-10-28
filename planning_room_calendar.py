@@ -19,6 +19,11 @@ def unavailable_slots(conn, start, end):
     return rows
 
 
+def reservation_slots(conn,start,end):
+    return [dict(row,key='reservation:'+row['id'],source='reservation',formation='OTHER',exam=bool(row['exam']))
+            for row in conn.execute('SELECT * FROM planning_room_reservations WHERE date>=? AND date<=?',(start,end))]
+
+
 def snapshot(conn,start,end):
     from planning import _load_courses, _clock
     from planning_rooms import external_slots, configured, ready, overlap
@@ -29,6 +34,7 @@ def snapshot(conn,start,end):
                          title=c.get('title') or c['subject_name'],formation='BTS',url='/admin/salles?course_id='+c['id']))
     rows += [dict(r) for r in external_slots(conn) if start<=r['date']<=end]
     rows += unavailable_slots(conn,start,end)
+    rows += reservation_slots(conn,start,end)
     buckets={}
     for row in rows:
         row.update(start=_clock(row['start_min']),end=_clock(row['end_min']),conflict=False)
@@ -92,10 +98,46 @@ def register(app,connect,guard,result,fail,transact):
                 if row['source']=='session':
                     conn.execute('INSERT INTO planning_room_overrides(owner,slot_key,room_id) VALUES(?,?,?) ON CONFLICT(owner,slot_key) DO UPDATE SET room_id=excluded.room_id',
                                  (row['owner'],row['slot_key'],rid));owners.add(row['owner'])
+                elif row['source']=='reservation':
+                    conn.execute('UPDATE planning_room_reservations SET room_id=?,version=version+1,updated_at=? WHERE id=?',(rid,now,row['id']))
                 else:
                     conn.execute('UPDATE planning_courses SET room_id=?,version=version+1,updated_at=? WHERE id=?',(rid,now,row['id']))
             for owner in owners:conn.execute('UPDATE planning_room_owners SET room_version=room_version+1 WHERE owner=?',(owner,))
             return dict(count=len(selected),message='La salle a été modifiée pour tous les créneaux sélectionnés.')
+        return transact(operation)
+
+    @app.route('/admin/planning/api/rooms/reservations',methods=['POST'])
+    @app.route('/admin/planning/api/rooms/reservations/<reservation_id>',methods=['PUT','DELETE'])
+    def room_reservation(reservation_id=None):
+        def operation(conn,payload):
+            existing=conn.execute('SELECT * FROM planning_room_reservations WHERE id=?',(reservation_id,)).fetchone() if reservation_id else None
+            if reservation_id and not existing:raise PlanningError('Cette réservation n’existe plus.',status=404)
+            if existing and (type(payload.get('version')) is not int or payload['version']!=existing['version']):
+                raise PlanningError('Cette réservation a changé. Actualisez le planning avant de la modifier.',status=409)
+            if request.method=='DELETE':
+                conn.execute('DELETE FROM planning_room_reservations WHERE id=?',(reservation_id,))
+                return dict(message='La réservation a été supprimée.')
+            rid=room(conn,payload.get('room_id'))
+            day=_iso(payload.get('date')).isoformat()
+            start,end=_minutes(payload.get('start')),_minutes(payload.get('end'),True)
+            if start>=end:raise PlanningError('L’heure de fin doit suivre l’heure de début.')
+            title=payload.get('title')
+            if not isinstance(title,str) or not 1<=len(title.strip())<=200:raise PlanningError('Indiquez un intitulé de 1 à 200 caractères.')
+            exam=payload.get('exam',False)
+            if type(exam) is not bool:raise PlanningError('Indiquez si ce créneau est un examen.')
+            proposed=dict(room_id=rid,date=day,start_min=start,end_min=end,title=title.strip())
+            others=[r for r in snapshot(conn,day,day)['reservations'] if not (r['source']=='reservation' and r['id']==reservation_id)]
+            issues=issues_for([proposed],others)
+            if issues:raise PlanningError('La salle est déjà réservée sur ces horaires. Choisissez une autre salle ou un autre horaire.',issues,409)
+            now=datetime.now(timezone.utc).isoformat()
+            values=(rid,day,start,end,title.strip(),int(exam),now)
+            if existing:
+                saved_id=reservation_id
+                conn.execute('UPDATE planning_room_reservations SET room_id=?,date=?,start_min=?,end_min=?,title=?,exam=?,updated_at=?,version=version+1 WHERE id=?',(*values,saved_id))
+            else:
+                saved_id=secrets.token_urlsafe(24)
+                conn.execute('INSERT INTO planning_room_reservations(room_id,date,start_min,end_min,title,exam,updated_at,id,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(*values,saved_id,now))
+            return dict(reservation=next(r for r in reservation_slots(conn,day,day) if r['id']==saved_id),message='La réservation a été enregistrée.')
         return transact(operation)
 
     @app.route('/admin/planning/api/rooms/unavailability',methods=['POST'])

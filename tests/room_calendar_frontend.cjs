@@ -21,7 +21,8 @@ async function fixture() {
   const rooms = ['r1', 'r2', 'r3', 'r4', 'r5'].map(id => ({id, name: 'Salle ' + id, active: id !== 'r4'}));
   const posts = [], reads = []; let fail = false, release = null;
   w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
-  w.HTMLDialogElement.prototype.close = function() { this.open = false; };
+  w.HTMLDialogElement.prototype.close = function() { this.open = false; this.dispatchEvent(new w.Event('close')); };
+  w.scrollTo = () => {};
   w.fetch = async (url, options) => {
     if (url.startsWith('/admin/planning/api/rooms/schedule?')) {
       reads.push(url); const query = new URL(url, w.location).searchParams;
@@ -133,6 +134,32 @@ async function run() {
     f.select('session:b', 'session:c'); f.$('rooms-move-selected').click();
     assert.ok(f.$('rooms-course-dialog').open, 'keyboard/click bulk dialog remains available');
     assert.match(f.$('rooms-course-heading').textContent, /2 créneaux/);
+  } finally { f.close(); }
+
+  f = await fixture();
+  try {
+    const view = f.$('rooms-planner-view'), parent = view.parentNode;
+    f.select('course:a', 'session:b'); f.$('rooms-fullscreen').click();
+    assert.ok(f.$('rooms-fullscreen-dialog').open);
+    assert.equal(view.parentNode, f.$('rooms-fullscreen-dialog'));
+    assert.equal(f.doc.querySelectorAll('.room-booking.selected').length, 2);
+    f.$('rooms-fullscreen').click();
+    assert.equal(view.parentNode, parent); assert.ok(!f.$('rooms-fullscreen-dialog').open);
+    assert.equal(f.$('rooms-fullscreen').getAttribute('aria-pressed'), 'false');
+    assert.equal(f.cell('r4').querySelector('.room-create'), null, 'inactive rooms cannot be booked');
+    f.cell('r5').querySelector('.room-create').click();
+    const form = f.$('rooms-reservation-form');
+    assert.ok(f.$('rooms-reservation-dialog').open);
+    assert.equal(form.elements.room_id.value, 'r5'); assert.equal(form.elements.date.value, '2027-01-04');
+    form.elements.title.value = 'Examen VTC'; form.elements.title.dispatchEvent(new f.w.Event('input'));
+    assert.ok(form.elements.exam.checked);
+    form.elements.exam.checked = false; form.elements.exam.dispatchEvent(new f.w.Event('change'));
+    form.elements.title.value = 'Examen blanc'; form.elements.title.dispatchEvent(new f.w.Event('input'));
+    assert.ok(!form.elements.exam.checked, 'the user can override the exam suggestion');
+    form.elements.all_day.checked = true; form.elements.all_day.dispatchEvent(new f.w.Event('change'));
+    assert.ok(form.elements.start.disabled && form.elements.end.disabled);
+    assert.ok(f.$('rooms-reservation-times').hidden);
+    assert.equal(f.posts.length, 0, 'opening a free slot never creates a booking');
   } finally { f.close(); }
   console.log('Room calendar: group drag, dates, atomic payload, conflicts, cancellation, refresh and click fallback passed.');
 }

@@ -21,12 +21,38 @@
   const moveDialog = $('rooms-course-dialog'), moveForm = $('rooms-course-form');
   const blockDialog = $('rooms-unavailable-dialog'), blockForm = $('rooms-unavailable-form');
   const exportDialog = $('rooms-export-dialog'), exportForm = $('rooms-export-form');
+  const reservationDialog = $('rooms-reservation-dialog'), reservationForm = $('rooms-reservation-form');
+  const reservationConfirm = $('rooms-reservation-confirm');
+  const fullDialog = $('rooms-fullscreen-dialog'), plannerView = $('rooms-planner-view'), fullButton = $('rooms-fullscreen');
+  const scrollArea = table.closest('.room-calendar-scroll');
+  let editingReservation = null, examTouched = false, plannerPlaceholder = null, pagePosition = null;
+
+  fullButton.addEventListener('click', () => {
+    if (fullDialog.open) { fullDialog.close(); return; }
+    if (dragging || dragBusy) return;
+    pagePosition = {x: window.scrollX, y: window.scrollY};
+    const top = scrollArea.scrollTop, left = scrollArea.scrollLeft;
+    plannerPlaceholder = document.createComment('room-planner-position'); plannerView.before(plannerPlaceholder);
+    fullDialog.append(plannerView); document.body.classList.add('room-fullscreen-open');
+    fullButton.textContent = '✕ Quitter le plein écran'; fullButton.setAttribute('aria-pressed', 'true');
+    fullDialog.showModal(); fullButton.focus(); scrollArea.scrollTop = top; scrollArea.scrollLeft = left;
+  });
+  fullDialog.addEventListener('close', () => {
+    if (!plannerPlaceholder) return;
+    const top = scrollArea.scrollTop, left = scrollArea.scrollLeft;
+    plannerPlaceholder.replaceWith(plannerView); plannerPlaceholder = null;
+    document.body.classList.remove('room-fullscreen-open');
+    fullButton.textContent = '⛶ Plein écran'; fullButton.setAttribute('aria-pressed', 'false');
+    fullButton.focus({preventScroll: true}); scrollArea.scrollTop = top; scrollArea.scrollLeft = left;
+    if (pagePosition) window.scrollTo(pagePosition.x, pagePosition.y);
+  });
+  fullDialog.addEventListener('cancel', event => { if (dragging || dragBusy) event.preventDefault(); });
 
   // Keep ISO values for the API and the native picker, with an explicit French
   // editing surface: browser/OS locale must not turn dates into MM/DD/YYYY.
   const valueProperty = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
   const disabledProperty = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'disabled');
-  for (const input of document.querySelectorAll('.room-planner input[type=date], #rooms-unavailable-dialog input[type=date], #rooms-export-dialog input[type=date]')) {
+  for (const input of document.querySelectorAll('.room-planner input[type=date], #rooms-unavailable-dialog input[type=date], #rooms-export-dialog input[type=date], #rooms-reservation-dialog input[type=date]')) {
     const wrapper = node('span', undefined, 'room-date-field'), display = node('input'), picker = node('button', '▦', 'room-date-picker');
     const labelText = input.closest('label')?.textContent.trim() || 'Date';
     display.type = 'text'; display.inputMode = 'numeric'; display.placeholder = 'JJ/MM/AAAA'; display.maxLength = 10;
@@ -109,7 +135,7 @@
             card.addEventListener('dragstart', event => startDrag(event, b, card));
             card.addEventListener('dragend', endDrag);
           }
-          const action = b.source === 'unavailable' ? 'Modifier l’indisponibilité' : 'Changer la salle';
+          const action = b.source === 'unavailable' ? 'Modifier l’indisponibilité' : b.source === 'reservation' ? 'Modifier la réservation' : 'Changer la salle';
           card.setAttribute('aria-label', (b.exam ? 'EXAMEN · ' : '') + action + ' · ' + b.title + ' · ' + label(b.date) + ' · ' + b.start + '–' + b.end);
           if (b.exam) card.append(node('span', 'EXAMEN', 'room-exam-badge'));
           card.append(node('strong', b.start === '00:00' && b.end === '24:00' ? 'Journée entière' : b.start + '–' + b.end), node('span', b.title));
@@ -124,11 +150,16 @@
             if (b.source === 'unavailable') return openBlock(b);
             if (b.pending) return error('rooms-error', 'Ce créneau attend une confirmation de la session. Réessayez après l’actualisation.');
             if (multiple) { selection.has(b.key) ? selection.delete(b.key) : selection.set(b.key, b); updateSelection(); }
+            else if (b.source === 'reservation') openReservation(b.room_id, b.date, b);
             else openMove([b]);
           });
           cell.append(card);
         }
-        if (!bookings.length) cell.append(node('span', room.active ? 'Libre' : '—', 'room-free'));
+        if (room.id && room.active) {
+          const create = node('button', bookings.length ? '+ Ajouter un créneau' : 'Libre · + Réserver', 'room-create' + (bookings.length ? '' : ' room-free'));
+          create.type = 'button'; create.setAttribute('aria-label', 'Créer un créneau · ' + room.name + ' · ' + label(day));
+          cell.classList.add('room-can-create'); cell.append(create);
+        } else if (!bookings.length) cell.append(node('span', room.active ? '—' : 'Inactive', 'room-free'));
         row.append(cell);
       }
       body.append(row);
@@ -277,7 +308,7 @@
     catch (e) { error(errorId, e.message); }
     finally { delete dialog.dataset.busy; controls.forEach(([n, disabled]) => n.disabled = disabled); }
   }
-  for (const dialog of [moveDialog, blockDialog, exportDialog]) {
+  for (const dialog of [moveDialog, blockDialog, exportDialog, reservationDialog, reservationConfirm]) {
     for (const button of dialog.querySelectorAll('[data-room-close]')) button.addEventListener('click', () => { if (!dialog.dataset.busy) dialog.close(); });
     dialog.addEventListener('cancel', e => { if (dialog.dataset.busy) e.preventDefault(); });
     dialog.addEventListener('close', () => (dialog._opener?.isConnected ? dialog._opener : $('rooms-refresh')).focus());
@@ -301,6 +332,60 @@
   $('rooms-multiple').addEventListener('click', () => { multiple = !multiple; updateSelection(); });
   $('rooms-clear-selected').addEventListener('click', () => { selection.clear(); updateSelection(); });
   $('rooms-move-selected').addEventListener('click', () => { if (selection.size) openMove([...selection.values()]); });
+
+  function reservationTimes() {
+    const allDay = reservationForm.elements.all_day.checked;
+    $('rooms-reservation-times').hidden = allDay;
+    $('rooms-reservation-midnight').hidden = allDay;
+    reservationForm.elements.start.disabled = allDay;
+    reservationForm.elements.end.disabled = allDay || reservationForm.elements.end_at_midnight.checked;
+  }
+  function openReservation(roomId, day, booking = null) {
+    editingReservation = booking; examTouched = Boolean(booking); reservationForm.reset(); error('rooms-reservation-error', '');
+    const f = reservationForm.elements;
+    $('rooms-reservation-heading').textContent = booking ? 'Modifier le créneau' : 'Créer un créneau';
+    $('rooms-reservation-delete').hidden = !booking;
+    roomOptions(f.room_id, roomId); f.date.value = day; f.title.value = booking?.title || '';
+    f.all_day.checked = Boolean(booking && booking.start_min === 0 && booking.end_min === 1440);
+    f.start.value = booking?.start || '09:00'; f.end.value = booking?.end === '24:00' ? '23:59' : booking?.end || '10:00';
+    f.end_at_midnight.checked = Boolean(booking && booking.end_min === 1440 && booking.start_min !== 0);
+    f.exam.checked = Boolean(booking?.exam); reservationTimes(); show(reservationDialog); f.title.focus();
+  }
+  table.addEventListener('click', event => {
+    if (dragging || dragBusy || Date.now() < suppressClickUntil || event.target.closest?.('button[data-key]')) return;
+    const cell = event.target.closest?.('td.room-can-create');
+    if (cell && table.contains(cell)) openReservation(cell.dataset.roomId, cell.dataset.date);
+  });
+  reservationForm.elements.all_day.addEventListener('change', reservationTimes);
+  reservationForm.elements.end_at_midnight.addEventListener('change', reservationTimes);
+  reservationForm.elements.exam.addEventListener('change', () => { examTouched = true; });
+  reservationForm.elements.title.addEventListener('input', () => {
+    if (!examTouched) reservationForm.elements.exam.checked = /\bexamen\b/i.test(reservationForm.elements.title.value);
+  });
+  reservationForm.addEventListener('submit', event => {
+    event.preventDefault(); if (!reservationForm.reportValidity()) return;
+    dialogWork(reservationDialog, 'rooms-reservation-error', async () => {
+      const f = reservationForm.elements;
+      await request('/reservations' + (editingReservation ? '/' + encodeURIComponent(editingReservation.id) : ''), {
+        room_id: f.room_id.value, date: f.date.value, title: f.title.value,
+        start: f.all_day.checked ? '00:00' : f.start.value, end: f.all_day.checked || f.end_at_midnight.checked ? '24:00' : f.end.value,
+        exam: f.exam.checked, version: editingReservation?.version
+      }, editingReservation ? 'PUT' : 'POST');
+      if (editingReservation) selection.delete(editingReservation.key);
+      updateSelection(); reservationDialog.close(); changed(); dragMessage('Le créneau a été enregistré.', 'success');
+    });
+  });
+  $('rooms-reservation-delete').addEventListener('click', () => {
+    if (!editingReservation) return;
+    $('rooms-reservation-confirm-text').textContent = 'Supprimer « ' + editingReservation.title + ' » du ' + frenchDate(editingReservation.date) + ' ? La salle sera libérée sur ces horaires.';
+    error('rooms-reservation-confirm-error', ''); show(reservationConfirm);
+  });
+  $('rooms-reservation-confirm-delete').addEventListener('click', () => dialogWork(reservationConfirm, 'rooms-reservation-confirm-error', async () => {
+    if (!editingReservation) return;
+    await request('/reservations/' + encodeURIComponent(editingReservation.id), {version: editingReservation.version}, 'DELETE');
+    selection.delete(editingReservation.key); updateSelection(); reservationConfirm.close(); reservationDialog.close(); changed();
+    dragMessage('La réservation a été supprimée.', 'success');
+  }));
 
   function blockTimes() { $('rooms-unavailable-times').hidden = blockForm.elements.all_day.checked; }
   function openBlock(block = null) {

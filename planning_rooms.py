@@ -33,6 +33,11 @@ def schema(conn):
     conn.execute('''CREATE TABLE IF NOT EXISTS planning_room_unavailability(id TEXT PRIMARY KEY,room_id TEXT NOT NULL,
         start_date TEXT NOT NULL,end_date TEXT NOT NULL,start_min INTEGER NOT NULL,end_min INTEGER NOT NULL,
         reason TEXT NOT NULL,version INTEGER NOT NULL DEFAULT 1)''')
+    conn.execute('''CREATE TABLE IF NOT EXISTS planning_room_reservations(id TEXT PRIMARY KEY,room_id TEXT NOT NULL,
+        date TEXT NOT NULL,start_min INTEGER NOT NULL,end_min INTEGER NOT NULL,title TEXT NOT NULL,
+        exam INTEGER NOT NULL DEFAULT 0,version INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
+        CHECK(start_min>=0 AND start_min<end_min AND end_min<=1440),CHECK(exam IN (0,1)))''')
+    conn.execute('CREATE INDEX IF NOT EXISTS planning_room_reservations_date ON planning_room_reservations(date,room_id)')
     if not conn.execute("SELECT 1 FROM planning_room_meta WHERE key='sessions_only_v1'").fetchone():
         old=conn.execute("SELECT slots,pending_slots FROM planning_room_owners WHERE owner LIKE 'formation:%'").fetchall()
         counts=dict(owners=len(old),slots=sum(len(json.loads(row['slots'])) for row in old))
@@ -100,13 +105,14 @@ def overlap(a, b):
 
 def room_conflicts(conn, course, exclude_owner=None, include_courses=False, exclude_ids=()):
     from planning import _clock, _load_courses
-    from planning_room_calendar import unavailable_slots
+    from planning_room_calendar import unavailable_slots, reservation_slots
     if not course.get('room_id'):
         return []
     if not ready(conn):
         return [dict(type='room_sync', message='La liaison des salles est en cours d’initialisation. Réessayez après la synchronisation des sessions.')]
     rows = external_slots(conn, exclude_owner, (course['room_id'],course['date']))
     rows += unavailable_slots(conn,course['date'],course['date'])
+    rows += reservation_slots(conn,course['date'],course['date'])
     if include_courses:
         rows += [dict(c, source='bts') for c in _load_courses(conn, course['date'], course['date']) if c['id'] not in exclude_ids]
     return [dict(type='room', date=c['date'], room_id=c['room_id'], owner=c.get('owner'), course_id=c.get('id'),
@@ -116,6 +122,7 @@ def room_conflicts(conn, course, exclude_owner=None, include_courses=False, excl
 
 def room_used(conn, room_id):
     if conn.execute('SELECT 1 FROM planning_room_unavailability WHERE room_id=? LIMIT 1',(room_id,)).fetchone():return True
+    if conn.execute('SELECT 1 FROM planning_room_reservations WHERE room_id=? LIMIT 1',(room_id,)).fetchone():return True
     return any(s['room_id']==room_id for row in conn.execute('SELECT slots,pending_slots FROM planning_room_owners')
                for key in ('slots','pending_slots') for s in json.loads(row[key] or '[]')) or any(s['room_id']==room_id for s in external_slots(conn))
 
