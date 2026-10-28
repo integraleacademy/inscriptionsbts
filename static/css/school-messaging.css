@@ -6,7 +6,7 @@
 .message-senders,.message-layouts { padding:0; margin:0 0 22px; border:0; min-width:0; }
 .message-senders legend,.message-layouts legend { font-size:12px; font-weight:750; padding:0; margin:0 0 11px; color:#344158; }
 .message-sender-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.messaging-page .message-sender-card { position:relative; flex-direction:row; align-items:center; gap:11px; padding:15px 12px; border:1px solid #dfe6ef; border-radius:12px; cursor:pointer; background:#fff; transition:border-color .15s,background .15s; }
+.shared-email-options .message-sender-card { position:relative; flex-direction:row; align-items:center; gap:11px; padding:15px 12px; border:1px solid #dfe6ef; border-radius:12px; cursor:pointer; background:#fff; transition:border-color .15s,background .15s; }
 .message-sender-card:has(input:checked) { background:#f0f5ff; border-color:#3269da; box-shadow:0 0 0 1px #3269da; }
 .message-sender-card:has(input:focus-visible),.message-layout-choice:has(input:focus-visible) { outline:3px solid #3269da; outline-offset:3px; }
 .message-sender-card input,.message-layout-choice input { position:absolute; width:1px; height:1px; margin:0; opacity:0; }
@@ -15,7 +15,7 @@
 .message-sender-card small { display:block; font-size:10px; font-weight:400; color:#6b7a90; line-height:1.5; margin-top:4px; }
 .message-senders .campus-muted { margin:10px 0 0; font-size:11px; overflow-wrap:anywhere; }
 .message-layouts>div { display:flex; gap:10px; flex-wrap:wrap; }
-.messaging-page .message-layout-choice { position:relative; flex-direction:row; align-items:center; gap:10px; padding:10px 14px; border:1px solid #dfe6ef; border-radius:10px; font-size:11px; cursor:pointer; }
+.shared-email-options .message-layout-choice { position:relative; flex-direction:row; align-items:center; gap:10px; padding:10px 14px; border:1px solid #dfe6ef; border-radius:10px; font-size:11px; cursor:pointer; }
 .message-layout-choice:has(input:checked) { background:#f0f5ff; border-color:#3269da; color:#2458c6; }
 .message-layout-swatch { display:flex; flex-direction:column; gap:3px; width:28px; height:32px; padding:4px; border:1px solid #d6deeb; border-radius:3px; background:#fff; box-sizing:border-box; }
 .message-layout-swatch i { display:block; height:3px; background:#dde4ef; border-radius:1px; }

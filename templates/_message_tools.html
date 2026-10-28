@@ -1,0 +1,36 @@
+{% macro email_options(prefix, senders, layouts, accent) %}
+<div id="{{ prefix }}-email-options" class="shared-email-options">
+  <fieldset class="message-senders"><legend>De la part de</legend><div class="message-sender-options">
+    {% for sender in senders %}<label class="message-sender-card">
+      <input type="radio" name="sender_id" value="{{ sender.id }}" data-email="{{ sender.email }}" {% if loop.first %}checked{% endif %}>
+      <img src="{{ url_for('static',filename=sender.avatar) }}" width="48" height="48" alt="">
+      <span><strong>{{ sender.name }}</strong><small>{{ sender.role }}</small></span>
+    </label>{% endfor %}
+  </div><p id="{{ prefix }}-sender-address" class="campus-muted" aria-live="polite"></p></fieldset>
+  <fieldset class="message-layouts"><legend>Présentation de l’e-mail</legend><div>
+    {% for key,label in layouts.items() %}<label class="message-layout-choice"><input type="radio" name="layout" value="{{ key }}" {% if loop.first %}checked{% endif %}><span class="message-layout-swatch {{ key }}" aria-hidden="true"><i></i><i></i><i></i></span><span>{{ label }}</span></label>{% endfor %}
+  </div></fieldset>
+  <label class="message-accent-field">Phrase en italique<input name="accent_title" value="{{ accent }}" maxlength="120" placeholder="Une phrase qui accompagne votre titre"><small>Affichée sous le titre. Vous pouvez la modifier ou l’effacer.</small></label>
+</div>
+{% endmacro %}
+
+{% macro assistant(prefix) %}
+<section class="email-assistant" data-email-assistant aria-labelledby="{{ prefix }}-ai-title">
+  <h3 id="{{ prefix }}-ai-title">Rédiger avec l’IA</h3>
+  <label for="{{ prefix }}-ai-instruction">Que souhaitez-vous écrire ?</label>
+  <textarea id="{{ prefix }}-ai-instruction" data-ai-instruction rows="3" maxlength="4000" placeholder="Ex. Écris un mail pour lui rappeler d’être à l’heure en cours, sur un ton bienveillant mais ferme."></textarea>
+  <p class="email-assistant-help">Décrivez votre idée ou demandez de retravailler le message ci-dessous.</p>
+  <button type="button" class="btn" data-ai-generate>Générer une proposition</button>
+  <p data-ai-status role="status" hidden></p>
+  <div data-ai-result hidden>
+    <p class="email-assistant-subject"><strong data-ai-subject></strong></p>
+    <div class="email-assistant-body" data-ai-body></div>
+    <button type="button" class="btn primary" data-ai-apply>Utiliser cette proposition</button>
+    <p class="email-assistant-help">L’objet et le message seront remplacés. Vous pourrez les modifier avant l’envoi.</p>
+  </div>
+</section>
+{% endmacro %}
+
+{% macro action_button(prefix) %}
+<div id="{{ prefix }}-cta-fields" class="message-cta"><label>Texte du bouton <small>Facultatif</small><input name="action_label" maxlength="80" placeholder="Consulter mon espace"></label><label>Lien du bouton<input name="action_url" type="url" placeholder="https://inscriptionsbts.onrender.com/espace/connexion"></label></div>
+{% endmacro %}

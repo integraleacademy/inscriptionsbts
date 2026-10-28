@@ -31,9 +31,9 @@ def messaging(tmp_path):
     deliveries, logs = [], []
     transport = {'success': True, 'raises': False}
 
-    def mail(to, subject, html, attachments=None):
+    def mail(to, subject, html, attachments=None, **options):
         deliveries.append({'type': 'email', 'to': to, 'subject': subject, 'html': html,
-                           'attachments': [(Path(path).name, Path(path).read_bytes()) for path in attachments or []]})
+                           'options': options, 'attachments': [(Path(path).name, Path(path).read_bytes()) for path in attachments or []]})
         if transport['raises']:
             raise RuntimeError('Fake provider outage')
         return 'test-mail-id' if transport['success'] else False
@@ -72,10 +72,10 @@ def test_preview_never_sends_and_html_is_escaped(messaging):
     assert response.json['recipient'] == 'student@example.test'
     assert '<script>' not in response.json['html']
     assert '&lt;script&gt;' in response.json['html']
-    assert 'background:#202a26' in response.json['html']
-    assert 'width="240"' in response.json['html']
-    assert 'width:240px;' in response.json['html']
-    assert 'color:#ffffff;' in response.json['html']
+    assert 'background:#102c5c' in response.json['html']
+    assert 'Clément VAILLANT' in response.json['html']
+    assert '/static/messaging/clement.png' in response.json['html']
+    assert response.json['sender']['email'] == 'clement@integraleacademy.com'
     assert response.headers['Cache-Control'] == 'no-store'
 
 

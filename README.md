@@ -441,7 +441,8 @@ passées sont grisées et leur restriction est explicitement expliquée.
   de réponse réseau incertaine. La page reste ouverte pendant les envois ;
   l’historique permet de reprendre les destinataires restants dans la même
   session. « Envoyé » signifie accepté par le fournisseur, pas nécessairement lu.
-- La messagerie propose **Signature CRM** (bandeau bleu) et **Courrier personnel**,
+- La messagerie et le compositeur de la fiche étudiante proposent les mêmes
+  **Signature CRM** (bandeau bleu) et **Courrier personnel**,
   avec les expéditeurs Clément VAILLANT et Aurélie CHAUSSEZ. Leur nom, adresse
   d’envoi, adresse de réponse, fonction et memoji rond sont liés au choix effectué.
   L’identité et le HTML sont figés ensemble dans l’aperçu (`sender_json`, migration
@@ -454,6 +455,19 @@ passées sont grisées et leur restriction est explicitement expliquée.
   alignés à gauche, avec le memoji à côté des coordonnées. Une phrase en
   italique à empattements, inspirée de la brochure BTS, peut être personnalisée
   ou retirée. Le pied de page reprend intégralement les mentions du modèle CRM.
+- **Rédiger avec l’IA**, disponible dans les deux compositeurs e-mail, prépare
+  un objet et un texte à partir d’une consigne ou du brouillon existant.
+  « Utiliser cette proposition » remplit les champs modifiables et invalide
+  l’ancien aperçu. La génération ne crée aucun envoi : la prévisualisation puis
+  la confirmation d’envoi restent nécessaires. Les expéditeurs, présentations,
+  pièces jointes et boutons restent sous le contrôle de l’administrateur.
+  La connexion réutilise `OPENAI_API_KEY` ou la clé chiffrée des Paramètres.
+  `OPENAI_MAIL_MODEL` permet de remplacer le modèle par défaut `gpt-4.1-mini`.
+  L’API reçoit la consigne et le brouillon, le prénom/BTS/modalité sur une fiche,
+  ou les types et le nombre de destinataires pour un groupe ; ni l’annuaire,
+  ni les pièces jointes, ni l’historique du dossier ne sont transmis.
+  Les appels utilisent `store=false` et la table additive `message_ai_usage`
+  limite une session à 10 demandes en 10 minutes, pour les deux écrans réunis.
 - Les identités structurées s’affichent au format **Prénom NOM**, accents et
   prénoms composés conservés. Python, Jinja et JavaScript suivent la même règle,
   également appliquée aux initiales, listes, recherches et documents générés.

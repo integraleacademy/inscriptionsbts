@@ -34,6 +34,8 @@
   if (!sheet || !dialog) return;
   const $ = id => document.getElementById(id);
   const form = $('student-message-form'), subject = $('student-message-subject');
+  const composerHeader = dialog.querySelector('.student-composer-head');
+  new ResizeObserver(() => dialog.style.setProperty('--composer-head-height', composerHeader.getBoundingClientRect().height + 'px')).observe(composerHeader);
   const body = $('student-message-body'), recipient = $('student-message-recipient');
   const fileInput = $('student-message-files'), fileList = $('student-message-file-list');
   const previewButton = $('student-message-preview-button'), sendButton = $('student-message-send');
@@ -45,6 +47,13 @@
   const basePath = '/admin/candidat/' + encodeURIComponent(sheet.dataset.candidateId);
   const report = message => { error.textContent = message; error.hidden = !message; };
   const currentRecipient = () => channel === 'email' ? sheet.dataset.email : sheet.dataset.phone;
+  const assistant = window.setupEmailAssistant({form, endpoint: basePath + '/message-assistant', csrf: sheet.dataset.messageCsrf,
+    context: () => ({type: 'email', subject: subject.value, body: body.value, sender_id: form.elements.sender_id.value}),
+    canUse: () => !busy && channel === 'email'});
+  function syncSender() {
+    const sender = form.querySelector('[name=sender_id]:checked');
+    $('student-message-sender-address').textContent = 'Expéditeur et adresse de réponse : ' + sender.dataset.email;
+  }
   function count() {
     $('student-message-count').textContent = channel === 'sms' ? `${Array.from(body.value).length} caractères` : '';
   }
@@ -87,6 +96,10 @@
     files = [...draft.files]; fileInput.value = '';
     $('student-message-subject-field').hidden = !mail;
     $('student-message-attachments').hidden = !mail;
+    $('student-message-email-options').hidden = !mail;
+    $('student-message-cta-fields').hidden = !mail;
+    $('student-message-cta-fields').querySelectorAll('input').forEach(input => { input.disabled = !mail; });
+    assistant.setVisible(mail); syncSender();
     dialog.querySelectorAll('[data-composer-channel]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.composerChannel === channel)));
     renderFiles(); count(); report(''); invalidatePreview();
   }
@@ -94,6 +107,7 @@
     busy = value;
     dialog.setAttribute('aria-busy', String(value));
     dialog.querySelectorAll('button,input,textarea').forEach(control => { control.disabled = value; });
+    if (!value) $('student-message-cta-fields').querySelectorAll('input').forEach(input => { input.disabled = channel !== 'email'; });
     sendButton.disabled = value || !previewToken;
     previewButton.textContent = value ? 'Traitement…' : 'Prévisualiser';
   }
@@ -113,6 +127,9 @@
     data.append('type', channel); data.append('subject', channel === 'email' ? subject.value : '');
     if (accessTemplate && channel === 'email') data.append('template', 'student_access');
     data.append('body', body.value); data.append('csrf_token', sheet.dataset.messageCsrf);
+    if (channel === 'email') {
+      for (const name of ['sender_id', 'layout', 'accent_title', 'action_url', 'action_label']) data.append(name, form.elements[name].value);
+    }
     if (channel === 'email') files.forEach(file => data.append('attachment', file, file.name));
     if (previewToken) data.append('preview_token', previewToken);
     return data;
@@ -138,8 +155,11 @@
   dialog.querySelectorAll('[data-composer-channel]').forEach(button => button.addEventListener('click', () => switchChannel(button.dataset.composerChannel)));
   dialog.querySelectorAll('[data-close-composer]').forEach(button => button.addEventListener('click', () => { if (!busy) dialog.close(); }));
   dialog.addEventListener('cancel', event => { if (busy) event.preventDefault(); });
-  dialog.addEventListener('close', () => { remember(); lastOpener?.focus(); });
+  dialog.addEventListener('close', () => { assistant.reset(); remember(); lastOpener?.focus(); });
   [subject, body].forEach(input => input.addEventListener('input', () => { remember(); count(); report(''); invalidatePreview(); }));
+  form.querySelectorAll('[name=sender_id],[name=layout],[name=accent_title],[name=action_url],[name=action_label]').forEach(input => {
+    input.addEventListener('input', () => { syncSender(); invalidatePreview(); });
+  });
   fileInput.addEventListener('change', () => {
     const additions = Array.from(fileInput.files || []);
     const next = [...files, ...additions];
@@ -165,6 +185,8 @@
       $('student-message-preview-recipient').textContent = result.recipient;
       $('student-message-preview-subject').textContent = result.subject || '';
       $('student-message-preview-subject-row').hidden = channel !== 'email';
+      $('student-message-preview-sender-row').hidden = channel !== 'email';
+      $('student-message-preview-sender').textContent = result.sender?.email ? result.sender.name + ' <' + result.sender.email + '>' : '';
       const frame = $('student-message-preview-frame'), sms = $('student-message-preview-sms');
       frame.hidden = channel !== 'email'; sms.hidden = channel !== 'sms';
       if (channel === 'email') frame.srcdoc = result.html || '';
