@@ -16,12 +16,13 @@ from test_planning import db, app, client, admin, call, BASE
 PERIOD = dict(start_date='2026-09-01', end_date='2027-07-01')
 
 
-def pdf_bytes(monday=date(2027, 1, 4), declared=2, subject='Matiere s1', teacher='M. NOM t1 P.', empty=False, shift=0, badge=None):
+def pdf_bytes(monday=date(2027, 1, 4), declared=2, subject='Matiere s1', teacher='M. NOM t1 P.', empty=False, shift=0, badge=None,
+              group='APP BTS MOS 2026-2028', course_group=None):
     """Synthetic vector export: no student's file or real trainer data in git."""
     stream = BytesIO()
     c = canvas.Canvas(stream, pagesize=(842, 595))
     c.setFont('Helvetica', 8)
-    c.drawString(40, 559, f'Planning groupe - APP BTS MOS 2026-2028 Semaine S {monday.isocalendar().week:02d} - {0 if empty else declared}h')
+    c.drawString(40, 559, f'Planning groupe - {group} Semaine S {monday.isocalendar().week:02d} - {0 if empty else declared}h')
     months = 'janvier février mars avril mai juin juillet août septembre octobre novembre décembre'.split()
     for i, wd in enumerate(['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi']):
         day = monday + timedelta(days=i)
@@ -41,7 +42,9 @@ def pdf_bytes(monday=date(2027, 1, 4), declared=2, subject='Matiere s1', teacher
             c.setFillColorRGB(1, 1, 1)
             c.drawString(204, label_y, badge)
             c.setFillColorRGB(0, 0, 0)
-        c.drawString(89, 595-(70+32+2.4+shift)-18, 'APP BTS MOS 2026-2028')
+        c.setFont('Helvetica', 6)
+        c.drawString(89, 595-(70+32+2.4+shift)-18, group if course_group is None else course_group)
+        c.setFont('Helvetica', 8)
         c.drawString(89, 595-(70+32+2.4+shift)-30, teacher)
     c.save()
     return stream.getvalue()
@@ -54,6 +57,56 @@ def test_vector_pdf_reads_dates_times_subjects_and_totals():
     row = parsed['rows'][0]
     assert (row['date'], row['start'], row['end'], row['subject'], row['trainer']) == (
         '2027-01-04', '09:00', '11:00', 'Matiere s1', 'M. NOM t1 P.')
+
+
+@pytest.mark.parametrize('bts,partner', [('CI', 'PI'), ('PI', 'CI')])
+@pytest.mark.parametrize('subject', [
+    'ANGLAIS', 'Culture générale et expression',
+    'CULTURE GENERALE ET EXPRESS…', 'Culture generale et expr...',
+])
+def test_ci_pi_common_subjects_accept_the_other_group(bts, partner, subject):
+    group = f'APP BTS {bts} 1ERE ANNEE 2026-2028'
+    parsed = parse_ypareo_pdf(pdf_bytes(
+        group=group, course_group=f'APP BTS {partner} 1ERE ANNEE 2026-2028 C…',
+        subject=subject, badge='C' if subject == 'ANGLAIS' else None), PERIOD)
+    assert parsed['group'] == group
+    assert parsed['minutes'] == 120
+    row, = parsed['rows']
+    assert (row['date'], row['start'], row['end'], row['subject'], row['trainer']) == (
+        '2027-01-04', '09:00', '11:00', subject, 'M. NOM t1 P.')
+
+
+@pytest.mark.parametrize('course_group,subject', [
+    ('APP BTS PI 1ERE ANNEE 2026-2028', 'Commerce international'),
+    ('APP BTS MOS 1ERE ANNEE 2026-2028', 'ANGLAIS'),
+    ('APP BTS PI 2EME ANNEE 2026-2028', 'ANGLAIS'),
+    ('APP BTS PI 1ERE ANNEE 2025-2027', 'ANGLAIS'),
+    ('APP BTS PI 1ERE ANNEE 2026-20280', 'ANGLAIS'),
+    ('APP BTS PI 1ERE ANNEE 2026-2028', 'Culture générale…'),
+    ('APP BTS PI 1ERE ANNEE 2026-2028', 'Culture generale et expr'),
+    ('', 'ANGLAIS'),
+])
+def test_shared_group_exception_rejects_other_subjects_groups_and_cohorts(course_group, subject):
+    with pytest.raises(ImportPDFError, match='groupe indiqué.*Aucun cours'):
+        parse_ypareo_pdf(pdf_bytes(group='APP BTS CI 1ERE ANNEE 2026-2028',
+                                  course_group=course_group, subject=subject), PERIOD)
+
+
+def test_shared_subject_still_requires_a_matching_weekly_total():
+    with pytest.raises(ImportPDFError, match='totalisent 2 h.*annonce 3 h'):
+        parse_ypareo_pdf(pdf_bytes(group='APP BTS CI 1ERE ANNEE 2026-2028',
+                                  course_group='APP BTS PI 1ERE ANNEE 2026-2028',
+                                  subject='ANGLAIS', declared=3), PERIOD)
+
+
+def test_common_subjects_do_not_allow_mixing_planning_groups_in_one_pdf():
+    writer, stream = PdfWriter(), BytesIO()
+    for monday, bts in [(date(2027, 1, 4), 'CI'), (date(2027, 1, 11), 'PI')]:
+        content = pdf_bytes(monday=monday, group=f'APP BTS {bts} 1ERE ANNEE 2026-2028', subject='ANGLAIS')
+        writer.add_page(PdfReader(BytesIO(content)).pages[0])
+    writer.write(stream)
+    with pytest.raises(ImportPDFError, match='plusieurs groupes'):
+        parse_ypareo_pdf(stream.getvalue(), PERIOD)
 
 
 @pytest.mark.parametrize('badge', ['C', 'T', 'TD'])
@@ -141,6 +194,36 @@ def test_analyze_and_preview_do_not_write_then_commit_adds_only_the_course_day(c
     assert count(db) == 1
     again = preview(client, extraction.json['source_token'])
     assert again.json['summary']['duplicate'] == 1
+
+
+def test_common_pi_courses_import_into_the_selected_ci_promotion(client, db):
+    with db() as conn:
+        conn.execute("UPDATE promotions SET bts='CI' WHERE id='p1'")
+        conn.execute("UPDATE promotions SET bts='PI' WHERE id='p2'")
+        conn.execute("UPDATE planning_subjects SET name='Anglais' WHERE id='s1'")
+        conn.execute("UPDATE planning_subjects SET name='Culture générale et expression' WHERE id='s3'")
+    writer, stream = PdfWriter(), BytesIO()
+    for monday, subject in [(date(2027, 1, 4), 'ANGLAIS'),
+                            (date(2027, 1, 11), 'CULTURE GENERALE ET EXPRESS…')]:
+        content = pdf_bytes(monday=monday, group='APP BTS CI 1ERE ANNEE 2026-2028',
+                            course_group='APP BTS PI 1ERE ANNEE 2026-2028 C…', subject=subject)
+        writer.add_page(PdfReader(BytesIO(content)).pages[0])
+    writer.write(stream)
+    extraction = analyze(client, stream.getvalue())
+    assert extraction.status_code == 200, extraction.json
+    assert count(db) == 0
+    mappings = extraction.json['mappings']
+    assert mappings['subjects'] == {'ANGLAIS': 's1', 'CULTURE GENERALE ET EXPRESS…': 's3'}
+    result = preview(client, extraction.json['source_token'], mappings=mappings)
+    assert result.status_code == 200, result.json
+    assert result.json['summary']['ready'] == 2
+    assert count(db) == 0
+    saved = commit(client, result.json['preview_token'], ['0', '1'])
+    assert saved.status_code == 200 and saved.json['count'] == 2, saved.json
+    with db() as conn:
+        assert [tuple(row) for row in conn.execute(
+            'SELECT promotion_id,subject_id FROM planning_courses ORDER BY date')] == [('p1', 's1'), ('p1', 's3')]
+        assert conn.execute("SELECT COUNT(*) FROM planning_course_groups WHERE promotion_id='p2'").fetchone()[0] == 0
 
 
 def test_permissions_csrf_invalid_and_expired_tokens(app, client):
