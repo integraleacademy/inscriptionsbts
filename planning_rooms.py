@@ -127,7 +127,7 @@ def room_used(conn, room_id):
                for key in ('slots','pending_slots') for s in json.loads(row[key] or '[]')) or any(s['room_id']==room_id for s in external_slots(conn))
 
 
-def normalize(conn, raw, bootstrap=False):
+def normalize(conn, raw, bootstrap=False, allow_unassigned=False):
     from planning import PlanningError, _iso, _minutes
     if not isinstance(raw, list) or len(raw) > 5000:
         raise PlanningError('Liste des réservations invalide.')
@@ -140,6 +140,7 @@ def normalize(conn, raw, bootstrap=False):
             raise PlanningError('Créneau de salle invalide.')
         rid = item.get('room_id')
         name = str(item.get('room_name') or '').strip()
+        unassigned=allow_unassigned and 'room_id' in item and rid is None and not name
         if not rid and name:
             rid = names.get(name.casefold())
             if not rid and bootstrap:
@@ -148,7 +149,7 @@ def normalize(conn, raw, bootstrap=False):
                 rooms[rid] = dict(id=rid, active=1); names[name.casefold()] = rid
             if rid and bootstrap:
                 conn.execute('INSERT OR IGNORE INTO planning_room_aliases(name,room_id) VALUES(?,?)',(name.casefold(),rid))
-        if not isinstance(rid,str) or not rid or rid not in rooms or not rooms[rid]['active']:
+        if not unassigned and (not isinstance(rid,str) or not rid or rid not in rooms or not rooms[rid]['active']):
             raise PlanningError('Salle inconnue ou inactive : ' + name + '. Choisissez-la dans le planning commun.')
         day = _iso(item.get('date')).isoformat()
         start, end = _minutes(item.get('start')), _minutes(item.get('end'), True)
@@ -156,7 +157,7 @@ def normalize(conn, raw, bootstrap=False):
             raise PlanningError('Les horaires de réservation sont invalides.')
         groups.setdefault((rid, day), []).append((start, end))
     result = []
-    for (rid, day), spans in sorted(groups.items()):
+    for (rid, day), spans in sorted(groups.items(),key=lambda pair:(pair[0][0] or '',pair[0][1])):
         merged = []
         for start, end in sorted(spans):
             if merged and start <= merged[-1][1]:
@@ -202,7 +203,7 @@ def prepare(conn, data):
         raise PlanningError('Cette session a changé. Rechargez ses réservations.', status=409)
     if row and revision == row['revision']:
         return dict(token=None)
-    slots = normalize(conn, data.get('slots'))
+    slots = normalize(conn, data.get('slots'),allow_unassigned=data.get('schema')==3)
     metadata=data.get('metadata') or {}
     current_metadata=json.loads(row['metadata'] or '{}') if row else {}
     existing=effective_slots(conn,owner,json.loads(row['slots']),current_metadata) if row else []
@@ -229,17 +230,23 @@ def reconcile_owner(conn,item):
     from planning import PlanningError
     owner,revision,title,url=owner_data(item)
     row=conn.execute('SELECT * FROM planning_room_owners WHERE owner=?',(owner,)).fetchone()
-    if not row:return
+    if not row:
+        if item.get('schema')==3:
+            slots=normalize(conn,item['slots'],bootstrap=True,allow_unassigned=True)
+            conn.execute('INSERT INTO planning_room_owners(owner,revision,slots,title,url,metadata) VALUES(?,?,?,?,?,?)',
+                         (owner,revision,json.dumps(slots),title,url,json.dumps(item.get('metadata') or {})))
+        return
     versions={revision,item.get('legacy_revision')}
+    if item.get('schema')==3:versions.add(item.get('compat_revision'))
     if row['pending_token']:
         if row['pending_revision'] in versions:finish(conn,dict(token=row['pending_token'],commit=True))
         elif row['revision'] in versions:finish(conn,dict(token=row['pending_token'],commit=False))
         else:raise PlanningError('Une réservation nécessite une réconciliation manuelle.',status=409)
         row=conn.execute('SELECT * FROM planning_room_owners WHERE owner=?',(owner,)).fetchone()
-    if item.get('schema')==2 and row['revision']==item.get('legacy_revision'):
-        # Adopt the durable source's v2 projection once, preserving historical
-        # conflicts as visible conflicts instead of dropping real exam bookings.
-        slots=normalize(conn,item['slots'],bootstrap=True)
+    if item.get('schema') in (2,3) and row['revision']!=revision and row['revision'] in versions:
+        # Upgrade only from an exact legacy checksum. Keep existing room
+        # overrides and surface historical conflicts without losing real slots.
+        slots=normalize(conn,item['slots'],bootstrap=True,allow_unassigned=item.get('schema')==3)
         conn.execute('UPDATE planning_room_owners SET revision=?,slots=?,metadata=?,title=?,url=?,room_version=room_version+1 WHERE owner=?',
                      (revision,json.dumps(slots),json.dumps(item.get('metadata') or {}),title,url,owner))
 
@@ -261,7 +268,11 @@ def reconcile(conn, owners, complete=False):
                 elif json.loads(row['slots']) == []:
                     finish(conn,dict(token=row['pending_token'],commit=False))
     audit=conn.execute("SELECT value FROM planning_room_meta WHERE key='sessions_only_v1'").fetchone()
-    return dict(scope='sessions',session_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'session:%'").fetchone()[0],
+    assignments={owner:dict(total=0,unassigned=0) for owner in seen}
+    for slot in external_slots(conn):
+        if slot['owner'] in assignments:
+            entry=assignments[slot['owner']];entry['total']+=1;entry['unassigned']+=not slot['room_id']
+    return dict(scope='sessions',assignments=assignments,session_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'session:%'").fetchone()[0],
                 calendar_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'session:%' AND metadata!='{}'").fetchone()[0],
                 excluded_owners=conn.execute("SELECT COUNT(*) FROM planning_room_owners WHERE owner LIKE 'formation:%'").fetchone()[0],
                 removed_legacy=json.loads(audit[0]) if audit else None)
@@ -332,7 +343,7 @@ def register(app, connect, guard, result, fail, transact, serializer):
                         raise PlanningError('Liste de sessions invalide.')
                     for item in owners:
                         owner, revision, title, url = owner_data(item)
-                        slots = normalize(conn, item['slots'], bootstrap=True)
+                        slots = normalize(conn, item['slots'], bootstrap=True,allow_unassigned=item.get('schema')==3)
                         conn.execute('INSERT INTO planning_room_owners(owner,revision,slots,title,url,metadata) VALUES(?,?,?,?,?,?)',
                                      (owner,revision,json.dumps(slots),title,url,json.dumps(item.get('metadata') or {})))
                     conn.execute("INSERT INTO planning_room_meta(key,value) VALUES('ready','1')")
@@ -376,8 +387,12 @@ def register(app, connect, guard, result, fail, transact, serializer):
                 for row in data.get('sessions',[]):
                     if not isinstance(row.get('owner'),str) or not row['owner'].startswith('session:'):
                         continue
+                    since=row.get('start') or row.get('formation_start')
+                    if not since and row.get('needs_schedule'):
+                        visible.append(row)
+                        continue
                     try:
-                        if date.fromisoformat(row.get('start') or row.get('formation_start')) >= date(2026,10,26):
+                        if date.fromisoformat(since) >= date(2026,10,26):
                             visible.append(row)
                     except (TypeError,ValueError):
                         continue

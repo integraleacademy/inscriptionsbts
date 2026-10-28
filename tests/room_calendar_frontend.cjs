@@ -10,7 +10,7 @@ const script = fs.readFileSync(path.join(root, 'static/js/room-schedule.js'), 'u
 const tick = async () => { for (let i = 0; i < 5; i++) await new Promise(setImmediate); };
 const base = (key, day, room, extra = {}) => ({key, date: '2027-01-' + day, room_id: room, title: key,
   source: 'bts', formation: 'BTS', start_min: 540, end_min: 660, start: '09:00', end: '11:00', version: 1, ...extra});
-async function fixture() {
+async function fixture(unassigned = false) {
   const dom = new JSDOM('<main class="catalog-app" data-csrf="test-token">' + template + '</main>', {
     url: 'https://school.example.test/admin/salles', runScripts: 'outside-only'});
   const {window: w} = dom, doc = w.document;
@@ -19,14 +19,25 @@ async function fixture() {
     base('course:untouched', '07', 'r1'), base('course:next-week', '11', 'r2'),
     base('unavailable:closed', '05', 'r3', {source: 'unavailable', formation: 'UNAVAILABLE', title: 'Travaux'})];
   const rooms = ['r1', 'r2', 'r3', 'r4', 'r5'].map(id => ({id, name: 'Salle ' + id, active: id !== 'r4'}));
+  if (unassigned) rows.push(base('session:roomless', '04', null, {source: 'session', formation: 'DESP', owner: 'session:new', revision: 'new-revision', room_version: 2}));
+  const sessions = [
+    {owner: 'session:one', name: 'APS JANVIER 2027', start: '2027-01-05', assigned: true, assigned_count: 2, unassigned_count: 0, generated: true},
+    {owner: 'session:new', name: 'DESP JANVIER 2027', start: '2027-01-04', assigned: false, assigned_count: 0, unassigned_count: 1, generated: true},
+    {owner: 'session:missing', name: 'SSIAP FÉVRIER 2027', start: '2027-02-01', end: '2027-02-10', assigned: false, unassigned_count: 0, needs_schedule: true, generated: false},
+    {owner: 'session:remote', name: 'En ligne', assigned: false, unassigned_count: 0, needs_schedule: false, generated: true}];
   const posts = [], reads = []; let fail = false, release = null;
   w.HTMLDialogElement.prototype.showModal = function() { this.open = true; };
   w.HTMLDialogElement.prototype.close = function() { this.open = false; this.dispatchEvent(new w.Event('close')); };
   w.scrollTo = () => {};
   w.fetch = async (url, options) => {
+    if (url === '/admin/planning/api/rooms/sessions') return {ok: true, json: async () => ({sessions})};
     if (url.startsWith('/admin/planning/api/rooms/schedule?')) {
       reads.push(url); const query = new URL(url, w.location).searchParams;
-      return {ok: true, json: async () => ({rooms, reservations: structuredClone(rows.filter(r => r.date >= query.get('start') && r.date <= query.get('end'))), connected: true, ready: true})};
+      const visible = rows.filter(r => r.date >= query.get('start') && r.date <= query.get('end'));
+      const unassignedCount = visible.filter(r => !r.room_id).length;
+      return {ok: true, json: async () => ({rooms: unassignedCount ? [{id: null, name: 'À affecter', unassigned: true, active: true}, ...rooms] : rooms,
+        reservations: structuredClone(visible), unassigned_count: unassignedCount,
+        unassigned_sessions: unassigned ? sessions.filter(s => s.unassigned_count || s.needs_schedule) : [], connected: true, ready: true})};
     }
     assert.equal(url, '/admin/planning/api/rooms/calendar-move');
     assert.equal(options.headers['X-CSRF-Token'], 'test-token');
@@ -161,6 +172,32 @@ async function run() {
     assert.ok(f.$('rooms-reservation-times').hidden);
     assert.equal(f.posts.length, 0, 'opening a free slot never creates a booking');
   } finally { f.close(); }
-  console.log('Room calendar: group drag, dates, atomic payload, conflicts, cancellation, refresh and click fallback passed.');
+  f = await fixture(true);
+  try {
+    assert.equal(f.doc.querySelector('#rooms-calendar tbody tr:first-child th').textContent, 'À affecter');
+    assert.ok(f.card('session:roomless').classList.contains('room-unassigned'));
+    assert.match(f.card('session:roomless').textContent, /Affecter une salle/);
+    assert.match(f.$('rooms-status').textContent, /1 créneau\(x\) sans salle/);
+    assert.equal(f.cell('').querySelector('.room-create'), null, 'the virtual row is not a bookable room');
+    f.$('rooms-fullscreen').click();
+    const panel = f.$('rooms-session-panel'), parent = panel.parentNode;
+    f.$('rooms-unassigned-sessions').click(); await tick();
+    assert.ok(f.$('rooms-sessions-dialog').open && f.$('rooms-fullscreen-dialog').open);
+    const form = f.$('rooms-session-form');
+    assert.deepEqual([...form.elements.owner.options].map(n => n.value), ['', 'session:new', 'session:missing']);
+    form.elements.owner.value = 'session:missing'; form.elements.owner.dispatchEvent(new f.w.Event('change'));
+    assert.ok(!f.$('rooms-session-fallback').hidden && !f.$('rooms-session-fallback').disabled);
+    assert.match(f.$('rooms-session-detail').textContent, /01\/02\/2027.*compléter/);
+    f.$('rooms-sessions-only-unassigned').checked = false; f.$('rooms-sessions-only-unassigned').dispatchEvent(new f.w.Event('change'));
+    assert.equal(form.elements.owner.options.length, 5);
+    f.$('rooms-sessions-dialog').close(); await tick();
+    assert.equal(panel.parentNode, parent);
+    assert.ok(f.$('rooms-fullscreen-dialog').open);
+    f.select('session:roomless', 'session:b'); f.start('session:roomless'); await f.drop('r5');
+    assert.equal(f.posts[0].slots.length, 2);
+    assert.equal(f.card('session:roomless').closest('td').dataset.roomId, 'r5');
+    assert.ok(!f.doc.querySelector('.room-unassigned-row'));
+  } finally { f.close(); }
+  console.log('Room calendar: group drag, conflicts, fullscreen, free bookings and unassigned sessions passed.');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });

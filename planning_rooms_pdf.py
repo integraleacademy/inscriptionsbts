@@ -56,9 +56,10 @@ def build_pdf(data):
         bg,ink=PALETTE.get(row.get('formation'),('#f3f5f7','#465568'))
         hours='Journée entière' if row['start']=='00:00' and row['end']=='24:00' else row['start']+'–'+row['end']
         lines=['<b>'+escape(hours)+'</b>',escape(str(row['title']))]
+        if not row.get('room_id'):lines.append('<b>À AFFECTER</b>')
         if row.get('promotion_name'):lines.append(escape(row['promotion_name']))
         if row.get('presence_start'):lines.append('Présentiel dès le '+date.fromisoformat(row['presence_start']).strftime('%d/%m/%Y'))
-        if row.get('exam'):lines.append('<b>EXAMEN'+(' · journée réservée' if row.get('exam_full_day') else '')+'</b>')
+        if row.get('exam'):lines.append('<b>EXAMEN'+(' · journée réservée' if row.get('exam_full_day') and row.get('room_id') else '')+'</b>')
         if row.get('conflict'):lines.append('<b>CONFLIT À CORRIGER</b>')
         if row.get('pending'):lines.append('Confirmation en cours')
         paragraph,h=_paragraph('<br/>'.join(lines),day_width-17,size=7.1,color=colors.HexColor(ink),leading=9.3)
@@ -101,7 +102,7 @@ def build_pdf(data):
                         para.drawOn(pdf,x+8,top-h+6);top-=h+5
                     if not chunk and not continued:
                         pdf.setFillColor(colors.HexColor('#87918e'));pdf.setFont(regular,7)
-                        pdf.drawString(x+7,y-18,'Libre' if first<=days[i]<=last else 'Hors période')
+                        pdf.drawString(x+7,y-18,('—' if room.get('unassigned') else 'Libre') if first<=days[i]<=last else 'Hors période')
                 y-=row_height;continued=True
                 if not any(columns):break
         week+=timedelta(days=7)
