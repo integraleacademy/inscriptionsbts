@@ -548,3 +548,22 @@ Les autres années restent indépendantes. Les aperçus signés sont liés à la
 session, expirent après 30 minutes et ne conservent pas le PDF sur le serveur.
 
 Validation : `python -m pytest -q tests/test_planning_import.py`.
+
+### Documents dans l’espace étudiant
+
+La rubrique `/espace/documents`, accessible dans le menu et depuis l’accueil,
+propose le certificat de scolarité en PDF (consultation et téléchargement) et
+les images PNG recto-verso de la carte étudiante (aperçu, agrandissement et
+téléchargement). Les modèles administratifs sont réutilisés avec les données
+du dossier, le parcours, la promotion et le cadrage de photo enregistrés.
+
+Chaque accès exige une session étudiante valide, un mot de passe personnalisé
+et l’appartenance au dossier courant. Les identifiants et dates ne sont pas
+modifiables par l’URL. Les réponses, y compris les erreurs, sont privées et
+non mises en cache. Une inscription non confirmée ou annulée n’autorise pas
+l’émission de ces documents. Une photo ou des informations manquantes affichent
+un message pour contacter l’école, sans empêcher l’accès à l’autre document.
+Consulter les documents n’envoie aucune notification et ne modifie pas les
+indicateurs d’envoi ou d’impression administratifs.
+
+Validation : `python -m pytest -q tests/test_student_documents.py tests/test_student_cards.py tests/test_candidate_access.py tests/test_student_home_planning.py`.
