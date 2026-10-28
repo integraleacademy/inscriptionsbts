@@ -1,0 +1,39 @@
+name: Convention Londres et signature
+on:
+  pull_request:
+    paths:
+      - 'london_mobility*.py'
+      - 'templates/_london*.html'
+      - 'templates/candidate_sheet.html'
+      - 'static/js/london-mobility.js'
+      - 'static/css/london-mobility.css'
+      - 'tests/test_london*.py'
+      - 'tests/london_mobility_frontend.cjs'
+      - '.github/workflows/london-mobility.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  london:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      INTEGRITY_CHECK: '0'
+      BREVO_HEALTH_MONITOR: '0'
+      RUN_LONDON_BROWSER_TESTS: '1'
+      LONDON_BROWSER_ARTIFACTS: /tmp/london-browser
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt pytest beautifulsoup4 playwright
+      - run: python -m playwright install --with-deps chromium
+      - run: node tests/london_mobility_frontend.cjs
+      - run: python -m pytest tests/test_london_mobility.py tests/test_london_signatures.py tests/test_london_browser.py tests/test_voyage_londres.py tests/test_admissions_2027.py tests/test_candidate_editor.py -q
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: london-browser
+          path: /tmp/london-browser
+          if-no-files-found: ignore

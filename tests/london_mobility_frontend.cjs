@@ -16,7 +16,7 @@ async function submit(response) {
     setAttribute(){}, removeAttribute(){}
   };
   vm.runInNewContext(source, {
-    document:{querySelectorAll:()=>[form]},
+    document:{querySelectorAll:selector=>selector==='[data-mobility-form]'?[form]:[]},
     window:{location:{hash:'',reload(){reloaded=true;}}},
     FormData: class extends Map { constructor(){super();} },
     fetch: async (url, options) => { sent={url,options}; return response; }
