@@ -316,7 +316,33 @@ def remote(path, method='GET', data=None):
 
 
 def register(app, connect, guard, result, fail, transact, serializer):
-    from planning import PlanningError, _iso, _load_courses, _clock, _promotion, _planning_period
+    from planning import PlanningError, _iso, _minutes, _load_courses, _clock, _promotion, _planning_period
+
+    @app.get('/admin/planning/api/rooms/available')
+    def available_course_rooms():
+        guard()
+        try:
+            day = _iso(request.args.get('date')).isoformat()
+            start = _minutes(request.args.get('start'))
+            end = _minutes(request.args.get('end'), end=True)
+            if end <= start:
+                raise PlanningError('L’heure de fin doit être postérieure à l’heure de début.')
+            exclude = request.args.get('exclude_course_id')
+            with closing(connect()) as conn:
+                conn.execute('BEGIN')
+                if exclude and not conn.execute('SELECT 1 FROM planning_courses WHERE id=?', (exclude,)).fetchone():
+                    raise PlanningError('Ce cours n’existe plus. Rechargez le planning.', status=404)
+                if not ready(conn):
+                    raise PlanningError('La disponibilité des salles est en cours de synchronisation. Réessayez dans un instant.', status=503)
+                courses = [c for c in _load_courses(conn, day, day) if c['id'] != exclude]
+                rooms = []
+                for room in conn.execute('SELECT id,name FROM planning_rooms WHERE active=1 ORDER BY name'):
+                    slot = dict(room_id=room['id'], date=day, start_min=start, end_min=end)
+                    if not any(overlap(slot, course) for course in courses) and not room_conflicts(conn, slot):
+                        rooms.append(dict(room))
+            return result(rooms=rooms)
+        except PlanningError as exc:
+            return fail(exc)
 
     @app.route('/internal/rooms/<action>', methods=['POST'])
     def shared_room_machine(action):
