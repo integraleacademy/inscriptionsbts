@@ -47,6 +47,26 @@ def _subject_title(words, rectangles):
     return ' '.join(w['text'] for w in words).strip()
 
 
+def _course_group_matches(label, group, subject):
+    """Allow the confirmed CI/PI shared subjects within the same year/cohort."""
+    expected, actual = normal(group), normal(label)
+    if actual.startswith(expected[:20]):
+        return True
+    match = re.fullmatch(r'(app bts )(ci|pi)( .+)', expected)
+    if not match:
+        return False
+    other_bts = 'pi' if match[2] == 'ci' else 'ci'
+    partner = match[1] + other_bts + match[3]
+    if actual != partner and not actual.startswith(partner + ' '):
+        return False
+    title = normal(subject)
+    culture = 'culture generale et expression'
+    return title in ('anglais', culture) or (
+        subject.rstrip().endswith(('…', '...'))
+        and len(title) >= len('culture generale et expr')
+        and culture.startswith(title))
+
+
 def parse_ypareo_pdf(content, period):
     import pdfplumber
 
@@ -150,9 +170,12 @@ def parse_ypareo_pdf(content, period):
                         block_lines.append([])
                     block_lines[-1].append(word)
                 texts = [' '.join(w['text'] for w in line) for line in block_lines]
-                if len(texts) < 2 or not normal(texts[1]).startswith(normal(group)[:20]):
+                if len(texts) < 2:
                     _page_error(number, 'le contenu d’un bloc de cours est incomplet.')
                 subject = _subject_title(block_lines[0], page.rects)
+                if not _course_group_matches(texts[1], group, subject):
+                    _page_error(number, f'le groupe indiqué pour « {subject} » ne correspond pas au planning '
+                                'ni à un cours commun reconnu entre les BTS PI et CI.')
                 teacher_lines = [t for t in texts[2:] if re.match(r'^(?:M\.|Mme|Mlle)\s', t)]
                 if len(teacher_lines) > 1 or len(texts) != 2 + len(teacher_lines):
                     _page_error(number, 'un bloc contient plusieurs intervenants ou des informations non reconnues.')
