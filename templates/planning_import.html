@@ -23,8 +23,8 @@
     <p class="pi-source" id="pi-source"></p>
     <div class="pi-info">Vérifiez le groupe indiqué dans le PDF et les horaires de l’aperçu. Les intitulés coupés et les initiales des formateurs doivent être associés aux bonnes fiches.</div>
     <form id="pi-mapping-form">
-      <h3 class="pi-mapping-title">Un formateur pour chaque matière</h3>
-      <p class="pi-help">Choisissez la matière du catalogue et son formateur sur chaque ligne. Les matières absentes de cette année seront ajoutées lors de l’import. Le formateur choisi sera affecté à tous les cours importés de cette matière.</p>
+      <h3 class="pi-mapping-title">Une matière et un formateur par ligne</h3>
+      <p class="pi-help">Choisissez la matière du catalogue et son formateur sur chaque ligne. Un même intitulé enseigné par plusieurs formateurs est séparé en plusieurs lignes : chaque choix s’applique uniquement aux cours de cette ligne. Les matières absentes de cette année seront ajoutées lors de l’import.</p>
       <p class="pi-help">Tous les formateurs actifs sont disponibles. Ceux qui ne sont pas encore rattachés à cette promotion y seront affectés à la validation de l’import, avec accès à son planning et à ses étudiants.</p>
       <div id="pi-subjects"></div>
       <p id="pi-empty-subjects" class="pi-info" hidden>Aucune matière n’est disponible pour ce BTS. <a href="{{ url_for('planning_subjects_admin', diploma=promotion.bts) }}" target="_blank" rel="noopener">Ajoutez les matières au catalogue</a>, puis analysez à nouveau le PDF.</p>
@@ -50,5 +50,5 @@
   </section>
   <section class="pi-card pi-success" id="pi-success" hidden><span aria-hidden="true">✓</span><h2>Votre planning est repris.</h2><p id="pi-success-message"></p><a class="planning-button primary" href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}">Voir le planning</a></section>
 </div>
-<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=6" defer></script>
+<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=7" defer></script>
 {% endblock %}

@@ -28,7 +28,10 @@ w.fetch = async (url, options) => {
     summary: {ready: 3, duplicate: 0, blocked: 0, minutes: 360}, calendar_changes: [],
     subject_preparations: [{id: 'new-english', name: 'Anglais', planned_hours: 45}, {id: 'new-french', name: 'Expression', planned_hours: 24}],
     trainer_assignments: [extraction.trainers[0]], trainer_creations: [],
-    items: rows.map((row, i) => ({...row, status: 'ready', issues: [], trainer_id: 'teacher', subject_id: i === 2 ? 'new-french' : 'new-english'})),
+    items: rows.map(row => ({...row, status: 'ready', issues: [],
+      trainer_id: body.mappings.subject_trainers[row.subject_key],
+      subject_id: body.mappings.subjects[row.subject_key].replace('catalog:', 'new-'),
+      subject_name: extraction.subjects.find(s => s.id === body.mappings.subjects[row.subject_key])?.name})),
   })};
   assert(url.endsWith('/commit')); return {ok: true, json: async () => ({ok: true, message: 'Cours importé.'})};
 };
@@ -74,9 +77,48 @@ w.eval(fs.readFileSync('static/js/planning-import.js', 'utf8'));
   $('pi-commit').click(); await wait();
   assert.deepEqual(requests.at(-1).body, {preview_token: 'signed-review', selected_keys: ['0']});
   assert(!$('pi-success').hidden);
+  $('pi-new-file').click();
+  const sharedLabel = 'RELATION COMMERCIALE INTER…';
+  rows.splice(0, rows.length,
+    {key: '0', date: '2027-01-04', start: '09:00', end: '11:00', page: 1, subject: sharedLabel,
+      subject_key: 'pdf-group-french', subject_label: sharedLabel, trainer: 'Mme EXEMPLE A.', duration_minutes: 120},
+    {key: '1', date: '2027-01-05', start: '09:00', end: '11:00', page: 1, subject: sharedLabel,
+      subject_key: 'pdf-group-english', subject_label: sharedLabel, trainer: 'Mme AUTRE B.', duration_minutes: 120});
+  extraction.subjects = [
+    {id: 'catalog:french', name: 'Relation commerciale interculturelle en français', prepare_on_import: true, planned_hours: 42},
+    {id: 'catalog:english', name: 'Relation commerciale interculturelle en anglais', prepare_on_import: true, planned_hours: 52}];
+  extraction.trainers.push({id: 'other', nom: 'AUTRE', prenom: 'Blair', assigned: true});
+  extraction.mappings = {subjects: {'pdf-group-french': '', 'pdf-group-english': ''},
+    subject_trainers: {'pdf-group-french': 'teacher', 'pdf-group-english': 'other'}};
+  submit('pi-upload-form'); await wait();
+  const groups = [...$('pi-subjects').querySelectorAll('.pi-subject-row')];
+  assert.equal(groups.length, 2);
+  assert(groups[0].textContent.includes('Mme EXEMPLE A.') && !groups[0].textContent.includes('Mme AUTRE B.'));
+  assert(groups[1].textContent.includes('Mme AUTRE B.') && !groups[1].textContent.includes('Mme EXEMPLE A.'));
+  assert(groups.every(group => group.textContent.includes('1 cours · 2 h')));
+  assert(!$('pi-subjects').textContent.includes('pdf-group-'));
+  assert(!$('pi-subjects').textContent.includes('les remplacera'));
+  assert(select('pdf-group-french').getAttribute('aria-label').includes('Mme EXEMPLE A.'));
+  assert(select('pdf-group-english').getAttribute('aria-label').includes('Mme AUTRE B.'));
+  assert.equal(groups[0].querySelector('select[data-mapping=subject_trainers]').value, 'teacher');
+  assert.equal(groups[1].querySelector('select[data-mapping=subject_trainers]').value, 'other');
+  select('pdf-group-french').value = 'catalog:french'; change(select('pdf-group-french'));
+  select('pdf-group-english').value = 'catalog:english'; change(select('pdf-group-english'));
+  assert.equal(d.querySelectorAll('.pi-subject-volume').length, 2);
+  assert($('pi-mapping-form').checkValidity());
+  submit('pi-mapping-form'); await wait();
+  assert.deepEqual(requests.at(-1).body.mappings, {
+    subjects: {'pdf-group-french': 'catalog:french', 'pdf-group-english': 'catalog:english'},
+    subject_trainers: {'pdf-group-french': 'teacher', 'pdf-group-english': 'other'}});
+  const previewRows = [...$('pi-courses').querySelectorAll('tr')];
+  assert(previewRows[0].textContent.includes('en français') && previewRows[0].textContent.includes('Alex EXEMPLE'));
+  assert(previewRows[1].textContent.includes('en anglais') && previewRows[1].textContent.includes('Blair AUTRE'));
+  $('pi-back').click();
+  assert.equal(select('pdf-group-french').value, 'catalog:french');
+  assert.equal(select('pdf-group-english').value, 'catalog:english');
   $('pi-new-file').click(); extraction.subjects = []; submit('pi-upload-form'); await wait();
   assert(!$('pi-empty-subjects').hidden);
   assert($('pi-empty-subjects').querySelector('a').href.includes('/admin/matieres?diploma=MOS'));
-  console.log('PASS: catalogue choices, automatic known annual budgets, required missing hours, safe labels, selection summary and commit payload.');
+  console.log('PASS: catalogue choices, annual budgets, independent subject/trainer groups, safe labels, preview and commit payload.');
   dom.window.close();
 })().catch(error => { console.error(error); dom.window.close(); process.exitCode = 1; });
