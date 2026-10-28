@@ -61,6 +61,7 @@ async function fixture(unassigned = false) {
   const drop = async (room, date) => { event(cell(room, date), 'dragover'); event(cell(room, date), 'drop'); await tick(); };
   const select = (...keys) => { if ($('rooms-multiple').getAttribute('aria-pressed') !== 'true') $('rooms-multiple').click(); keys.forEach(key => card(key).click()); };
   return {w, doc, rows, posts, reads, $, week, card, cell, start, drop, select, event,
+    finishSessions: () => { sessions.forEach(s => { s.unassigned_count = 0; s.needs_schedule = false; s.assigned = true; }); rows.filter(r => !r.room_id).forEach(r => r.room_id = 'r5'); },
     reject: () => { fail = true; }, hold: () => { release = true; }, release: () => release(), close: () => dom.window.close()};
 }
 async function run() {
@@ -174,11 +175,16 @@ async function run() {
   } finally { f.close(); }
   f = await fixture(true);
   try {
-    assert.equal(f.doc.querySelector('#rooms-calendar tbody tr:first-child th').textContent, 'À affecter');
-    assert.ok(f.card('session:roomless').classList.contains('room-unassigned'));
-    assert.match(f.card('session:roomless').textContent, /Affecter une salle/);
-    assert.match(f.$('rooms-status').textContent, /1 créneau\(x\) sans salle/);
-    assert.equal(f.cell('').querySelector('.room-create'), null, 'the virtual row is not a bookable room');
+    assert.equal(f.doc.querySelector('#rooms-calendar tbody tr:first-child th').textContent, 'Salle r1');
+    assert.equal(f.card('session:roomless'), undefined, 'unassigned slots are not in the room matrix');
+    assert.equal(f.cell(''), null, 'no virtual room row');
+    assert.match(f.$('rooms-status').textContent, /5 salle\(s\) · 5 réservation\(s\)/);
+    assert.ok(!f.$('rooms-status').textContent.includes('sans salle'));
+    assert.equal(f.$('rooms-session-count').textContent, '2');
+    assert.ok(!f.$('rooms-session-count').hidden);
+    assert.equal(f.$('rooms-unassigned-sessions').getAttribute('aria-label'), 'Sessions à affecter : 2 sessions en attente');
+    await f.week('2027-01-11');
+    assert.equal(f.$('rooms-session-count').textContent, '2', 'count covers all pending sessions, not only the displayed week');
     f.$('rooms-fullscreen').click();
     const panel = f.$('rooms-session-panel'), parent = panel.parentNode;
     f.$('rooms-unassigned-sessions').click(); await tick();
@@ -193,10 +199,11 @@ async function run() {
     f.$('rooms-sessions-dialog').close(); await tick();
     assert.equal(panel.parentNode, parent);
     assert.ok(f.$('rooms-fullscreen-dialog').open);
-    f.select('session:roomless', 'session:b'); f.start('session:roomless'); await f.drop('r5');
-    assert.equal(f.posts[0].slots.length, 2);
+    f.finishSessions(); await f.week('2027-01-04');
+    assert.ok(f.$('rooms-session-count').hidden, 'notification disappears automatically when no sessions remain');
+    assert.equal(f.$('rooms-unassigned-sessions').getAttribute('aria-label'), 'Sessions à affecter : aucune session en attente');
     assert.equal(f.card('session:roomless').closest('td').dataset.roomId, 'r5');
-    assert.ok(!f.doc.querySelector('.room-unassigned-row'));
+    assert.equal(f.posts.length, 0, 'opening the list never assigns a room');
   } finally { f.close(); }
   console.log('Room calendar: group drag, conflicts, fullscreen, free bookings and unassigned sessions passed.');
 }

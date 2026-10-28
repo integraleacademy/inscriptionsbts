@@ -46,7 +46,6 @@ def snapshot(conn,start,end):
             if overlap(row,other):row['conflict']=other['conflict']=True
         buckets[(row['room_id'],row['date'])].append(row)
     unassigned=sum(not r['room_id'] for r in rows)
-    if unassigned:rooms.insert(0,dict(id=None,name='À affecter',active=True,unassigned=True))
     to_assign=[]
     counts={}
     for slot in sessions:

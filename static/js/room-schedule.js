@@ -117,22 +117,20 @@
     }
   }
   function render(result, start) {
-    rooms = result.rooms; reservations = result.reservations; roomOptions(form.elements.room_id);
+    rooms = result.rooms.filter(r => r.id); reservations = result.reservations.filter(b => b.room_id); roomOptions(form.elements.room_id);
     table.replaceChildren();
     const head = node('thead'), header = node('tr'); header.append(node('th', 'Salle'));
     for (let i = 0; i < 7; i++) header.append(node('th', label(add(start, i))));
     head.append(header); table.append(head); const body = node('tbody');
     for (const room of rooms) {
       const row = node('tr'), heading = node('th', room.name + (room.active ? '' : ' · inactive')); heading.scope = 'row'; row.append(heading);
-      if (room.unassigned) row.classList.add('room-unassigned-row');
       for (let i = 0; i < 7; i++) {
         const cell = node('td'), day = add(start, i);
         cell.dataset.roomId = room.id || ''; cell.dataset.date = day;
-        const bookings = result.reservations.filter(b => b.room_id === room.id && b.date === day).sort((a, b) => a.start_min - b.start_min);
+        const bookings = reservations.filter(b => b.room_id === room.id && b.date === day).sort((a, b) => a.start_min - b.start_min);
         for (const b of bookings) {
           const formation = ['A3P', 'APS', 'DESP', 'SSIAP', 'BTS', 'UNAVAILABLE'].includes(b.formation) ? b.formation.toLowerCase() : 'other';
           const card = node('button', undefined, 'room-booking ' + b.source + ' formation-' + formation + (b.conflict ? ' conflict' : '') + (b.exam ? ' room-exam' : ''));
-          if (!b.room_id) card.classList.add('room-unassigned');
           card.type = 'button'; card.dataset.key = b.key;
           card.draggable = b.source !== 'unavailable' && !b.pending;
           if (card.draggable) {
@@ -149,7 +147,7 @@
           if (b.exam_full_day) card.append(node('b', b.room_id ? 'Journée réservée pour l’examen' : 'Journée d’examen à affecter'));
           if (b.conflict) card.append(node('b', '⚠ Chevauchement à corriger'));
           if (b.pending) card.append(node('small', 'Réservation en cours de confirmation'));
-          card.append(node('small', action, b.room_id ? '' : 'room-assignment-state'));
+          card.append(node('small', action));
           card.addEventListener('click', () => {
             if (dragging || dragBusy || Date.now() < suppressClickUntil) return;
             if (b.source === 'unavailable') return openBlock(b);
@@ -170,12 +168,14 @@
       body.append(row);
     }
     table.append(body); updateSelection();
-    const conflicts = result.reservations.filter(b => b.conflict).length;
-    let status = rooms.filter(r => r.id).length + ' salle(s) · ' + result.reservations.length + ' réservation(s) · du ' + frenchDate(start) + ' au ' + frenchDate(add(start, 6)) + '.';
-    if (result.unassigned_count) status += ' ' + result.unassigned_count + ' créneau(x) sans salle cette semaine.';
+    const conflicts = reservations.filter(b => b.conflict).length;
+    let status = rooms.length + ' salle(s) · ' + reservations.length + ' réservation(s) · du ' + frenchDate(start) + ' au ' + frenchDate(add(start, 6)) + '.';
     const toAssign = result.unassigned_sessions?.length || 0;
-    $('rooms-unassigned-sessions').textContent = 'Sessions à affecter' + (toAssign ? ' (' + toAssign + ')' : '');
-    $('rooms-unassigned-sessions').classList.toggle('room-needs-assignment', Boolean(toAssign));
+    const sessionCount = $('rooms-session-count');
+    sessionCount.textContent = String(toAssign); sessionCount.hidden = !toAssign;
+    const pendingLabel = toAssign ? toAssign + (toAssign > 1 ? ' sessions en attente' : ' session en attente') : 'aucune session en attente';
+    $('rooms-unassigned-sessions').setAttribute('aria-label', 'Sessions à affecter : ' + pendingLabel);
+    $('rooms-unassigned-sessions').title = pendingLabel;
     if (conflicts) status += ' ⚠ ' + conflicts + ' réservation(s) en chevauchement à corriger.';
     if (!result.connected) status += ' Liaison avec les sessions non configurée.';
     else if (!result.ready) status += ' Première synchronisation des sessions nécessaire.';
