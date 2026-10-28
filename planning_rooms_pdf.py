@@ -11,7 +11,7 @@ from planning_pdf import _fonts, _paragraph
 
 PALETTE={'A3P':('#e7f5eb','#236b3a'),'APS':('#eaf2ff','#2458a3'),
          'DESP':('#fff0df','#9e4b0e'),'SSIAP':('#ffeded','#aa2830'),
-         'BTS':('#f2eaff','#6839a3'),'UNAVAILABLE':('#eceef2','#455265')}
+         'BTS':('#f2eaff','#6839a3'),'OTHER':('#eef2f6','#465568'),'UNAVAILABLE':('#eceef2','#455265')}
 WEEKDAYS=('Lun.','Mar.','Mer.','Jeu.','Ven.','Sam.','Dim.')
 
 
@@ -34,7 +34,7 @@ def build_pdf(data):
         pdf.drawString(margin,height-55,f'Intégrale Academy · du {first:%d/%m/%Y} au {last:%d/%m/%Y} · heures de Paris')
         x=margin
         for code,(bg,ink) in PALETTE.items():
-            label='Indisponible' if code=='UNAVAILABLE' else code
+            label={'UNAVAILABLE':'Indisponible','OTHER':'Autre créneau'}.get(code,code)
             pdf.setFillColor(colors.HexColor(bg));pdf.roundRect(x,height-80,87,16,3,fill=1,stroke=0)
             pdf.setFillColor(colors.HexColor(ink));pdf.setFont(bold,8);pdf.drawString(x+6,height-75,label);x+=94
         pdf.setStrokeColor(colors.HexColor('#20344d'));pdf.setLineWidth(2)
