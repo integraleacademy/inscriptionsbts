@@ -23,6 +23,9 @@
   const exportDialog = $('rooms-export-dialog'), exportForm = $('rooms-export-form');
   const reservationDialog = $('rooms-reservation-dialog'), reservationForm = $('rooms-reservation-form');
   const reservationConfirm = $('rooms-reservation-confirm');
+  const sessionsDialog = $('rooms-sessions-dialog'), sessionPanel = $('rooms-session-panel');
+  const sessionsOnlyUnassigned = $('rooms-sessions-only-unassigned');
+  let sessionPlaceholder = null, sessionPanelWasOpen = false;
   const fullDialog = $('rooms-fullscreen-dialog'), plannerView = $('rooms-planner-view'), fullButton = $('rooms-fullscreen');
   const scrollArea = table.closest('.room-calendar-scroll');
   let editingReservation = null, examTouched = false, plannerPlaceholder = null, pagePosition = null;
@@ -121,6 +124,7 @@
     head.append(header); table.append(head); const body = node('tbody');
     for (const room of rooms) {
       const row = node('tr'), heading = node('th', room.name + (room.active ? '' : ' · inactive')); heading.scope = 'row'; row.append(heading);
+      if (room.unassigned) row.classList.add('room-unassigned-row');
       for (let i = 0; i < 7; i++) {
         const cell = node('td'), day = add(start, i);
         cell.dataset.roomId = room.id || ''; cell.dataset.date = day;
@@ -128,6 +132,7 @@
         for (const b of bookings) {
           const formation = ['A3P', 'APS', 'DESP', 'SSIAP', 'BTS', 'UNAVAILABLE'].includes(b.formation) ? b.formation.toLowerCase() : 'other';
           const card = node('button', undefined, 'room-booking ' + b.source + ' formation-' + formation + (b.conflict ? ' conflict' : '') + (b.exam ? ' room-exam' : ''));
+          if (!b.room_id) card.classList.add('room-unassigned');
           card.type = 'button'; card.dataset.key = b.key;
           card.draggable = b.source !== 'unavailable' && !b.pending;
           if (card.draggable) {
@@ -135,16 +140,16 @@
             card.addEventListener('dragstart', event => startDrag(event, b, card));
             card.addEventListener('dragend', endDrag);
           }
-          const action = b.source === 'unavailable' ? 'Modifier l’indisponibilité' : b.source === 'reservation' ? 'Modifier la réservation' : 'Changer la salle';
+          const action = b.source === 'unavailable' ? 'Modifier l’indisponibilité' : b.source === 'reservation' ? 'Modifier la réservation' : b.room_id ? 'Changer la salle' : 'Affecter une salle';
           card.setAttribute('aria-label', (b.exam ? 'EXAMEN · ' : '') + action + ' · ' + b.title + ' · ' + label(b.date) + ' · ' + b.start + '–' + b.end);
           if (b.exam) card.append(node('span', 'EXAMEN', 'room-exam-badge'));
           card.append(node('strong', b.start === '00:00' && b.end === '24:00' ? 'Journée entière' : b.start + '–' + b.end), node('span', b.title));
           if (b.source === 'session') card.append(node('small', 'Présentiel : ' + frenchDate(b.presence_start)));
           else if (b.promotion_name) card.append(node('small', b.promotion_name));
-          if (b.exam_full_day) card.append(node('b', 'Journée réservée pour l’examen'));
+          if (b.exam_full_day) card.append(node('b', b.room_id ? 'Journée réservée pour l’examen' : 'Journée d’examen à affecter'));
           if (b.conflict) card.append(node('b', '⚠ Chevauchement à corriger'));
           if (b.pending) card.append(node('small', 'Réservation en cours de confirmation'));
-          card.append(node('small', action));
+          card.append(node('small', action, b.room_id ? '' : 'room-assignment-state'));
           card.addEventListener('click', () => {
             if (dragging || dragBusy || Date.now() < suppressClickUntil) return;
             if (b.source === 'unavailable') return openBlock(b);
@@ -167,6 +172,10 @@
     table.append(body); updateSelection();
     const conflicts = result.reservations.filter(b => b.conflict).length;
     let status = rooms.filter(r => r.id).length + ' salle(s) · ' + result.reservations.length + ' réservation(s) · du ' + frenchDate(start) + ' au ' + frenchDate(add(start, 6)) + '.';
+    if (result.unassigned_count) status += ' ' + result.unassigned_count + ' créneau(x) sans salle cette semaine.';
+    const toAssign = result.unassigned_sessions?.length || 0;
+    $('rooms-unassigned-sessions').textContent = 'Sessions à affecter' + (toAssign ? ' (' + toAssign + ')' : '');
+    $('rooms-unassigned-sessions').classList.toggle('room-needs-assignment', Boolean(toAssign));
     if (conflicts) status += ' ⚠ ' + conflicts + ' réservation(s) en chevauchement à corriger.';
     if (!result.connected) status += ' Liaison avec les sessions non configurée.';
     else if (!result.ready) status += ' Première synchronisation des sessions nécessaire.';
@@ -308,14 +317,14 @@
     catch (e) { error(errorId, e.message); }
     finally { delete dialog.dataset.busy; controls.forEach(([n, disabled]) => n.disabled = disabled); }
   }
-  for (const dialog of [moveDialog, blockDialog, exportDialog, reservationDialog, reservationConfirm]) {
+  for (const dialog of [moveDialog, blockDialog, exportDialog, reservationDialog, reservationConfirm, sessionsDialog]) {
     for (const button of dialog.querySelectorAll('[data-room-close]')) button.addEventListener('click', () => { if (!dialog.dataset.busy) dialog.close(); });
     dialog.addEventListener('cancel', e => { if (dialog.dataset.busy) e.preventDefault(); });
     dialog.addEventListener('close', () => (dialog._opener?.isConnected ? dialog._opener : $('rooms-refresh')).focus());
   }
   function openMove(bookings) {
     moving = bookings; error('rooms-course-error', '');
-    $('rooms-course-heading').textContent = bookings.length > 1 ? 'Changer la salle de ' + bookings.length + ' créneaux' : 'Changer la salle';
+    $('rooms-course-heading').textContent = bookings.length > 1 ? 'Changer la salle de ' + bookings.length + ' créneaux' : bookings[0].room_id ? 'Changer la salle' : 'Affecter une salle';
     $('rooms-course-description').textContent = bookings.slice(0, 8).map(b => b.title + ' · ' + frenchDate(b.date) + ' · ' + b.start + '–' + b.end).join('\n') + (bookings.length > 8 ? '\nEt ' + (bookings.length - 8) + ' autre(s) créneau(x).' : '');
     $('rooms-course-shared').hidden = !bookings.some(b => b.is_shared);
     $('rooms-course-shared').textContent = 'Les cours communs changent de salle pour toutes les promotions concernées.';
@@ -439,22 +448,47 @@
     error('rooms-session-error', '');
     $('rooms-session-detail').textContent = s ? 'Présentiel : ' + frenchDate(s.start) + (s.end ? ' → ' + frenchDate(s.end) : '') +
       (s.exam_dates?.length ? ' · Examen(s) : ' + s.exam_dates.map(frenchDate).join(', ') : '') +
-      (s.exam_full_day?.length ? ' · Sans horaires d’examen, la journée entière est réservée.' : '') : '';
+      (s.exam_full_day?.length ? ' · Sans horaires d’examen, prévoir la journée entière.' : '') +
+      (s.needs_schedule ? ' · Présentiel à compléter avant l’affectation de toute la session.' : '') : '';
+    $('rooms-session-complete').hidden = !(s?.needs_schedule && s.generated);
+    if (s) $('rooms-session-complete').href = 'https://plateformegestion.onrender.com/sessions/' + encodeURIComponent(s.owner.slice(8));
     form.elements.room_id.value = s?.config?.room_id || '';
     form.elements.presence_start.value = s?.start || ''; form.elements.presence_end.value = s?.end || '';
     form.elements.start.value = s?.config?.start || '08:00'; form.elements.end.value = s?.config?.end || '18:00';
     for (const input of form.querySelectorAll('[name=weekdays]')) input.checked = (s?.config?.weekdays || [0, 1, 2, 3, 4]).includes(Number(input.value));
   }
+  function renderSessionOptions(preferred = form.elements.owner.value) {
+    const filtered = sessionsDialog.open && sessionsOnlyUnassigned.checked;
+    const choices = filtered ? sessions.filter(s => s.unassigned_count > 0 || s.needs_schedule || (!s.assigned && s.unassigned_count === undefined)) : sessions;
+    form.elements.owner.replaceChildren(new Option(choices.length ? 'Choisir une session' : filtered ? 'Aucune session à affecter' : 'Aucune session à partir du 26/10/2026', ''));
+    for (const s of choices) {
+      const state = s.assigned ? 'salle affectée' : s.assigned_count ? 'PARTIELLEMENT AFFECTÉE' : 'À AFFECTER';
+      form.elements.owner.add(new Option((s.name || s.title) + ' · ' + frenchDate(s.start) + ' · ' + state, s.owner));
+    }
+    form.elements.owner.value = preferred; details();
+  }
+  $('rooms-unassigned-sessions').addEventListener('click', async () => {
+    if (form.dataset.busy || dragging || dragBusy) return;
+    sessionPanelWasOpen = sessionPanel.open;
+    sessionPlaceholder = document.createComment('room-session-position'); sessionPanel.before(sessionPlaceholder);
+    $('rooms-sessions-host').append(sessionPanel); sessionsOnlyUnassigned.checked = true;
+    form.elements.owner.value = ''; details(); show(sessionsDialog); sessionPanel.open = true;
+    await loadSessions(); if (sessionsDialog.open) form.elements.owner.focus();
+  });
+  sessionsOnlyUnassigned.addEventListener('change', () => renderSessionOptions());
+  sessionsDialog.addEventListener('close', () => {
+    if (!sessionPlaceholder) return;
+    sessionPlaceholder.replaceWith(sessionPanel); sessionPlaceholder = null;
+    sessionPanel.open = sessionPanelWasOpen; renderSessionOptions();
+  });
   function loadSessions() {
     if (sessionsPromise) return sessionsPromise;
     sessionsPromise = (async () => {
       error('rooms-session-error', ''); const old = form.elements.owner.value;
       try {
         const result = await request('/sessions'); sessions = result.sessions.filter(s => s.owner.startsWith('session:')).sort((a, b) => (a.start || '9999').localeCompare(b.start || '9999'));
-        form.elements.owner.replaceChildren(new Option(sessions.length ? 'Choisir une session' : 'Aucune session à partir du 26/10/2026', ''));
-        for (const s of sessions) form.elements.owner.add(new Option((s.name || s.title) + ' · ' + frenchDate(s.start) + ' · ' + (s.assigned ? 'salle affectée' : 'À AFFECTER'), s.owner));
         const requested = new URLSearchParams(location.search).get('session_id');
-        form.elements.owner.value = old || (requested ? 'session:' + requested : ''); details(); await load(); return true;
+        renderSessionOptions(old || (requested ? 'session:' + requested : '')); await load(); return true;
       } catch (e) { error('rooms-session-error', e.message); return false; }
       finally { sessionsPromise = null; }
     })(); return sessionsPromise;
@@ -463,13 +497,17 @@
   $('rooms-sessions-reload').addEventListener('click', loadSessions); form.elements.owner.addEventListener('change', details);
   form.addEventListener('submit', async e => {
     e.preventDefault(); const s = selectedSession(); if (!s || !form.reportValidity() || form.dataset.busy) return;
-    error('rooms-session-error', ''); form.dataset.busy = '1';
+    error('rooms-session-error', ''); form.dataset.busy = '1'; sessionsDialog.dataset.busy = '1'; sessionsOnlyUnassigned.disabled = true;
     const f = form.elements, payload = {owner: s.owner, revision: s.revision, room_id: f.room_id.value, start: f.start.value, end: f.end.value,
       presence_start: f.presence_start.value, presence_end: f.presence_end.value, weekdays: [...form.querySelectorAll('[name=weekdays]:checked')].map(n => Number(n.value))};
     const controls = [...form.elements].map(n => [n, n.disabled]); controls.forEach(([n]) => n.disabled = true);
     try { const result = await request('/sessions', payload); await loadSessions(); changed(); $('rooms-session-detail').textContent = result.message; }
     catch (e) { error('rooms-session-error', e.message); }
-    finally { delete form.dataset.busy; controls.forEach(([n, disabled]) => n.disabled = disabled); }
+    finally {
+      delete form.dataset.busy; delete sessionsDialog.dataset.busy; sessionsOnlyUnassigned.disabled = false;
+      controls.forEach(([n, disabled]) => n.disabled = disabled);
+      $('rooms-session-fallback').disabled = !selectedSession() || selectedSession().generated;
+    }
   });
   $('rooms-prev').addEventListener('click', () => { $('rooms-date').value = add($('rooms-date').value, -7); load(); });
   $('rooms-next').addEventListener('click', () => { $('rooms-date').value = add($('rooms-date').value, 7); load(); });

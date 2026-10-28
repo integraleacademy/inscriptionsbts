@@ -2,6 +2,7 @@
 from contextlib import closing
 from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
+import json
 import secrets
 
 from flask import request, send_file
@@ -32,7 +33,8 @@ def snapshot(conn,start,end):
     for c in _load_courses(conn,start,end):
         rows.append(dict(c,key='course:'+c['id'],source='event' if c['kind']=='event' else 'bts',
                          title=c.get('title') or c['subject_name'],formation='BTS',url='/admin/salles?course_id='+c['id']))
-    rows += [dict(r) for r in external_slots(conn) if start<=r['date']<=end]
+    sessions=external_slots(conn)
+    rows += [dict(r) for r in sessions if start<=r['date']<=end]
     rows += unavailable_slots(conn,start,end)
     rows += reservation_slots(conn,start,end)
     buckets={}
@@ -43,8 +45,25 @@ def snapshot(conn,start,end):
                 continue  # both sides of the same in-flight source reservation
             if overlap(row,other):row['conflict']=other['conflict']=True
         buckets[(row['room_id'],row['date'])].append(row)
-    if any(not r['room_id'] for r in rows):rooms.append(dict(id=None,name='Salle à définir',active=True))
-    return dict(rooms=rooms,reservations=rows,connected=configured(),ready=ready(conn),start=start,end=end)
+    unassigned=sum(not r['room_id'] for r in rows)
+    if unassigned:rooms.insert(0,dict(id=None,name='À affecter',active=True,unassigned=True))
+    to_assign=[]
+    counts={}
+    for slot in sessions:
+        if not slot['room_id']:counts[slot['owner']]=counts.get(slot['owner'],0)+1
+    for owner in conn.execute("SELECT owner,metadata,title FROM planning_room_owners WHERE owner LIKE 'session:%'"):
+        metadata=json.loads(owner['metadata'] or '{}')
+        since=metadata.get('start') or metadata.get('formation_start')
+        if metadata.get('deleted'):continue
+        try:
+            if since and date.fromisoformat(since)<date(2026,10,26):continue
+        except (ValueError,TypeError):continue
+        if not since and not metadata.get('needs_schedule'):continue
+        if counts.get(owner['owner']) or metadata.get('needs_schedule'):
+            to_assign.append(dict(owner=owner['owner'],name=metadata.get('name') or owner['title'],start=metadata.get('start'),
+                                  needs_schedule=bool(metadata.get('needs_schedule')),count=counts.get(owner['owner'],0)))
+    return dict(rooms=rooms,reservations=rows,connected=configured(),ready=ready(conn),start=start,end=end,
+                unassigned_count=unassigned,unassigned_sessions=to_assign)
 
 
 def register(app,connect,guard,result,fail,transact):
