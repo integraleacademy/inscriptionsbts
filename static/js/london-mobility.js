@@ -12,9 +12,16 @@ document.querySelectorAll('[data-mobility-form]').forEach(form => {
     busy = true; form.setAttribute('aria-busy', 'true');
     buttons.forEach(button => { button.disabled = true; });
     try {
-      const response = await fetch(form.action, { method: 'POST', body: data, headers: { Accept: 'application/json' } });
+      // Controls named "action" shadow HTMLFormElement.action in real browsers.
+      const response = await fetch(form.getAttribute('action'), { method: 'POST', body: data, headers: { Accept: 'application/json' } });
       const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.ok) throw new Error(result?.error || 'La demande n’a pas abouti. Rechargez la fiche avant de réessayer.');
+      if (!response.ok || !result?.ok) {
+        const fallback = response.status === 403 || response.redirected
+          ? 'Votre session a expiré. Reconnectez-vous puis rouvrez cette fiche.'
+          : response.status === 400 ? 'La page a expiré ou un champ est invalide. Rechargez la fiche si le problème persiste.'
+          : 'Le serveur n’a pas pu traiter la demande. Vos informations sont conservées à l’écran ; réessayez dans quelques instants.';
+        throw new Error(result?.error || fallback);
+      }
       // Assigning the same hash alone would not reload the saved values.
       window.location.hash = 'londres';
       window.location.reload();
