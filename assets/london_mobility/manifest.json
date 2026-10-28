@@ -1,0 +1,224 @@
+{
+  "source_sha256": "b0bb6b12269b46883991e49982edc9ba41b556b5faf0b76abc5d1d85c8e67446",
+  "adult": {
+    "file": "adult.pdf",
+    "pages": 8,
+    "fields": [
+      {
+        "name": "company",
+        "page": 0,
+        "x": 28.450000762939453,
+        "baseline": 357.05078125,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "address",
+        "page": 0,
+        "x": 28.450000762939453,
+        "baseline": 387.85076904296875,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "city",
+        "page": 0,
+        "x": 28.450000762939453,
+        "baseline": 418.6507568359375,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "siret",
+        "page": 0,
+        "x": 28.450000762939453,
+        "baseline": 449.4507751464844,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 1
+      },
+      {
+        "name": "beneficiary",
+        "page": 1,
+        "x": 28.35,
+        "baseline": 451.9507751464844,
+        "size": 12.0,
+        "width": 538.6,
+        "leading": 15.0,
+        "align": "center",
+        "lines": 2
+      },
+      {
+        "name": "period",
+        "page": 2,
+        "x": 28.450000762939453,
+        "baseline": 629.9007568359375,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "issue",
+        "page": 5,
+        "x": 28.450000762939453,
+        "baseline": 249.00079345703125,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 1
+      },
+      {
+        "name": "company_signature",
+        "page": 5,
+        "x": 28.450000762939453,
+        "baseline": 293.70074462890625,
+        "size": 12.0,
+        "width": 255.3,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "beneficiary_signature",
+        "page": 5,
+        "x": 28.450000762939453,
+        "baseline": 554.6007690429688,
+        "size": 12.0,
+        "width": 255.3,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      }
+    ]
+  },
+  "minor": {
+    "file": "minor.pdf",
+    "pages": 8,
+    "fields": [
+      {
+        "name": "company",
+        "page": 0,
+        "x": 28.450000762939453,
+        "baseline": 357.05078125,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "address",
+        "page": 0,
+        "x": 28.450000762939453,
+        "baseline": 387.85076904296875,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "city",
+        "page": 0,
+        "x": 28.450000762939453,
+        "baseline": 418.6507568359375,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "siret",
+        "page": 0,
+        "x": 28.450000762939453,
+        "baseline": 449.4507751464844,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 1
+      },
+      {
+        "name": "beneficiary",
+        "page": 1,
+        "x": 28.35,
+        "baseline": 451.9507751464844,
+        "size": 12.0,
+        "width": 538.6,
+        "leading": 15.0,
+        "align": "center",
+        "lines": 2
+      },
+      {
+        "name": "period",
+        "page": 2,
+        "x": 28.450000762939453,
+        "baseline": 629.9007568359375,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "issue",
+        "page": 5,
+        "x": 28.450000762939453,
+        "baseline": 249.00079345703125,
+        "size": 12.0,
+        "width": 538.4999992370606,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 1
+      },
+      {
+        "name": "company_signature",
+        "page": 5,
+        "x": 28.450000762939453,
+        "baseline": 293.70074462890625,
+        "size": 12.0,
+        "width": 255.3,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "beneficiary_signature",
+        "page": 5,
+        "x": 28.450000762939453,
+        "baseline": 554.6007690429688,
+        "size": 12.0,
+        "width": 255.3,
+        "leading": 15.0,
+        "align": "left",
+        "lines": 2
+      },
+      {
+        "name": "guardian",
+        "page": 5,
+        "x": 28.450000762939453,
+        "baseline": 635.500732421875,
+        "size": 11.0,
+        "width": 255.3,
+        "leading": 13.75,
+        "align": "left",
+        "lines": 2
+      }
+    ]
+  }
+}
