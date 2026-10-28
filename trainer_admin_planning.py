@@ -69,6 +69,10 @@ def get_admin_trainer_availability(conn, trainer_id, year):
 
 
 def register_admin_trainer_planning(app,db_connect,require_admin):
+    # Register the private financial checks alongside the admin trainer panels.
+    from trainer_invoices import register_trainer_invoices
+    register_trainer_invoices(app, db_connect, require_admin)
+
     def reply(payload,status=200):
         response=app.make_response((jsonify(payload),status));response.headers['Cache-Control']='private, no-store';response.vary.add('Cookie');return response
     def guard(mutation=False):

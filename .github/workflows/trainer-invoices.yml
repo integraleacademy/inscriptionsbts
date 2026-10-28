@@ -1,0 +1,26 @@
+name: Trainer invoice checks
+on:
+  pull_request:
+    paths:
+      - 'trainer_invoice*.py'
+      - 'trainer_admin_planning.py'
+      - 'templates/*trainer*'
+      - 'static/js/trainer-invoices.js'
+      - 'static/css/trainer-invoices.css'
+      - 'tests/test_trainer_invoice*.py'
+      - '.github/workflows/trainer-invoices.yml'
+permissions:
+  contents: read
+jobs:
+  trainer-invoices:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements.txt pytest
+      - run: python -m pytest -q tests/test_trainer_invoice_audit.py tests/test_trainer_invoice_routes.py tests/test_trainer_workload.py tests/test_trainer_tabs_annual.py tests/test_trainer_access.py tests/test_trainer_admin_planning_audit.py
+      - run: node --check static/js/trainer-invoices.js
