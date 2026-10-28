@@ -595,6 +595,15 @@
     const form = $('planning-exception-form'); form.reset(); dateLimits(form); form.elements.date.value = date; form.elements.date.readOnly = !!exception; form.elements.kind.value = exception?.kind || (info?.kind !== 'unconfigured' ? info?.kind : 'school') || 'school'; form.elements.label.value = exception?.label || ''; $('planning-exception-delete').hidden = !exception; openDialog('planning-exception-dialog', form.elements.kind);
   }
   $('planning-exception-form').addEventListener('submit', event => { event.preventDefault(); const form = event.currentTarget; const data = {promotion_id: promotionId(), date: form.elements.date.value, kind: form.elements.kind.value, label: form.elements.label.value.trim()}; saveForm(form, () => request('/calendar/exceptions', {method: 'PUT', data}), 'Exception enregistrée.'); });
+  function renderCoursePrimary() {
+    const primary = state.courseEdit?.promotion_id || promotionId();
+    const promotion = catalogPromotions().find(item => String(item.id) === String(primary));
+    const name = promotion?.nom || state.courseEdit?.groups?.find(item => String(item.promotion_id) === String(primary))?.promotion_name || primary;
+    const subject = catalogSubjects().find(item => String(item.id) === $('planning-course-form').elements.subject_id.value);
+    $('planning-course-primary').replaceChildren(...[['Promotion', name], ['Matière à décompter', subject?.name || 'Choisir la matière ci-dessus']].map(([label, value]) => {
+      const field = el('div'); field.append(el('span', 'planning-primary-label', label), el('strong', 'planning-primary-value', value)); return field;
+    }));
+  }
   function openCourse(course = null, overrides = {}) {
     if (state.loading || state.quickBusy || !state.data) return;
     if (course?.kind === 'event') { window.AcademyPlanningExtras?.openEvent(course); return; }
@@ -609,7 +618,8 @@
     const subject = catalogSubjects().find(item => String(item.id) === String(subjectId));
     populate(form.elements.trainer_id, state.data.catalog?.trainers || state.data.trainers || [], trainerName, 'Choisir un formateur', values.trainer_id || subject?.trainer_id);
     state.courseShared = (course?.shared || state.quickShared || []).map(item => ({promotion_id: String(item.promotion_id), subject_id: String(item.subject_id)}));
-    $('planning-course-primary').textContent = 'Promotion de référence : ' + (catalogPromotions().find(item => String(item.id) === String(primary))?.nom || state.data.promotion.nom);
+    renderCoursePrimary();
+    $('planning-course-title').replaceChildren(course ? 'Modifier ce ' : 'Un nouveau ', el('em', '', course ? 'cours.' : 'créneau.'));
     renderSharedRows($('planning-course-shared'), state.courseShared, primary, courseSharedChanged);
     populate(form.elements.room_id, state.data.rooms || [], item => item.name + (item.active === false || item.active === 0 ? ' · Inactive' : ''), 'Sans salle attribuée', Object.prototype.hasOwnProperty.call(values, 'room_id') ? (values.room_id || '') : $('planning-room').value);
     form.elements.zoom_url.value = values.zoom_url || '';
@@ -618,7 +628,7 @@
     $('planning-course-delete').hidden = !course; $('planning-course-repeat').hidden = !course; $('planning-course-repeat').disabled = false; openDialog('planning-course-dialog', form.elements.subject_id);
   }
   $('planning-course-form').addEventListener('input', () => { $('planning-course-repeat').disabled = true; $('planning-course-repeat').title = 'Enregistrez les modifications du cours avant de le répéter.'; });
-  $('planning-course-form').elements.subject_id.addEventListener('change', event => { const subject = catalogSubjects().find(item => String(item.id) === event.target.value); if (subject) $('planning-course-form').elements.trainer_id.value = subject.trainer_id; });
+  $('planning-course-form').elements.subject_id.addEventListener('change', event => { const subject = catalogSubjects().find(item => String(item.id) === event.target.value); if (subject) $('planning-course-form').elements.trainer_id.value = subject.trainer_id; renderCoursePrimary(); });
   $('planning-course-form').elements.end_at_midnight.addEventListener('change', event => { const input = $('planning-course-form').elements.end; input.disabled = event.target.checked; input.required = !event.target.checked; });
   function courseSharedChanged() { $('planning-course-repeat').disabled = true; }
   const courseValues = form => ({zoom_url: form.elements.zoom_url.value.trim(), promotion_id: state.courseEdit?.promotion_id || promotionId(), subject_id: form.elements.subject_id.value, trainer_id: form.elements.trainer_id.value, room_id: form.elements.room_id.value || null, date: form.elements.date.value, start: form.elements.start.value, end: form.elements.end_at_midnight.checked ? '24:00' : form.elements.end.value, title: form.elements.title.value.trim(), shared: cleanShared(state.courseShared, state.courseEdit?.promotion_id || promotionId())});
