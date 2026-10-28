@@ -2,7 +2,7 @@
 {% from 'ui_icons.html' import icon %}
 {% block body_class %}planning-admin-page{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-import.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-import.css') }}?v=5">
 <div class="planning-import" data-promotion="{{ promotion.id }}" data-period="{{ period.id }}" data-csrf="{{ csrf_token }}">
   <a class="planning-import-back" href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}">← Retour au planning</a>
   <header class="planning-heading"><div><p class="planning-kicker">REPRENDRE VOTRE ORGANISATION</p><h1>Vos cours, <em>sans ressaisie.</em></h1><p>Importez votre planning Yparéo, vérifiez les correspondances, puis choisissez les cours à ajouter.</p></div></header>
@@ -24,12 +24,14 @@
     <div class="pi-info">Vérifiez le groupe indiqué dans le PDF et les horaires de l’aperçu. Les intitulés coupés et les initiales des formateurs doivent être associés aux bonnes fiches.</div>
     <form id="pi-mapping-form">
       <h3 class="pi-mapping-title">Un formateur pour chaque matière</h3>
-      <p class="pi-help">Choisissez la matière et son formateur sur chaque ligne. Le formateur choisi sera affecté à tous les cours importés de cette matière.</p>
+      <p class="pi-help">Choisissez la matière du catalogue et son formateur sur chaque ligne. Les matières absentes de cette année seront ajoutées lors de l’import. Le formateur choisi sera affecté à tous les cours importés de cette matière.</p>
       <p class="pi-help">Tous les formateurs actifs sont disponibles. Ceux qui ne sont pas encore rattachés à cette promotion y seront affectés à la validation de l’import, avec accès à son planning et à ses étudiants.</p>
       <div id="pi-subjects"></div>
+      <p id="pi-empty-subjects" class="pi-info" hidden>Aucune matière n’est disponible pour ce BTS. <a href="{{ url_for('planning_subjects_admin', diploma=promotion.bts) }}" target="_blank" rel="noopener">Ajoutez les matières au catalogue</a>, puis analysez à nouveau le PDF.</p>
+      <section id="pi-new-subjects" hidden><h3 class="pi-mapping-title">Les matières à ajouter à cette année</h3><p class="pi-help">Vérifiez le volume annuel de chaque matière. Il est repris du catalogue lorsqu’il est renseigné. Il concerne l’ensemble de l’année, même si le PDF ne couvre qu’une partie des cours.</p><div id="pi-subject-hours"></div></section>
       <p id="pi-trainer-warnings" class="pi-info" hidden></p>
       <section id="pi-new-trainers" hidden><h3 class="pi-mapping-title">Les formateurs manquants seront créés</h3><p class="pi-help">Vérifiez les noms ci-dessous. Si le PDF ne donne qu’une initiale, vous pouvez la conserver ou compléter le prénom. L’e-mail est facultatif : vous pourrez l’ajouter plus tard pour envoyer les accès. Une seule fiche sera créée par personne, même pour plusieurs matières.</p><div id="pi-new-trainer-fields"></div></section>
-      <p class="pi-help">Une matière manque ? Préparez-la pour cette année. Si une fiche formateur est désactivée ou ambiguë, vérifiez-la avant de poursuivre. <a href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}" target="_blank" rel="noopener">Ouvrir le planning</a> · <a href="/admin/formateurs" target="_blank" rel="noopener">Gérer les formateurs</a></p>
+      <p class="pi-help">Une matière manque dans le catalogue ? Ajoutez-la au BTS concerné, puis analysez à nouveau le PDF. Si une fiche formateur est désactivée ou ambiguë, vérifiez-la avant de poursuivre. <a href="/admin/matieres?diploma={{ promotion.bts|urlencode }}" target="_blank" rel="noopener">Gérer les matières</a> · <a href="/admin/formateurs" target="_blank" rel="noopener">Gérer les formateurs</a></p>
       <div class="pi-options"><label class="planning-label">Salle des cours importés<select id="pi-room"><option value="">Salle à compléter après l’import</option></select></label><label class="pi-check"><input id="pi-school-days" type="checkbox"><span><strong>Définir les dates des cours importés comme journées école</strong><small>Les jours actuellement « entreprise », « vacances », « fermé » ou « à définir » seront listés dans l’aperçu. Les dates sans cours ne sont pas modifiées. Les jours fériés restent bloqués.</small></span></label></div>
       <div class="pi-actions"><span>Les volumes annuels et les cours existants sont conservés.</span><button class="planning-button primary" type="submit">Vérifier les cours</button></div>
     </form>
@@ -37,6 +39,7 @@
   <section class="pi-card" id="pi-preview-section" hidden>
     <div class="pi-card-heading"><div><p class="planning-kicker">03 · AVANT L’IMPORT</p><h2>Un dernier regard sur vos cours.</h2></div><button class="planning-button" id="pi-back" type="button">Modifier les correspondances</button></div>
     <div class="pi-summary" id="pi-preview-summary"></div>
+    <div class="pi-info" id="pi-subject-preparations" hidden><strong>Matières à ajouter à cette année</strong><p>Seules les matières des cours sélectionnés seront préparées, avec les volumes annuels vérifiés.</p><ul id="pi-subject-preparation-list"></ul></div>
     <div class="pi-info" id="pi-trainer-creations" hidden><strong>Fiches formateurs à créer</strong><p>Ces fiches seront créées et affectées à la promotion avec les cours sélectionnés. Aucun e-mail d’invitation ne sera envoyé automatiquement.</p><ul id="pi-trainer-creation-list"></ul></div>
     <div class="pi-info" id="pi-trainer-assignments" hidden><strong>Formateurs à affecter à cette promotion</strong><p>En important les cours sélectionnés, vous affecterez ces formateurs à la promotion, avec accès à son planning et à ses étudiants.</p><ul id="pi-trainer-assignment-list"></ul></div>
     <details class="pi-calendar" id="pi-calendar" hidden><summary id="pi-calendar-title"></summary><p>Seules les dates des cours que vous cochez ci-dessous seront modifiées.</p><ul id="pi-calendar-list"></ul></details>
@@ -47,5 +50,5 @@
   </section>
   <section class="pi-card pi-success" id="pi-success" hidden><span aria-hidden="true">✓</span><h2>Votre planning est repris.</h2><p id="pi-success-message"></p><a class="planning-button primary" href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}">Voir le planning</a></section>
 </div>
-<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=4" defer></script>
+<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=5" defer></script>
 {% endblock %}

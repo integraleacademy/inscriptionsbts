@@ -7,6 +7,7 @@
   const day = value => new Date(value + 'T12:00:00').toLocaleDateString('fr-FR');
   const duration = minutes => Math.floor(minutes / 60) + ' h' + (minutes % 60 ? ' ' + String(minutes % 60).padStart(2, '0') : '');
   let extracted = null, preview = null, working = false;
+  const subjectHours = new Map();
   function message(text = '', error = false) { $('pi-message').textContent = text; $('pi-message').hidden = !text; $('pi-message').classList.toggle('error', error); }
   function step(value) { window.scrollTo(0, 0); document.querySelectorAll('.pi-steps li').forEach((n, i) => { if (i + 1 === value) n.setAttribute('aria-current', 'step'); else n.removeAttribute('aria-current'); }); }
   function busy(value) {
@@ -43,7 +44,13 @@
         choices.filter(c => (c.new ? 'new' : c.assigned ? 'assigned' : 'existing') === kind).forEach(c => group.append(new Option([c.prenom, c.nom].filter(Boolean).join(' '), c.id)));
         if (group.children.length) select.append(group);
       });
-    } else choices.forEach(c => select.append(new Option(c.name, c.id)));
+    } else {
+      [[false, 'Déjà préparées pour cette année'], [true, 'Catalogue du BTS · à ajouter']].forEach(([pending, title]) => {
+        const group = node('optgroup'); group.label = title;
+        choices.filter(c => Boolean(c.prepare_on_import) === pending).forEach(c => group.append(new Option(c.name, c.id)));
+        if (group.children.length) select.append(group);
+      });
+    }
     select.value = suggestion || ''; field.append(select);
     if (kind === 'subject_trainers') {
       const notice = node('small', 'Sera affecté à cette promotion lors de l’import.', 'pi-map-notice');
@@ -56,7 +63,11 @@
     $('pi-subjects').replaceChildren(...Object.entries(extracted.mappings.subjects).map(([source, suggestion]) => {
       const row = node('div', undefined, 'pi-subject-row');
       const trainers = [...new Set(extracted.document.rows.filter(r => r.subject_key === source).map(r => r.trainer))];
-      const subject = mappingField(source, 'subjects', source, extracted.subjects, suggestion, 'Choisir une matière de cette année');
+      const subject = mappingField(source, 'subjects', source, extracted.subjects, suggestion, 'Choisir une matière du BTS');
+      const notice = node('small', 'Sera ajoutée à cette année lors de l’import.', 'pi-map-notice');
+      const select = subject.querySelector('select');
+      const update = () => { notice.hidden = !extracted.subjects.find(s => s.id === select.value)?.prepare_on_import; };
+      select.addEventListener('change', update); update(); subject.append(notice);
       const trainer = mappingField(source, 'subject_trainers', 'Formateur pour cette matière', trainerChoices(),
         extracted.mappings.subject_trainers[source], 'Choisir un formateur');
       trainer.append(node('small', 'Dans le PDF : ' + trainers.join(' · ')));
@@ -67,6 +78,25 @@
   function mapping() {
     return Object.fromEntries(['subjects', 'subject_trainers'].map(kind => [kind,
       Object.fromEntries([...$('pi-subjects').querySelectorAll('select[data-mapping="' + kind + '"]')].map(n => [n.dataset.source, n.value]))]));
+  }
+  function renderSubjectHours() {
+    const used = new Set(Object.values(mapping().subjects));
+    const pending = extracted.subjects.filter(s => s.prepare_on_import && used.has(s.id));
+    $('pi-new-subjects').hidden = !pending.length;
+    $('pi-subject-hours').replaceChildren(...pending.map(subject => {
+      if (!subjectHours.has(subject.id)) subjectHours.set(subject.id, subject.planned_hours ?? '');
+      const label = node('label', undefined, 'pi-map-field'), input = node('input');
+      input.type = 'number'; input.min = '0.01'; input.step = 'any'; input.required = true;
+      input.dataset.subject = subject.id; input.value = subjectHours.get(subject.id);
+      input.setAttribute('aria-label', 'Volume annuel en heures · ' + subject.name);
+      input.addEventListener('input', () => { subjectHours.set(subject.id, input.value); invalidate(); });
+      label.append(node('span', subject.name + ' · Volume annuel (h)'), input,
+        node('small', subject.planned_hours == null ? 'À renseigner pour cette année du planning.' : 'Repris du catalogue pour cette année, modifiable ici.'));
+      return label;
+    }));
+  }
+  function selectedSubjectHours() {
+    return Object.fromEntries([...$('pi-subject-hours').querySelectorAll('input')].map(input => [input.dataset.subject, input.value]));
   }
   function updateDraftVisibility() {
     const used = new Set([...$('pi-subjects').querySelectorAll('select[data-mapping=subject_trainers]')].map(n => n.value));
@@ -112,8 +142,10 @@
     const data = new FormData(); data.append('file', file); data.append('promotion_id', root.dataset.promotion); data.append('period_id', root.dataset.period);
     busy(true); invalidate(); message('Lecture des pages et vérification des durées… Cela peut prendre quelques secondes.');
     try {
-      extracted = await api('analyze', data); const doc = extracted.document;
+      extracted = await api('analyze', data); const doc = extracted.document; subjectHours.clear();
       correspondences();
+      renderSubjectHours();
+      $('pi-empty-subjects').hidden = extracted.subjects.length > 0;
       renderNewTrainers();
       $('pi-room').replaceChildren(new Option('Salle à compléter après l’import', ''), ...extracted.rooms.map(r => new Option(r.name, r.id)));
       stats('pi-document-summary', [[doc.rows.length, 'cours repérés'], [duration(doc.minutes), 'volume dans le PDF'], [doc.pages, 'semaines vérifiées'], [Object.keys(extracted.mappings.subjects).length, 'matières à associer']]);
@@ -123,7 +155,10 @@
     finally { busy(false); }
   });
   $('pi-new-file').addEventListener('click', () => { invalidate(); extracted = null; $('pi-mapping-section').hidden = true; $('pi-upload-section').hidden = false; message(); step(1); });
-  $('pi-mapping-form').addEventListener('change', () => { invalidate(); updateDraftVisibility(); });
+  $('pi-mapping-form').addEventListener('change', event => {
+    invalidate(); updateDraftVisibility();
+    if (event.target.dataset.mapping === 'subjects') renderSubjectHours();
+  });
   function selection() { return [...$('pi-courses').querySelectorAll('input:checked')].map(n => n.value); }
   function selectedCount() {
     const chosen = selection(), ready = preview?.items.filter(r => r.status === 'ready') || [];
@@ -139,6 +174,10 @@
     $('pi-trainer-assignment-list').replaceChildren(...assignments.map(t => node('li', [t.prenom, t.nom].filter(Boolean).join(' '))));
     $('pi-trainer-creations').hidden = !creations.length;
     $('pi-trainer-creation-list').replaceChildren(...creations.map(t => node('li', [t.prenom, t.nom].filter(Boolean).join(' ') + (t.email ? ' · ' + t.email : ' · E-mail à renseigner'))));
+    const subjects = new Set(ready.filter(r => chosen.includes(r.key)).map(r => r.subject_id));
+    const preparations = (preview?.subject_preparations || []).filter(s => subjects.has(s.id));
+    $('pi-subject-preparations').hidden = !preparations.length;
+    $('pi-subject-preparation-list').replaceChildren(...preparations.map(s => node('li', s.name + ' · Volume annuel : ' + duration(Math.round(s.planned_hours * 60)))));
   }
   function renderPreview() {
     const sum = preview.summary;
@@ -165,7 +204,7 @@
     event.preventDefault(); if (working || !extracted || !event.target.reportValidity()) return;
     busy(true); message('Vérification des doublons, des disponibilités et des volumes annuels…');
     try {
-      preview = await api('preview', {source_token: extracted.source_token, mappings: mapping(), school_days: $('pi-school-days').checked, room_id: $('pi-room').value || null, assign_trainers: true, new_trainers: draftValues()});
+      preview = await api('preview', {source_token: extracted.source_token, mappings: mapping(), subject_hours: selectedSubjectHours(), school_days: $('pi-school-days').checked, room_id: $('pi-room').value || null, assign_trainers: true, new_trainers: draftValues()});
       renderPreview(); message();
     } catch (error) { message(error.message, true); }
     finally { busy(false); if (preview) selectedCount(); }
