@@ -12,6 +12,7 @@ from candidate_creation import register_candidate_creation
 from candidate_statuses import annotate_candidate_statuses, EMPLOYMENT_STATUS
 from candidate_workflows import register_candidate_workflows
 from candidate_documents import register_candidate_documents, document_preview_response
+from london_mobility import has_mobility_archive, london_context, register_london_mobility
 from student_cards import register_student_cards, student_card_dates
 from student_documents import register_student_documents
 from trainer_access import register_trainer_access
@@ -1633,6 +1634,7 @@ def admin_candidate_sheet(cid):
         row = get_candidat(conn, cid)
         if row:
             school_context = sheet_context(conn, cid)
+            school_context['london_mobility'] = london_context(conn, row)
             annotate_candidate_statuses(conn, [row])
             current_promotion = get_candidate_promotion(conn, cid)
             available_promotions = list_promotions(conn, bts=row.get('bts'), rentree_annee=candidate_year(row), active_only=True)
@@ -3428,6 +3430,7 @@ def migrate_voyage_londres():
     conn.commit(); conn.close()
 
 migrate_voyage_londres()
+register_london_mobility(app, db, lambda: VOYAGE_DIR, require_admin, log_event)
 
 def _voyage_guard(api=True):
     if session.get("admin_ok"): return None
@@ -3518,6 +3521,9 @@ def voyage_londres_change(iid):
     conn=db(); current=conn.execute("SELECT * FROM voyage_londres_inscriptions WHERE id=?",(iid,)).fetchone()
     if not current: conn.close(); return jsonify(ok=False,error="Inscription introuvable"),404
     if request.method == "DELETE":
+        if has_mobility_archive(conn, candidate_id=current['candidat_id']):
+            conn.close()
+            return jsonify(ok=False,error="Ce voyage contient des conventions archivées. Annulez l’inscription pour conserver les documents."),409
         docs=list(conn.execute("SELECT nom_stockage FROM voyage_londres_documents WHERE inscription_id=?",(iid,)))
         conn.execute("DELETE FROM voyage_londres_documents WHERE inscription_id=?",(iid,)); conn.execute("DELETE FROM voyage_londres_inscriptions WHERE id=?",(iid,)); conn.commit(); conn.close()
         for doc in docs:
@@ -3597,6 +3603,9 @@ def voyage_londres_delete_document(did):
     if not _voyage_csrf(): return jsonify(ok=False,error="Jeton CSRF invalide"),400
     conn=db(); doc=conn.execute("SELECT nom_stockage FROM voyage_londres_documents WHERE id=?",(did,)).fetchone()
     if not doc: conn.close(); return jsonify(ok=False,error="Document introuvable"),404
+    if has_mobility_archive(conn, document_id=did):
+        conn.close()
+        return jsonify(ok=False,error="Cette convention appartient à une version conservée dans la fiche candidat et ne peut pas être supprimée ici."),409
     conn.execute("DELETE FROM voyage_londres_documents WHERE id=?",(did,)); conn.commit(); conn.close()
     try: os.remove(os.path.join(VOYAGE_DIR,doc[0]))
     except FileNotFoundError: pass
