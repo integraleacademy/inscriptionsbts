@@ -66,6 +66,23 @@ def test_mixed_batch_rejected_whole_if_one_conflict_or_stale(linked,client):
     assert move(client,rows+rows).status_code==400
 
 
+def test_multi_date_batch_keeps_times_exam_and_one_version_per_session(linked,client,db):
+    seed(client,slots=[dict(room_id='r1',date=d,start='09:00',end='11:00') for d in ['2027-01-04','2027-01-06']],
+         metadata=dict(name='APS JANVIER 2027',formation='APS',exam_dates=['2027-01-06']))
+    event(client,date='2027-01-05',room_id='r1')
+    untouched=event(client,date='2027-01-07',room_id='r1').json['course']
+    rows=[r for r in schedule(client) if r['date']<'2027-01-07']
+    before={r['key']:(r['date'],r['start_min'],r['end_min'],r.get('exam',False)) for r in rows}
+    assert move(client,rows).status_code==200
+    after=schedule(client)
+    chosen=[r for r in after if r['key'] in before]
+    assert len(chosen)==3 and all(r['room_id']=='r2' for r in chosen)
+    assert {r['key']:(r['date'],r['start_min'],r['end_min'],r.get('exam',False)) for r in chosen}==before
+    old_version=next(r['room_version'] for r in rows if r['source']=='session')
+    assert {r['room_version'] for r in chosen if r['source']=='session'}=={old_version+1}
+    assert next(r for r in after if r.get('id')==untouched['id'])['room_id']=='r1'
+
+
 def test_selected_courses_cannot_overlap_in_destination(client):
     a=event(client,room_id='r1').json['course']
     event(client,promotion_id='p2',room_id='r2')
