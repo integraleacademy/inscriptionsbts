@@ -1,0 +1,31 @@
+<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-invoices.css') }}?v=20261028">
+<section class="ti-panel" id="trainer-invoices" data-trainer-invoices data-base="{{ url_for('admin_trainer_detail', trainer_id=trainer.id) }}/factures" data-month="{{ selected_month }}" data-csrf="{{ csrf_token }}" aria-labelledby="ti-title">
+  <header class="ti-heading">
+    <div><p class="tw-kicker">FACTURES · CONTRÔLE INTELLIGENT</p><h2 id="ti-title">Les factures, <em>à la loupe.</em></h2><p>{{ workload.month_label|capitalize }} · rapprochement avec les séances et les tarifs enregistrés.</p></div>
+    <span class="ti-private">Réservé à l’administration</span>
+  </header>
+  <div class="ti-upload-layout">
+    <form class="ti-upload" data-ti-form>
+      <label class="ti-file-label">Importer une ou plusieurs factures
+        <input type="file" name="files" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple required aria-describedby="ti-limits">
+      </label>
+      <p id="ti-limits" class="ti-help">Jusqu’à 10 fichiers à la fois · PDF, JPG ou PNG · 12 Mo et 20 pages maximum par fichier. Une facture et ses annexes par fichier.</p>
+      <div class="ti-upload-controls">
+        <label>Le tarif horaire enregistré est exprimé
+          <select name="basis" required><option value="">Choisir la base de comparaison</option><option value="ht">Hors taxes (HT)</option><option value="ttc">Toutes taxes comprises (TTC)</option></select>
+        </label>
+        <button type="submit" class="trainer-button primary">Importer et analyser</button>
+      </div>
+      <p class="ti-help">Période contrôlée : <strong>{{ workload.month_label }}</strong>. Pour un autre mois, changez la période en haut de cette page.</p>
+      <p class="ti-privacy">L’analyse transmet le fichier original et les séances du mois à OpenAI, avec la clé configurée dans les paramètres. Ne joignez pas de documents personnels sans rapport avec la facture.</p>
+    </form>
+    <aside class="ti-explainer"><h3>Un contrôle en trois niveaux.</h3><p><b>01 · Lecture de la facture</b>Prestations, heures, tarifs, frais, TVA et montants.</p><p><b>02 · Rapprochement du planning</b>Dates, horaires, cours communs et indices de réalisation.</p><p><b>03 · Vérification du mois</b>Cumul des factures, doublons et séances non rapprochées.</p><small>L’IA ne valide aucun paiement. Un appel ou un cahier de texte reste un indice, pas une preuve de présence du formateur.</small></aside>
+  </div>
+  <p data-ti-feedback role="status" aria-live="polite" class="ti-feedback" hidden></p>
+  <div data-ti-batch-log class="ti-batch-log" aria-live="polite"></div>
+  <div class="ti-results-heading"><h3>Contrôle du mois</h3><div><label class="ti-archive-toggle"><input type="checkbox" data-ti-show-archived> Voir les documents écartés</label><button type="button" class="trainer-button" data-ti-refresh>Actualiser</button></div></div>
+  <div data-ti-summary></div>
+  <div data-ti-invoices><p class="ti-empty">Chargement des factures…</p></div>
+  <noscript><p>Activez JavaScript pour importer et analyser les factures.</p></noscript>
+</section>
+<script src="{{ url_for('static', filename='js/trainer-invoices.js') }}?v=20261028" defer></script>
