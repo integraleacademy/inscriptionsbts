@@ -29,6 +29,7 @@ w.fetch = async (url, options) => {
     subject_preparations: [{id: 'new-english', name: 'Anglais', planned_hours: 45}, {id: 'new-french', name: 'Expression', planned_hours: 24}],
     trainer_assignments: [extraction.trainers[0]], trainer_creations: [],
     items: rows.map(row => ({...row, status: 'ready', issues: [],
+      notices: row.key === '0' ? ['Séance commune avec BTS CI <img src=x> : rattachement au cours existant.'] : ['Salle à compléter après l’import.'],
       trainer_id: body.mappings.subject_trainers[row.subject_key],
       subject_id: body.mappings.subjects[row.subject_key].replace('catalog:', 'new-'),
       subject_name: extraction.subjects.find(s => s.id === body.mappings.subjects[row.subject_key])?.name})),
@@ -64,6 +65,10 @@ w.eval(fs.readFileSync('static/js/planning-import.js', 'utf8'));
   submit('pi-mapping-form'); await wait();
   assert.deepEqual(requests[0].body.subject_hours, {'catalog:french': '24'});
   assert(!$('pi-preview-section').hidden && !$('pi-subject-preparations').hidden);
+  assert($('pi-courses').textContent.includes('Séance commune avec BTS CI <img src=x>'));
+  assert($('pi-courses').textContent.includes('Salle à compléter après l’import.'));
+  assert.equal($('pi-courses').querySelectorAll('img').length, 0);
+  assert.equal($('pi-courses').querySelectorAll('input:checked').length, 3);
   assert.equal($('pi-subject-preparation-list').children.length, 2);
   $('pi-select-all').checked = false; change($('pi-select-all'));
   assert($('pi-commit').disabled && $('pi-subject-preparations').hidden);

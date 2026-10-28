@@ -1,7 +1,7 @@
 """Admin-only Yparéo import: signed extraction, review, atomic revalidation.
 
-An import adds courses only after review. Existing courses and annual budgets
-are never rewritten. Empty PDF weeks do not imply school/company/holiday days.
+An import adds courses or joins confirmed common sessions only after review.
+Annual budgets are preserved. Empty PDF weeks do not imply calendar changes.
 """
 from contextlib import closing
 from datetime import date, datetime, timezone
@@ -15,6 +15,7 @@ import planning as p
 import planning_years
 import planning_import_trainers as new_trainers
 import planning_import_subjects as new_subjects
+import planning_import_sharing as sharing
 from trainer_records import ensure_optional_trainer_email
 from planning_import_pdf import ImportPDFError, MAX_BYTES, MAX_COURSES, normal, parse_ypareo_pdf
 
@@ -77,7 +78,7 @@ def review(conn, *args, **kwargs):
         conn.execute('RELEASE import_subject_review')
 
 
-def _review(conn, source, mappings, school_days, room_id, selected_keys=None, *, assign_trainers=False, allowed_assignments=None, trainer_drafts=None, subject_hours=None, allowed_preparations=None):
+def _review(conn, source, mappings, school_days, room_id, selected_keys=None, *, assign_trainers=False, allowed_assignments=None, trainer_drafts=None, subject_hours=None, allowed_preparations=None, approved_shares=None):
     promotion, period = _context(conn, source['promotion_id'], source['period_id'])
     if period['start_date'] != source['start_date'] or period['end_date'] != source['end_date']:
         raise p.PlanningError('Les dates de l’année ont changé. Analysez à nouveau le PDF.', status=409)
@@ -125,7 +126,7 @@ def _review(conn, source, mappings, school_days, room_id, selected_keys=None, *,
     subject_preparations = {}
     accepted, results, changed_days, calendar_before = [], [], {}, {}
     for row in rows:
-        item = dict(row, status='blocked', issues=[])
+        item = dict(row, status='blocked', issues=[], notices=[])
         sid = mappings['subjects'].get(row['subject_key'])
         tid = mappings[trainer_key].get(row['subject_key'] if trainer_key == 'subject_trainers' else row['trainer'])
         try:
@@ -145,13 +146,36 @@ def _review(conn, source, mappings, school_days, room_id, selected_keys=None, *,
             if duplicate:
                 item.update(status='duplicate', existing_id=duplicate.get('id'))
             else:
+                shared = sharing.find(conn, course, promotion, period, existing)
+                target = {k: shared[k] for k in ('id', 'version')} if shared else None
+                if approved_shares is not None and approved_shares.get(row['key']) != target:
+                    raise p.PlanningError('La séance commune a changé depuis l’aperçu. Vérifiez à nouveau les cours.')
+                if shared:
+                    # Validate only the new participant: the original groups already
+                    # consume their hours and keep their calendar and reservation.
+                    course['room_id'] = shared['room_id']
+                    course['_shared_target'] = target
+                    item['shared_course'] = dict(target, promotion_name=shared['promotion_name'])
+                    item['notices'].append('Séance commune avec ' + shared['promotion_name'] + ' : cette promotion sera rattachée au cours existant.')
                 day = p._day(promotion, date.fromisoformat(row['date']), rules, exceptions)
                 candidate_exceptions = exceptions
                 if school_days and day['kind'] not in ('school', 'public_holiday'):
                     candidate_exceptions = [e for e in exceptions if e['date'] != row['date']] + [
                         dict(date=row['date'], kind='school', label='École · import Yparéo')]
-                issues = p._conflicts(conn, course, pool=existing + accepted,
+                issues = p._conflicts(conn, course, exclude_id=shared['id'] if shared else None, pool=existing + accepted,
                     calendar=(rules, candidate_exceptions), unavailable=unavailable, pending=accepted)
+                room_issues = [i for i in issues if i['type'] in ('room_overlap', 'room', 'room_sync')]
+                if room_issues:
+                    issues = [i for i in issues if i not in room_issues]
+                    if shared:
+                        item['notices'].append('Salle de la séance commune à vérifier dans le planning : ' + ' '.join(i['message'] for i in room_issues))
+                    else:
+                        course['room_id'] = None
+                        item['notices'].append('Salle à compléter après l’import : ' + ' '.join(i['message'] for i in room_issues))
+                    item['room_warning'] = True
+                elif not course['room_id']:
+                    item['notices'].append('Salle à compléter après l’import.')
+                item['room_id'] = course['room_id']
                 if issues:
                     item['issues'] = [i['message'] for i in issues]
                 else:
@@ -272,6 +296,8 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
             ready = [r['key'] for r in preview['items'] if r['status'] == 'ready']
             token = sign(dict(source=source, mappings=mappings, school_days=school_days,
                               room_id=room_id, ready=ready, calendar_before=preview['calendar_before'],
+                              shared_targets={r['key']: {k: r['shared_course'][k] for k in ('id', 'version')}
+                                              for r in preview['items'] if r['status'] == 'ready' and r.get('shared_course')},
                               assign_trainers=assign_trainers,
                               subject_hours={new_subjects.PREFIX + s['catalog_subject_id']: s['planned_hours']
                                              for s in preview['subject_preparations']},
@@ -294,6 +320,7 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                                       subject_hours=approved.get('subject_hours', {}),
                                       allowed_preparations=set(approved.get('subject_hours', {})),
                                       trainer_drafts=approved.get('new_trainers', []),
+                                      approved_shares=approved.get('shared_targets', {}),
                                       allowed_assignments=approved.get('trainer_assignment_ids', []))
             if any(approved['calendar_before'].get(day) != state for day, state in preview['calendar_before'].items()):
                 raise p.PlanningError('L’alternance a changé depuis l’aperçu. Vérifiez à nouveau les cours avant d’importer.', status=409)
@@ -325,9 +352,25 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
             if preview['calendar_changes']:
                 conn.execute('''INSERT INTO planning_calendar_versions VALUES(?,1)
                     ON CONFLICT(promotion_id) DO UPDATE SET version=version+1''', (approved['source']['period_id'],))
-            ids = [persist(conn, course) for course in courses]
+            ids = []
+            for course in courses:
+                target = course.get('_shared_target')
+                if target:
+                    # Append the participant without rewriting the existing session.
+                    conn.execute('INSERT INTO planning_course_groups(course_id,promotion_id,subject_id) VALUES(?,?,?)',
+                                 (target['id'], course['promotion_id'], course['subject_id']))
+                    conn.execute('UPDATE planning_courses SET version=version+1,updated_at=? WHERE id=?',
+                                 (datetime.now(timezone.utc).isoformat(), target['id']))
+                    ids.append(target['id'])
+                else:
+                    ids.append(persist(conn, course))
+            shared_count = sum(bool(c.get('_shared_target')) for c in courses)
+            room_warnings = sum(bool(r.get('room_warning')) for r in preview['items'] if r['status'] == 'ready')
             return dict(count=len(ids), course_ids=ids, duplicates=preview['summary']['duplicate'], created_trainers=len(created),
+                        shared_courses=shared_count, rooms_to_review=room_warnings,
                         prepared_subjects=len(preview['subject_preparations']),
                         message=f'{len(ids)} cours importé(s). {preview["summary"]["duplicate"]} doublon(s) ignoré(s).' +
+                                (f' {shared_count} séance(s) commune(s) rattachée(s).' if shared_count else '') +
+                                (f' {room_warnings} salle(s) à compléter ou à vérifier dans le planning.' if room_warnings else '') +
                                 (f' {len(created)} fiche(s) formateur créée(s).' if created else ''))
         return transact(operation)
