@@ -205,6 +205,7 @@
       trainerCell.append(node('span', trainerNames.get(item.trainer_id) || item.trainer), node('small', item.trainer));
       checkCell.append(node('span', statuses[item.status], 'pi-status ' + item.status));
       if (item.issues.length) checkCell.append(node('p', item.issues.join(' '), 'pi-issues'));
+      (item.notices || []).forEach(notice => checkCell.append(node('small', notice)));
       row.append(selectCell, dateCell, subjectCell, trainerCell, checkCell); return row;
     }));
     $('pi-preview-section').hidden = false; $('pi-mapping-section').hidden = true; step(3); selectedCount();

@@ -43,12 +43,12 @@
     <div class="pi-info" id="pi-trainer-creations" hidden><strong>Fiches formateurs à créer</strong><p>Ces fiches seront créées et affectées à la promotion avec les cours sélectionnés. Aucun e-mail d’invitation ne sera envoyé automatiquement.</p><ul id="pi-trainer-creation-list"></ul></div>
     <div class="pi-info" id="pi-trainer-assignments" hidden><strong>Formateurs à affecter à cette promotion</strong><p>En important les cours sélectionnés, vous affecterez ces formateurs à la promotion, avec accès à son planning et à ses étudiants.</p><ul id="pi-trainer-assignment-list"></ul></div>
     <details class="pi-calendar" id="pi-calendar" hidden><summary id="pi-calendar-title"></summary><p>Seules les dates des cours que vous cochez ci-dessous seront modifiées.</p><ul id="pi-calendar-list"></ul></details>
-    <p class="pi-help">Les doublons sont ignorés. Les conflits d’horaires, d’indisponibilité, de journée école ou de volume annuel doivent être résolus avant de pouvoir importer les cours concernés.</p>
+    <p class="pi-help">Les doublons sont ignorés. En première année, l’anglais et la culture générale communs aux BTS CI et PI sont rattachés à la séance existante lorsque les horaires et le formateur correspondent. Si la salle choisie est occupée, le cours est importé avec une salle à compléter ensuite. Les autres conflits d’horaires, d’indisponibilité, de journée école ou de volume annuel restent à résoudre.</p>
     <div class="pi-table-tools"><label><input type="checkbox" id="pi-select-all"> Sélectionner tous les cours prêts</label><strong id="pi-selected-count" role="status" aria-live="polite"></strong></div>
     <div class="pi-table-wrap"><table><thead><tr><th scope="col">Importer</th><th scope="col">Date / horaires</th><th scope="col">Matière</th><th scope="col">Formateur</th><th scope="col">Vérification</th></tr></thead><tbody id="pi-courses"></tbody></table></div>
     <div class="pi-actions pi-commit"><p>L’import ajoute les cours sélectionnés. Les semaines vides du PDF restent inchangées.</p><button type="button" id="pi-commit" class="planning-button primary" disabled>Importer la sélection</button></div>
   </section>
   <section class="pi-card pi-success" id="pi-success" hidden><span aria-hidden="true">✓</span><h2>Votre planning est repris.</h2><p id="pi-success-message"></p><a class="planning-button primary" href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}">Voir le planning</a></section>
 </div>
-<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=7" defer></script>
+<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=8" defer></script>
 {% endblock %}
