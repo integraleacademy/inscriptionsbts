@@ -14,6 +14,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 import planning as p
 import planning_years
 import planning_import_trainers as new_trainers
+import planning_import_subjects as new_subjects
 from trainer_records import ensure_optional_trainer_email
 from planning_import_pdf import ImportPDFError, MAX_BYTES, MAX_COURSES, normal, parse_ypareo_pdf
 
@@ -52,7 +53,18 @@ def _trainers(conn, promotion_id):
         FROM trainers t WHERE t.active=1 ORDER BY t.nom,t.prenom''', (promotion_id,))]
 
 
-def review(conn, source, mappings, school_days, room_id, selected_keys=None, *, assign_trainers=False, allowed_assignments=None, trainer_drafts=None):
+def review(conn, *args, **kwargs):
+    # Temporary allocations let the normal course and budget checks run unchanged.
+    # Always roll them back, even when this function is called outside a transaction.
+    conn.execute('SAVEPOINT import_subject_review')
+    try:
+        return _review(conn, *args, **kwargs)
+    finally:
+        conn.execute('ROLLBACK TO import_subject_review')
+        conn.execute('RELEASE import_subject_review')
+
+
+def _review(conn, source, mappings, school_days, room_id, selected_keys=None, *, assign_trainers=False, allowed_assignments=None, trainer_drafts=None, subject_hours=None, allowed_preparations=None):
     promotion, period = _context(conn, source['promotion_id'], source['period_id'])
     if period['start_date'] != source['start_date'] or period['end_date'] != source['end_date']:
         raise p.PlanningError('Les dates de l’année ont changé. Analysez à nouveau le PDF.', status=409)
@@ -66,6 +78,9 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None, *, 
         raise p.PlanningError('Confirmez le traitement des journées école.')
     if not isinstance(assign_trainers, bool):
         raise p.PlanningError('Vérifiez les affectations des formateurs.')
+    subject_hours = {} if subject_hours is None else subject_hours
+    if not isinstance(subject_hours, dict):
+        raise p.PlanningError('Vérifiez les volumes annuels des matières à ajouter.')
     if room_id is not None and (not isinstance(room_id, str) or not conn.execute(
             'SELECT 1 FROM planning_rooms WHERE id=? AND active=1', (room_id,)).fetchone()):
         raise p.PlanningError('Choisissez une salle active ou laissez la salle à compléter.')
@@ -88,6 +103,7 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None, *, 
     pending_assignments = {(tid, promotion['id']) for tid, trainer in trainers.items()
         if assign_trainers and not trainer['assigned'] and (allowed_assignments is None or tid in allowed_assignments)}
     trainer_assignments = {}
+    subject_preparations = {}
     accepted, results, changed_days, calendar_before = [], [], {}, {}
     for row in rows:
         item = dict(row, status='blocked', issues=[])
@@ -97,13 +113,14 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None, *, 
             planning_years.require_dates(period, row['date'])
             if not isinstance(sid, str) or not sid or not isinstance(tid, str) or not tid:
                 raise p.PlanningError('Associez la matière et le formateur de ce cours.')
+            sid = new_subjects.resolve(conn, promotion, period, sid, tid, subject_hours, subject_preparations, allowed_preparations)
             allocation = planning_years.allocation(conn, sid)
             if not allocation or allocation['id'] != period['id']:
                 raise p.PlanningError('Choisissez une matière préparée pour cette année du planning.')
             course = p._course(conn, dict(promotion_id=promotion['id'], subject_id=sid, trainer_id=tid,
                                         room_id=room_id, date=row['date'], start=row['start'], end=row['end']),
                                pending_trainer_assignments=pending_assignments, pending_trainers=pending_trainers)
-            item.update(subject_name=course['groups'][0]['subject_name'], trainer_id=tid)
+            item.update(subject_name=course['groups'][0]['subject_name'], subject_id=sid, trainer_id=tid)
             duplicate = next((c for c in existing + accepted if _signature(c) == _signature(course) and
                               any(g['promotion_id'] == promotion['id'] and g['subject_id'] == sid for g in p._groups(c))), None)
             if duplicate:
@@ -131,7 +148,14 @@ def review(conn, source, mappings, school_days, room_id, selected_keys=None, *, 
         results.append(item)
     summary = {status: sum(r['status'] == status for r in results) for status in ('ready', 'duplicate', 'blocked')}
     summary.update(total=len(results), minutes=sum(c['end_min']-c['start_min'] for c in accepted), school_days=len(changed_days))
+    # A blocked/deselected row must not choose the preparation's default trainer.
+    preparations = []
+    for course in accepted:
+        item = subject_preparations.pop(course['subject_id'], None)
+        if item:
+            preparations.append(dict(item, trainer_id=course['trainer_id']))
     return dict(items=results, summary=summary, calendar_before=calendar_before,
+        subject_preparations=preparations,
         trainer_assignments=list(trainer_assignments.values()),
         trainer_creations=[t for tid, t in pending_trainers.items() if tid in {c['trainer_id'] for c in accepted}],
         calendar_changes=sorted(changed_days.values(), key=lambda d: d['date'])), accepted
@@ -178,7 +202,7 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                 raise p.PlanningError('Choisissez le PDF du planning à importer.')
             with closing(connect()) as conn:
                 promotion, period = _context(conn, request.form.get('promotion_id'), request.form.get('period_id'))
-                subjects = p._subjects(conn, promotion['id'], period['id'])
+                subjects = new_subjects.choices(conn, promotion, period)
                 trainers = _trainers(conn, promotion['id'])
                 known_trainers = [dict(r) for r in conn.execute('SELECT id,nom,prenom,active FROM trainers')]
                 rooms = [dict(row) for row in conn.execute('SELECT id,name FROM planning_rooms WHERE active=1 ORDER BY name')]
@@ -219,12 +243,17 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
             assign_trainers = payload.get('assign_trainers', False)
             trainer_drafts = payload.get('new_trainers', [])
             with closing(connect()) as conn:
-                conn.execute('BEGIN')
-                preview, _ = review(conn, source, mappings, school_days, room_id, assign_trainers=assign_trainers, trainer_drafts=trainer_drafts)
+                # Catalogue allocations are staged then rolled back by review.
+                # Reserve the writer before reading to avoid a snapshot upgrade race.
+                conn.execute('BEGIN IMMEDIATE')
+                preview, _ = review(conn, source, mappings, school_days, room_id, assign_trainers=assign_trainers,
+                                    trainer_drafts=trainer_drafts, subject_hours=payload.get('subject_hours'))
             ready = [r['key'] for r in preview['items'] if r['status'] == 'ready']
             token = sign(dict(source=source, mappings=mappings, school_days=school_days,
                               room_id=room_id, ready=ready, calendar_before=preview['calendar_before'],
                               assign_trainers=assign_trainers,
+                              subject_hours={new_subjects.PREFIX + s['catalog_subject_id']: s['planned_hours']
+                                             for s in preview['subject_preparations']},
                               new_trainers=trainer_drafts,
                               trainer_assignment_ids=[t['id'] for t in preview['trainer_assignments']]), 'review')
             return result(preview, preview_token=token)
@@ -241,6 +270,8 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
             preview, courses = review(conn, approved['source'], approved['mappings'],
                                       approved['school_days'], approved['room_id'], selected,
                                       assign_trainers=approved.get('assign_trainers', False),
+                                      subject_hours=approved.get('subject_hours', {}),
+                                      allowed_preparations=set(approved.get('subject_hours', {})),
                                       trainer_drafts=approved.get('new_trainers', []),
                                       allowed_assignments=approved.get('trainer_assignment_ids', []))
             if any(approved['calendar_before'].get(day) != state for day, state in preview['calendar_before'].items()):
@@ -264,6 +295,8 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                     conn.execute('UPDATE trainers SET version=version+1 WHERE id=?', (trainer['id'],))
                 if p._has_table(conn, 'trainer_access_tokens'):
                     conn.execute('UPDATE trainer_access_tokens SET consumed=1 WHERE trainer_id=?', (trainer['id'],))
+            for subject in preview['subject_preparations']:
+                new_subjects.save(conn, subject)
             for change in preview['calendar_changes']:
                 conn.execute('''INSERT INTO planning_day_exceptions(promotion_id,date,kind,label) VALUES(?,?,'school',?)
                     ON CONFLICT(promotion_id,date) DO UPDATE SET kind=excluded.kind,label=excluded.label''',
@@ -273,6 +306,7 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                     ON CONFLICT(promotion_id) DO UPDATE SET version=version+1''', (approved['source']['period_id'],))
             ids = [persist(conn, course) for course in courses]
             return dict(count=len(ids), course_ids=ids, duplicates=preview['summary']['duplicate'], created_trainers=len(created),
+                        prepared_subjects=len(preview['subject_preparations']),
                         message=f'{len(ids)} cours importé(s). {preview["summary"]["duplicate"]} doublon(s) ignoré(s).' +
                                 (f' {len(created)} fiche(s) formateur créée(s).' if created else ''))
         return transact(operation)

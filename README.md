@@ -487,8 +487,17 @@ L’assistant accepte les PDF texte « Planning groupe » hebdomadaires Yparéo
 (10 Mo, 100 pages et 500 cours au maximum). Il lit les horaires sur la grille et
 vérifie chaque total hebdomadaire. Un PDF scanné, ambigu ou différent est refusé
 sans écriture. Les matières tronquées et les initiales des formateurs font
-l’objet de correspondances à vérifier ; les matières de l’année et les fiches
-actives des formateurs existants sont proposées automatiquement.
+l’objet de correspondances à vérifier ; les matières de l’année, le catalogue
+du BTS de la promotion et les fiches actives des formateurs sont proposés.
+
+Un planning vide peut être importé directement, sans préparer ses matières au
+préalable. Les matières du catalogue sélectionnées sont préparées uniquement
+avec les cours retenus à la validation. Le volume annuel est repris du catalogue
+pour l’année d’étude concernée ; il peut être complété ou ajusté dans l’import.
+Plusieurs libellés du PDF associés à une même matière partagent une seule
+préparation et le même budget. L’aperçu indique les préparations à créer, sans
+les enregistrer. Les budgets et formateurs des préparations existantes restent
+inchangés, y compris lorsqu’une préparation est créée entre l’aperçu et l’import.
 
 Chaque matière du PDF dispose de son propre choix de formateur, sur la même
 ligne que la matière du planning. Ce choix s’applique à tous les cours importés
