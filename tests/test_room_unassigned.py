@@ -27,11 +27,11 @@ def calendar(client):
     return client.get(BASE+'/rooms/schedule?start=2027-01-04&end=2027-01-10').json
 
 
-def test_unassigned_sessions_and_bts_are_first_without_reserving_physical_rooms(linked,client):
+def test_unassigned_sessions_remain_available_without_a_virtual_room(linked,client):
     p=projection();sync(client,[p])
     event(client,room_id=None,date='2027-01-06')
     data=calendar(client)
-    assert data['rooms'][0]==dict(id=None,name='À affecter',active=True,unassigned=True)
+    assert all(r['id'] and not r.get('unassigned') for r in data['rooms'])
     assert data['unassigned_count']==3
     assert data['unassigned_sessions']==[dict(owner=p['owner'],name='APS JANVIER 2027',start='2027-01-04',needs_schedule=False,count=2)]
     rows=[r for r in data['reservations'] if r['source']=='session']
@@ -121,9 +121,14 @@ def test_unassigned_override_survives_source_edit_but_global_assignment_resets(l
     assert all(r['room_id']=='r2' for r in schedule(client))
 
 
-def test_pdf_includes_unassigned_row_and_exams(linked,client):
+def test_pdf_shows_physical_rooms_only_and_includes_exam_after_assignment(linked,client):
     sync(client,[projection()])
     result=client.get('/admin/salles/export.pdf?start=2027-01-04&end=2027-01-10')
     assert result.status_code==200
     text='\n'.join(p.extract_text() for p in PdfReader(BytesIO(result.data)).pages)
-    assert all(s in text for s in ('À affecter','À AFFECTER','APS JANVIER 2027','EXAMEN','05/01/2027'))
+    assert all(s not in text for s in ('À affecter','À AFFECTER','APS JANVIER 2027'))
+    assert 'Salle r1' in text and '05/01/2027' in text
+    assert move(client,schedule(client),'r1').status_code==200
+    result=client.get('/admin/salles/export.pdf?start=2027-01-04&end=2027-01-10')
+    text='\n'.join(p.extract_text() for p in PdfReader(BytesIO(result.data)).pages)
+    assert 'APS JANVIER 2027' in text and 'EXAMEN' in text
