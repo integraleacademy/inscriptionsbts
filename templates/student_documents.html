@@ -31,11 +31,15 @@
       {% if card_error %}
       <p class="sw-school-document-notice">{{ card_error }}</p>
       {% else %}
-      <p>Valable du {{ card_start }} au {{ card_end }}. Clique sur une image pour l’agrandir.</p>
+      <p>Valable du {{ card_start }} au {{ card_end }}. Clique sur la carte pour l’agrandir.</p>
+      <div class="sw-card-face-switch" role="group" aria-label="Face de la carte étudiante">
+        {% for face, label in [('recto', 'Recto'), ('verso', 'Verso')] %}
+        <button type="button" data-card-face-button="{{ face }}" aria-pressed="{{ 'true' if face == 'recto' else 'false' }}" aria-controls="student-card-{{ face }}">{{ label }}</button>
+        {% endfor %}
+      </div>
       <div class="sw-card-faces">
         {% for face, label in [('recto', 'Recto'), ('verso', 'Verso')] %}
-        <figure>
-          <figcaption>{{ label }}</figcaption>
+        <figure id="student-card-{{ face }}" data-card-face="{{ face }}"{% if face != 'recto' %} hidden{% endif %}>
           <a href="{{ url_for('student_card_image', face=face) }}" target="_blank" rel="noopener" aria-label="Agrandir le {{ face }} de ma carte étudiante">
             <img src="{{ url_for('student_card_image', face=face) }}" alt="{{ label }} de la carte étudiante de {{ person_name(row.nom, row.prenom) }}" width="1016" height="638" decoding="async" data-student-card-image>
           </a>
@@ -49,5 +53,5 @@
   </div>
   <section class="sw-help"><h2>Une information à corriger ou un document indisponible ?</h2><p>Contacte l’équipe pour mettre à jour ton dossier.</p><a class="sw-link" href="tel:+33422470768">Contacter l’école · 04 22 47 07 68</a></section>
 </div>
-<script src="{{ url_for('static', filename='js/student-documents.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/student-documents.js') }}?v=2" defer></script>
 {% endblock %}
