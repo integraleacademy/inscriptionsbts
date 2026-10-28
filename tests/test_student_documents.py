@@ -58,7 +58,9 @@ def test_documents_are_easy_to_find_and_link_only_to_own_private_routes(document
     nav = soup.select_one('.student-portal-nav')
     assert nav.select_one('[aria-current="page"]')['href'] == PAGE
     assert page.text.count('aria-label="Navigation de l’espace étudiant"') == 1
-    assert soup.select_one(f'a[href="{CERTIFICATE}?download=1"]')
+    certificate_link = soup.select_one(f'a[href="{CERTIFICATE}"]')
+    assert certificate_link['target'] == '_blank' and 'noopener' in certificate_link['rel']
+    assert not soup.select_one(f'a[href="{CERTIFICATE}?download=1"]')
     assert [img['src'] for img in soup.select('[data-student-card-image]')] == [RECTO, VERSO]
     assert 'Alice DUPONT' in page.text and 'MARTIN' not in page.text
     assert '/admin/' not in str(soup.select_one('.sw-school-documents'))
@@ -69,18 +71,20 @@ def test_documents_are_easy_to_find_and_link_only_to_own_private_routes(document
 
 
 @pytest.mark.parametrize('mode', ['presentiel', 'distanciel'])
-def test_certificate_is_real_personalized_pdf_with_inline_and_download_modes(documents, mode):
+def test_certificate_opens_only_first_page_inline_even_for_older_download_links(documents, mode):
     update(mode=mode)
     reply = documents.get(CERTIFICATE)
     assert reply.status_code == 200 and reply.mimetype == 'application/pdf'
     assert reply.headers['Content-Disposition'].startswith('inline;')
     private(reply)
     pdf = PdfReader(BytesIO(reply.data))
+    assert len(pdf.pages) == 1
     text = ' '.join(page.extract_text() for page in pdf.pages)
     assert 'Alice DUPONT' in text and 'MARTIN' not in text
     assert '2026' in text and '2028' in text
     downloaded = documents.get(CERTIFICATE + '?download=1')
-    assert downloaded.headers['Content-Disposition'].startswith('attachment;')
+    assert downloaded.headers['Content-Disposition'].startswith('inline;')
+    assert len(PdfReader(BytesIO(downloaded.data)).pages) == 1
     assert 'Certificat_scolarite_DUPONT_Alice.pdf' in downloaded.headers['Content-Disposition']
 
 

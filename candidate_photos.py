@@ -4,6 +4,9 @@ import io
 import json
 import math
 import os
+from datetime import datetime
+from pathlib import Path
+from uuid import uuid4
 from contextlib import closing
 
 from flask import abort, jsonify, request, send_file, session
@@ -142,6 +145,68 @@ def photo_response(row, upload_dir, db_connect, *, original=False):
 
 
 def register_candidate_photos(app, db_connect, upload_dir, require_admin, log_event):
+    @app.post('/admin/candidat/<cid>/photo')
+    def admin_candidate_upload_photo(cid):
+        if not require_admin():
+            abort(403)
+        if not _equal(request.headers.get('X-CSRF-Token'), session.get('_candidate_message_csrf')):
+            return jsonify(ok=False, error='La session a expiré. Rechargez la fiche.'), 400
+        limit = 10 * 1024 * 1024
+        if request.content_length and request.content_length > limit + 65536:
+            return jsonify(ok=False, error='La photo ne doit pas dépasser 10 Mo.'), 413
+        with closing(db_connect()) as conn:
+            row = conn.execute('SELECT * FROM candidats WHERE id=?', (cid,)).fetchone()
+            if not row:
+                abort(404)
+        files = request.files.getlist('photo')
+        if len(files) != 1 or not files[0].filename:
+            return jsonify(ok=False, error='Choisissez une photo JPG ou PNG.'), 400
+        content = files[0].stream.read(limit + 1)
+        if len(content) > limit:
+            return jsonify(ok=False, error='La photo ne doit pas dépasser 10 Mo.'), 413
+        try:
+            with Image.open(io.BytesIO(content)) as original:
+                if original.format not in ('JPEG', 'PNG') or original.width * original.height > 40_000_000:
+                    raise ValueError
+                portrait = ImageOps.exif_transpose(original).convert('RGB')
+                portrait.load()
+            # Store a decoded image, without untrusted metadata or trailing data.
+            output = io.BytesIO()
+            portrait.save(output, 'JPEG', quality=95)
+        except (OSError, ValueError, UnidentifiedImageError, Image.DecompressionBombError):
+            return jsonify(ok=False, error='Photo illisible ou format non pris en charge. Choisissez un JPG ou un PNG de 40 mégapixels maximum.'), 400
+        root = Path(upload_dir()).resolve()
+        folder = root / cid
+        if folder.resolve() != folder.absolute() or folder.parent != root:
+            abort(404)
+        folder.mkdir(parents=True, exist_ok=True)
+        path = folder / ('Photo_' + uuid4().hex + '.jpg')
+        try:
+            with closing(db_connect()) as conn:
+                _schema(conn)
+                conn.execute('BEGIN IMMEDIATE')
+                row = conn.execute('SELECT * FROM candidats WHERE id=?', (cid,)).fetchone()
+                if not row:
+                    abort(404)
+                row = dict(row)
+                try:
+                    previous = json.loads(row.get('fichiers_photo') or '[]')
+                except (TypeError, ValueError):
+                    previous = []
+                previous = [item for item in previous if isinstance(item, str)] if isinstance(previous, list) else []
+                path.write_bytes(output.getvalue())
+                conn.execute('UPDATE candidats SET fichiers_photo=?,updated_at=? WHERE id=?',
+                             (json.dumps([str(path), *previous]), datetime.now().isoformat(), cid))
+                conn.execute('DELETE FROM candidate_photo_crops WHERE candidate_id=?', (cid,))
+                conn.commit()
+        except Exception:
+            path.unlink(missing_ok=True)
+            raise
+        log_event(row, 'PHOTO_AJOUTEE', {'fichier': path.name, 'remplacement': bool(previous)})
+        response = jsonify(ok=True)
+        response.headers['Cache-Control'] = 'private, no-store'
+        return response
+
     @app.post('/admin/candidat/<cid>/photo-crop')
     def admin_candidate_photo_crop(cid):
         if not require_admin():

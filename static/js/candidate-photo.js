@@ -8,6 +8,41 @@
   const dialog = $('photo-crop-dialog'), canvas = $('photo-crop-canvas'), context = canvas.getContext('2d');
   const zoom = $('photo-crop-zoom'), angle = $('photo-crop-angle'), save = $('photo-crop-save'), error = $('photo-crop-error');
   const source = new Image(), base = '/admin/candidat/' + encodeURIComponent(sheet.dataset.candidateId);
+  const uploadButton = $('open-photo-upload'), photoFile = $('candidate-photo-file'), uploadStatus = $('photo-upload-status');
+  if (uploadButton && photoFile) {
+    uploadButton.addEventListener('click', () => photoFile.click());
+    photoFile.addEventListener('change', async () => {
+      const file = photoFile.files[0];
+      if (!file) return;
+      uploadStatus.hidden = false;
+      uploadStatus.classList.remove('is-error');
+      if (file.size > 10 * 1024 * 1024) {
+        uploadStatus.textContent = 'La photo ne doit pas dépasser 10 Mo.';
+        uploadStatus.classList.add('is-error');
+        photoFile.value = '';
+        return;
+      }
+      uploadButton.disabled = true;
+      opener.disabled = true;
+      uploadStatus.textContent = 'Enregistrement de la photo…';
+      const data = new FormData();
+      data.append('photo', file);
+      try {
+        const response = await fetch(base + '/photo', {method:'POST', credentials:'same-origin', headers:{'X-CSRF-Token':sheet.dataset.messageCsrf}, body:data});
+        const result = await response.json();
+        if (!response.ok || !result.ok) throw Error(result.error || 'Impossible d’enregistrer la photo.');
+        uploadStatus.textContent = 'Photo enregistrée.';
+        location.reload();
+      } catch (e) {
+        uploadStatus.textContent = e.message || 'Impossible d’enregistrer la photo. Réessayez.';
+        uploadStatus.classList.add('is-error');
+      } finally {
+        uploadButton.disabled = false;
+        opener.disabled = false;
+        photoFile.value = '';
+      }
+    });
+  }
   let rotation = 0, scale = 1, fit = 1, cx = 0, cy = 0, drag = null, busy = false, loaded = false, hash = '', objectURL = null;
   const radians = () => (rotation + Number(angle.value)) * Math.PI / 180;
   function report(message) { error.textContent = message; error.hidden = !message; }

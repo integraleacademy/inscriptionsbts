@@ -65,7 +65,14 @@ def register_student_documents(app, db_connect, upload_dir):
     def certificate_content(row):
         if not row.get('nom') or not row.get('prenom'):
             raise ValueError('Identité incomplète.')
-        return certificate_pdf(row)
+        from pypdf import PdfReader, PdfWriter
+        source = PdfReader(BytesIO(certificate_pdf(row)))
+        writer = PdfWriter()
+        writer.add_page(source.pages[0])
+        writer.add_metadata({'/Title': 'Certificat de scolarité', '/Author': 'Intégrale Academy'})
+        output = BytesIO()
+        writer.write(output)
+        return output.getvalue()
 
     def card_content(row):
         try:
@@ -105,7 +112,7 @@ def register_student_documents(app, db_connect, upload_dir):
         name = secure_filename(f"{row['nom']}_{row['prenom']}") or 'etudiant'
         return send_file(BytesIO(content), mimetype=mimetype,
                          download_name=f'{title}_{name}.{extension}',
-                         as_attachment=request.args.get('download') == '1', conditional=False)
+                         as_attachment=extension != 'pdf' and request.args.get('download') == '1', conditional=False)
 
     @app.get('/espace/documents')
     @student_required
