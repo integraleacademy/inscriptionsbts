@@ -76,10 +76,11 @@
     select.value = value;
   }
   function updateSelection() {
+    for (const id of ['rooms-multiple', 'rooms-move-selected', 'rooms-clear-selected']) $(id).disabled = dragBusy;
     $('rooms-multiple').setAttribute('aria-pressed', String(multiple));
     $('rooms-multiple').textContent = multiple ? 'Terminer la sélection' : 'Sélectionner plusieurs créneaux';
     $('rooms-move-selected').hidden = $('rooms-clear-selected').hidden = !selection.size;
-    $('rooms-selected-count').textContent = selection.size ? selection.size + ' créneau(x) sélectionné(s)' : multiple ? 'Cliquez sur les créneaux à déplacer.' : '';
+    $('rooms-selected-count').textContent = selection.size ? selection.size + ' créneau(x) sélectionné(s). Glissez un créneau sélectionné pour déplacer tout le groupe.' : multiple ? 'Cliquez sur les créneaux à déplacer, puis glissez la sélection vers une salle.' : '';
     for (const card of table.querySelectorAll('[data-key]')) {
       const selected = selection.has(card.dataset.key);
       card.classList.toggle('selected', selected);
@@ -167,13 +168,18 @@
     feedback.classList.toggle('is-success', tone === 'success');
   }
   function dropTarget(cell) {
-    const booking = dragging?.booking;
+    const booking = dragging?.booking, bookings = dragging?.bookings;
     const room = rooms.find(r => r.id && r.id === cell?.dataset.roomId);
     if (!booking || !room?.active) return {message: 'Choisissez une salle active.'};
     if (cell.dataset.date !== booking.date) return {message: 'Restez dans la colonne du ' + frenchDate(booking.date) + ' pour changer uniquement la salle.'};
-    if (room.id === booking.room_id) return {message: 'Ce créneau est déjà affecté à ' + room.name + '.'};
-    const occupied = reservations.find(r => r.key !== booking.key && r.room_id === room.id && r.date === booking.date && r.start_min < booking.end_min && r.end_min > booking.start_min);
-    if (occupied) return {message: room.name + ' indisponible sur ce créneau : ' + occupied.title + '.'};
+    if (bookings.every(b => b.room_id === room.id)) return {message: (bookings.length > 1 ? 'Tous ces créneaux sont déjà affectés à ' : 'Ce créneau est déjà affecté à ') + room.name + '.'};
+    const others = reservations.filter(r => r.room_id === room.id && !dragging.keys.has(r.key));
+    for (let i = 0; i < bookings.length; i++) {
+      const b = bookings[i];
+      const occupied = [...others, ...bookings.slice(0, i)].find(r => r.date === b.date && r.start_min < b.end_min && r.end_min > b.start_min);
+      if (occupied) return {message: room.name + ' indisponible le ' + frenchDate(b.date) + ' · ' + b.start + '–' + b.end + ' : ' + occupied.title + '. Aucun créneau ne sera déplacé.'};
+    }
+    if (bookings.length > 1) return {room, message: 'Relâchez pour affecter les ' + bookings.length + ' créneaux sélectionnés à ' + room.name + '. Chaque créneau conserve sa date et ses horaires.'};
     return {room, message: 'Relâchez pour affecter « ' + booking.title + ' » à ' + room.name + ' · ' + frenchDate(booking.date) + ' · ' + booking.start + '–' + booking.end + '.'};
   }
   function clearDrag() {
@@ -181,6 +187,7 @@
     table.classList.remove('is-dragging');
     for (const element of table.querySelectorAll('.room-dragging, .room-drop-allowed, .room-drop-blocked, .room-drop-active')) {
       element.classList.remove('room-dragging', 'room-drop-allowed', 'room-drop-blocked', 'room-drop-active');
+      element.removeAttribute('data-drag-count');
     }
   }
   function resumeRefresh() {
@@ -199,22 +206,32 @@
   });
   function startDrag(event, booking, card) {
     if (dragBusy || !event.dataTransfer) { event.preventDefault(); return; }
-    dragging = {booking}; refreshAfterDrag = true;
+    if (multiple && !selection.has(booking.key)) {
+      event.preventDefault(); pointerHeld = false;
+      dragMessage('Cliquez sur ce créneau pour le sélectionner avant de glisser la sélection.', 'error');
+      resumeRefresh(); return;
+    }
+    // A selected card carries the whole selection, including other dates/weeks.
+    // Keep the selected versions: the server rejects the entire batch if stale.
+    const bookings = selection.has(booking.key) ? [...selection.values()] : [booking];
+    dragging = {booking, bookings, keys: new Set(bookings.map(b => b.key))}; refreshAfterDrag = true;
     // Invalidate an older fetch so polling cannot remove the card mid-drag.
     sequence++; table.removeAttribute('aria-busy');
-    event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', booking.title);
-    table.classList.add('is-dragging'); card.classList.add('room-dragging');
+    event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', bookings.length > 1 ? bookings.length + ' créneaux sélectionnés' : booking.title);
+    table.classList.add('is-dragging');
+    for (const selected of table.querySelectorAll('[data-key]')) if (dragging.keys.has(selected.dataset.key)) selected.classList.add('room-dragging');
+    if (bookings.length > 1) card.dataset.dragCount = bookings.length;
     for (const cell of table.querySelectorAll('td[data-room-id]')) {
-      if (cell.dataset.date === booking.date && cell.dataset.roomId !== (booking.room_id || '')) {
+      if (cell.dataset.date === booking.date) {
         cell.classList.add(dropTarget(cell).room ? 'room-drop-allowed' : 'room-drop-blocked');
       }
     }
-    dragMessage('Déplacez « ' + booking.title + ' » vers une autre salle, dans la colonne du ' + frenchDate(booking.date) + '.');
+    dragMessage((bookings.length > 1 ? 'Déplacez les ' + bookings.length + ' créneaux sélectionnés' : 'Déplacez « ' + booking.title + ' »') + ' vers une autre salle, dans la colonne du ' + frenchDate(booking.date) + '. Chaque créneau conserve sa date et ses horaires.');
   }
   function endDrag() {
     if (!dragging) return;
-    const reason = dragging.rejection;
-    clearDrag(); dragMessage(reason || 'Déplacement annulé. Le créneau conserve sa salle.', reason ? 'error' : ''); resumeRefresh();
+    const reason = dragging.rejection, count = dragging.bookings.length;
+    clearDrag(); dragMessage(reason || 'Déplacement annulé. ' + (count > 1 ? 'Les créneaux conservent leurs salles.' : 'Le créneau conserve sa salle.'), reason ? 'error' : ''); resumeRefresh();
   }
   table.addEventListener('dragover', event => {
     if (!dragging || dragBusy) return;
@@ -236,19 +253,20 @@
     const cell = event.target.closest?.('td[data-room-id]');
     if (!cell || !table.contains(cell)) return;
     event.preventDefault();
-    const booking = dragging.booking, target = dropTarget(cell); clearDrag();
+    const {booking, bookings, keys} = dragging, target = dropTarget(cell); clearDrag();
     if (!target.room) { dragMessage(target.message, 'error'); resumeRefresh(); return; }
-    dragBusy = true; table.setAttribute('aria-busy', 'true');
-    dragMessage('Vérification de la disponibilité de ' + target.room.name + '…');
+    dragBusy = true; updateSelection(); table.setAttribute('aria-busy', 'true');
+    dragMessage('Vérification de la disponibilité de ' + target.room.name + (bookings.length > 1 ? ' pour les ' + bookings.length + ' créneaux…' : '…'));
     try {
-      await request('/calendar-move', {room_id: target.room.id, slots: [{key: booking.key, date: booking.date,
-        version: booking.version, revision: booking.revision, room_version: booking.room_version}]});
-      for (const [key, item] of selection) if (key === booking.key || (booking.owner && item.owner === booking.owner)) selection.delete(key);
+      await request('/calendar-move', {room_id: target.room.id, slots: bookings.map(b => ({key: b.key, date: b.date,
+        version: b.version, revision: b.revision, room_version: b.room_version}))});
+      const owners = new Set(bookings.map(b => b.owner).filter(Boolean));
+      for (const [key, item] of selection) if (keys.has(key) || owners.has(item.owner)) selection.delete(key);
       updateSelection();
-      dragMessage('« ' + booking.title + ' » affecté à ' + target.room.name + ' · ' + frenchDate(booking.date) + ' · ' + booking.start + '–' + booking.end + '.', 'success');
+      dragMessage(bookings.length > 1 ? 'Les ' + bookings.length + ' créneaux ont été affectés à ' + target.room.name + '. Leurs dates et horaires sont conservés.' : '« ' + booking.title + ' » affecté à ' + target.room.name + ' · ' + frenchDate(booking.date) + ' · ' + booking.start + '–' + booking.end + '.', 'success');
       changed();
-    } catch (error) { dragMessage(error.message + '\nLe créneau n’a pas été déplacé.', 'error'); }
-    finally { dragBusy = false; table.removeAttribute('aria-busy'); resumeRefresh(); }
+    } catch (error) { dragMessage(error.message + '\nVérifiez le planning actualisé avant de réessayer.', 'error'); }
+    finally { dragBusy = false; updateSelection(); table.removeAttribute('aria-busy'); resumeRefresh(); }
   });
   function show(dialog) { dialog._opener = document.activeElement; dialog.showModal(); }
   async function dialogWork(dialog, errorId, operation) {
