@@ -16,7 +16,7 @@ from test_planning import db, app, client, admin, call, BASE
 PERIOD = dict(start_date='2026-09-01', end_date='2027-07-01')
 
 
-def pdf_bytes(monday=date(2027, 1, 4), declared=2, subject='Matiere s1', teacher='M. NOM t1 P.', empty=False, shift=0):
+def pdf_bytes(monday=date(2027, 1, 4), declared=2, subject='Matiere s1', teacher='M. NOM t1 P.', empty=False, shift=0, badge=None):
     """Synthetic vector export: no student's file or real trainer data in git."""
     stream = BytesIO()
     c = canvas.Canvas(stream, pagesize=(842, 595))
@@ -34,6 +34,13 @@ def pdf_bytes(monday=date(2027, 1, 4), declared=2, subject='Matiere s1', teacher
         # 09:00–11:00, padding 4 px, stripe width 6 px at a 0.6 scale.
         c.rect(82.4, 595-(70+3*32-2.4+shift), 3.6, 2*32-4.8, fill=1, stroke=0)
         c.drawString(89, 595-(70+32+2.4+shift)-6, subject)
+        if badge:
+            label_y = 595-(70+32+2.4+shift)-6
+            c.setFillColorRGB(.51, .74, .89)
+            c.rect(202, label_y-1, 14, 10, fill=1, stroke=0)
+            c.setFillColorRGB(1, 1, 1)
+            c.drawString(204, label_y, badge)
+            c.setFillColorRGB(0, 0, 0)
         c.drawString(89, 595-(70+32+2.4+shift)-18, 'APP BTS MOS 2026-2028')
         c.drawString(89, 595-(70+32+2.4+shift)-30, teacher)
     c.save()
@@ -47,6 +54,26 @@ def test_vector_pdf_reads_dates_times_subjects_and_totals():
     row = parsed['rows'][0]
     assert (row['date'], row['start'], row['end'], row['subject'], row['trainer']) == (
         '2027-01-04', '09:00', '11:00', 'Matiere s1', 'M. NOM t1 P.')
+
+
+@pytest.mark.parametrize('badge', ['C', 'T', 'TD'])
+def test_boxed_session_markers_do_not_split_the_same_subject(badge):
+    writer, stream = PdfWriter(), BytesIO()
+    for content in [pdf_bytes(subject='Culture generale et expr...', badge=badge),
+                    pdf_bytes(monday=date(2027,1,11), subject='Culture generale et expression')]:
+        writer.add_page(PdfReader(BytesIO(content)).pages[0])
+    writer.write(stream)
+    parsed = parse_ypareo_pdf(stream.getvalue(), PERIOD)
+    assert parsed['minutes'] == 240 and len(parsed['rows']) == 2
+    assert len({r['subject_key'] for r in parsed['rows']}) == 1
+    assert [r['subject'] for r in parsed['rows']] == ['Culture generale et expr...', 'Culture generale et expression']
+
+
+@pytest.mark.parametrize('letter', ['C', 'T'])
+def test_unboxed_letter_is_preserved_as_part_of_a_subject_title(letter):
+    label = 'Enseignement option ' + letter
+    parsed = parse_ypareo_pdf(pdf_bytes(subject=label), PERIOD)
+    assert parsed['rows'][0]['subject'] == label
 
 
 @pytest.mark.parametrize('content', [b'not a pdf', pdf_bytes(declared=3), pdf_bytes(shift=1.5), pdf_bytes(empty=True)])

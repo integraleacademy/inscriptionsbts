@@ -84,6 +84,12 @@
     const pending = extracted.subjects.filter(s => s.prepare_on_import && used.has(s.id));
     $('pi-new-subjects').hidden = !pending.length;
     $('pi-subject-hours').replaceChildren(...pending.map(subject => {
+      if (subject.planned_hours != null) {
+        const card = node('div', undefined, 'pi-subject-volume');
+        card.append(node('span', subject.name), node('strong', duration(Math.round(subject.planned_hours * 60))),
+          node('small', 'Repris automatiquement de Matières' + (subject.study_year ? ' · ' + (subject.study_year === 1 ? '1re' : subject.study_year + 'e') + ' année' : '')));
+        return card;
+      }
       if (!subjectHours.has(subject.id)) subjectHours.set(subject.id, subject.planned_hours ?? '');
       const label = node('label', undefined, 'pi-map-field'), input = node('input');
       input.type = 'number'; input.min = '0.01'; input.step = 'any'; input.required = true;
@@ -91,7 +97,7 @@
       input.setAttribute('aria-label', 'Volume annuel en heures · ' + subject.name);
       input.addEventListener('input', () => { subjectHours.set(subject.id, input.value); invalidate(); });
       label.append(node('span', subject.name + ' · Volume annuel (h)'), input,
-        node('small', subject.planned_hours == null ? 'À renseigner pour cette année du planning.' : 'Repris du catalogue pour cette année, modifiable ici.'));
+        node('small', 'Ce volume n’est pas renseigné dans Matières pour cette année.'));
       return label;
     }));
   }

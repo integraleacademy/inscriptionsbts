@@ -11,13 +11,19 @@ import secrets
 from flask import request
 
 from promotions import BTS_LABELS
+import planning_years
 import subject_references as references
 
 ANNUAL_FIELDS = {1: 'annual_hours_first', 2: 'annual_hours_second'}
 
 
 def study_year(promotion, period):
-    return (promotion.get('niveau') or 1) + ((period or {}).get('number', 1) - 1)
+    # A two-year cohort may already be labelled "2e année" as it progresses.
+    # Its annual planning number still identifies the original first/second year.
+    # A standalone one-year second-year promotion keeps its explicit level.
+    if period and len(planning_years.periods(promotion)) > 1:
+        return period['number']
+    return promotion.get('niveau') or 1
 
 
 def annual_hours(conn, subject_id, promotion, period):

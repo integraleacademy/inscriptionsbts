@@ -493,11 +493,18 @@ du BTS de la promotion et les fiches actives des formateurs sont proposés.
 Un planning vide peut être importé directement, sans préparer ses matières au
 préalable. Les matières du catalogue sélectionnées sont préparées uniquement
 avec les cours retenus à la validation. Le volume annuel est repris du catalogue
-pour l’année d’étude concernée ; il peut être complété ou ajusté dans l’import.
+pour l’année d’étude concernée et affiché sans ressaisie ; seuls les volumes
+manquants sont à compléter dans l’import. Pour une promotion couvrant deux ans,
+le numéro de l’année du planning détermine le volume à reprendre, même si son
+niveau courant est déjà « 2e année ». Une promotion limitée à la deuxième année
+conserve son niveau de deuxième année.
 Plusieurs libellés du PDF associés à une même matière partagent une seule
 préparation et le même budget. L’aperçu indique les préparations à créer, sans
 les enregistrer. Les budgets et formateurs des préparations existantes restent
 inchangés, y compris lorsqu’une préparation est créée entre l’aperçu et l’import.
+Les petits badges de séance encadrés dans le PDF (C, T, TD) ne font pas partie
+du nom de la matière. Ils ne créent pas de correspondance supplémentaire ; les
+lettres faisant réellement partie d’un intitulé sont conservées.
 
 Chaque matière du PDF dispose de son propre choix de formateur, sur la même
 ligne que la matière du planning. Ce choix s’applique à tous les cours importés

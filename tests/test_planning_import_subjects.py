@@ -38,7 +38,7 @@ def review_catalog(client, extracted, **extra):
 
 def test_empty_second_year_can_use_catalogue_with_its_own_annual_hours(client, db, catalog):
     with db() as conn:
-        conn.execute("UPDATE promotions SET date_debut='2025-09-01',date_fin='2027-07-01' WHERE id='p1'")
+        conn.execute("UPDATE promotions SET date_debut='2025-09-01',date_fin='2027-07-01',niveau=2 WHERE id='p1'")
         planning.ensure_planning_schema(conn)
         # Existing allocations stay in year one; year two starts empty.
         for table, key in [('planning_subject_catalog_links','planning_subject_id'),
@@ -49,6 +49,7 @@ def test_empty_second_year_can_use_catalogue_with_its_own_annual_hours(client, d
     extracted = analyze(client, pdf_bytes(subject='Anglais'), period='p1:2').json
     choice = next(s for s in extracted['subjects'] if s['name'] == 'Anglais')
     assert choice['prepare_on_import'] and choice['planned_hours'] == 45
+    assert choice['study_year'] == 2
     assert extracted['mappings']['subjects'] == {'Anglais': choice['id']}
     assert not any(s['name'] == 'Sécurité' for s in extracted['subjects'])
     reviewed = review_catalog(client, extracted).json

@@ -33,6 +33,20 @@ def _page_error(number, message):
     raise ImportPDFError(f'Page {number} : {message} Aucun cours n’a été importé.')
 
 
+def _subject_title(words, rectangles):
+    """Exclude Yparéo's boxed session marker, never an actual title suffix."""
+    last = words[-1]
+    height = last['bottom'] - last['top']
+    center = (last['top'] + last['bottom']) / 2
+    if len(words) > 1 and re.fullmatch(r'[A-Z]{1,2}', last['text']) and any(
+            r.get('fill') and r['x0'] <= last['x0'] and last['x1'] <= r['x1']
+            and r['top'] <= center <= r['bottom']
+            and 0 < r['width'] <= 2 * height and 0 < r['height'] <= 1.5 * height
+            for r in rectangles):
+        words = words[:-1]
+    return ' '.join(w['text'] for w in words).strip()
+
+
 def parse_ypareo_pdf(content, period):
     import pdfplumber
 
@@ -138,7 +152,7 @@ def parse_ypareo_pdf(content, period):
                 texts = [' '.join(w['text'] for w in line) for line in block_lines]
                 if len(texts) < 2 or not normal(texts[1]).startswith(normal(group)[:20]):
                     _page_error(number, 'le contenu d’un bloc de cours est incomplet.')
-                subject = re.sub(r'\s+C$', '', texts[0]).strip()
+                subject = _subject_title(block_lines[0], page.rects)
                 teacher_lines = [t for t in texts[2:] if re.match(r'^(?:M\.|Mme|Mlle)\s', t)]
                 if len(teacher_lines) > 1 or len(texts) != 2 + len(teacher_lines):
                     _page_error(number, 'un bloc contient plusieurs intervenants ou des informations non reconnues.')
