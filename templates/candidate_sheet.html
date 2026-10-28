@@ -4,8 +4,8 @@
 {% from '_message_tools.html' import email_options, assistant, action_button %}
 {% macro field(label,name,type='text') %}<label class="sheet-field"><span>{{ label }}</span><input name="{{ name }}" type="{{ type }}" value="{{ last_name(row.get(name)) if name in ['nom','resp_nom'] else first_name(row.get(name)) if name in ['prenom','resp_prenom'] else row.get(name) or '' }}" {% if type == 'tel' %}pattern="0[1-9][0-9]{8}"{% endif %}></label>{% endmacro %}
 {% block body_class %}admin-page candidate-sheet-page{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/london-mobility.css') }}?v=1"><link rel="stylesheet" href="{{ url_for('static', filename='css/wedof-contracts.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/school-messaging.css') }}?v=4"><link rel="stylesheet" href="{{ url_for('static', filename='css/message-assistant.css') }}?v=1">{% endblock %}
-{% block content %}<script src="{{ url_for('static', filename='js/london-mobility.js') }}?v=2" defer></script>
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/london-mobility.css') }}?v=2"><link rel="stylesheet" href="{{ url_for('static', filename='css/wedof-contracts.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/school-messaging.css') }}?v=4"><link rel="stylesheet" href="{{ url_for('static', filename='css/message-assistant.css') }}?v=1">{% endblock %}
+{% block content %}<script src="{{ url_for('static', filename='js/london-mobility.js') }}?v=3" defer></script>
 {% set current_status = namespace(label='Dossier en cours') %}
 {% for key,label,color in statuts %}{% if key == row.statut %}{% set current_status.label = label %}{% endif %}{% endfor %}
 

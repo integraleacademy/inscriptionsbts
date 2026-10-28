@@ -1,0 +1,38 @@
+{% set signing = mobility.signing %}
+{% set signature = version.signature %}
+{% if signature %}
+<div class="mobility-signature" {% if signature.needs_refresh %}data-signature-poll="{{ url_for('london_signature_action',cid=row.id,vid=version.id,aid=signature.id,action='refresh') }}" data-signature-etag="{{ signature.etag }}" data-signature-csrf="{{ campus_csrf() }}"{% endif %}>
+  <h4>Signature électronique · {{ signature.label }}</h4>
+  {% if signature.sent_at %}<p class="campus-muted">Invitations envoyées le {{ signature.sent_at[:10]|dmy }}. Chaque destinataire reçoit son lien et un code personnel par e-mail.</p>{% endif %}
+  {% if signature.error %}<p class="mobility-notice" role="alert">{{ signature.error }}</p>{% endif %}
+  <ul class="mobility-recipients">
+    {% for person in signature.recipients %}<li><div><strong>{{ person.label }} · {{ person.first_name }} {{ person.last_name }}</strong><span>{{ person.email }}</span></div><span class="study-badge">{{ person.status_label }}</span>
+      {% if person.can_remind %}<form method="post" action="{{ url_for('london_signature_action',cid=row.id,vid=version.id,aid=signature.id,action='remind') }}" data-mobility-form><input type="hidden" name="csrf_token" value="{{ campus_csrf() }}"><input type="hidden" name="role" value="{{ person.role }}"><button class="btn">Relancer {{ 'l’entreprise' if person.role=='employer' else 'l’apprenti' if person.role=='apprentice' else 'le représentant légal' }}</button><p data-mobility-message role="status" hidden></p></form>{% endif %}
+    </li>{% endfor %}
+  </ul>
+  {% if signature.needs_refresh %}<form method="post" action="{{ url_for('london_signature_action',cid=row.id,vid=version.id,aid=signature.id,action='refresh') }}" data-mobility-form><input type="hidden" name="csrf_token" value="{{ campus_csrf() }}"><button class="btn">Actualiser le suivi des signatures</button><p data-mobility-message role="status" hidden></p></form><p class="campus-muted">Le suivi est également actualisé automatiquement. La convention signée sera conservée ici lorsque toutes les signatures seront confirmées.</p>{% endif %}
+  {% if signature.can_resume %}<form class="mobility-signature-resume" method="post" action="{{ url_for('london_signature_action',cid=row.id,vid=version.id,aid=signature.id,action='resume') }}" data-mobility-form><input type="hidden" name="csrf_token" value="{{ campus_csrf() }}"><label class="mobility-confirm"><input type="checkbox" name="reviewed" value="yes" required><span>J’ai relu le PDF et je confirme les destinataires affichés ci-dessus.</span></label><p data-mobility-message role="status" hidden></p><button class="btn primary">Terminer l’envoi en signature électronique</button></form>{% endif %}
+  {% if signature.can_cancel %}<details class="mobility-signed-upload"><summary>Annuler cette demande pour corriger la convention ou les destinataires</summary><form method="post" action="{{ url_for('london_signature_action',cid=row.id,vid=version.id,aid=signature.id,action='cancel') }}" data-mobility-form><input type="hidden" name="csrf_token" value="{{ campus_csrf() }}"><label class="mobility-confirm"><input type="checkbox" name="cancel_confirmed" value="yes" required><span>Je confirme l’annulation de cette demande Yousign. Les liens de signature seront désactivés.</span></label><p data-mobility-message role="status" hidden></p><button class="btn">Annuler la demande Yousign</button></form></details>{% endif %}
+</div>
+{% endif %}
+{% if is_latest and version.can_send %}
+<div class="mobility-signature">
+  <h4>Envoyer en signature électronique</h4>
+  <p class="campus-muted">1. Relisez le PDF. 2. Vérifiez les destinataires. 3. Envoyez les invitations Yousign. Les signatures Intégrale Academy et Kaplan figurent déjà dans le modèle.</p>
+  {% if not signing.configured %}<p class="mobility-notice" role="alert">La connexion Yousign n’est pas encore configurée sur Inscriptions BTS. L’envoi sera disponible après son activation.</p>{% endif %}
+  {% if signing.sandbox %}<p class="mobility-notice">Yousign est en mode test : les signatures réalisées ne sont pas des signatures de production.</p>{% endif %}
+  <form method="post" action="{{ url_for('london_signature_send',cid=row.id,vid=version.id) }}" data-mobility-form>
+    <input type="hidden" name="csrf_token" value="{{ campus_csrf() }}"><input type="hidden" name="source_fingerprint" value="{{ mobility.source_fingerprint }}">
+    <fieldset class="mobility-fieldset"><legend>Signataire de l’entreprise · {{ version.signing_snapshot.employer_name }}</legend><div class="sheet-fields">
+      <label class="sheet-field"><span>Prénom du signataire</span><input name="employer_first_name" value="{{ signing.employer.get('first_name','') }}" maxlength="100" required></label>
+      <label class="sheet-field"><span>Nom du signataire</span><input name="employer_last_name" value="{{ signing.employer.get('last_name','') }}" maxlength="100" required></label>
+      <label class="sheet-field"><span>E-mail du signataire de l’entreprise</span><input type="email" name="employer_email" value="{{ signing.employer.get('email','') }}" maxlength="254" required></label>
+    </div></fieldset>
+    <fieldset class="mobility-fieldset"><legend>Apprenti · {{ version.signing_snapshot.apprentice_first_name }} {{ version.signing_snapshot.apprentice_last_name }}</legend><label class="sheet-field"><span>E-mail de l’apprenti pour la signature</span><input type="email" name="apprentice_email" value="{{ signing.apprentice_email }}" maxlength="254" required></label></fieldset>
+    {% if version.minor %}<fieldset class="mobility-fieldset"><legend>Représentant légal · {{ version.signing_snapshot.guardian_first_name }} {{ version.signing_snapshot.guardian_last_name }}</legend><label class="sheet-field"><span>E-mail du représentant légal pour la signature</span><input type="email" name="guardian_email" value="{{ signing.guardian_email }}" maxlength="254" required></label><p class="campus-muted">Sa signature est requise car l’apprenti est mineur à la date de la convention.</p></fieldset>{% endif %}
+    <label class="mobility-confirm"><input type="checkbox" name="reviewed" value="yes" required><span>J’ai relu cette version du PDF et vérifié l’identité et l’e-mail de chaque signataire. Je confirme l’envoi des invitations.</span></label>
+    <p data-mobility-message role="status" hidden></p><button class="btn primary mobility-send" {% if not signing.configured %}disabled{% endif %}>Envoyer en signature électronique</button>
+    <p class="campus-muted">Yousign enverra une invitation à chacun. Aucune invitation n’est envoyée lors de la génération du PDF.</p>
+  </form>
+</div>
+{% endif %}

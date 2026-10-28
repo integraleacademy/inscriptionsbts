@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from flask import abort, flash, jsonify, redirect, request, send_file, session, url_for
 from candidate_messages import _equal
 from london_mobility_documents import VERSION, minor_at_signing, pdf_document, word_document
+from london_mobility_signatures import active_signature, register_signatures, signature_context, signature_schema
 
 FIELDS = (
     ('convention_date', 'Date de la convention', 'date'),
@@ -43,6 +44,7 @@ def digest(value):
 
 
 def schema(conn):
+    signature_schema(conn)
     # Idempotent also for restored databases that predate the voyage module.
     for sql in (
         """CREATE TABLE IF NOT EXISTS voyage_londres_inscriptions (
@@ -129,7 +131,7 @@ def snapshot(row, values, selected):
 
 def source_fingerprint(conn, row):
     values, _ = source_values(conn, row)
-    identity = {k: row.get(k) for k in ('id','prenom','nom','mode','date_naissance','sexe','resp_nom','resp_prenom')}
+    identity = {k: row.get(k) for k in ('id','prenom','nom','mode','date_naissance','sexe','resp_nom','resp_prenom','email','resp_email')}
     return digest({'candidate': identity, 'contracts': contracts(conn, row['id']), 'company': values})
 
 
@@ -183,9 +185,10 @@ def london_context(conn, row):
     for item in versions:
         data = json.loads(item.pop('snapshot'))
         item.update(mobility_start=data['mobility_start'], mobility_end=data['mobility_end'],
-                    stale=item['fingerprint'] != current_hash)
+                    stale=item['fingerprint'] != current_hash, signing_snapshot=data)
+    signing = signature_context(conn, row, versions)
     return dict(values=values, revision=revision, fields=FIELDS, contracts=linked, versions=versions,
-                source_fingerprint=source_fingerprint(conn, row), warning=warning)
+                source_fingerprint=source_fingerprint(conn, row), warning=warning, signing=signing)
 
 
 def has_mobility_archive(conn, *, candidate_id=None, document_id=None):
@@ -243,6 +246,8 @@ def register_london_mobility(app, connect, directory, require_admin, log_event):
                     return answer(cid, 'La fiche ou la convention a changé. Rechargez-la avant de continuer.', 409)
                 action = request.form.get('action', 'save')
                 if action not in {'save', 'generate', 'prefill'}: abort(400)
+                if action == 'generate' and active_signature(conn, cid):
+                    raise ValueError('Une signature électronique est en cours. Annulez cette demande avant de générer une autre convention.')
                 prefills, selected = source_values(conn, row, request.form.get('contract_id', ''))
                 raw = dict(request.form)
                 if action == 'prefill': raw.update(prefills)
@@ -327,6 +332,8 @@ def register_london_mobility(app, connect, directory, require_admin, log_event):
                 candidate(conn, cid, True)
                 version = conn.execute('SELECT * FROM london_mobility_versions WHERE id=? AND candidate_id=?', (vid,cid)).fetchone()
                 if not version: abort(404)
+                if active_signature(conn, cid):
+                    raise ValueError('Une signature électronique est en cours. Actualisez son suivi ou annulez-la avant de déposer une copie signée.')
                 if version['signed_id']: return answer(cid, 'Une copie signée est déjà conservée pour cette version.', 409)
                 trip = conn.execute('SELECT * FROM voyage_londres_inscriptions WHERE candidat_id=?', (cid,)).fetchone()
                 if not trip or trip['statut'] != 'active': raise ValueError('L’inscription au voyage doit être active.')
@@ -344,3 +351,5 @@ def register_london_mobility(app, connect, directory, require_admin, log_event):
             return answer(cid, str(error), 400)
         finally:
             for path in paths: path.unlink(missing_ok=True)
+
+    register_signatures(app, connect, directory, guard, answer, store_file, log_event)
