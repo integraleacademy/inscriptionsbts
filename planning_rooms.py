@@ -120,6 +120,32 @@ def room_conflicts(conn, course, exclude_owner=None, include_courses=False, excl
                          ' · ' + _clock(c['start_min']) + '–' + _clock(c['end_min'])) for c in rows if overlap(course, c)]
 
 
+def available_rooms(conn, courses):
+    """Rooms free for every selected slot, excluding only those bookings."""
+    from planning import PlanningError
+    from planning_room_calendar import unavailable_slots, reservation_slots
+    if not ready(conn):
+        raise PlanningError('La disponibilité des salles est en cours de synchronisation. Réessayez dans un instant.', status=503)
+    by_day = {}
+    for course in courses:
+        by_day.setdefault(course['date'], []).append(course)
+    for slots in by_day.values():
+        ordered = sorted(slots, key=lambda c: c['start_min'])
+        if any(a['end_min'] > b['start_min'] for a, b in zip(ordered, ordered[1:])):
+            return []  # No room can hold two distinct selected courses at once.
+    start, end = min(by_day), max(by_day)
+    ids = {c['id'] for c in courses if c.get('id')}
+    bookings = [dict(c) for c in conn.execute('''SELECT id,room_id,date,start_min,end_min
+        FROM planning_courses WHERE date>=? AND date<=? AND room_id IS NOT NULL''', (start, end)) if c['id'] not in ids]
+    bookings += external_slots(conn)
+    bookings += unavailable_slots(conn, start, end)
+    bookings += reservation_slots(conn, start, end)
+    occupied = {b['room_id'] for b in bookings if b.get('room_id') and any(
+        c['start_min'] < b['end_min'] and c['end_min'] > b['start_min'] for c in by_day.get(b['date'], []))}
+    return [dict(r) for r in conn.execute('SELECT id,name FROM planning_rooms WHERE active=1 ORDER BY name')
+            if r['id'] not in occupied]
+
+
 def room_used(conn, room_id):
     if conn.execute('SELECT 1 FROM planning_room_unavailability WHERE room_id=? LIMIT 1',(room_id,)).fetchone():return True
     if conn.execute('SELECT 1 FROM planning_room_reservations WHERE room_id=? LIMIT 1',(room_id,)).fetchone():return True
@@ -332,14 +358,7 @@ def register(app, connect, guard, result, fail, transact, serializer):
                 conn.execute('BEGIN')
                 if exclude and not conn.execute('SELECT 1 FROM planning_courses WHERE id=?', (exclude,)).fetchone():
                     raise PlanningError('Ce cours n’existe plus. Rechargez le planning.', status=404)
-                if not ready(conn):
-                    raise PlanningError('La disponibilité des salles est en cours de synchronisation. Réessayez dans un instant.', status=503)
-                courses = [c for c in _load_courses(conn, day, day) if c['id'] != exclude]
-                rooms = []
-                for room in conn.execute('SELECT id,name FROM planning_rooms WHERE active=1 ORDER BY name'):
-                    slot = dict(room_id=room['id'], date=day, start_min=start, end_min=end)
-                    if not any(overlap(slot, course) for course in courses) and not room_conflicts(conn, slot):
-                        rooms.append(dict(room))
+                rooms = available_rooms(conn, [dict(id=exclude, date=day, start_min=start, end_min=end)])
             return result(rooms=rooms)
         except PlanningError as exc:
             return fail(exc)
@@ -482,12 +501,10 @@ def register(app, connect, guard, result, fail, transact, serializer):
                                       for p in list_promotions(conn,active_only=True)],
                           rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms WHERE active=1 ORDER BY name')])
 
-    def selection(conn, payload):
+    def selected_courses(conn, payload):
         pid = payload.get('promotion_id'); _promotion(conn, pid, ready=True)
         period = _planning_period(conn, pid, period_id=payload.get('period_id'))
-        items = payload.get('courses'); rid = payload.get('room_id')
-        if not isinstance(rid,str) or not conn.execute('SELECT 1 FROM planning_rooms WHERE id=? AND active=1', (rid,)).fetchone():
-            raise PlanningError('Choisissez une salle active.')
+        items = payload.get('courses')
         if not isinstance(items, list) or not 1 <= len(items) <= 1000 or any(not isinstance(c, dict) for c in items):
             raise PlanningError('Sélectionnez entre 1 et 1 000 cours.')
         if any(not isinstance(c.get('id'),str) or len(c['id'])>100 for c in items):
@@ -503,7 +520,15 @@ def register(app, connect, guard, result, fail, transact, serializer):
                 raise PlanningError('Un cours a changé. Rechargez la sélection.', status=409)
             if period and not period['start_date'] <= c['date'] <= period['end_date']:
                 raise PlanningError('Sélectionnez des cours de l’année affichée.')
-            selected.append(dict(c, room_id=rid))
+            selected.append(c)
+        return selected
+
+    def selection(conn, payload):
+        rid = payload.get('room_id')
+        if not isinstance(rid,str) or not conn.execute('SELECT 1 FROM planning_rooms WHERE id=? AND active=1', (rid,)).fetchone():
+            raise PlanningError('Choisissez une salle active.')
+        selected = [dict(c, room_id=rid) for c in selected_courses(conn, payload)]
+        ids = {c['id'] for c in selected}
         issues = []
         for i, c in enumerate(selected):
             issues.extend(room_conflicts(conn, c, include_courses=True, exclude_ids=ids))
@@ -512,6 +537,20 @@ def register(app, connect, guard, result, fail, transact, serializer):
         if issues:
             raise PlanningError('Aucune affectation effectuée : la salle est indisponible.', issues[:80], 409)
         return selected
+
+    @app.post('/admin/planning/api/rooms/bulk-available')
+    def bulk_available_rooms():
+        guard(True)
+        try:
+            payload = request.get_json(silent=True)
+            if not isinstance(payload, dict):
+                raise PlanningError('Sélection de cours invalide.')
+            with closing(connect()) as conn:
+                conn.execute('BEGIN')
+                courses = selected_courses(conn, payload)
+                return result(rooms=available_rooms(conn, courses), count=len(courses))
+        except PlanningError as exc:
+            return fail(exc)
 
     @app.post('/admin/planning/api/rooms/bulk-preview')
     def bulk_preview():

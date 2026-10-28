@@ -9,11 +9,12 @@
   const dateLabel = d => new Date(d+'T12:00:00').toLocaleDateString('fr-FR');
   const hours = m => (m / 60).toLocaleString('fr-FR', {maximumFractionDigits: 2})+' h';
   let eventCourse=null, candidates=[], selected=new Set(), token=null;
+  let roomSequence=0, roomController=null, roomKey=null, roomPhase='empty', preferredRoom='';
   async function work(form, operation) {
     const dialog=form.closest('dialog'); if (dialog.dataset.busy) return;
     dialog.dataset.busy='1'; error(form,'');
     const controls=[...form.querySelectorAll('button,input,select')].map(n=>[n,n.disabled]); controls.forEach(([n])=>n.disabled=true);
-    try {await operation();} catch(e) {error(form,e.message);} finally {delete dialog.dataset.busy; controls.forEach(([n,disabled])=>n.disabled=disabled); if (form===bf) $('planning-bulk-room-save').disabled=!token;}
+    try {await operation();} catch(e) {error(form,e.message);} finally {delete dialog.dataset.busy; controls.forEach(([n,disabled])=>n.disabled=disabled); if (form===bf) roomControls();}
   }
   function openEvent(course=null) {
     const state=api.getState(), data=state.data; if(!data?.promotion) return;
@@ -41,28 +42,57 @@
   }
   window.addEventListener('academy:planning-state',e=>budget(e.detail)); budget(api.getState().data);
   function invalidate(){token=null; $('planning-bulk-room-save').disabled=true; $('planning-bulk-room-preview').hidden=true;}
+  function selectionPayload(){return {promotion_id:api.promotionId(),period_id:api.getState().periodId,
+    courses:candidates.filter(c=>selected.has(c.id)).map(c=>({id:c.id,version:c.version}))};}
+  function roomControls(){
+    const busy=!!$('planning-bulk-room-dialog').dataset.busy;
+    bf.elements.room_id.disabled=busy || roomPhase!=='ready' || bf.elements.room_id.options.length<2;
+    $('planning-bulk-room-check').disabled=busy || roomPhase!=='ready' || !bf.elements.room_id.value;
+    $('planning-bulk-room-save').disabled=busy || !token;
+  }
+  async function loadRoomChoices(){
+    const sequence=++roomSequence; roomController?.abort(); invalidate(); roomKey=null;
+    const payload=selectionPayload(), key=JSON.stringify(payload), status=$('planning-bulk-room-status');
+    options(bf.elements.room_id,[],'Choisir une salle disponible'); $('planning-bulk-room-retry').hidden=true;
+    if(!payload.courses.length){roomPhase='empty';preferredRoom='';status.textContent='Cochez les créneaux pour voir les salles disponibles.';roomControls();return;}
+    roomPhase='loading';status.textContent='Recherche des salles libres sur tous les créneaux cochés…';roomControls();
+    roomController=new AbortController();
+    try {
+      const result=await api.request('/rooms/bulk-available',{method:'POST',data:payload,signal:roomController.signal});
+      if(sequence!==roomSequence || !$('planning-bulk-room-dialog').open || key!==JSON.stringify(selectionPayload()))return;
+      options(bf.elements.room_id,result.rooms.map(r=>[r.id,r.name]),'Choisir une salle disponible');
+      if(!result.rooms.some(r=>r.id===preferredRoom))preferredRoom='';
+      bf.elements.room_id.value=preferredRoom;roomKey=key;roomPhase='ready';
+      status.textContent=result.rooms.length?'Salles libres sur les '+payload.courses.length+' créneau(x) cochés.':'Aucune salle n’est libre pour tous les créneaux cochés. Réduisez la sélection pour les affecter en plusieurs fois.';
+    } catch(e){
+      if(sequence!==roomSequence || e.name==='AbortError')return;
+      roomPhase='error';status.textContent='Impossible de vérifier les salles. '+e.message;$('planning-bulk-room-retry').hidden=false;
+    } finally {if(sequence===roomSequence)roomControls();}
+  }
+  $('planning-bulk-room-retry').addEventListener('click',loadRoomChoices);
+  $('planning-bulk-room-dialog').addEventListener('close',()=>{roomSequence++;roomController?.abort();roomKey=null;roomPhase='empty';invalidate();roomControls();});
   function visible(){return candidates.filter(c=>(!bf.elements.unassigned.checked || !c.room_id) && (!bf.elements.subject.value || (bf.elements.subject.value==='event'?c.kind==='event':c.display_subject_id===bf.elements.subject.value)));}
   function renderRows(){
     const list=$('planning-bulk-room-list'); list.replaceChildren(); const rows=visible(); selected=new Set([...selected].filter(id=>rows.some(c=>c.id===id)));
-    for(const c of rows){const label=node('label',undefined,'bulk-room-row'),input=node('input'); input.type='checkbox'; input.value=c.id; input.checked=selected.has(c.id); input.addEventListener('change',()=>{input.checked?selected.add(c.id):selected.delete(c.id); invalidate(); count();}); label.append(input,node('span',dateLabel(c.date)+' · '+c.start+'–'+c.end),node('span',c.display_subject_name || c.subject_name),node('small',(c.room_name || 'Sans salle')+(c.is_shared?' · cours commun':''))); list.append(label);}
-    if(!rows.length)list.append(node('p','Aucun créneau ne correspond à ces filtres.')); count();
+    for(const c of rows){const label=node('label',undefined,'bulk-room-row'),input=node('input'); input.type='checkbox'; input.value=c.id; input.checked=selected.has(c.id); input.addEventListener('change',()=>{input.checked?selected.add(c.id):selected.delete(c.id); count(); loadRoomChoices();}); label.append(input,node('span',dateLabel(c.date)+' · '+c.start+'–'+c.end),node('span',c.display_subject_name || c.subject_name),node('small',(c.room_name || 'Sans salle')+(c.is_shared?' · cours commun':''))); list.append(label);}
+    if(!rows.length)list.append(node('p','Aucun créneau ne correspond à ces filtres.')); count(); loadRoomChoices();
   }
   function count(){$('planning-bulk-room-count').textContent=selected.size+' créneau(x) sélectionné(s)';}
-  async function loadRows(){invalidate(); const params=new URLSearchParams({promotion_id:api.promotionId(),start:bf.elements.from.value,end:bf.elements.to.value}); const data=await api.request('/rooms/courses?'+params); candidates=data.courses; selected=new Set(); renderRows();}
+  async function loadRows(){invalidate();candidates=[];selected.clear();renderRows(); const params=new URLSearchParams({promotion_id:api.promotionId(),start:bf.elements.from.value,end:bf.elements.to.value}); const data=await api.request('/rooms/courses?'+params); candidates=data.courses; selected=new Set(); renderRows();}
   $('planning-bulk-rooms').addEventListener('click',()=>{
     const state=api.getState(), data=state.data;if(!data?.period)return; bf.reset(); error(bf,''); candidates=[];selected.clear();invalidate();
     bf.elements.from.value=data.period.start_date; bf.elements.to.value=data.period.end_date;
     for(const name of ['from','to']){bf.elements[name].min=data.period.start_date;bf.elements[name].max=data.period.end_date;}
-    options(bf.elements.room_id,data.rooms.filter(r=>r.active).map(r=>[r.id,r.name]),'Choisir une salle');
+    preferredRoom='';loadRoomChoices();
     options(bf.elements.subject,[...data.subjects.map(s=>[s.id,s.name]),['event','Événements ponctuels']],'Tous les créneaux');
     $('planning-bulk-room-dialog').showModal(); work(bf,loadRows);
   });
   $('planning-bulk-room-load').addEventListener('click',()=>work(bf,loadRows));
   ['from','to'].forEach(name=>bf.elements[name].addEventListener('change',()=>{candidates=[];selected.clear();invalidate();renderRows();}));
   ['subject','unassigned'].forEach(name=>bf.elements[name].addEventListener('change',()=>{invalidate();renderRows();}));
-  bf.elements.room_id.addEventListener('change',invalidate);
+  bf.elements.room_id.addEventListener('change',()=>{preferredRoom=bf.elements.room_id.value;invalidate();roomControls();});
   $('planning-bulk-room-all').addEventListener('click',()=>{selected=new Set(visible().map(c=>c.id));invalidate();renderRows();});
   $('planning-bulk-room-none').addEventListener('click',()=>{selected.clear();invalidate();renderRows();});
-  bf.addEventListener('submit',e=>{e.preventDefault();if(!bf.reportValidity())return;work(bf,async()=>{invalidate();const data={promotion_id:api.promotionId(),period_id:api.getState().periodId,room_id:bf.elements.room_id.value,courses:candidates.filter(c=>selected.has(c.id)).map(c=>({id:c.id,version:c.version}))};const result=await api.request('/rooms/bulk-preview',{method:'POST',data});token=result.token;$('planning-bulk-room-preview').textContent=result.count+' créneau(x) vérifié(s).'+(result.shared?' Dont '+result.shared+' cours commun(s) : toutes leurs promotions seront concernées.':'')+' Vous pouvez confirmer l’affectation.';$('planning-bulk-room-preview').hidden=false;});});
+  bf.addEventListener('submit',e=>{e.preventDefault();if(roomPhase!=='ready' || roomKey!==JSON.stringify(selectionPayload())){error(bf,$('planning-bulk-room-status').textContent);return;}if(!bf.reportValidity())return;work(bf,async()=>{invalidate();const data={...selectionPayload(),room_id:bf.elements.room_id.value};const result=await api.request('/rooms/bulk-preview',{method:'POST',data});token=result.token;$('planning-bulk-room-preview').textContent=result.count+' créneau(x) vérifié(s).'+(result.shared?' Dont '+result.shared+' cours commun(s) : toutes leurs promotions seront concernées.':'')+' Vous pouvez confirmer l’affectation.';$('planning-bulk-room-preview').hidden=false;});});
   $('planning-bulk-room-save').addEventListener('click',()=>{if(!token)return;work(bf,async()=>{const result=await api.request('/rooms/bulk-commit',{method:'POST',data:{token}});invalidate();$('planning-bulk-room-dialog').close();api.notice(result.message);await api.refresh();});});
 })();
