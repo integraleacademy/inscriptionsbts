@@ -280,7 +280,8 @@ def _annual_hours(value):
 def _subjects(conn,promotion_id=None,period_id=None):
     if not _has_table(conn,'trainers'):return []
     sql='''SELECT s.*,t.nom,t.prenom,p.nom AS promotion_name,p.bts AS diploma_code,
-        p.niveau AS promotion_level,p.active AS promotion_active FROM planning_subjects s
+        p.niveau AS promotion_level,p.active AS promotion_active,
+        p.date_debut AS promotion_start,p.date_fin AS promotion_end FROM planning_subjects s
         LEFT JOIN trainers t ON t.id=s.trainer_id JOIN promotions p ON p.id=s.promotion_id'''
     args=[]
     if promotion_id:sql+=' WHERE s.promotion_id=?';args.append(promotion_id)
@@ -290,7 +291,8 @@ def _subjects(conn,promotion_id=None,period_id=None):
         period=planning_years.allocation(conn,item['id'])
         if period_id and (not period or period['id']!=period_id):continue
         item['period_id']=period['id'] if period else None
-        item['study_year']=subject_catalog.study_year({'niveau':item.pop('promotion_level')},period)
+        item['study_year']=subject_catalog.study_year(dict(id=item['promotion_id'],niveau=item.pop('promotion_level'),
+            date_debut=item.pop('promotion_start'),date_fin=item.pop('promotion_end')),period)
         item['period_start']=period['start_date'] if period else None
         item['period_end']=period['end_date'] if period else None
         item['catalog_subject_id']=subject_catalog.linked_subject(conn,item['id'])

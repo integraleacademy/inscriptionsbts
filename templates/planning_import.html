@@ -2,7 +2,7 @@
 {% from 'ui_icons.html' import icon %}
 {% block body_class %}planning-admin-page{% endblock %}
 {% block content %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-import.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-import.css') }}?v=6">
 <div class="planning-import" data-promotion="{{ promotion.id }}" data-period="{{ period.id }}" data-csrf="{{ csrf_token }}">
   <a class="planning-import-back" href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}">← Retour au planning</a>
   <header class="planning-heading"><div><p class="planning-kicker">REPRENDRE VOTRE ORGANISATION</p><h1>Vos cours, <em>sans ressaisie.</em></h1><p>Importez votre planning Yparéo, vérifiez les correspondances, puis choisissez les cours à ajouter.</p></div></header>
@@ -28,7 +28,7 @@
       <p class="pi-help">Tous les formateurs actifs sont disponibles. Ceux qui ne sont pas encore rattachés à cette promotion y seront affectés à la validation de l’import, avec accès à son planning et à ses étudiants.</p>
       <div id="pi-subjects"></div>
       <p id="pi-empty-subjects" class="pi-info" hidden>Aucune matière n’est disponible pour ce BTS. <a href="{{ url_for('planning_subjects_admin', diploma=promotion.bts) }}" target="_blank" rel="noopener">Ajoutez les matières au catalogue</a>, puis analysez à nouveau le PDF.</p>
-      <section id="pi-new-subjects" hidden><h3 class="pi-mapping-title">Les matières à ajouter à cette année</h3><p class="pi-help">Vérifiez le volume annuel de chaque matière. Il est repris du catalogue lorsqu’il est renseigné. Il concerne l’ensemble de l’année, même si le PDF ne couvre qu’une partie des cours.</p><div id="pi-subject-hours"></div></section>
+      <section id="pi-new-subjects" hidden><h3 class="pi-mapping-title">Les volumes annuels</h3><p class="pi-help">Les volumes renseignés dans Matières sont repris automatiquement pour cette année. Seuls les volumes manquants sont à compléter. Ils concernent l’ensemble de l’année, même si le PDF ne couvre qu’une partie des cours.</p><div id="pi-subject-hours"></div></section>
       <p id="pi-trainer-warnings" class="pi-info" hidden></p>
       <section id="pi-new-trainers" hidden><h3 class="pi-mapping-title">Les formateurs manquants seront créés</h3><p class="pi-help">Vérifiez les noms ci-dessous. Si le PDF ne donne qu’une initiale, vous pouvez la conserver ou compléter le prénom. L’e-mail est facultatif : vous pourrez l’ajouter plus tard pour envoyer les accès. Une seule fiche sera créée par personne, même pour plusieurs matières.</p><div id="pi-new-trainer-fields"></div></section>
       <p class="pi-help">Une matière manque dans le catalogue ? Ajoutez-la au BTS concerné, puis analysez à nouveau le PDF. Si une fiche formateur est désactivée ou ambiguë, vérifiez-la avant de poursuivre. <a href="/admin/matieres?diploma={{ promotion.bts|urlencode }}" target="_blank" rel="noopener">Gérer les matières</a> · <a href="/admin/formateurs" target="_blank" rel="noopener">Gérer les formateurs</a></p>
@@ -50,5 +50,5 @@
   </section>
   <section class="pi-card pi-success" id="pi-success" hidden><span aria-hidden="true">✓</span><h2>Votre planning est repris.</h2><p id="pi-success-message"></p><a class="planning-button primary" href="{{ url_for('planning_admin', promotion_id=promotion.id, period_id=period.id) }}">Voir le planning</a></section>
 </div>
-<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=5" defer></script>
+<script src="{{ url_for('static', filename='js/planning-import.js') }}?v=6" defer></script>
 {% endblock %}

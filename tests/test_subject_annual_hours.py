@@ -32,6 +32,24 @@ def test_defaults_follow_diploma_and_study_year_without_overwriting_allocations(
     assert custom.status_code == 200 and custom.json['subject']['planned_hours'] == 125
 
 
+@pytest.mark.parametrize('level', [1, 2])
+def test_two_year_cohort_keeps_planning_years_when_its_current_level_changes(client, db, level):
+    with db() as conn:
+        conn.execute("UPDATE promotions SET date_debut='2025-09-01',date_fin='2027-07-01',niveau=? WHERE id='p1'", (level,))
+    item = create(client, diploma_details={'MCO': dict(annual_hours_first=120, annual_hours_second=90)})
+    for year, expected in [(1,120), (2,90)]:
+        state = snapshot(client, year)
+        assert state['study_year'] == year
+        assert all(s['study_year'] == year for s in state['subjects'])
+        result = call(client, '/subjects', dict(promotion_id='p1',period_id=f'p1:{year}',
+            catalog_subject_id=item['id'],trainer_id='t1'))
+        assert result.status_code == 200, result.json
+        assert result.json['subject']['planned_hours'] == expected
+        assert result.json['subject']['study_year'] == year
+    saved = client.get(BASE+'/catalog').json
+    assert {s['study_year'] for s in saved['subjects'] if s['promotion_id'] == 'p1'} == {1,2}
+
+
 @pytest.mark.parametrize('value', [True, False, -1, 0, 5001, 'nan', 'Infinity', '0.01', [], {}, '1e999'])
 def test_invalid_annual_defaults_are_rejected_atomically(client, value):
     item = create(client)

@@ -13,6 +13,7 @@ def choices(conn, promotion, period):
     linked = {item['catalog_subject_id'] for item in prepared}
     available = [dict(id=PREFIX + item['id'], catalog_subject_id=item['id'],
                       name=item['name'], prepare_on_import=True,
+                      study_year=subject_catalog.study_year(promotion, period),
                       planned_hours=subject_catalog.annual_hours(conn, item['id'], promotion, period))
                  for item in subject_catalog.subjects(conn, promotion['bts']) if item['id'] not in linked]
     return prepared + available
