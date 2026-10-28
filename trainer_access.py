@@ -316,32 +316,57 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         admin_guard()
         from zoneinfo import ZoneInfo
         now = datetime.now(ZoneInfo('Europe/Paris'))
-        allowed = {'tab', 'month', 'month_number', 'year', 'date'}
+        allowed = {'tab', 'month', 'month_number', 'year', 'school_year', 'date'}
         if set(request.args) - allowed or any(len(values) != 1 for _, values in request.args.lists()):
             abort(400, 'Sélectionnez une seule période.')
         tab = request.args.get('tab', 'accounting')
         if tab not in ('accounting', 'planning', 'availability', 'account'):
             abort(400, 'Choisissez un onglet de la fiche.')
+        default_month = 7 if tab == 'accounting' and now.month == 8 else now.month
         raw_month = request.args.get('month')
         if raw_month is None and tab == 'planning' and re.fullmatch(r'\d{4}-\d{2}-\d{2}', request.args.get('date', '')):
             raw_month = request.args['date'][:7]
-        raw_year = request.args.get('year', raw_month[:4] if raw_month else str(now.year))
+        raw_school_year = request.args.get('school_year')
+        raw_number = request.args.get('month_number')
+        if raw_school_year is not None:
+            if tab != 'accounting' or 'year' in request.args:
+                abort(400, 'Sélectionnez une seule année BTS pour la comptabilité.')
+            if not re.fullmatch(r'\d{4}', raw_school_year) or not 1900 <= int(raw_school_year) < 2200:
+                abort(400, 'Sélectionnez une année BTS débutant entre 1900 et 2199.')
+            school_year = int(raw_school_year)
+            if raw_month is None:
+                if raw_number is None:
+                    current_school_year = now.year if now.month >= 9 else now.year - 1
+                    raw_number = f'{default_month:02d}' if school_year == current_school_year else '09'
+                if not re.fullmatch(r'0?[1-9]|1[0-2]', raw_number):
+                    abort(400, 'Sélectionnez un mois valide.')
+                raw_year = str(school_year + (int(raw_number) < 9))
+            else:
+                raw_year = raw_month[:4]
+        else:
+            # Legacy year/month links retain their calendar-date meaning.
+            raw_year = request.args.get('year', raw_month[:4] if raw_month else str(now.year))
         if not re.fullmatch(r'\d{4}', raw_year) or not 1900 <= int(raw_year) <= 2200:
             abort(400, 'Sélectionnez une année comprise entre 1900 et 2200.')
         year = int(raw_year)
-        raw_number = request.args.get('month_number')
         if raw_number is not None:
-            if raw_month is not None or not re.fullmatch(r'0[1-9]|1[0-2]', raw_number):
+            if raw_month is not None or not re.fullmatch(r'0?[1-9]|1[0-2]', raw_number):
                 abort(400, 'Sélectionnez un seul mois valide.')
-            month = f'{year:04d}-{raw_number}'
+            month = f'{year:04d}-{int(raw_number):02d}'
         else:
-            month = raw_month or f'{year:04d}-{now.month:02d}'
+            month = raw_month or f'{year:04d}-{default_month:02d}'
         try:
             selected_month, _ = _month_bounds(month)
         except WorkloadError as error:
             abort(error.status, str(error))
         if selected_month.year != year:
             abort(400, 'Le mois sélectionné doit appartenir à cette année.')
+        if tab == 'accounting':
+            school_year = selected_month.year if selected_month.month >= 9 else selected_month.year - 1
+            if not 1900 <= school_year < 2200:
+                abort(400, 'Sélectionnez une année BTS débutant entre 1900 et 2199.')
+            if raw_school_year is not None and school_year != int(raw_school_year):
+                abort(400, 'Le mois sélectionné doit appartenir à cette année BTS.')
         selected_date = request.args.get('date')
         if selected_date is not None:
             from datetime import date
@@ -381,8 +406,20 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                            month_options=[dict(number=number, name=name) for number,name in enumerate(MONTHS,1)],
                            year_options=sorted(value for value in years if 1900<=value<=2200))
             if tab == 'accounting':
-                context['workload'] = get_trainer_workload(conn, trainer_id, month)
-                context['annual_workload'] = get_trainer_annual_workload(conn, trainer_id, year)
+                workload = get_trainer_workload(conn, trainer_id, month)
+                # Move straight between teaching years; explicit August links
+                # remain accessible but are clearly outside the BTS totals.
+                if selected_month.month == 9:
+                    workload['previous_month'] = f'{year:04d}-07' if school_year > 1900 else None
+                if selected_month.month == 7:
+                    workload['next_month'] = f'{year:04d}-09' if school_year < 2199 else None
+                if selected_month.month == 8 and year == 2200:
+                    workload['next_month'] = None
+                annual_workload = get_trainer_annual_workload(conn, trainer_id, school_year)
+                context.update(workload=workload, annual_workload=annual_workload,
+                               selected_school_year=school_year, outside_bts_year=selected_month.month == 8,
+                               month_options=annual_workload['months'],
+                               school_year_options=sorted({school_year} | {value-offset for value in years for offset in (0,1) if 1900 <= value-offset < 2200}))
             elif tab == 'planning':
                 from trainer_admin_planning import get_admin_trainer_planning
                 context['trainer_planning'] = get_admin_trainer_planning(conn, trainer_id, selected_date or (selected_month.isoformat() if any(key in request.args for key in ('month','month_number','year')) else now.date().isoformat()))

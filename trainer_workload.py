@@ -14,6 +14,7 @@ from planning import _load_courses, ensure_planning_schema
 
 MONTHS = ('janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
           'août', 'septembre', 'octobre', 'novembre', 'décembre')
+BTS_MONTH_NUMBERS = (9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7)
 
 
 class WorkloadError(ValueError):
@@ -176,19 +177,26 @@ def get_trainer_workload(conn, trainer_id, month, today=None):
 
 
 def get_trainer_annual_workload(conn, trainer_id, year):
-    """Calendar-year forecast, priced once per physical session and exact minute."""
-    if isinstance(year, bool) or not isinstance(year, int) or not 1900 <= year <= 2200:
-        raise WorkloadError('Sélectionnez une année comprise entre 1900 et 2200.')
+    """BTS year starting in September, ending in July of the following year.
+
+    ``year`` is the starting year. August is outside this reporting period.
+    Each physical session is priced once, using its actual date and exact minutes.
+    """
+    if isinstance(year, bool) or not isinstance(year, int) or not 1900 <= year < 2200:
+        raise WorkloadError('Sélectionnez une année BTS débutant entre 1900 et 2199.')
     rates = [dict(row) for row in conn.execute(
         'SELECT effective_date,rate_cents FROM trainer_hourly_rates WHERE trainer_id=? ORDER BY effective_date',
         (trainer_id,))]
-    courses = _load_courses(conn, f'{year:04d}-01-01', f'{year:04d}-12-31', trainer_id=trainer_id)
-    months = [dict(month=f'{year:04d}-{number:02d}', number=number, name=MONTHS[number-1],
+    start, end = f'{year:04d}-09-01', f'{year+1:04d}-07-31'
+    courses = _load_courses(conn, start, end, trainer_id=trainer_id)
+    months = [dict(month=f'{year + (number < 9):04d}-{number:02d}',
+                   year=year + (number < 9), number=number, name=MONTHS[number-1],
                    minutes=0, course_count=0, unpriced_minutes=0, price_numerator=0)
-              for number in range(1, 13)]
+              for number in BTS_MONTH_NUMBERS]
+    by_month = {row['month']: row for row in months}
     shared_minutes = 0
     for course in courses:
-        row = months[int(course['date'][5:7])-1]
+        row = by_month[course['date'][:7]]
         minutes = course['end_min'] - course['start_min']
         row['minutes'] += minutes
         row['course_count'] += 1
@@ -209,7 +217,9 @@ def get_trainer_annual_workload(conn, trainer_id, year):
         row.update(hours_label=format_minutes(row['minutes']), estimated_label=format_cents(row['estimated_cents']),
                    unpriced_label=format_minutes(row['unpriced_minutes']), all_priced=not row['unpriced_minutes'],
                    percent=round(row['minutes']*100/peak) if peak else 0)
-    return dict(year=year, months=months, total_minutes=total_minutes, total_label=format_minutes(total_minutes),
+    return dict(year=year, end_year=year+1, label=f'{year}–{year+1}', start=start, end=end,
+                period_label=f'Septembre {year} à juillet {year+1}',
+                months=months, total_minutes=total_minutes, total_label=format_minutes(total_minutes),
                 course_count=len(courses), estimated_cents=estimated_cents, estimated_label=format_cents(estimated_cents),
                 unpriced_minutes=unpriced_minutes, unpriced_label=format_minutes(unpriced_minutes), all_priced=not unpriced_minutes,
                 shared_minutes=shared_minutes, shared_label=format_minutes(shared_minutes))

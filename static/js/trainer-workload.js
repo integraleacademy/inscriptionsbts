@@ -3,6 +3,12 @@
   'use strict';
   const root = document.querySelector('[data-trainer-workload]');
   if (!root) return;
+  const yearChart = root.querySelector('.tw-year-chart');
+  const currentMonth = yearChart?.querySelector('[aria-current="date"]');
+  if (currentMonth) {
+    // Keep the selected month visible in the horizontal strip on small screens.
+    yearChart.scrollLeft = Math.max(0, currentMonth.offsetLeft - (yearChart.clientWidth - currentMonth.offsetWidth) / 2);
+  }
   const form = document.getElementById('trainer-hourly-rate-form');
   const feedback = document.getElementById('tw-rate-feedback');
   let saving = false;

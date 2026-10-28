@@ -1,0 +1,124 @@
+{% from 'ui_icons.html' import icon %}
+<div class="tw-section-intro">
+  <div>
+    <p class="tw-kicker">COMPTABILITÉ & PRÉVISIONS</p>
+    <h2>Bilan de l’année BTS</h2>
+    <p>Les heures et les montants des cours planifiés, de septembre à juillet.</p>
+  </div>
+  <form method="get" class="tw-period-picker" aria-label="Période de comptabilité">
+    <input type="hidden" name="tab" value="accounting">
+    <label>Année BTS
+      <select name="school_year">
+        {% for year in school_year_options %}<option value="{{ year }}"{% if year == selected_school_year %} selected{% endif %}>{{ year }}–{{ year + 1 }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>Mois à détailler
+      <select name="month_number">
+        {% for option in month_options %}<option value="{{ '%02d'|format(option.number) }}"{% if option.number == selected_month_number %} selected{% endif %}>{{ option.name|capitalize }}</option>{% endfor %}
+        {% if outside_bts_year %}<option value="08" selected>Août · hors année BTS</option>{% endif %}
+      </select>
+    </label>
+    <button type="submit" class="trainer-button primary">Afficher</button>
+  </form>
+</div>
+
+<section class="tw-year-overview" aria-labelledby="tw-year-title">
+  <div class="tw-year-heading">
+    <div><h2 id="tw-year-title">Année BTS {{ annual_workload.label }}</h2><p>{{ annual_workload.period_label }}</p></div>
+    <span class="tw-period-badge">11 mois de formation</span>
+  </div>
+  <div class="tw-year-totals">
+    <div><span>Heures planifiées</span><strong>{{ annual_workload.total_label }}</strong><small>Sur l’ensemble de l’année BTS</small></div>
+    <div class="tw-year-cost"><span>{{ 'Coût prévisionnel BTS' if annual_workload.all_priced else 'Coût BTS à compléter' }}</span><strong>{{ annual_workload.estimated_label }}</strong><small>{% if annual_workload.all_priced %}Tarif applicable à chaque date de cours{% else %}{{ annual_workload.unpriced_label }} sans tarif, à chiffrer{% endif %}</small></div>
+    <div class="tw-year-sessions"><span>Séances planifiées</span><strong>{{ annual_workload.course_count }}</strong><small>Cours communs comptés une seule fois</small></div>
+  </div>
+  <nav class="tw-year-chart" aria-label="Mois de l’année BTS {{ annual_workload.label }}">
+    {% for row in annual_workload.months %}
+    <a href="{{ url_for('admin_trainer_detail',trainer_id=trainer.id,tab='accounting',school_year=selected_school_year,month=row.month) }}" class="tw-year-month{% if row.month == selected_month %} is-current{% endif %}{% if row.number == 1 %} tw-new-calendar-year{% endif %}"{% if row.month == selected_month %} aria-current="date"{% endif %} aria-label="{{ row.name }} {{ row.year }} : {{ row.hours_label }}, {{ row.estimated_label }}{% if not row.all_priced %}, tarif incomplet{% endif %}">
+      <b>{{ row.name[:3]|capitalize }}. <span class="tw-month-year">{{ row.year }}</span></b>
+      <span class="tw-month-bar" aria-hidden="true"><i style="--month-level:{{ row.percent }}%"></i></span>
+      <span>{{ row.hours_label }}</span><small>{{ row.estimated_label }}{% if not row.all_priced %} *{% endif %}</small>
+    </a>
+    {% endfor %}
+  </nav>
+  <p class="tw-year-note">Sélectionnez un mois pour consulter ses séances. Août est exclu du bilan BTS.{% if not annual_workload.all_priced %} * Tarif manquant sur une partie des heures.{% endif %}</p>
+</section>
+
+<section class="tw-month-heading" aria-labelledby="tw-month-title">
+  <div><p class="tw-kicker">DÉTAIL MENSUEL</p><h2 id="tw-month-title">{{ workload.month_label|capitalize }}</h2></div>
+  <div class="tw-month-navigation">
+    {% if workload.previous_month %}<a href="{{ url_for('admin_trainer_detail',trainer_id=trainer.id,tab='accounting',month=workload.previous_month) }}" aria-label="Mois précédent">‹</a>{% endif %}
+    <span>{{ workload.month_label|capitalize }}</span>
+    {% if workload.next_month %}<a href="{{ url_for('admin_trainer_detail',trainer_id=trainer.id,tab='accounting',month=workload.next_month) }}" aria-label="Mois suivant">›</a>{% endif %}
+  </div>
+</section>
+{% if outside_bts_year %}<p class="tw-outside-period">Août est hors de la période BTS de septembre à juillet. Les heures et montants ci-dessous restent consultables et ne sont pas inclus dans le bilan BTS.</p>{% endif %}
+<div class="tw-stats">
+  <article class="tw-stat tw-stat-primary"><span>Volume mensuel total</span><strong>{{ workload.total_label }}</strong><p>{{ workload.course_count }} séance{{ 's' if workload.course_count != 1 else '' }} · cours communs comptés une fois</p></article>
+  <article class="tw-stat"><span>Sur les jours déjà écoulés</span><strong>{{ workload.elapsed_label }}</strong><p>{{ workload.future_label }} aujourd’hui et les jours suivants</p></article>
+  <article class="tw-stat tw-stat-money"><span>{{ 'Montant prévisionnel du mois' if workload.all_priced else 'Montant partiellement chiffré' }}</span><strong>{{ workload.estimated_label }}</strong><p>{% if workload.all_priced %}Tarif applicable à chaque date de cours{% else %}{{ workload.unpriced_label }} sans tarif · estimation à compléter{% endif %}</p></article>
+</div>
+<p class="tw-method-note">{{ icon('shield') }} Ces volumes se recalculent à partir du planning. Ils ne constituent pas une validation de présence ni une facture.</p>
+
+<div class="tw-detail-grid">
+  <div class="tw-activity-stack">
+    <section class="tw-card tw-course-detail" aria-labelledby="tw-courses-title">
+      <div class="tw-card-heading"><div><h2 id="tw-courses-title">Séances du mois</h2><p class="tw-card-subtitle">{{ workload.month_label|capitalize }}</p></div><span class="tw-count">{{ workload.course_count }} séance{{ 's' if workload.course_count != 1 else '' }}</span></div>
+      {% if workload.courses %}
+      <div class="tw-table-wrap"><table class="tw-table">
+        <thead><tr><th scope="col">Date &amp; horaires</th><th scope="col">Cours &amp; promotions</th><th scope="col">Durée</th><th scope="col">Tarif / h</th><th scope="col">Estimation</th></tr></thead>
+        <tbody>{% for course in workload.courses %}<tr>
+          <td><strong>{{ course.date_label }}</strong><span>{{ course.start }} – {{ course.end }}</span></td>
+          <td><strong>{{ course.title }}</strong><span>{{ course.promotions|join(' · ') }}</span>{% if course.is_shared %}<small class="tw-course-shared">Cours commun · une seule séance</small>{% endif %}{% if course.incomplete %}<small class="tw-course-warning" title="{{ course.warning_labels|join(' · ') }}">⚠ {{ course.warning_labels|join(' · ') }}</small>{% endif %}</td>
+          <td>{{ course.duration_label }}</td><td>{{ course.rate_label }}</td><td>{{ course.amount_label }}</td>
+        </tr>{% endfor %}</tbody>
+        <tfoot><tr><th scope="row" colspan="2">Total du mois{% if not workload.all_priced %} · tarif incomplet{% endif %}</th><td>{{ workload.total_label }}</td><td></td><td>{{ workload.estimated_label }}</td></tr></tfoot>
+      </table></div>
+      <p class="tw-calculation-note">Total arrondi après addition des durées exactes. Les montants de chaque séance sont affichés arrondis.</p>
+      {% else %}
+      <div class="tw-empty-panel">{{ icon('clock') }}<h3>Aucune séance ce mois-ci</h3><p>Les cours apparaîtront ici dès leur ajout au planning.</p><a class="trainer-button" href="{{ url_for('admin_trainer_detail',trainer_id=trainer.id,tab='planning',month=selected_month) }}">Voir son planning</a></div>
+      {% endif %}
+    </section>
+
+    <details class="tw-card tw-breakdowns">
+      <summary>Répartition du mois par promotion et BTS</summary>
+      <div class="tw-breakdown-content">
+        <p class="tw-help">Un cours commun compte intégralement pour chaque promotion présente et une seule fois par BTS. Ces répartitions ne s’additionnent pas au total mensuel.</p>
+        <h3>Par promotion</h3>
+        <div class="tw-breakdown-list">{% for row in workload.by_promotion %}<article><div><strong>{{ row.name }}</strong><span>{{ row.courses }} séance{{ 's' if row.courses != 1 else '' }} · BTS {{ row.bts }}</span></div><b>{{ row.hours_label }}</b><meter value="{{ row.minutes }}" max="{{ workload.total_minutes or 1 }}" aria-label="{{ row.hours_label }} pour {{ row.name }}"></meter></article>{% else %}<p class="tw-empty">Aucun cours planifié ce mois-ci.</p>{% endfor %}</div>
+        <h3>Par BTS</h3>
+        <div class="tw-bts-list">{% for row in workload.by_bts %}<article><span>BTS {{ row.name }}</span><strong>{{ row.hours_label }}</strong><small>{{ row.courses }} séance{{ 's' if row.courses != 1 else '' }}</small></article>{% else %}<p class="tw-empty">La répartition apparaîtra avec les premiers cours.</p>{% endfor %}</div>
+        {% if workload.shared_minutes %}<p class="tw-shared-note">{{ workload.shared_label }} de cours communs ce mois-ci, comptés une seule fois dans l’estimation globale.</p>{% endif %}
+      </div>
+    </details>
+  </div>
+
+  <aside class="tw-financial-stack" aria-label="Tarif et vérification de facture">
+    <section class="tw-card tw-rate-card" aria-labelledby="tw-rate-title">
+      <h2 id="tw-rate-title">Tarif horaire</h2>
+      <div class="tw-current-rate"><span>Applicable aujourd’hui</span><strong>{{ workload.current_rate_label }}{% if workload.current_rate_cents is not none %}<small> / h</small>{% endif %}</strong></div>
+      <details class="tw-rate-editor"{% if not workload.all_priced or workload.current_rate_cents is none %} open{% endif %}>
+        <summary>Modifier le tarif</summary>
+        <form id="trainer-hourly-rate-form" action="{{ url_for('admin_trainer_hourly_rate',trainer_id=trainer.id) }}" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="expected_revision" value="{{ workload.rate_revision }}">
+          <div class="tw-rate-fields">
+            <label>Tarif en € / heure<input name="hourly_rate" type="text" inputmode="decimal" maxlength="8" value="{{ workload.rate_input }}" required placeholder="Ex. 45,00" aria-describedby="tw-rate-help"></label>
+            <label>À partir du<input name="effective_date" type="date" min="1900-01-01" max="2200-12-31" value="{{ workload.start }}" required></label>
+          </div>
+          <p class="tw-help" id="tw-rate-help">Le tarif s’applique à partir de cette date, jusqu’au prochain changement. Les dates antérieures conservent leur tarif. Une date déjà présente remplace le tarif correspondant.</p>
+          <p id="tw-rate-feedback" role="status" class="tw-feedback" hidden></p>
+          <button type="submit" class="trainer-button primary">Enregistrer le tarif</button>
+        </form>
+      </details>
+      {% if workload.rates %}<details class="tw-rate-history"><summary>Historique des tarifs <span>{{ workload.rates|length }}</span></summary><ol>{% for rate in workload.rates %}<li><span>Depuis le {{ rate.date_label }}</span><strong>{{ rate.rate_label }} / h</strong></li>{% endfor %}</ol></details>{% endif %}
+    </section>
+    <section class="tw-card tw-invoice-card" aria-labelledby="tw-invoice-title">
+      <h2 id="tw-invoice-title">Comparer une facture</h2>
+      <p class="tw-card-subtitle">{{ workload.month_label|capitalize }} · {{ workload.estimated_label }} prévues</p>
+      <p class="tw-help">Montant des heures de cours, sur la même base que le tarif saisi, sans frais annexes.</p>
+      <label>Montant à comparer (€)<input type="text" id="tw-invoice-amount" inputmode="decimal" maxlength="12" placeholder="Ex. 1 260,00" {% if not workload.all_priced %}disabled{% endif %} aria-describedby="tw-invoice-result"></label>
+      <p id="tw-invoice-result" class="tw-invoice-result" role="status">{% if workload.all_priced %}La différence avec les {{ workload.estimated_label }} prévues s’affichera ici.{% else %}Renseignez les tarifs manquants avant de comparer la facture.{% endif %}</p>
+      <small>Vérification indicative. Le montant saisi n’est pas enregistré.</small>
+    </section>
+  </aside>
+</div>

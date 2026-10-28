@@ -31,7 +31,8 @@
 .tw-stat-money>strong{color:#7f6c38}
 .tw-method-note{display:flex;gap:8px;font-size:11px;line-height:1.8;color:#6a765f;margin:12px 0 20px}
 .tw-method-note svg{width:16px;height:16px;flex:none;margin-top:2px}
-.tw-detail-grid{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(330px,1fr);gap:16px;align-items:start}
+.tw-detail-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,310px);gap:20px;align-items:start}
+.tw-activity-stack{display:grid;gap:16px;min-width:0}
 .tw-card{padding:20px;border:1px solid var(--tw-line);border-radius:14px;background:#fffefb;min-width:0}
 .tw-card-heading{display:flex;align-items:center;gap:10px;margin-bottom:14px}
 .tw-card-icon{display:grid;place-items:center;width:34px;height:36px;flex:none;border-radius:13px;background:#eef1e4;color:#6c7c50}
@@ -79,7 +80,15 @@
 .tw-invoice-result.difference{color:#935a26;background:#fff3da;border-color:#ead1a0}
 .tw-feedback{padding:12px 14px;border-radius:10px;font-size:11px;line-height:1.7;background:#eef1e6;color:#566b3c}
 .tw-feedback.error{background:#fff0de;color:#985927}
-.tw-course-detail{margin-top:23px}
+.tw-course-detail{margin:0}
+.tw-card-subtitle{margin:5px 0 0;color:var(--tw-muted);font-size:11px;font-weight:500}
+.tw-calculation-note{margin:12px 0 0;font-size:10px;line-height:1.7;color:var(--tw-muted)}
+.tw-breakdowns>summary,.tw-rate-editor>summary{cursor:pointer;color:var(--tw-ink);font-size:12px;font-weight:750;line-height:1.6}
+.tw-breakdowns>summary:focus-visible,.tw-rate-editor>summary:focus-visible{outline:2px solid #356ae6;outline-offset:5px;border-radius:3px}
+.tw-breakdown-content{padding-top:20px}
+.trainer-workload .tw-rate-editor form{margin-top:16px}
+.tw-invoice-card .tw-card-subtitle{margin:-6px 0 16px}
+.tw-outside-period{padding:12px 16px;margin:0 0 16px;border:1px solid #e5ce98;border-radius:10px;background:#fff4d9;color:#79530b;font-size:12px}
 .tw-count{margin-left:auto;padding:7px 10px;border:1px solid #dfe5d1;border-radius:99px;background:#f5f7ec;font-size:10px;color:#65744e;white-space:nowrap}
 .tw-table-wrap{width:100%;overflow-x:auto;border:1px solid #e3e7d7;border-radius:13px}
 .tw-table{width:100%;border-collapse:collapse;min-width:680px;font-size:11px;text-align:left}
@@ -87,6 +96,7 @@
 .tw-table td{padding:16px 17px;border-bottom:1px solid #edf0e3;color:#59684a;vertical-align:top;white-space:nowrap}
 .tw-table td:nth-child(2){min-width:210px;max-width:500px;white-space:normal}
 .tw-table tr:last-child td{border:0}
+.trainer-workload .tw-table tfoot :is(th,td){padding:13px 14px;background:#f3f6fb;border-top:1px solid var(--tw-line);font-size:11px;font-weight:750;color:var(--tw-ink);white-space:normal}
 .tw-table td>strong{display:block;font-size:11px;color:#405635;line-height:1.8}
 .tw-table td>span{display:block;font-size:10px;color:#738065;line-height:1.8;margin-top:3px}
 .tw-course-shared,.tw-course-warning{display:block;font-size:9px;margin-top:7px;line-height:1.8}
@@ -115,7 +125,11 @@
 .tw-period-picker select{background:#fff;border:1px solid #bad4c8;border-radius:10px;padding:12px 32px 12px 12px;min-height:43px;font:650 13px Manrope,Arial,sans-serif;color:#225546}
 .tw-period-picker .trainer-button{min-height:44px}
 .tw-year-overview{border-radius:15px;padding:18px 20px;background:linear-gradient(125deg,#0d594c,#0d765c);color:white;border:1px solid #0b604e;box-shadow:0 12px 28px #134e3215}
-.tw-year-totals{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:end;padding-bottom:16px;border-bottom:1px solid #ffffff29}
+.tw-year-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}
+.trainer-workload .tw-year-heading h2{font-size:18px;color:inherit;letter-spacing:-.3px}
+.tw-year-heading p{margin:5px 0 0;font-size:12px;opacity:.8}
+.tw-period-badge{padding:5px 10px;border:1px solid var(--tw-line);border-radius:6px;font-size:10px;white-space:nowrap}
+.tw-year-totals{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:24px;align-items:start;padding-bottom:22px;border-bottom:1px solid #ffffff29}
 .tw-year-totals>div{display:grid;gap:7px;min-width:0}
 .trainer-workload .tw-year-totals .tw-kicker{color:#b4e6d1;margin:0 0 4px}
 .tw-year-totals span{font-size:12px;color:#d1eadf;font-weight:700}
@@ -123,11 +137,13 @@
 .tw-year-totals small{font-size:11px;line-height:1.8;color:#c5e2d7}
 .tw-year-cost{border-left:1px solid #ffffff32;padding-left:24px}
 .tw-year-cost strong{color:#ffda7b}
-.tw-year-chart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px;padding-top:14px}
-.tw-year-month{display:grid;gap:7px;text-align:center;color:#eaf8ef;text-decoration:none;border-radius:8px;padding:6px 3px;min-width:0;border:1px solid transparent}
+.tw-year-chart{position:relative;display:grid;grid-template-columns:repeat(11,minmax(72px,1fr));gap:6px;padding:16px 0 6px;margin:0;max-width:100%;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:thin}
+.trainer-workload .tw-year-month{display:grid;gap:7px;text-align:center;color:#eaf8ef;text-decoration:none;border-radius:8px;padding:10px 5px;margin:0;min-width:0;border:1px solid transparent;scroll-snap-align:start}
 .tw-year-month:hover,.tw-year-month.is-current{background:#ffffff12;border-color:#b8e1ca4d}
 .tw-year-month:focus-visible{outline:3px solid #ffe4a0;outline-offset:2px}
 .tw-year-month>b{font-size:10px;line-height:1.6}
+.tw-month-year{display:block;font-size:9px;font-weight:500;opacity:.8}
+.tw-new-calendar-year{box-shadow:-3px 0 0 var(--tw-line)}
 .tw-year-month>span:not(.tw-month-bar){font-size:11px;color:#fff5dc;white-space:nowrap}
 .tw-year-month>small{font-size:9px;line-height:1.6;color:#c4e8d8;overflow-wrap:anywhere}
 .tw-month-bar{height:34px;display:flex;align-items:end;justify-content:center;padding-bottom:2px}
@@ -194,11 +210,10 @@
 .trainer-workload .tw-rate-history li { flex-wrap:wrap; }
 
 /* Container queries follow the actual usable width, with either sidebar state. */
-@container trainer-file (max-width:1050px) {
+@container trainer-file (max-width:1100px) {
   .tw-detail-grid { grid-template-columns:minmax(0,1fr); }
   .tw-financial-stack { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }
-  .tw-year-chart { grid-template-columns:repeat(6,minmax(0,1fr)); }
-  .tw-year-chart .tw-month-bar { height:24px; }
+  .tw-year-chart { grid-template-columns:repeat(11,minmax(82px,1fr)); }
 }
 @container trainer-file (max-width:760px) {
   .tw-hero { padding:16px; }
@@ -228,11 +243,15 @@
   .tw-stat p { grid-column:1; }
   .tw-financial-stack,.tw-account-fields { grid-template-columns:minmax(0,1fr); }
   .tw-year-overview { padding:16px; }
+  .tw-year-heading { align-items:flex-start; flex-direction:column; gap:8px; margin-bottom:20px; }
+  .tw-period-badge { padding:3px 7px; }
   .tw-year-totals { grid-template-columns:minmax(0,1fr); gap:14px; }
+  .tw-year-totals>div { grid-template-columns:minmax(0,1fr) auto; gap:5px 12px; }
+  .tw-year-totals strong { grid-column:2; grid-row:1/3; align-self:center; }
+  .tw-year-totals small { grid-column:1; }
   .tw-year-totals strong { font-size:29px; }
   .tw-year-cost { padding:14px 0 0; border-left:0; border-top:1px solid #ffffff32; }
-  .tw-year-chart { grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
-  .tw-year-chart .tw-month-bar { height:20px; }
+  .tw-year-chart { grid-template-columns:repeat(11,86px); gap:5px; }
   .tw-year-note { margin-top:12px; }
   .tw-period-picker { gap:8px; }
   .trainer-workload .tw-period-picker label { flex:1; }
