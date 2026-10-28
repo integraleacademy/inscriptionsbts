@@ -75,6 +75,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% block page_styles %}{% endblock %}
   {% if is_trainer_portal %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-portal.css') }}?v=1">{% endif %}
   {% if has_student_navigation %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-workspace.css') }}?v=4">{% endif %}
+  {% if has_student_navigation %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-documents.css') }}?v=1">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
   {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
   {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-admin.css') }}?v=1">{% endif %}

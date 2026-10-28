@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% from 'person_names.html' import person_name %}
+{% block content %}
+<div class="student-workspace">
+  <header class="sw-heading">
+    <p class="sw-kicker">MON ESPACE ÉTUDIANT</p>
+    <h1>Mes <em>documents.</em></h1>
+    <p>Ton certificat de scolarité et ta carte étudiante, toujours à portée de main.</p>
+  </header>
+  <div class="sw-school-documents">
+    <section class="sw-card sw-school-document" aria-labelledby="certificate-heading">
+      <div class="sw-school-document-top"><span class="sw-school-document-symbol">{{ icon('file') }}</span><span class="sw-badge {{ 'pending' if certificate_error else 'accepted' }}">{{ 'Indisponible' if certificate_error else 'Disponible · PDF' }}</span></div>
+      <h2 id="certificate-heading">Mon certificat de scolarité</h2>
+      <p>Le document officiel pour justifier ton inscription à Intégrale Academy.</p>
+      <dl class="sw-details">
+        <div><dt>Étudiant</dt><dd>{{ person_name(row.nom, row.prenom) }}</dd></div>
+        <div><dt>Formation</dt><dd>BTS {{ row.bts }} · {{ year }}–{{ year + 2 }}</dd></div>
+      </dl>
+      {% if certificate_error %}
+      <p class="sw-school-document-notice">{{ certificate_error }}</p>
+      {% else %}
+      <div class="sw-school-document-actions">
+        <a class="sw-button primary" href="{{ url_for('student_certificate', download=1) }}">{{ icon('download') }} Télécharger le PDF</a>
+        <a class="sw-link" href="{{ url_for('student_certificate') }}" target="_blank" rel="noopener">Ouvrir le certificat ↗</a>
+      </div>
+      {% endif %}
+    </section>
+    <section class="sw-card sw-school-document" aria-labelledby="card-heading">
+      <div class="sw-school-document-top"><span class="sw-school-document-symbol">{{ icon('person') }}</span><span class="sw-badge {{ 'pending' if card_error else 'accepted' }}">{{ 'Indisponible' if card_error else 'Disponible · Image' }}</span></div>
+      <h2 id="card-heading">Ma carte étudiante</h2>
+      {% if card_error %}
+      <p class="sw-school-document-notice">{{ card_error }}</p>
+      {% else %}
+      <p>Valable du {{ card_start }} au {{ card_end }}. Clique sur une image pour l’agrandir.</p>
+      <div class="sw-card-faces">
+        {% for face, label in [('recto', 'Recto'), ('verso', 'Verso')] %}
+        <figure>
+          <figcaption>{{ label }}</figcaption>
+          <a href="{{ url_for('student_card_image', face=face) }}" target="_blank" rel="noopener" aria-label="Agrandir le {{ face }} de ma carte étudiante">
+            <img src="{{ url_for('student_card_image', face=face) }}" alt="{{ label }} de la carte étudiante de {{ person_name(row.nom, row.prenom) }}" width="1016" height="638" decoding="async" data-student-card-image>
+          </a>
+          <p class="sw-school-document-notice" data-card-image-error hidden>L’image n’a pas pu être chargée. <a class="sw-link" href="{{ url_for('student_documents') }}">Réessayer</a></p>
+          <a class="sw-link" href="{{ url_for('student_card_image', face=face, download=1) }}">{{ icon('download') }} Télécharger le {{ face }} · PNG</a>
+        </figure>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </section>
+  </div>
+  <section class="sw-help"><h2>Une information à corriger ou un document indisponible ?</h2><p>Contacte l’équipe pour mettre à jour ton dossier.</p><a class="sw-link" href="tel:+33422470768">Contacter l’école · 04 22 47 07 68</a></section>
+</div>
+<script src="{{ url_for('static', filename='js/student-documents.js') }}?v=1" defer></script>
+{% endblock %}

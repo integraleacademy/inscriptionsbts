@@ -13,6 +13,7 @@ from candidate_statuses import annotate_candidate_statuses, EMPLOYMENT_STATUS
 from candidate_workflows import register_candidate_workflows
 from candidate_documents import register_candidate_documents, document_preview_response
 from student_cards import register_student_cards, student_card_dates
+from student_documents import register_student_documents
 from trainer_access import register_trainer_access
 from company_portal import register_company_portal
 from daily_login import register_daily_login
@@ -113,6 +114,10 @@ def run_startup_integrity_checks():
         "teaching_reminders.py",
         "gradebook.py",
         "student_workspace.py",
+        "student_documents.py",
+        "templates/student_documents.html",
+        "static/css/student-documents.css",
+        "static/js/student-documents.js",
         "absence_reasons.py",
         "templates/_student_portal_nav.html",
         "templates/student_home.html",
@@ -255,7 +260,7 @@ def run_startup_integrity_checks():
 
     # --- 3) ROUTES FLASK DÉFINIES (tous .py) ---
     py_sources = {}
-    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py", "teaching.py", "teaching_reminders.py", "gradebook.py", "student_workspace.py"]:
+    for p in ["app.py", "parcoursup.py", "mail_templates.py", "sms_templates.py", "place_search.py", "candidate_access.py", "candidate_messages.py", "candidate_documents.py", "candidate_photos.py", "candidate_creation.py", "candidate_workflows.py", "trainer_access.py", "company_portal.py", "promotions.py", "planning.py", "planning_portal.py", "planning_sync.py", "trainer_availability.py", "trainer_workload.py", "trainer_admin_planning.py", "teaching.py", "teaching_reminders.py", "gradebook.py", "student_workspace.py", "student_documents.py"]:
         py_sources[p] = _read(p)
 
     route_regex = re.compile(r"""@(?:app|bp_[a-zA-Z0-9_]+)\.(?:route|get|post|put|delete)\(\s*['"]([^'"]+)['"]""")
@@ -1058,6 +1063,7 @@ register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
 register_candidate_photos(app, db, lambda: UPLOAD_DIR, require_admin, log_event)
 register_candidate_creation(app, db, require_admin, normalize_candidate_names, log_event)
 register_student_cards(app, db, lambda: UPLOAD_DIR, require_admin)
+register_student_documents(app, db, lambda: UPLOAD_DIR)
 candidate_workflow_response = register_candidate_workflows(
     app, db, lambda *args, **kwargs: send_mail(*args, **kwargs),
     lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event,
