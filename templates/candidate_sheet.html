@@ -1,9 +1,10 @@
 {% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 {% extends 'base.html' %}
 {% from 'ui_icons.html' import icon %}
+{% from '_message_tools.html' import email_options, assistant, action_button %}
 {% macro field(label,name,type='text') %}<label class="sheet-field"><span>{{ label }}</span><input name="{{ name }}" type="{{ type }}" value="{{ last_name(row.get(name)) if name in ['nom','resp_nom'] else first_name(row.get(name)) if name in ['prenom','resp_prenom'] else row.get(name) or '' }}" {% if type == 'tel' %}pattern="0[1-9][0-9]{8}"{% endif %}></label>{% endmacro %}
 {% block body_class %}admin-page candidate-sheet-page{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/wedof-contracts.css') }}?v=3">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/wedof-contracts.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/school-messaging.css') }}?v=4"><link rel="stylesheet" href="{{ url_for('static', filename='css/message-assistant.css') }}?v=1">{% endblock %}
 {% block content %}
 {% set current_status = namespace(label='Dossier en cours') %}
 {% for key,label,color in statuts %}{% if key == row.statut %}{% set current_status.label = label %}{% endif %}{% endfor %}
@@ -79,13 +80,17 @@
     <form id="student-message-form" class="student-composer-fields">
       <div class="composer-channel-switch" role="group" aria-label="Canal du message"><button type="button" data-composer-channel="email" aria-pressed="true">{{ icon('mail') }} E-mail</button><button type="button" data-composer-channel="sms" aria-pressed="false">{{ icon('chat') }} SMS</button></div>
       <label class="composer-field"><span>Destinataire</span><input id="student-message-recipient" type="text" readonly aria-readonly="true"><small>Les coordonnées enregistrées sur sa fiche.</small></label>
+      {{ email_options('student-message', message_senders, message_layouts, message_default_accent) }}
+      {{ assistant('student-message') }}
       <label class="composer-field" id="student-message-subject-field"><span>Objet de l’e-mail</span><input id="student-message-subject" name="subject" maxlength="200" required placeholder="L’objet de votre message"></label>
       <label class="composer-field composer-body-field"><span>Votre message <small id="student-message-count"></small></span><textarea id="student-message-body" name="body" rows="9" required placeholder="Bonjour…"></textarea></label>
+      {{ action_button('student-message') }}
       <div class="composer-attachments" id="student-message-attachments"><label for="student-message-files">{{ icon('file') }} Ajouter des pièces jointes</label><input type="file" id="student-message-files" multiple accept=".pdf,.jpg,.jpeg,.png" aria-describedby="student-message-files-help"><small id="student-message-files-help">PDF, JPG ou PNG · 5 fichiers · 10 Mo au total</small><ul id="student-message-file-list" aria-live="polite"></ul></div>
     </form>
-    <section class="student-composer-preview" aria-labelledby="student-message-preview-title"><div class="composer-preview-head"><h3 id="student-message-preview-title">Aperçu avant envoi</h3><span id="student-message-preview-state">À préparer</span></div><div id="student-message-preview-empty">{{ icon('mail') }}<h3>Prenez le temps de relire.</h3><p>L’aperçu affichera le message tel qu’il sera envoyé à l’étudiant.</p></div><div id="student-message-preview-result" hidden><div class="composer-preview-envelope"><p><span>À</span> <b id="student-message-preview-recipient"></b></p><p id="student-message-preview-subject-row"><span>Objet</span> <b id="student-message-preview-subject"></b></p></div><iframe id="student-message-preview-frame" title="Aperçu de l’e-mail avant envoi" sandbox referrerpolicy="no-referrer"></iframe><div class="composer-sms-preview" id="student-message-preview-sms" hidden></div><p class="composer-preview-files" id="student-message-preview-files"></p></div></section>
+    <section class="student-composer-preview" aria-labelledby="student-message-preview-title"><div class="composer-preview-head"><h3 id="student-message-preview-title">Aperçu avant envoi</h3><span id="student-message-preview-state">À préparer</span></div><div id="student-message-preview-empty">{{ icon('mail') }}<h3>Prenez le temps de relire.</h3><p>L’aperçu affichera le message tel qu’il sera envoyé à l’étudiant.</p></div><div id="student-message-preview-result" hidden><div class="composer-preview-envelope"><p id="student-message-preview-sender-row"><span>De</span> <b id="student-message-preview-sender"></b></p><p><span>À</span> <b id="student-message-preview-recipient"></b></p><p id="student-message-preview-subject-row"><span>Objet</span> <b id="student-message-preview-subject"></b></p></div><iframe id="student-message-preview-frame" title="Aperçu de l’e-mail avant envoi" sandbox referrerpolicy="no-referrer"></iframe><div class="composer-sms-preview" id="student-message-preview-sms" hidden></div><p class="composer-preview-files" id="student-message-preview-files"></p></div></section>
   </div>
   <p id="student-message-error" class="composer-error" role="alert" hidden></p><p id="student-message-success" class="composer-success" role="status" hidden></p>
   <footer class="student-composer-footer"><p id="student-message-footer-note">Rien n’est envoyé avant votre confirmation.</p><button type="button" class="btn" data-close-composer>Fermer</button><button type="submit" form="student-message-form" class="btn" id="student-message-preview-button">Prévisualiser</button><button type="button" class="btn primary" id="student-message-send" disabled>Envoyer cet e-mail</button></footer>
 </dialog>
+<script src="{{ url_for('static', filename='js/message-assistant.js') }}?v=1" defer></script>
 {% endblock %}

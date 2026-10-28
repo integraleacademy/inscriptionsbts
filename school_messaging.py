@@ -4,10 +4,9 @@ from contextlib import closing
 import json
 import secrets
 import time
-from urllib.parse import urlsplit
 
 from flask import abort, jsonify, render_template, request, session
-from school_email import SENDERS, LAYOUTS, DEFAULT_ACCENT, render_school_email
+from school_email import SENDERS, LAYOUTS, DEFAULT_ACCENT, email_options, render_school_email
 from candidate_messages import _equal, _recipient
 from campus_admin import ENROLLED, csrf
 from promotions import list_promotions
@@ -78,18 +77,9 @@ def content(data):
         raise ValueError('Saisissez un message valide (20 000 caractères par e-mail, 1 600 par SMS).')
     if channel=='email' and (not subject or len(subject)>200 or '\n' in subject or '\r' in subject):
         raise ValueError('Saisissez un objet de 200 caractères maximum sur une ligne.')
-    action_url=str(data.get('action_url') or '').strip() if channel=='email' else ''
-    action_label=str(data.get('action_label') or '').strip() if action_url else ''
-    if action_url:
-        parsed=urlsplit(action_url)
-        if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or len(action_url)>2000 or any(ord(c)<33 for c in action_url):
-            raise ValueError('Le bouton doit mener vers une adresse https:// valide.')
-        if not action_label or len(action_label)>80: raise ValueError('Nommez le bouton (80 caractères maximum).')
     html, sender = '', {}
     if channel == 'email':
-        html, sender = render_school_email(subject, body, data.get('sender_id', 'clement'),
-            data.get('layout', 'crm'), action_url=action_url, action_label=action_label,
-            accent_title=data.get('accent_title', DEFAULT_ACCENT))
+        html, sender = render_school_email(subject, body, **email_options(data))
     return dict(channel=channel,subject=subject if channel=='email' else '',body=body,html=html,sender=sender)
 
 
@@ -155,6 +145,24 @@ def register_school_messaging(app, db_connect, require_admin, send_mail, send_sm
                 snapshot=state(conn,mid)
             return jsonify(ok=True,**snapshot,invalid=invalid,duplicate=duplicate)
         except ValueError as error: return jsonify(ok=False,error=str(error)),400
+
+    @app.post('/admin/messagerie/assistant')
+    def school_message_assistant():
+        guard(True)
+        data = request.get_json(silent=True)
+        try:
+            with closing(db_connect()) as conn:
+                list_promotions(conn)
+                recipients, _, _ = audience(conn, data)
+            if not recipients:
+                raise ValueError('Choisissez des destinataires joignables pour rédiger le message.')
+            # The model needs the audience type, never the address book itself.
+            context = dict(type='groupe', destinataires=sorted({r['kind'] for r in recipients}),
+                           nombre=len(recipients), modalite=data.get('mode', ''))
+        except ValueError as error:
+            return jsonify(ok=False, error=str(error)), 400
+        from message_assistant import draft_response
+        return draft_response(app, db_connect, data, context)
 
     @app.get('/admin/messagerie/<mid>')
     def school_message_state(mid):

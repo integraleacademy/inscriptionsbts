@@ -8,12 +8,12 @@ import secrets
 import tempfile
 import time
 from contextlib import closing
-from html import escape
 from pathlib import Path
 
 from flask import jsonify, render_template, request, session
 from PIL import Image
 from werkzeug.utils import secure_filename
+from school_email import SENDERS, LAYOUTS, DEFAULT_ACCENT, email_options, render_school_email
 
 
 MAX_ATTACHMENTS = 5
@@ -113,24 +113,23 @@ def _payload(row, data):
     recipient = _recipient(row, kind)
     envelope = dict(type=kind, recipient=recipient, subject=subject, body=body,
                     attachments=[(name, hashlib.sha256(content).hexdigest()) for name, content in attachments])
+    if kind == 'email':
+        envelope['email_options'] = email_options(data)
+        envelope['sender'] = dict(SENDERS[envelope['email_options']['sender_id']])
     if data.get('template') == 'student_access' and kind == 'email':
         from branded_email import DEFAULT_BASE
         import os
         envelope['template'] = 'student_access'
-        envelope['action_url'] = os.getenv('BASE_URL', DEFAULT_BASE).rstrip('/') + '/espace/connexion'
+        envelope['email_options']['action_url'] = os.getenv('BASE_URL', DEFAULT_BASE).rstrip('/') + '/espace/connexion'
+        envelope['email_options']['action_label'] = 'Accéder à mon espace étudiant'
     digest = _hash(json.dumps(envelope, sort_keys=True, ensure_ascii=False))
     return envelope, attachments, digest
 
 
 def _email_html(envelope):
-    paragraphs = ['<p>' + escape(part).replace('\n', '<br>') + '</p>' for part in envelope['body'].split('\n\n')]
-    from branded_email import render_branded_email
     access = envelope.get('template') == 'student_access'
-    return render_branded_email(envelope['subject'], ''.join(paragraphs),
-        eyebrow='INTÉGRALE ACADEMY · VOTRE ESPACE ÉTUDIANT' if access else 'INTÉGRALE ACADEMY · À VOS CÔTÉS',
-        accent_title='Votre école, à portée de main.' if access else 'Gardons le lien.',
-        action_url=envelope.get('action_url'), action_label='Accéder à mon espace étudiant' if access else None,
-        security_note='Votre mot de passe personnel reste inchangé. Ne partagez jamais vos identifiants.' if access else None)
+    return render_school_email(envelope['subject'], envelope['body'], **envelope['email_options'],
+        security_note='Votre mot de passe personnel reste inchangé. Ne partagez jamais vos identifiants.' if access else '')[0]
 
 
 
@@ -138,7 +137,8 @@ def register_candidate_messages(app, db_connect, send_mail, send_sms, log_event)
     """Register without capturing app helpers, so callers may inject test transports."""
     @app.context_processor
     def _message_context():
-        return {'candidate_message_csrf': _csrf_token}
+        return {'candidate_message_csrf': _csrf_token, 'message_senders': SENDERS.values(),
+                'message_layouts': LAYOUTS, 'message_default_accent': DEFAULT_ACCENT}
 
     def prepare(cid):
         if not session.get('admin_ok'):
@@ -154,6 +154,16 @@ def register_candidate_messages(app, db_connect, send_mail, send_sms, log_event)
         if not row:
             return None, None, (jsonify(ok=False, error='Dossier introuvable.'), 404)
         return dict(row), data, None
+
+    @app.post('/admin/candidat/<cid>/message-assistant')
+    def admin_candidate_message_assistant(cid):
+        row, data, error = prepare(cid)
+        if error:
+            return error
+        from message_assistant import draft_response
+        # Contact details, history, attachments and sensitive dossier fields stay out.
+        context = {key: str(row.get(key) or '')[:120] for key in ('prenom', 'bts', 'mode')}
+        return draft_response(app, db_connect, data, dict(type='individuel', etudiant=context))
 
     @app.post('/admin/candidat/<cid>/message-preview')
     def admin_candidate_message_preview(cid):
@@ -175,7 +185,7 @@ def register_candidate_messages(app, db_connect, send_mail, send_sms, log_event)
             conn.commit()
         return jsonify(ok=True, recipient=envelope['recipient'], subject=envelope['subject'],
                        body=envelope['body'], html=_email_html(envelope) if envelope['type'] == 'email' else '',
-                       attachments=[name for name, _ in attachments], preview_token=token)
+                       attachments=[name for name, _ in attachments], sender=envelope.get('sender', {}), preview_token=token)
 
     @app.post('/admin/candidat/<cid>/message')
     def admin_candidate_message_send(cid):
@@ -213,7 +223,9 @@ def register_candidate_messages(app, db_connect, send_mail, send_sms, log_event)
                         path = Path(folder) / name
                         path.write_bytes(content)
                         paths.append(str(path))
-                    provider_id = send_mail(envelope['recipient'], envelope['subject'], _email_html(envelope), attachments=paths)
+                    sender = envelope['sender']
+                    provider_id = send_mail(envelope['recipient'], envelope['subject'], _email_html(envelope), attachments=paths,
+                        sender_email=sender['email'], sender_name=sender['name']+' · Intégrale Academy', reply_to=sender['email'])
             else:
                 provider_id = send_sms(envelope['recipient'], envelope['body'])
         except Exception:
@@ -233,6 +245,6 @@ def register_candidate_messages(app, db_connect, send_mail, send_sms, log_event)
 
     @app.after_request
     def private_message_responses(response):
-        if request.endpoint in {'admin_candidate_message_preview', 'admin_candidate_message_send'}:
+        if request.endpoint in {'admin_candidate_message_preview', 'admin_candidate_message_send', 'admin_candidate_message_assistant'}:
             response.headers['Cache-Control'] = 'no-store'
         return response

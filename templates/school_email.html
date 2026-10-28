@@ -49,6 +49,7 @@
             </tr></table>
           </td></tr></table>
         </td></tr>
+        {% if security_note %}<tr><td class="email-pad" style="padding:0 44px 24px;font-size:12px;line-height:1.6;color:#64748b">{{ security_note }}</td></tr>{% endif %}
         {% include 'school_email_footer.html' %}
       </table>
     </td></tr>
