@@ -85,8 +85,22 @@ def _fingerprint(conn, trainer_id, dates, courses):
 def _course_summary(course):
     return dict(id=course['id'], date=course['date'], start=course['start'], end=course['end'],
                 title=course['title'] or course['subject_name'], subject_name=course['subject_name'],
+                room_name=course.get('room_name'),
                 promotion_names=[group.get('promotion_name') or 'Promotion à renseigner' for group in course['groups']],
                 shared=course['is_shared'])
+
+
+def availability_course_date(args):
+    if set(args) != {'date'} or len(args.getlist('date')) != 1:
+        raise PlanningError('Choisissez une seule journée.')
+    day = _iso(args.get('date'))
+    if not 1900 <= day.year <= 2200:
+        raise PlanningError('Choisissez une date comprise entre 1900 et 2200.')
+    return day.isoformat()
+
+
+def availability_day_courses(conn, trainer_id, day):
+    return [_course_summary(course) for course in _load_courses(conn, day, day, trainer_id=trainer_id)]
 
 
 def _check_future(dates, courses, status=400):
@@ -98,9 +112,9 @@ def _check_future(dates, courses, status=400):
         raise PlanningError('Un cours de cette journée a déjà commencé ou est terminé. Contactez l’administration : ces cours ne peuvent pas être supprimés depuis votre espace.', status=status)
 
 
-def get_trainer_availability_state(conn, trainer_id, year):
+def get_trainer_availability_state(conn, trainer_id, year, *, school_year=False):
     ensure_trainer_availability_schema(conn)
-    begin, end = date(year, 1, 1), date(year, 12, 31)
+    begin, end = (date(year, 9, 1), date(year+1, 7, 31)) if school_year else (date(year, 1, 1), date(year, 12, 31))
     own = _owned(conn, trainer_id)
     blocks = _unavailability(conn, trainer_id)
     counts = {row['date']: row['amount'] for row in conn.execute('''SELECT date,COUNT(*) AS amount
@@ -118,7 +132,10 @@ def get_trainer_availability_state(conn, trainer_id, year):
                          public_holiday=public_holiday_name(day), course_count=counts.get(key, 0)))
         day += timedelta(days=1)
     today = _now_paris().date().isoformat()
-    return dict(year=year, today=today, min_date=today, max_date='2200-12-31',
+    months = list(dict.fromkeys(day['date'][:7] for day in days))
+    return dict(year=year, school_year=school_year, label=f'{year}–{year+1}' if school_year else str(year),
+                start=begin.isoformat(), end=end.isoformat(), months=months,
+                today=today, min_date=today, max_date='2200-12-31',
                 revision=_revision(conn, trainer_id), days=days)
 
 
@@ -162,12 +179,20 @@ def register_trainer_availability(app, db_connect, send_mail=None):
         return payload
 
     def year_from_query():
-        if set(request.args) - {'year'} or len(request.args.getlist('year')) > 1:
+        if set(request.args) - {'year', 'school_year'} or len(request.args) > 1 or any(len(v) != 1 for _, v in request.args.lists()):
             raise PlanningError('Indiquez uniquement l’année du calendrier.')
-        raw = request.args.get('year', str(_now_paris().year))
-        if not isinstance(raw, str) or len(raw) != 4 or not raw.isdigit() or not 1900 <= int(raw) <= 2200:
-            raise PlanningError('Indiquez une année comprise entre 1900 et 2200.')
-        return int(raw)
+        now = _now_paris()
+        # An old calendar-year link opens the school year containing January.
+        # Every displayed calendar now covers September through July.
+        legacy = 'year' in request.args
+        default = now.year if now.month >= 9 else now.year-1
+        raw = request.args.get('year' if legacy else 'school_year', str(default))
+        if not isinstance(raw, str) or len(raw) != 4 or not raw.isdigit():
+            raise PlanningError('Indiquez une année scolaire débutant entre 1900 et 2199.')
+        year = int(raw) - int(legacy)
+        if not 1900 <= year < 2200:
+            raise PlanningError('Indiquez une année scolaire débutant entre 1900 et 2199.')
+        return year, True
 
     def live_identity(conn, trainer_id):
         auth = session.get('_trainer_auth') or {}
@@ -192,13 +217,14 @@ def register_trainer_availability(app, db_connect, send_mail=None):
         if not trainer:
             return secure(redirect(url_for('trainer_login')))
         try:
-            year = year_from_query()
+            year, school = year_from_query()
             with closing(connect()) as conn:
-                state = get_trainer_availability_state(conn, trainer['id'], year)
+                state = get_trainer_availability_state(conn, trainer['id'], year, school_year=school)
             state['csrf_token'] = csrf()
             context = dict(csrf_token=csrf(), state_url=url_for('trainer_availability_state'),
                            preview_url=url_for('trainer_availability_preview'), commit_url=url_for('trainer_availability_commit'),
-                           home_url=url_for('trainer_dashboard'), planning_url=url_for('trainer_planning'), year=year, state=state)
+                           home_url=url_for('trainer_dashboard'), planning_url=url_for('trainer_planning'),
+                           courses_url=url_for('trainer_availability_courses'), year=year, state=state)
             return secure(app.make_response(render_template('trainer_availability.html', title='Mes disponibilités · Intégrale Academy',
                                                            trainer=trainer, availability=context, csrf_token=csrf())))
         except PlanningError as error:
@@ -208,10 +234,21 @@ def register_trainer_availability(app, db_connect, send_mail=None):
     def trainer_availability_state():
         try:
             trainer = authenticate()
-            year = year_from_query()
+            year, school = year_from_query()
             with closing(connect()) as conn:
-                snapshot = get_trainer_availability_state(conn, trainer['id'], year)
+                snapshot = get_trainer_availability_state(conn, trainer['id'], year, school_year=school)
             return result(dict(ok=True, **snapshot, csrf_token=csrf()))
+        except PlanningError as error:
+            return fail(error)
+
+    @app.get('/formateur/indisponibilites/api/courses')
+    def trainer_availability_courses():
+        try:
+            trainer = authenticate()
+            day = availability_course_date(request.args)
+            with closing(connect()) as conn:
+                courses = availability_day_courses(conn, trainer['id'], day)
+            return result(dict(ok=True, date=day, courses=courses))
         except PlanningError as error:
             return fail(error)
 

@@ -13,7 +13,8 @@ from io import BytesIO
 from planning import PlanningError, _iso, _load_courses, _unavailability, ensure_planning_schema
 from planning_holidays import public_holiday_name
 from planning_portal import _requested_day, _date_label, _course_dto
-from trainer_availability import get_trainer_availability_state, ensure_trainer_availability_schema
+from trainer_availability import (get_trainer_availability_state, ensure_trainer_availability_schema,
+                                  availability_course_date, availability_day_courses)
 
 
 def _now():
@@ -53,12 +54,12 @@ def get_admin_trainer_planning(conn, trainer_id, day=None):
         pdf_url=f'/admin/formateurs/{trainer_id}/planning.pdf?date={selected.isoformat()}')
 
 
-def get_admin_trainer_availability(conn, trainer_id, year):
+def get_admin_trainer_availability(conn, trainer_id, year, *, school_year=False):
     ensure_trainer_availability_schema(conn)
-    state=get_trainer_availability_state(conn,trainer_id,year)
+    state=get_trainer_availability_state(conn,trainer_id,year,school_year=school_year)
     state['revision']=_revision(conn,trainer_id)
     from trainer_notifications import notification_status
-    blocks=[block for block in _unavailability(conn,trainer_id) if block['start_date']<=f'{year}-12-31' and block['end_date']>=f'{year}-01-01']
+    blocks=[block for block in _unavailability(conn,trainer_id) if block['start_date']<=state['end'] and block['end_date']>=state['start']]
     for block in blocks:
         block['start_label']=date.fromisoformat(block['start_date']).strftime('%d/%m/%Y')
         block['end_label']=date.fromisoformat(block['end_date']).strftime('%d/%m/%Y')
@@ -66,6 +67,8 @@ def get_admin_trainer_availability(conn, trainer_id, year):
     return dict(state=state,blocks=blocks,year=year,
         save_url=f'/admin/formateurs/{trainer_id}/indisponibilites/jours',
         block_url=f'/admin/formateurs/{trainer_id}/indisponibilites/bloc/',
+        courses_url=f'/admin/formateurs/{trainer_id}/indisponibilites/cours',
+        planning_url=f'/admin/formateurs/{trainer_id}?tab=planning',
         notifications=notification_status(conn,trainer_id))
 
 
@@ -106,7 +109,7 @@ def build_trainer_period_pdf(conn, trainer_id, start, end):
         days.append(dict(date=day.isoformat(), kind='public_holiday' if holiday else 'school', label=holiday or '', public_holiday=bool(holiday)))
         day += timedelta(days=1)
     return build_planning_pdf({'nom': 'Planning de '+person_name(trainer['nom'],trainer['prenom'])},
-        courses, days, start, end, mode='weekly', show_weekends=True)
+        courses, days, start, end, mode='weekly', trainer_view=True)
 
 
 def register_admin_trainer_planning(app,db_connect,require_admin):
@@ -125,6 +128,18 @@ def register_admin_trainer_planning(app,db_connect,require_admin):
         conn=db_connect();ensure_trainer_availability_schema(conn);conn.commit();return conn
     def trainer_exists(conn,trainer_id):
         if not conn.execute('SELECT 1 FROM trainers WHERE id=?',(trainer_id,)).fetchone():abort(404)
+
+    @app.get('/admin/formateurs/<trainer_id>/indisponibilites/cours')
+    def admin_trainer_availability_courses(trainer_id):
+        guard()
+        try:
+            day = availability_course_date(request.args)
+            with closing(connect()) as conn:
+                trainer_exists(conn, trainer_id)
+                courses = availability_day_courses(conn, trainer_id, day)
+            return reply(dict(ok=True, date=day, courses=courses))
+        except PlanningError as error:
+            return reply(dict(ok=False, message=str(error)), error.status)
 
     @app.get('/admin/formateurs/<trainer_id>/planning.pdf')
     def admin_trainer_planning_pdf(trainer_id):

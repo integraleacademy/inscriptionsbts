@@ -94,4 +94,4 @@
 @media(prefers-reduced-motion:reduce){.academy-ui .ta-button,.academy-ui .ta-tool,.academy-ui .ta-icon-button{transition:none}}
 @media(max-width:600px){.academy-ui .ta-app[data-dirty=true] .ta-calendar-card{padding-bottom:180px}.academy-ui .ta-app[data-dirty=true] .ta-savebar{left:12px;right:12px;bottom:10px}}
 
-.academy-ui .ta-day.has-course:after{content:none}.academy-ui .ta-day .ta-course-dot{display:block;position:absolute;bottom:2px;left:calc(50% - 3.5px);width:7px;height:7px;border:1px solid white;background:#12834d;border-radius:50%;pointer-events:none}
+.academy-ui .ta-day.has-course:after{content:none}
