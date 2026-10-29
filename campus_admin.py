@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 import json
 import secrets
 import unicodedata
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from candidate_messages import _equal
@@ -14,6 +14,21 @@ from teaching import schema as teaching_schema
 from wedof_contracts import directory_contracts
 
 ENROLLED = ('confirmee', 'reconfirmee')
+ENROLLMENT_FILTERS = ('q', 'bts', 'mode', 'promotion', 'contract', 'rentree', 'carte_etudiante_manquante')
+
+
+def enrollment_return_url(value):
+    """Restore only a local enrollment directory and its supported filters."""
+    if not value:
+        return None
+    try:
+        target = urlsplit(value)
+    except ValueError:
+        return None
+    if target.scheme or target.netloc or target.path != url_for('admin_enrollments'):
+        return None
+    query = parse_qs(target.query)
+    return url_for('admin_enrollments', **{name: query[name][0] for name in ENROLLMENT_FILTERS if name in query})
 
 
 def key(value):
@@ -112,7 +127,7 @@ def register_campus_admin(app, db_connect, require_admin):
             promotions = list_promotions(conn, active_only=True)
             rows = enrolled_rows(conn)
             configured = directory_contracts(current_app, conn, rows)
-        filters = {name:request.args.get(name,'').strip() for name in ('q','bts','mode','promotion','contract','rentree','carte_etudiante_manquante')}
+        filters = {name:request.args.get(name,'').strip() for name in ENROLLMENT_FILTERS}
         for name, value in filters.items():
             if not value or name == 'contract': continue
             if name == 'q': rows = [r for r in rows if all(word in key(' '.join(str(r.get(k) or '') for k in ('nom','prenom','email','numero_dossier'))) for word in key(value).split())]
@@ -131,6 +146,7 @@ def register_campus_admin(app, db_connect, require_admin):
                      unassigned=sum(not r['promotion_id'] for r in rows),
                      remote=sum(r['mode']=='distanciel' for r in rows))
         context = dict(rows=rows, promotions=promotions, filters=filters, stats=stats,
+                       enrollments_return_url=url_for('admin_enrollments', **{name:value for name,value in filters.items() if value}),
                        discovery=discovery, wedof_configured=configured, title='Inscriptions · Intégrale Academy')
         if data_request:
             return jsonify(ok=True, stats_html=render_template('_enrollment_stats.html', **context),

@@ -1088,7 +1088,7 @@ from teaching import register_teaching
 register_teaching(app, db, lambda: UPLOAD_DIR, require_admin)
 from student_workspace import register_student_workspace, student_home_summary
 register_student_workspace(app, db, lambda: UPLOAD_DIR, require_admin)
-from campus_admin import register_campus_admin, sheet_context, ENROLLED
+from campus_admin import register_campus_admin, sheet_context, enrollment_return_url, ENROLLED
 register_campus_admin(app, db, require_admin)
 from school_messaging import register_school_messaging
 register_school_messaging(app, db, require_admin, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args: send_sms_brevo(*args))
@@ -1634,6 +1634,7 @@ def admin_candidate_sheet(cid):
         row = get_candidat(conn, cid)
         if row:
             school_context = sheet_context(conn, cid)
+            school_context['enrollments_return_url'] = enrollment_return_url(request.args.get('return_to'))
             school_context['london_mobility'] = london_context(conn, row)
             annotate_candidate_statuses(conn, [row])
             current_promotion = get_candidate_promotion(conn, cid)
