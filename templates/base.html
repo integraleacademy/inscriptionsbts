@@ -146,7 +146,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% elif is_trainer_space or is_trainer_admin %}
     <script src="{{ url_for('static', filename='js/trainer-space.js') }}?v=5" defer></script>
   {% elif request.endpoint in ['admin', 'admin_candidate_sheet'] %}
-    <script src="{{ url_for('static', filename='js/bts-management.js') }}?v=5" defer></script>
+    <script src="{{ url_for('static', filename='js/bts-management.js') }}?v=6" defer></script>
   {% elif request.endpoint == 'admin_candidate_create' %}
     <script src="{{ url_for('static', filename='js/candidate-create.js') }}?v=1" defer></script>
   {% elif request.endpoint in ['admin_enrollments','admin_school_messages','admin_absence_guide'] %}

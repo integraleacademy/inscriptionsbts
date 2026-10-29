@@ -200,3 +200,22 @@ def test_redesigned_pdf_preserves_clauses_and_signature_zones(automatic):
     for field in signature_layout(snapshot).values():
         assert field['page']==4 and field['y']+field['height']<790
     assert snapshot['version']==VERSION
+
+
+def test_cancelled_request_previews_fresh_recipients(automatic,signing):
+    send_auto(automatic);run();assert action(automatic,'cancel',cancel_confirmed='yes').status_code==200
+    with application.db() as conn:conn.execute("UPDATE companies SET email='new.contact@entreprise.example'")
+    soup=BeautifulSoup(automatic.get('/admin/candidat/london').data,'html.parser')
+    panel=soup.select_one('#panel-londres')
+    assert 'new.contact@entreprise.example' in panel.text and 'alex@entreprise.example' not in panel.text
+    assert not panel.select_one('[data-london-send] button').has_attr('disabled')
+
+
+def test_legacy_requests_are_not_mislabelled_as_sms(automatic,signing):
+    send_auto(automatic);run();state=attempts()[0];state.pop('authentication_mode')
+    for person in state['recipients']:person.pop('phone_number')
+    application.app.extensions['london_signatures'].save(state)
+    soup=BeautifulSoup(automatic.get('/admin/candidat/london').data,'html.parser')
+    panel=soup.select_one('#panel-londres')
+    assert 'Code par e-mail · ancienne demande' in panel.text
+    assert 'Code personnel par SMS' not in panel.text
