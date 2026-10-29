@@ -1,11 +1,12 @@
 """The filtered directory and its KPIs use verified WEDOF links and portraits."""
 import hashlib
+from html import unescape
 import io
 import json
 from pathlib import Path
 import re
 import time
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from flask import url_for
 from PIL import Image
@@ -163,3 +164,66 @@ def test_anonymous_browser_cannot_open_data_or_directory(directory):
     for route in ['/admin/inscriptions', '/admin/inscriptions/donnees']:
         response = anonymous.get(route, headers={'Accept': 'text/html', 'Sec-Fetch-Mode': 'navigate'})
         assert response.status_code == 302 and response.headers['Location'] == '/login'
+
+
+@pytest.mark.parametrize('source', ['/admin/inscriptions', '/admin/inscriptions/donnees'])
+def test_filtered_directory_survives_photo_change_and_sheet_reload(directory, source):
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET nom=? WHERE id='onsite'", ('Élise & Dupont',))
+    filters = dict(q='Élise & Dupont', bts='MCO', mode='presentiel', promotion='p1',
+                   contract='linked', rentree='2026', carte_etudiante_manquante='1')
+    response = directory.get(source + '?' + urlencode(filters))
+    html = response.json['rows_html'] if response.is_json else response.text
+    links = [unescape(link) for link in re.findall(r'href="([^"]+)"', html)
+             if urlsplit(unescape(link)).path == '/admin/candidat/onsite']
+    assert len(links) == 3
+    assert [urlsplit(link).fragment for link in links] == ['', 'contrat-apprentissage', '']
+    for link in links:
+        sheet = directory.get(link)
+        back = unescape(re.search(r'class="sheet-back" href="([^"]+)"', sheet.text).group(1))
+        assert urlsplit(back).path == '/admin/inscriptions'
+        assert parse_qs(urlsplit(back).query) == {name: [value] for name, value in filters.items()}
+    with directory.session_transaction() as state:
+        headers = {'X-CSRF-Token': state['_candidate_message_csrf']}
+    portrait = io.BytesIO()
+    Image.new('RGB', (80, 100), '#416f89').save(portrait, 'PNG')
+    portrait.seek(0)
+    upload = directory.post('/admin/candidat/onsite/photo',
+                            data={'photo': (portrait, 'portrait.png')}, headers=headers)
+    assert upload.status_code == 200 and upload.json['ok']
+    reloaded = directory.get(links[0])
+    back = unescape(re.search(r'class="sheet-back" href="([^"]+)"', reloaded.text).group(1))
+    sidebar = unescape(re.search(r'href="([^"]+)" title="Inscriptions"', reloaded.text).group(1))
+    assert sidebar == back
+    assert parse_qs(urlsplit(back).query) == {name: [value] for name, value in filters.items()}
+    returned = directory.get(back)
+    assert re.findall(r'data-enrollment-id="([^"]+)"', returned.text) == ['onsite']
+    assert 'data-student-photo' in returned.text
+    reset = unescape(re.search(r'href="([^"]+)">Réinitialiser</a>', returned.text).group(1))
+    assert reset == '/admin/inscriptions'
+    assert kpis(directory.get(reset).text)['total'] == 4
+
+
+def test_two_filtered_tabs_keep_independent_return_links(directory):
+    destinations = ['/admin/inscriptions?bts=MCO', '/admin/inscriptions?bts=MOS&promotion=none']
+    sheets = []
+    for destination in destinations:
+        page = directory.get(destination)
+        sheets.append(unescape(re.search(r'class="campus-person" href="([^"]+)"', page.text).group(1)))
+    for sheet_url, destination in zip(sheets, destinations):
+        # Reload the first sheet after another filtered list has been opened.
+        page = directory.get(sheet_url)
+        back = unescape(re.search(r'class="sheet-back" href="([^"]+)"', page.text).group(1))
+        assert back == destination
+
+
+@pytest.mark.parametrize('return_to', [
+    'https://outside.example/admin/inscriptions?bts=MOS',
+    '//outside.example/admin/inscriptions?bts=MOS',
+    'javascript:alert(1)', '/admin/inscriptions/donnees?bts=MOS', '/admin/delete/onsite',
+    'http://[invalid',
+])
+def test_sheet_rejects_unsafe_return_destinations(directory, return_to):
+    page = directory.get('/admin/candidat/onsite?' + urlencode({'return_to': return_to}))
+    assert page.status_code == 200
+    assert 'class="sheet-back" href="/admin/inscriptions"' in page.text
