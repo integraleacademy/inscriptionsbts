@@ -115,14 +115,14 @@ def test_directory_no_contract_requires_complete_success_and_current_identity(se
 
 
 @pytest.mark.parametrize('status', [401, 403, 429, 500])
-def test_directory_remote_failures_never_mean_no_contract_and_stop_queue(setup, status):
+def test_directory_remote_failures_never_mean_no_contract_and_stop_queue(setup, status, monkeypatch):
     setup[3].side_effect = lambda *a, **kw: Mock(status_code=status, content=b'{}')
     result = discover(setup)
     assert result['stop_sync']
     row = directory_state(setup)
     assert row['contract'] == 'linked' and not row['contract_needs_check']
-    with setup[1]() as conn:
-        conn.execute('UPDATE student_wedof_discovery SET updated_at=0')
+    later = time.time() + 61
+    monkeypatch.setattr(wc.time, 'time', lambda: later)
     assert directory_state(setup)['contract_needs_check']
 
 
@@ -281,6 +281,18 @@ def test_refresh_within_30_minutes_reads_only_cache(setup):
     setup[3].assert_not_called()
 
 
+def test_concurrent_refresh_does_not_overwrite_a_pending_read(setup):
+    link(setup); stale(setup)
+    with setup[1]() as conn:
+        conn.execute('UPDATE student_wedof_contracts SET last_attempt=?', (time.time(),))
+    setup[3].reset_mock()
+    assert post(setup, '/101/actualiser').status_code == 503
+    setup[3].assert_not_called()
+    with setup[1]() as conn:
+        row = conn.execute('SELECT * FROM student_wedof_contracts').fetchone()
+        assert not row['error'] and not json.loads(row['payload']).get('raw_stale')
+
+
 def test_outage_retains_old_data_marks_stale_and_throttles_failures(setup):
     link(setup); stale(setup)
     setup[3].side_effect = requests.Timeout('secret provider message')
@@ -292,7 +304,7 @@ def test_outage_retains_old_data_marks_stale_and_throttles_failures(setup):
         assert json.loads(row['payload'])['raw_stale'] and row['error']
     assert 'À vérifier' in setup[0].get('/admin/candidat/alice/contrats-apprentissage').json['html']
     setup[3].reset_mock()
-    assert post(setup,'/101/actualiser').json['cached']
+    assert post(setup,'/101/actualiser').status_code == 503
     setup[3].assert_not_called()
 
 
@@ -328,7 +340,8 @@ def test_http_read_uses_fixed_host_no_redirect_and_no_retry(setup):
     setup[3].side_effect = None
     setup[3].return_value = Mock(status_code=429,content=b'{"token":"secret"}',headers={})
     response=post(setup,'/rechercher',{'kind':'wedof','reference':'101'})
-    assert response.status_code == 502 and setup[3].call_count == 1
+    assert response.status_code == 429 and setup[3].call_count == 1
+    assert int(response.headers['Retry-After']) > 0
     args=setup[3].call_args
     assert args.args[0] == 'https://www.wedof.fr/api/workingContracts/101'
     assert args.kwargs['allow_redirects'] is False and args.kwargs['timeout'] == (3,5)
@@ -554,6 +567,133 @@ def test_auto_discovery_key_change_invalidates_error_cache(setup):
     setup[3].side_effect = reply
     setup[0].put('/admin/api/wedof/settings', json={'api_key':'another-wedof-test-key'}, headers=setup[2])
     assert discover(setup)['linked']
+
+
+def test_previous_hour_and_day_usage_no_longer_blocks_a_student(setup):
+    now = time.time()
+    with setup[1]() as conn:
+        conn.executemany('INSERT INTO student_wedof_calls VALUES(?)',
+                         [(now-120,)]*100 + [(now-7200,)]*400)
+    assert discover(setup)['linked']
+    assert setup[3].call_count == 5
+
+
+def test_persisted_old_quota_error_is_invalidated_without_waiting(setup):
+    with setup[1]() as conn:
+        row = dict(conn.execute("SELECT * FROM candidats WHERE id='alice'").fetchone())
+        key_hash = wc.hashlib.sha256(wc.get_key(setup[4], conn).encode()).hexdigest()
+        conn.execute('INSERT INTO student_wedof_discovery VALUES(?,?,?,?)', (
+            'alice', wc.discovery_fingerprint(row, key_hash), json.dumps({
+                'step': 'done', 'items': [], 'not_found': False, 'error_code': 'wedof_error',
+                'error_status': 429, 'message': 'Le plafond interne de lectures WEDOF est atteint. Réessayez plus tard.'}), time.time()))
+    assert directory_state(setup)['contract_needs_check']
+    assert discover(setup)['linked']
+
+
+@pytest.mark.parametrize('manual', [False, True])
+def test_discovery_retries_transient_failure_early_and_resumes_saved_phase(setup, monkeypatch, manual):
+    assert post(setup, '/detecter').json['pending']
+    reply = setup[3].side_effect
+    setup[3].side_effect = requests.Timeout()
+    assert discover(setup)['stop_sync']
+    setup[3].side_effect = reply
+    setup[3].reset_mock()
+    assert discover(setup)['cached']
+    setup[3].assert_not_called()
+    if not manual:
+        later = time.time() + 61
+        monkeypatch.setattr(wc.time, 'time', lambda: later)
+        assert directory_state(setup)['contract_needs_check']
+    assert discover(setup, manual=manual)['linked']
+    assert setup[3].call_count == 4
+    assert setup[3].call_args_list[0].args[0].endswith('/workingContracts')
+
+
+@pytest.mark.parametrize('headers,delay', [
+    ({'Retry-After': '12'}, 12),
+    ({'X-RateLimit-Reset': '23'}, 23),
+    ({'X-RateLimit-Retry-At': '1800000040'}, 40),
+    ({'Retry-After': 'Fri, 15 Jan 2027 08:00:30 GMT'}, 30),
+    ({'Retry-After': 'invalid', 'X-RateLimit-Reset': 'nan'}, 60),
+    ({}, 60),
+])
+def test_upstream_limit_is_shared_and_manual_retry_cannot_bypass_it(setup, monkeypatch, headers, delay):
+    # Frozen timestamp: 15 January 2027, 08:00 UTC.
+    clock = [1800000000.0]
+    monkeypatch.setattr(wc.time, 'time', lambda: clock[0])
+    setup[0].get('/init')
+    with setup[0].session_transaction() as state:
+        state['admin_ok'] = True
+    reply = setup[3].side_effect
+    setup[3].side_effect = lambda *a, **kw: Mock(status_code=429, headers=headers, content=b'{}')
+    blocked = discover(setup)
+    assert blocked['stop_sync'] and blocked['retry_after'] == delay
+    assert '30 minutes' not in discover(setup)['message']
+    assert discover(setup, manual=True)['cached']
+    other = post(setup, '/rechercher', {'kind': 'wedof', 'reference': '101'}, cid='bob')
+    assert other.status_code == 429 and int(other.headers['Retry-After']) == delay
+    assert setup[3].call_count == 1
+    clock[0] += delay + 1
+    setup[3].side_effect = reply
+    assert discover(setup)['linked']
+
+
+def test_last_available_read_pauses_next_phase_without_losing_progress(setup, monkeypatch):
+    clock = [time.time()]
+    monkeypatch.setattr(wc.time, 'time', lambda: clock[0])
+    reply = setup[3].side_effect
+    def last_available(url, **kwargs):
+        response = reply(url, **kwargs)
+        response.headers = {'X-RateLimit-Remaining': '0', 'X-RateLimit-Reset': '20'}
+        return response
+    setup[3].side_effect = last_available
+    assert post(setup, '/detecter').json['pending']
+    setup[3].side_effect = reply
+    assert discover(setup)['stop_sync']
+    assert setup[3].call_count == 1
+    clock[0] += 21
+    assert discover(setup)['linked']
+    assert setup[3].call_count == 5
+
+
+@pytest.mark.parametrize('endpoint', ['/registrationFolders/OPCO-101', '/workingContracts/101/raw'])
+def test_rate_limit_during_verification_never_links_incomplete_data(setup, monkeypatch, endpoint):
+    clock = [time.time()]
+    monkeypatch.setattr(wc.time, 'time', lambda: clock[0])
+    reply = setup[3].side_effect
+    def limited(url, **kwargs):
+        if url.endswith(endpoint):
+            return Mock(status_code=429, headers={'Retry-After': '15'}, content=b'{}')
+        return reply(url, **kwargs)
+    setup[3].side_effect = limited
+    result = discover(setup)
+    assert result['stop_sync'] and linked_count(setup) == 0
+    calls = setup[3].call_count
+    assert discover(setup, manual=True)['cached']
+    assert setup[3].call_count == calls
+    clock[0] += 16
+    setup[3].side_effect = reply
+    assert discover(setup)['linked']
+    assert setup[3].call_count == calls + 3
+
+
+def test_refresh_recovers_after_provider_delay_and_preserves_saved_schedules(setup, monkeypatch):
+    link(setup); stale(setup)
+    clock = [time.time()]
+    monkeypatch.setattr(wc.time, 'time', lambda: clock[0])
+    reply = setup[3].side_effect
+    setup[3].side_effect = lambda *a, **kw: Mock(status_code=429, headers={'Retry-After': '10'}, content=b'{}')
+    assert post(setup, '/101/actualiser').status_code == 429
+    with setup[1]() as conn:
+        item = json.loads(conn.execute('SELECT payload FROM student_wedof_contracts').fetchone()[0])
+        assert item['schedules'][0]['montantTotal'] == 6000
+    setup[3].reset_mock()
+    assert post(setup, '/101/actualiser').status_code == 429
+    setup[3].assert_not_called()
+    clock[0] += 11
+    setup[3].side_effect = reply
+    assert post(setup, '/101/actualiser').status_code == 200
+    assert setup[3].call_count == 3
 
 
 def test_auto_discovery_detach_stays_detached_after_reload_and_cache_expiry(setup):

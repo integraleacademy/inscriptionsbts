@@ -12,10 +12,11 @@ import re
 
 
 class WedofError(ValueError):
-    def __init__(self, message, code="wedof_error", status=400):
+    def __init__(self, message, code="wedof_error", status=400, retry_at=None):
         super().__init__(message)
         self.code = code
         self.status = status
+        self.retry_at = retry_at
 
 
 WedofApiError = WedofError
