@@ -39,16 +39,31 @@ Authentification `X-Api-Key`, hôte fixe https://www.wedof.fr/api, redirections 
 - Aperçu : relecture du contrat sélectionné, puis dossier de formation associé et
   `GET /workingContracts/{id}/raw` pour les données CFA Dock et échéances.
 - Actualisation : mêmes lectures ciblées, au plus une fois par 30 minutes et par
-  contrat, y compris après échec. Le GET de la liste reste une lecture du cache local ;
+  contrat après une réussite ; un échec autorise une nouvelle tentative après une
+  minute, sous réserve du délai WEDOF. Le GET de la liste reste une lecture du cache local ;
   la découverte utilise des POST avec CSRF depuis la fiche ou la liste filtrée.
   Chaque requête traite une étape bornée (au plus trois lectures externes). Les
-  résultats de découverte, même vides ou en erreur, sont conservés 30 minutes entre
-  les sessions admin. Une modification de l’identité ou de la clé invalide ce cache.
+  résultats de découverte réussis, même vides, sont conservés 30 minutes entre
+  les sessions admin. Les erreurs sont conservées une minute ; une relance manuelle
+  peut retenter un échec, mais respecte toujours une pause imposée par WEDOF.
+  La découverte reprend l’étape interrompue tant que ses résultats restent valides.
+  Une modification de l’identité ou de la clé invalide ce cache.
 
 Chaque lecture est sans retry, timeout connexion 3 s / lecture 5 s. Une opération
-WEDOF à la fois, verrou SQLite partagé entre workers. Plafonds internes locaux :
-100 lectures par heure et 500 par jour. Ils ne représentent pas le quota du compte
-WEDOF partagé avec d’autres sites.
+WEDOF à la fois, verrou SQLite partagé entre workers. Les anciens plafonds internes
+de 100 lectures par heure et 500 par jour sont supprimés, et leurs erreurs déjà
+enregistrées sont invalidées dès la prochaine lecture. Une protection contre les
+rafales reste limitée à 100 lectures sur une minute glissante.
+
+La [documentation WEDOF](https://www.wedof.fr/api/doc/structure), vérifiée le
+29 octobre 2026, indique des limites à la minute, variables selon l’offre et le type
+d’appel. Les réponses `429` et `X-RateLimit-Remaining: 0` enregistrent une pause
+partagée entre fiches et workers, liée à l’empreinte de la clé. Le délai vient de
+`Retry-After` (secondes ou date HTTP), `X-RateLimit-Reset` ou `X-RateLimit-Retry-At` ;
+à défaut, il est d’une minute. Une relance ne contourne pas cette pause. Le délai
+restant est affiché, sans annoncer à tort une conservation de l’erreur 30 minutes.
+Les compteurs du fournisseur prennent ainsi en compte l’usage du compte partagé
+avec d’autres sites. Aucun retry réseau automatique ni attente bloquante.
 
 ## Liste des inscriptions
 

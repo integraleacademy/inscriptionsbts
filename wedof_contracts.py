@@ -5,13 +5,16 @@ to one student's folders; reference searches paginate explicitly. Credentials an
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
 import base64
+from collections.abc import Mapping
 from contextlib import closing, contextmanager
 from datetime import date, datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
+from email.utils import parsedate_to_datetime
 from functools import wraps
 import hashlib
 import hmac
 import json
+import math
 import os
 import re
 import secrets
@@ -29,8 +32,48 @@ from wedof_contract_data import (FINANCERS, STATES, WedofError, date as source_d
     financer_filter, folder_fields, identifier, normalize_summary, raw_fields, stamp)
 
 CACHE_SECONDS = 1800
+ERROR_CACHE_SECONDS = 60
+READ_WINDOW_SECONDS = 60
+READ_WINDOW_LIMIT = 100
 PREVIEW_SECONDS = 1800
 BASE_URL = "https://www.wedof.fr/api"
+
+
+def retry_time(headers, now):
+    """Respect WEDOF's reset headers, including standard HTTP Retry-After."""
+    deadlines = []
+    for name, relative in (('retry-after', True), ('x-ratelimit-reset', True), ('x-ratelimit-retry-at', False)):
+        value = headers.get(name)
+        try:
+            number = float(value)
+            deadline = now + number if relative else number
+        except (ValueError, TypeError):
+            if name != 'retry-after' or not isinstance(value, str):
+                continue
+            try:
+                deadline = parsedate_to_datetime(value).timestamp()
+            except (ValueError, TypeError, OverflowError):
+                continue
+        if math.isfinite(deadline) and deadline > now:
+            deadlines.append(deadline)
+    return max(deadlines) if deadlines else now + READ_WINDOW_SECONDS
+
+
+def rate_limit_error(retry_at):
+    seconds = max(1, math.ceil(retry_at - time.time()))
+    return WedofError(f'Les lectures WEDOF sont momentanément en pause. Réessayez dans {seconds} secondes.',
+                      code='rate_limited', status=429, retry_at=retry_at)
+
+
+def discovery_cache_valid(state, updated_at, manual=False):
+    if state.get('error_code') or state.get('error_status'):
+        # Invalidate errors persisted by the removed hourly/daily local quota.
+        if state.get('error_status') == 429 and state.get('error_code') == 'wedof_error':
+            return False
+        if state.get('retry_at'):
+            return state['retry_at'] > time.time()
+        return not manual and updated_at > time.time() - ERROR_CACHE_SECONDS
+    return updated_at > time.time() - CACHE_SECONDS
 
 
 def ensure_schema(conn):
@@ -190,7 +233,7 @@ def directory_contracts(app, conn, rows):
             continue
         if state.get('suppressed'):
             row.update(contract_needs_check=False, contract_detail='Rattachement automatique suspendu dans la fiche.')
-        elif saved['updated_at'] > time.time()-CACHE_SECONDS and state.get('step') == 'done':
+        elif discovery_cache_valid(state, saved['updated_at']) and state.get('step') == 'done':
             row.update(contract_needs_check=False, contract_detail=state.get('message', 'Vérifiez le contrat dans la fiche.'))
             if state.get('not_found') is True and not state.get('incomplete') and not state.get('error_code') and not state.get('items'):
                 row.update(contract='no', contract_label='Aucun contrat identifié', contract_detail='Aucun contrat trouvé lors de la dernière recherche WEDOF.')
@@ -258,8 +301,8 @@ def billing(item):
 
 
 class Client:
-    def __init__(self, key, reserve):
-        self.key, self.reserve = key, reserve
+    def __init__(self, key, reserve, remember_limit):
+        self.key, self.reserve, self.remember_limit = key, reserve, remember_limit
 
     def read(self, path, params=None):
         self.reserve()
@@ -269,6 +312,12 @@ class Client:
                 timeout=(3, 5), allow_redirects=False)
         except requests.RequestException:
             raise WedofError('WEDOF est momentanément injoignable. Les informations enregistrées sont conservées.', status=502) from None
+        headers = {k.lower(): v for k, v in response.headers.items()} if isinstance(response.headers, Mapping) else {}
+        if response.status_code == 429 or str(headers.get('x-ratelimit-remaining')) == '0':
+            retry_at = retry_time(headers, time.time())
+            self.remember_limit(retry_at)
+            if response.status_code == 429:
+                raise rate_limit_error(retry_at)
         errors = {401: 'La clé WEDOF est invalide. Vérifiez-la dans Paramètres.',
                   403: 'La connexion WEDOF n’autorise pas la lecture de ces données.',
                   404: 'Ce contrat ou dossier est introuvable dans WEDOF.',
@@ -359,6 +408,8 @@ class Client:
                 raw, _ = self.read('/registrationFolders/' + quote(folder, safe=''))
                 data.update(folder_fields(raw, folder))
             except WedofError as error:
+                if error.code == 'rate_limited':
+                    raise
                 errors.append(str(error))
                 if error.code in {'http_401', 'http_403', 'http_429'}:
                     data.update(raw_stale=True, raw_error=str(error), details_error=str(error))
@@ -373,7 +424,7 @@ class Client:
             # Empty CERFA fields must not erase the verified folder identity.
             data.update({k: v for k, v in fields.items() if v not in ('', None) or not data.get(k)})
         except WedofError as error:
-            if error.code == 'identity_conflict':
+            if error.code in {'identity_conflict', 'rate_limited'}:
                 raise
             data.update(raw_stale=True, raw_error=str(error), raw_identity_conflict=error.code == 'raw_identity_mismatch')
         data['details_error'] = ' '.join(errors)
@@ -404,7 +455,12 @@ def register_wedof_contracts(app, connect, require_admin):
             try:
                 return fn(*args, **kwargs)
             except WedofError as error:
-                return jsonify(ok=False, message=str(error)), error.status
+                response = jsonify(ok=False, message=str(error), code=error.code,
+                                   retry_after=max(0, math.ceil(error.retry_at-time.time())) if error.retry_at else None)
+                response.status_code = error.status
+                if error.retry_at:
+                    response.headers['Retry-After'] = str(max(1, math.ceil(error.retry_at-time.time())))
+                return response
         return wrapped
 
     @bp.after_request
@@ -472,14 +528,24 @@ def register_wedof_contracts(app, connect, require_admin):
             with closing(connection()) as conn:
                 conn.execute('BEGIN IMMEDIATE')
                 now = time.time()
-                conn.execute('DELETE FROM student_wedof_calls WHERE created_at<?', (now-86400,))
-                count = conn.execute('SELECT COUNT(*),SUM(created_at>?) FROM student_wedof_calls', (now-3600,)).fetchone()
-                if count[0] >= 500 or (count[1] or 0) >= 100:
-                    raise WedofError('Le plafond interne de lectures WEDOF est atteint. Réessayez plus tard.', status=429)
+                cooldown = conn.execute('SELECT value FROM student_wedof_settings WHERE name=?', (limit_key,)).fetchone()
+                if cooldown and float(cooldown['value']) > now:
+                    raise rate_limit_error(float(cooldown['value']))
+                conn.execute('DELETE FROM student_wedof_calls WHERE created_at<=?', (now-READ_WINDOW_SECONDS,))
+                boundary = conn.execute('SELECT created_at FROM student_wedof_calls ORDER BY created_at DESC LIMIT 1 OFFSET ?',
+                                        (READ_WINDOW_LIMIT-1,)).fetchone()
+                if boundary:
+                    raise rate_limit_error(boundary['created_at'] + READ_WINDOW_SECONDS)
                 conn.execute('INSERT INTO student_wedof_calls VALUES(?)', (now,))
                 conn.commit()
+        limit_key = 'rate_limit:' + config_id(key)
+        def remember_limit(retry_at):
+            with closing(connection()) as conn:
+                conn.execute('INSERT INTO student_wedof_settings VALUES(?,?) ON CONFLICT(name) DO UPDATE SET value=excluded.value',
+                             (limit_key, str(retry_at)))
+                conn.commit()
         try:
-            yield Client(key, reserve)
+            yield Client(key, reserve, remember_limit)
         finally:
             with closing(connection()) as conn:
                 conn.execute('DELETE FROM student_wedof_lock WHERE id=1 AND token=?', (token,))
@@ -535,8 +601,10 @@ def register_wedof_contracts(app, connect, require_admin):
             state = json.loads(stored['payload'])
             if state.get('suppressed') and not manual:
                 return state, stored['updated_at']
-            if not state.get('suppressed') and stored['updated_at'] > time.time()-CACHE_SECONDS:
+            if not state.get('suppressed') and discovery_cache_valid(state, stored['updated_at'], manual):
                 return state, stored['updated_at']
+            if state.get('resume') and stored['updated_at'] > time.time()-CACHE_SECONDS:
+                return state['resume'], stored['updated_at']
         return {'step': 'email', 'items': [], 'folders': [], 'incomplete': False}, stored['updated_at'] if stored else None
 
     def discovery_reply(cid, state, config, cached=False):
@@ -546,8 +614,11 @@ def register_wedof_contracts(app, connect, require_admin):
             with closing(connection()) as conn:
                 token = save_preview(conn, cid, 'search', {'config': config, 'items': items})
         public_items = [{k: i.get(k) for k in ('working_contract_id', 'external_number', 'deca_number', 'employer_name', 'state_label')} for i in items]
+        error = bool(state.get('error_code') or state.get('error_status'))
+        message = str(rate_limit_error(state['retry_at'])) if state.get('retry_at', 0) > time.time() else state.get('message', 'Recherche des contrats WEDOF de cet étudiant…')
         return jsonify(ok=True, pending=state['step'] != 'done', linked=bool(state.get('linked')),
-                       message=state.get('message', 'Recherche des contrats WEDOF de cet étudiant…') + (' Le résultat de cette recherche est conservé 30 minutes.' if cached and not state.get('suppressed') else ''),
+                       message=message + (' Le résultat de cette recherche est conservé 30 minutes.' if cached and not error and not state.get('suppressed') else ''),
+                       retry_after=max(0, math.ceil(state.get('retry_at', 0)-time.time())),
                        token=token, items=public_items, cached=cached,
                        stop_sync=state.get('error_code') in {'http_401', 'http_403', 'http_429'} or state.get('error_status') in {429, 502, 503})
 
@@ -572,6 +643,7 @@ def register_wedof_contracts(app, connect, require_admin):
             if state['step'] == 'done':
                 return discovery_reply(cid, state, config, cached=True)
             item_to_link = None
+            resume = dict(state)
             try:
                 if state['step'] in {'email', 'name'}:
                     folders, more = client.folders(row, by_name=state['step'] == 'name')
@@ -607,7 +679,8 @@ def register_wedof_contracts(app, connect, require_admin):
                     if automatic_identity(row, item) and not item.get('details_error') and not item.get('raw_identity_conflict'):
                         item_to_link = item
             except WedofError as error:
-                state.update(step='done', items=[], not_found=False, error_code=error.code, error_status=error.status, message=str(error))
+                state.update(step='done', items=[], not_found=False, error_code=error.code, error_status=error.status,
+                             message=str(error), retry_at=error.retry_at or 0, resume=resume)
             with closing(connection()) as conn:
                 conn.execute('BEGIN IMMEDIATE')
                 current_row = conn.execute('SELECT * FROM candidats WHERE id=?', (cid,)).fetchone()
@@ -749,8 +822,11 @@ def register_wedof_contracts(app, connect, require_admin):
             stored = conn.execute('SELECT * FROM student_wedof_contracts WHERE candidate_id=? AND contract_id=?', (cid, key)).fetchone()
             if not stored:
                 abort(404)
-            if time.time()-max(stored['checked_at'], stored['last_attempt']) < CACHE_SECONDS:
+            if not stored['error'] and time.time()-stored['checked_at'] < CACHE_SECONDS:
                 return jsonify(ok=True, message='Les dernières données sont conservées. Une nouvelle lecture sera possible 30 minutes après la précédente.', cached=True)
+            if (not stored['error'].startswith('Le plafond interne de lectures WEDOF')
+                    and time.time()-stored['last_attempt'] < ERROR_CACHE_SECONDS):
+                raise WedofError('Une actualisation est en cours ou vient d’échouer. Réessayez dans quelques instants ; les données précédentes sont conservées.', status=503)
             conn.execute('UPDATE student_wedof_contracts SET last_attempt=? WHERE contract_id=?', (time.time(), key))
             conn.commit()
         old = json.loads(stored['payload'])
@@ -772,8 +848,9 @@ def register_wedof_contracts(app, connect, require_admin):
         except WedofError as error:
             with closing(connection()) as conn:
                 old['raw_stale'] = True
-                conn.execute('UPDATE student_wedof_contracts SET error=?,payload=? WHERE candidate_id=? AND contract_id=?',
-                             (str(error), json.dumps(old, ensure_ascii=False), cid, key))
+                conn.execute('UPDATE student_wedof_contracts SET error=?,payload=?,last_attempt=? WHERE candidate_id=? AND contract_id=?',
+                             (str(error), json.dumps(old, ensure_ascii=False),
+                              0 if error.code == 'rate_limited' else time.time(), cid, key))
                 conn.commit()
             raise
         return jsonify(ok=True, message='Les informations disponibles ont été actualisées depuis WEDOF.')
