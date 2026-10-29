@@ -63,7 +63,7 @@
   async function discover(manual = false) {
     notice('wc-notice', 'Recherche automatique du contrat dans WEDOF…');
     for (let phase = 0; phase < 8; phase++) {
-      const result = await api('/detecter', {manual});
+      const result = await api('/detecter', {manual, origin: 'interactive'});
       notice('wc-notice', result.message);
       if (result.pending) continue;
       if (result.linked) await load();
@@ -76,8 +76,7 @@
     throw new Error('La recherche reste incomplète. Utilisez la référence exacte du contrat.');
   }
   async function initialLoad() {
-    const result = await load();
-    if (result.configured && !result.has_contracts) await discover();
+    await load();
   }
   const openSearch = () => { $('wc-search').hidden = false; $('wc-reference').focus(); };
   $('wc-add').addEventListener('click', openSearch);

@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 os.environ.setdefault('INTEGRITY_CHECK', '0')
 os.environ.setdefault('BREVO_HEALTH_MONITOR', '0')
+os.environ.setdefault('WEDOF_DAILY_SYNC_DISABLED', '1')
 os.environ.setdefault('DATA_DIR', tempfile.mkdtemp(prefix='bts-campaign-bootstrap-'))
 import pytest
 import app as application

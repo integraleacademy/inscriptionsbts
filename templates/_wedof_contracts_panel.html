@@ -1,5 +1,6 @@
 {% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
 <div class="wc-heading"><div><p class="wc-eyebrow">ALTERNANCE · SUIVI DU CONTRAT</p><h2>Contrat d’apprentissage</h2><p>Le contrat, les interlocuteurs et le financement, au même endroit.</p></div><button class="btn primary" type="button" id="wc-add">Rattacher un contrat</button></div>
+<p class="wc-help">Vérification automatique chaque jour à <strong>8 h, heure de Paris</strong>. Les informations enregistrées restent consultables toute la journée.</p>
 <p class="wc-message" id="wc-notice" role="status" hidden></p>
 <p class="wc-message wc-error" id="wc-error" role="alert" hidden></p>
 <div id="wc-list"><p class="wc-loading">Chargement des contrats…</p></div>
@@ -17,4 +18,4 @@
   <div id="wc-results" aria-live="polite"></div>
   <div id="wc-preview" hidden></div>
 </section>
-<script src="{{ url_for('static', filename='js/wedof-contracts.js') }}?v=3" defer></script>
+<script src="{{ url_for('static', filename='js/wedof-contracts.js') }}?v=4" defer></script>

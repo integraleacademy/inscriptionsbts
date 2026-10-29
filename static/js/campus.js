@@ -8,7 +8,6 @@
   const feedback = root.querySelector('[data-enrollment-feedback]');
   const contractFeedback = root.querySelector('[data-contract-feedback]');
   const checkContracts = root.querySelector('[data-check-contracts]');
-  const contractsEnabled = !checkContracts.disabled;
   const filters = root.querySelector('.campus-filters');
   let busy = false, checking = false, refreshPending = false, refreshVersion = 0;
   const renderedRows = new Map([...root.querySelectorAll('tr[data-enrollment-id]')].map(row => [row.dataset.enrollmentId, row.outerHTML]));
@@ -71,7 +70,7 @@
     incoming.querySelectorAll('tr[data-enrollment-id]').forEach(row => {
       const id = row.dataset.enrollmentId, previous = currentRows.get(id), html = row.outerHTML;
       nextIds.add(id);
-      // Reuse unchanged rows and already loaded portraits during discovery.
+      // Reuse unchanged rows and already loaded portraits during refresh.
       if (previous && renderedRows.get(id) === html) row.replaceWith(previous);
       else if (previous) {
         const photo = previous.querySelector('[data-student-photo]');
@@ -91,35 +90,14 @@
     return result;
   }
 
-  async function discover(ids) {
-    if (checking || busy || !contractsEnabled) return;
-    checking = true;
-    checkContracts.disabled = true;
-    let done = 0;
+  async function refreshContracts() {
+    if (checking || busy) return;
+    checking = true; checkContracts.disabled = true;
     try {
-      if (!ids) ids = (await refresh()).discovery;
-      for (const id of ids) {
-        contractFeedback.textContent = `Vérification des contrats : ${done + 1} / ${ids.length} étudiants… Les compteurs se mettent à jour progressivement.`;
-        let finished = false;
-        for (let phase = 0; phase < 8; phase++) {
-          const result = await json(`/admin/candidat/${encodeURIComponent(id)}/contrats-apprentissage/detecter`, {
-            method: 'POST', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': root.dataset.wedofCsrf}, body: '{}'
-          });
-          if (result.stop_sync) throw Error(result.message);
-          if (!result.pending) {finished = true; break;}
-        }
-        if (!finished) throw Error('La recherche de ce dossier est incomplète. Consultez sa fiche pour la poursuivre.');
-        done++;
-        await refresh();
-      }
-      contractFeedback.textContent = 'Vérification terminée. Les compteurs correspondent aux filtres appliqués ; les éventuels cas ambigus restent « À vérifier ».';
-    } catch (error) {
-      contractFeedback.textContent = error.message + ' Les contrats déjà trouvés sont conservés ; les dossiers non vérifiés restent « À vérifier ».';
-      try {await refresh();} catch (_) { /* Keep the original, actionable error. */ }
-    } finally {
-      checking = false;
-      checkContracts.disabled = !contractsEnabled || busy;
-    }
+      await refresh();
+      contractFeedback.textContent = 'Affichage actualisé. La vérification WEDOF a lieu chaque jour à 8 h, heure de Paris.';
+    } catch (error) {contractFeedback.textContent = error.message;}
+    finally {checking = false; checkContracts.disabled = busy;}
   }
 
   async function assign(ids, promotion) {
@@ -138,7 +116,7 @@
       feedback.textContent = error.message;
       busy = false;
       controls.forEach((n, i) => {n.disabled = disabled[i];});
-      checkContracts.disabled = !contractsEnabled || checking;
+      checkContracts.disabled = checking;
       sync();
     }
   }
@@ -156,12 +134,10 @@
     if (refreshPending) setTimeout(() => {if (!busy) refresh().catch(() => {});}, 0);
   });
   bulk.addEventListener('click', () => assign(selected().map(c => c.value), target.value));
-  checkContracts.addEventListener('click', () => discover());
+  checkContracts.addEventListener('click', refreshContracts);
   // Re-read local links after another tab attaches a contract. No remote polling.
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden && !checking && !busy) refresh().catch(() => {});
   });
   photos(); sync();
-  const queue = JSON.parse(root.querySelector('[data-contract-discovery]').textContent);
-  if (queue.length) discover(queue);
 })();
