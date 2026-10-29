@@ -875,8 +875,15 @@ def register_planning(app,db_connect,require_admin):
             return dict(course=next(item for item in _load_courses(conn,course['date'],course['date']) if item['id']==cid),message='Cours ajouté.')
         return transact(operation)
 
-    @app.route('/admin/planning/api/courses/<course_id>',methods=['PUT','DELETE'])
+    @app.route('/admin/planning/api/courses/<course_id>',methods=['GET','PUT','DELETE'])
     def planning_course_update(course_id):
+        if request.method == 'GET':
+            guard()
+            try:
+                with closing(connect()) as conn:
+                    return result(course=existing_course(conn,course_id,{}))
+            except PlanningError as error:
+                return fail(error)
         def operation(conn,payload):
             old=existing_course(conn,course_id,payload,require_version=True)
             check_course_scope(conn,old)

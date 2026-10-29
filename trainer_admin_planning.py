@@ -2,6 +2,7 @@
 from person_names import person_name
 from contextlib import closing
 from datetime import date, datetime, timedelta
+from calendar import monthrange
 import hashlib
 import hmac
 import json
@@ -68,6 +69,46 @@ def get_admin_trainer_availability(conn, trainer_id, year):
         notifications=notification_status(conn,trainer_id))
 
 
+def trainer_export_bounds(args):
+    allowed = {'date', 'period', 'start', 'end'}
+    if set(args) - allowed or any(len(values) != 1 for _, values in args.lists()):
+        raise ValueError('Choisissez une seule période.')
+    selected = _requested_day(args.get('date'))
+    period = args.get('period', 'week')
+    if period == 'week':
+        start = selected - timedelta(days=selected.weekday())
+        end = start + timedelta(days=6)
+    elif period == 'month':
+        start = selected.replace(day=1)
+        end = selected.replace(day=monthrange(selected.year, selected.month)[1])
+    elif period == 'school_year':
+        year = selected.year if selected.month >= 9 else selected.year - 1
+        start, end = date(year, 9, 1), date(year+1, 7, 31)
+    elif period == 'custom':
+        start, end = _iso(args.get('start')), _iso(args.get('end'))
+    else:
+        raise ValueError('Choisissez une semaine, un mois, une année scolaire ou une période personnalisée.')
+    if not 1900 <= start.year <= end.year <= 2200 or not 0 <= (end-start).days <= 366:
+        raise ValueError('La période doit couvrir au maximum une année, entre 1900 et 2200.')
+    return start, end
+
+
+def build_trainer_period_pdf(conn, trainer_id, start, end):
+    from planning_pdf import build_planning_pdf
+    trainer = conn.execute('SELECT nom,prenom FROM trainers WHERE id=?', (trainer_id,)).fetchone()
+    courses = _load_courses(conn, start.isoformat(), end.isoformat(), trainer_id=trainer_id)
+    for course in courses:
+        course['_promotion_labels'] = list(dict.fromkeys(g.get('promotion_name') or 'Promotion à préciser' for g in course['groups']))
+    days = []
+    day = start
+    while day <= end:
+        holiday = public_holiday_name(day)
+        days.append(dict(date=day.isoformat(), kind='public_holiday' if holiday else 'school', label=holiday or '', public_holiday=bool(holiday)))
+        day += timedelta(days=1)
+    return build_planning_pdf({'nom': 'Planning de '+person_name(trainer['nom'],trainer['prenom'])},
+        courses, days, start, end, mode='weekly', show_weekends=True)
+
+
 def register_admin_trainer_planning(app,db_connect,require_admin):
     # Register the private financial checks alongside the admin trainer panels.
     from trainer_invoices import register_trainer_invoices
@@ -88,15 +129,15 @@ def register_admin_trainer_planning(app,db_connect,require_admin):
     @app.get('/admin/formateurs/<trainer_id>/planning.pdf')
     def admin_trainer_planning_pdf(trainer_id):
         guard()
-        if set(request.args)-{'date'} or len(request.args.getlist('date'))>1:abort(400)
         try:
+            start, end = trainer_export_bounds(request.args)
             with closing(connect()) as conn:
-                trainer_exists(conn,trainer_id);snapshot=get_admin_trainer_planning(conn,trainer_id,request.args.get('date'))
-            from planning_pdf import build_portal_planning_pdf
-            response=send_file(BytesIO(build_portal_planning_pdf(snapshot)),mimetype='application/pdf',as_attachment=False,
-                download_name='planning-formateur-'+snapshot['week_start']+'.pdf')
+                trainer_exists(conn,trainer_id)
+                data = build_trainer_period_pdf(conn,trainer_id,start,end)
+            response=send_file(BytesIO(data),mimetype='application/pdf',as_attachment=False,
+                download_name=f'planning-formateur-{start.isoformat()}-{end.isoformat()}.pdf')
             response.headers['Cache-Control']='private, no-store';response.vary.add('Cookie');return response
-        except ValueError:abort(400)
+        except (ValueError, PlanningError) as error:abort(400, str(error))
 
     @app.post('/admin/formateurs/<trainer_id>/indisponibilites/jours')
     def admin_trainer_availability_days(trainer_id):

@@ -171,6 +171,29 @@ def register_campus_admin(app, db_connect, require_admin):
                     if all(w in key(' '.join(str(r[k] or '') for k in ('nom','prenom','bts','email','numero_dossier'))) for w in query.split()):
                         results.append(dict(label=person_name(r['nom'],r['prenom']), detail=f"BTS {r['bts']} · {r['rentree_annee'] or 2026}", mode=r['mode'], url='/admin/candidat/'+r['id'],kind='Étudiant'))
                         if len(results)>=15: break
+                # Separate limits keep a common name from hiding other types.
+                tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+                if 'trainers' in tables:
+                    matches = 0
+                    for r in conn.execute('SELECT id,nom,prenom,email,active FROM trainers ORDER BY nom,prenom'):
+                        if all(w in key(' '.join(str(r[k] or '') for k in ('nom','prenom','email'))) for w in query.split()):
+                            results.append(dict(label=person_name(r['nom'],r['prenom']), detail=(r['email'] or 'E-mail à renseigner') + (' · Désactivé' if not r['active'] else ''), url='/admin/formateurs/'+r['id'], kind='Formateur'))
+                            matches += 1
+                            if matches >= 15: break
+                if 'companies' in tables:
+                    matches = 0
+                    for r in conn.execute('SELECT id,name,contact,email,phone,siret,active FROM companies ORDER BY name'):
+                        if all(w in key(' '.join(str(r[k] or '') for k in ('name','contact','email','phone','siret'))) for w in query.split()):
+                            results.append(dict(label=r['name'], detail=' · '.join(v for v in (r['contact'],r['siret'],'Désactivée' if not r['active'] else '') if v), url='/admin/entreprises/'+r['id'], kind='Entreprise'))
+                            matches += 1
+                            if matches >= 15: break
+                if 'promotions' in tables:
+                    matches = 0
+                    for r in conn.execute('SELECT id,nom,bts,rentree_annee FROM promotions ORDER BY nom'):
+                        if all(w in key(f"{r['nom']} {r['bts']} {r['rentree_annee']}") for w in query.split()):
+                            results.append(dict(label=r['nom'], detail=f"BTS {r['bts']} · {r['rentree_annee']}", url='/admin/planning?'+urlencode({'promotion_id':r['id']}), kind='Promotion'))
+                            matches += 1
+                            if matches >= 10: break
         for label,url,detail in FUNCTIONS:
             if not query or all(w in key(label+' '+detail) for w in query.split()):
                 results.append(dict(label=label,url=url,detail=detail,kind='Fonction'))

@@ -105,6 +105,12 @@ def course_window(course, now=None):
 def assert_trainer_session(conn, identity_id):
     if not has_request_context():
         return
+    from trainer_access import admin_trainer_preview
+    preview = admin_trainer_preview()
+    if preview and preview.get('trainer_id') == identity_id and request.method in ('GET', 'HEAD'):
+        row = conn.execute('SELECT version FROM trainers WHERE id=?', (identity_id,)).fetchone()
+        if row and row['version'] == preview.get('version'):
+            return
     auth = session.get('_trainer_auth') or {}
     account = conn.execute('SELECT active,version,password_hash FROM trainers WHERE id=?', (identity_id,)).fetchone()
     if (not account or not account['active'] or not account['password_hash'] or auth.get('trainer_id') != identity_id

@@ -15,7 +15,7 @@ import secrets
 import sqlite3
 import time
 
-from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from branded_email import render_branded_email
 from trainer_records import ensure_optional_trainer_email
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -62,12 +62,25 @@ def _schema(conn):
 
 
 def _clear_trainer_session():
-    for key in ('_trainer_auth', '_trainer_csrf', '_trainer_reset_hash'):
+    for key in ('_trainer_auth', '_trainer_csrf', '_trainer_reset_hash', '_trainer_preview'):
         session.pop(key, None)
 
 
+def admin_trainer_preview():
+    """A preview is an admin grant, never a replacement trainer login."""
+    identity = session.get('_trainer_preview')
+    guard = current_app.extensions.get('trainer_preview_admin_guard')
+    if (isinstance(identity, dict) and guard and guard()
+            and isinstance(identity.get('expires_at'), (int, float))
+            and identity['expires_at'] > time.time()):
+        return identity
+    session.pop('_trainer_preview', None)
+    return None
+
+
 def get_authenticated_trainer(app, db_connect):
-    identity = session.get('_trainer_auth')
+    preview = admin_trainer_preview()
+    identity = preview or session.get('_trainer_auth')
     if not isinstance(identity, dict) or not isinstance(identity.get('expires_at'), (int, float)) or identity['expires_at'] <= time.time():
         if identity:
             session.pop('_trainer_auth', None)
@@ -79,16 +92,26 @@ def get_authenticated_trainer(app, db_connect):
         with closing(db_connect()) as conn:
             _schema(conn)
             row = conn.execute('SELECT id,nom,prenom,email,active,version,password_hash FROM trainers WHERE id=?', (identity.get('trainer_id'),)).fetchone()
-            if not row or not row['active'] or not row['password_hash'] or row['version'] != identity.get('version'):
-                session.pop('_trainer_auth', None)
+            if not row or (not preview and (not row['active'] or not row['password_hash'])) or row['version'] != identity.get('version'):
+                session.pop('_trainer_preview' if preview else '_trainer_auth', None)
                 return None
-            return {key: row[key] for key in ('id','nom','prenom','email')}
+            return {key: row[key] for key in ('id','nom','prenom','email','version')}
     except sqlite3.OperationalError:
         return None
 
 
 def register_trainer_access(app, db_connect, send_mail, require_admin):
+    app.extensions['trainer_preview_admin_guard'] = require_admin
     dummy_hash = generate_password_hash(secrets.token_urlsafe(32), method='scrypt')
+
+    @app.before_request
+    def protect_trainer_preview():
+        if request.path.startswith('/formateur') and admin_trainer_preview() and request.method not in ('GET', 'HEAD', 'OPTIONS'):
+            return jsonify(ok=False, message='Cet espace est ouvert en consultation. Modifiez les informations depuis l’administration.'), 403
+
+    @app.context_processor
+    def trainer_preview_context():
+        return dict(trainer_admin_preview=admin_trainer_preview() if request.path.startswith('/formateur') else None)
 
     def require_configured_key():
         if not app.secret_key or app.secret_key in ('change-me', b'change-me'):
@@ -319,7 +342,10 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         allowed = {'tab', 'month', 'month_number', 'year', 'school_year', 'date'}
         if set(request.args) - allowed or any(len(values) != 1 for _, values in request.args.lists()):
             abort(400, 'Sélectionnez une seule période.')
-        tab = request.args.get('tab', 'accounting')
+        # Preserve older bookmarked accounting periods; a plain trainer file
+        # now opens its planning, as do date-based links.
+        legacy_period = 'date' not in request.args and any(key in request.args for key in ('month','month_number','year','school_year'))
+        tab = request.args.get('tab', 'accounting' if legacy_period else 'planning')
         if tab not in ('accounting', 'planning', 'availability', 'account'):
             abort(400, 'Choisissez un onglet de la fiche.')
         default_month = 7 if tab == 'accounting' and now.month == 8 else now.month
@@ -432,6 +458,26 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 context['account_promotion_ids'] = current
             conn.commit()
         return page('trainer_detail.html', title=person_name(trainer['nom'],trainer['prenom'])+' · Fiche formateur', **context)
+
+    @app.post('/admin/formateurs/<trainer_id>/espace')
+    def admin_trainer_open_portal(trainer_id):
+        admin_guard()
+        check_csrf()
+        with closing(db_connect()) as conn:
+            row = conn.execute('SELECT id,nom,prenom,version FROM trainers WHERE id=?', (trainer_id,)).fetchone()
+            if not row:
+                abort(404)
+        session['_trainer_preview'] = dict(trainer_id=row['id'], version=row['version'],
+            name=person_name(row['nom'], row['prenom']), expires_at=time.time()+3600)
+        return secure(redirect(url_for('trainer_dashboard'), code=303))
+
+    @app.post('/admin/formateurs/espace/fermer')
+    def admin_trainer_close_portal():
+        admin_guard()
+        check_csrf()
+        identity = session.pop('_trainer_preview', {})
+        target = url_for('admin_trainer_detail', trainer_id=identity['trainer_id']) if identity.get('trainer_id') else url_for('admin_trainers')
+        return secure(redirect(target, code=303))
 
     @app.post('/admin/formateurs/<trainer_id>/tarif')
     def admin_trainer_hourly_rate(trainer_id):
@@ -615,7 +661,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                     AND upper(trim(c.bts))=p.bts AND COALESCE(c.rentree_annee,2026)=p.rentree_annee
                     AND c.statut IN ('confirmee','reconfirmee')
                 ORDER BY p.rentree_annee DESC,p.bts,COALESCE(p.niveau,0),p.nom,c.nom,c.prenom'''
-            students=[dict(row) for row in conn.execute(sql,(trainer['id'],session['_trainer_auth']['version']))]
+            students=[dict(row) for row in conn.execute(sql,(trainer['id'],trainer['version']))]
             from planning_portal import get_portal_today
             portal_today=get_portal_today(conn,'trainer',trainer['id'])
         return page('trainer_dashboard.html',title='Mes étudiants · Espace formateur',trainer=trainer,students=students,

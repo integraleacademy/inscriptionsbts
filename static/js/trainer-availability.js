@@ -105,6 +105,7 @@
         button.classList.toggle('is-holiday', !!day.public_holiday);
         button.classList.toggle('is-partial', !!day.partial);
         button.classList.toggle('has-course', Number(day.course_count) > 0);
+        if (Number(day.course_count) > 0) { const dot = document.createElement('span'); dot.className = 'ta-course-dot'; dot.setAttribute('aria-hidden','true'); button.append(dot); }
         button.classList.toggle('is-past', date < (data.today || '1900-01-01'));
         button.classList.toggle('is-today', date === data.today);
         if (date === data.today) button.setAttribute('aria-current', 'date');
