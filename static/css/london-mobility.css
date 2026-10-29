@@ -1,3 +1,101 @@
-.mobility-card .sheet-section-heading{align-items:flex-start;gap:20px}.mobility-identity{background:#f2f6fb;border-radius:12px;padding:15px 18px;font-weight:650;color:#1f3556}.mobility-identity span{display:block;font-size:12px;color:#66758b;font-weight:400;margin-top:5px}.mobility-source{display:flex;align-items:flex-end;gap:12px;margin:24px 0}.mobility-source>label{flex:1;min-width:0}.mobility-fieldset{border:0;padding:0;margin:26px 0}.mobility-fieldset legend{font-size:15px;font-weight:650;margin-bottom:17px;color:#243a58}.mobility-guardian,.mobility-signed-upload{margin:20px 0}.mobility-guardian summary,.mobility-signed-upload summary{cursor:pointer;color:#244a7b;font-size:13px;font-weight:600;line-height:1.6}.mobility-guardian .sheet-fields{margin-top:16px}.mobility-actions{margin-top:24px}.mobility-notice{padding:13px 16px;border:1px solid #eddca5;border-radius:10px;background:#fff9e8;color:#72531c;font-size:13px;line-height:1.6}.mobility-version{padding:22px 0;border-top:1px solid #e7ecf3}.mobility-version-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:15px}.mobility-version h3{margin:0 0 6px}.mobility-version-heading p{font-size:12px;color:#66758b}.mobility-empty{padding:20px;background:#f5f7fa;border-radius:12px;color:#66758b;line-height:1.7}.mobility-signed-upload form{margin-top:16px;display:grid;gap:16px}.mobility-confirm{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.6}.mobility-confirm input{width:17px;height:17px;flex-shrink:0;margin-top:3px}[data-mobility-message]{padding:12px 16px;border-radius:10px;background:#fff0ed;color:#8a2d1c;font-size:13px;line-height:1.6}[data-mobility-form][aria-busy=true]{opacity:.65}[data-mobility-form] button:disabled{cursor:wait}.mobility-card .btn,.mobility-documents .btn{white-space:normal;text-align:center}.mobility-documents .campus-actions{gap:8px;flex-wrap:wrap}
-@media(max-width:760px){.mobility-source,.mobility-version-heading{flex-direction:column;align-items:stretch}.mobility-card .sheet-section-heading{flex-direction:column}.mobility-actions .btn,.mobility-documents .campus-actions .btn{flex:1 1 100%}.mobility-source .btn{align-self:flex-start}}
-.mobility-signature{margin:24px 0;padding:20px;background:#f5f8ff;border:1px solid #dce5f5;border-radius:12px}.mobility-signature h4{font-size:15px;color:#243a58;margin:0 0 12px}.mobility-signature .mobility-fieldset{margin:20px 0}.mobility-recipients{list-style:none;padding:0;margin:20px 0}.mobility-recipients>li{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:14px 0;border-bottom:1px solid #dce5f5}.mobility-recipients>li>div{flex:1;min-width:180px}.mobility-recipients strong,.mobility-recipients span{display:block;font-size:12px;overflow-wrap:anywhere}.mobility-recipients strong{margin-bottom:5px}.mobility-signature-resume{display:grid;gap:16px;margin:20px 0}.mobility-send{margin-top:18px}.mobility-signature .sheet-field input{width:100%;box-sizing:border-box}.mobility-signature .btn:disabled{cursor:not-allowed;opacity:.5}@media(max-width:760px){.mobility-signature{padding:15px}.mobility-recipients>li>form{width:100%}.mobility-signature .sheet-fields{grid-template-columns:1fr}.mobility-signature .btn{width:100%}}
+/* London is a focused workspace within the student record. */
+.candidate-sheet:has(#panel-londres:not([hidden])) .sheet-layout{grid-template-columns:minmax(0,1fr)}
+.candidate-sheet:has(#panel-londres:not([hidden])) .sheet-side-column{display:none}
+.london-workspace{--ln-ink:#152d50;--ln-muted:#69788e;--ln-line:#e3e9f2;--ln-blue:#315fe9;--ln-green:#17765d;color:var(--ln-ink);padding:8px 0 24px}
+.london-workspace [hidden],.london-dialog [hidden]{display:none!important}
+.london-heading{display:flex;align-items:center;justify-content:space-between;gap:24px;margin:8px 0 25px}
+.london-kicker{font-size:10px;font-weight:750;letter-spacing:.17em;color:#74849b;display:block;margin:0 0 9px}
+.london-heading h2{font-size:32px;line-height:1.2;letter-spacing:-1px;margin:0 0 8px;color:var(--ln-ink)}
+.london-heading h2>span{color:#d3a535}
+.london-heading p,.london-description{font-size:14px;color:var(--ln-muted);line-height:1.75;margin:0}
+.london-destination{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--ln-line);border-radius:30px;padding:11px 17px;font-size:12px;font-weight:650;white-space:nowrap}
+.london-destination svg,.london-workspace svg,.london-dialog svg{width:19px;height:19px;flex-shrink:0}
+.london-destination>span{color:var(--ln-muted);margin-left:10px}
+.london-tabs{display:flex;gap:5px;padding:5px;background:#eaf0f7;border:1px solid #e2e8f1;border-radius:13px;width:fit-content;max-width:100%;margin-bottom:24px}
+.london-tabs button{border:0;background:transparent;border-radius:9px;padding:11px 20px;display:flex;align-items:center;justify-content:center;gap:9px;font:inherit;font-size:13px;font-weight:650;color:#687a92;cursor:pointer;white-space:nowrap}
+.london-tabs button[aria-selected=true]{background:white;color:var(--ln-ink);box-shadow:0 2px 6px #172f5310}
+.london-tabs button:hover{color:var(--ln-blue)}
+.london-tab-count{font-size:10px;border-radius:6px;background:#edf2f8;min-width:20px;padding:2px 5px;text-align:center}
+.london-overview{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(240px,1fr);gap:20px;align-items:stretch;margin-bottom:20px}
+.london-surface{background:white;border:1px solid var(--ln-line);box-shadow:0 4px 18px #142b4e03;border-radius:19px;padding:28px;min-width:0}
+.london-card-top{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:21px}
+.london-round-icon{display:flex;align-items:center;justify-content:center;background:#f0f4fd;color:var(--ln-blue);width:47px;height:47px;border-radius:14px;flex-shrink:0}
+.london-round-icon svg{width:23px;height:23px}
+.london-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid #e4eaf2;border-radius:30px;padding:6px 11px;font-size:11px;font-weight:650;color:#687990;background:#fafbfd;line-height:1.4;text-align:center}
+.london-pill.is-complete{background:#edf9f4;border-color:#d5eee3;color:#17765d}
+.london-pill.is-active{background:#edf2ff;border-color:#dce6fe;color:#315fe9}
+.london-launch h3{font-size:23px;line-height:1.3;letter-spacing:-.6px;margin:0 0 12px}
+.london-steps{display:flex;list-style:none;margin:26px 0;padding:0;gap:8px}
+.london-steps li{flex:1;display:flex;align-items:center;gap:8px;font-size:12px;color:#7b899a}
+.london-steps li:not(:last-child):after{content:'';height:1px;background:#e0e7f1;flex:1;margin:0 3px}
+.london-steps li>span{border:1px solid #dce5f0;display:flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:50%;font-size:10px;background:#fafbfd;flex-shrink:0}
+.london-steps li.is-done{color:var(--ln-green)}
+.london-steps li.is-done>span{background:#edf9f4;border-color:#cfeade}
+.london-workspace .london-primary{border-radius:10px;min-height:46px;padding:13px 19px;font-size:13px;justify-content:center;gap:9px;display:inline-flex;max-width:100%;white-space:normal;line-height:1.4;text-align:center}
+.london-primary:disabled{opacity:.52;cursor:not-allowed;box-shadow:none}
+.london-workspace .btn{border-radius:9px}
+.london-secondary{margin-top:10px}
+.london-reassurance{display:flex;align-items:center;gap:7px;margin:17px 0 0;font-size:11px;color:#8391a3;line-height:1.5}
+.london-reassurance svg{width:15px;height:15px}
+.london-trip-summary{background:linear-gradient(140deg,#f6f9ff,#fcfdff 65%);position:relative;overflow:hidden}
+.london-trip-summary:after{content:'';position:absolute;width:160px;height:160px;border:1px solid #e7edf9;border-radius:50%;right:-65px;top:45px;pointer-events:none}
+.london-trip-icon{width:42px;height:42px;background:#eaf0fc;color:#6680b4;border-radius:50%;display:flex;align-items:center;justify-content:center;margin:22px 0 15px}
+.london-trip-icon svg{width:24px;height:24px}
+.london-trip-summary h3{font-size:26px;letter-spacing:-.6px;margin:0 0 4px}
+.london-trip-summary>p{font-size:12px;color:var(--ln-muted);margin:0}
+.london-trip-summary dl{margin:23px 0 17px}
+.london-trip-summary dl>div{padding:12px 0;border-bottom:1px solid #e7edf5}
+.london-trip-summary dt,.london-stay-details dt{font-size:10px;color:var(--ln-muted);margin-bottom:6px}
+.london-trip-summary dd,.london-stay-details dd{font-size:12px;font-weight:650;margin:0;display:flex;gap:6px;align-items:center;line-height:1.6;overflow-wrap:anywhere}
+.london-trip-summary dd svg{width:14px;height:14px;color:#7b8ba3}
+.london-text-button{border:0;background:none;padding:0;display:inline-flex;gap:15px;align-items:center;color:var(--ln-blue);font:inherit;font-size:12px;font-weight:650;cursor:pointer;text-decoration:none;line-height:1.6}
+.london-text-button:hover,.london-source:hover{text-decoration:underline}
+.london-section-title{display:flex;justify-content:space-between;align-items:start;gap:15px;margin-bottom:23px}
+.london-section-title h3{font-size:18px;letter-spacing:-.3px;margin:0 0 6px}
+.london-section-title p{font-size:12px;color:var(--ln-muted);line-height:1.6;margin:0}
+.london-person-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:15px}
+.london-person{border:1px solid #e7edf5;border-radius:12px;padding:17px;min-width:0}
+.london-person-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.london-person-icon{display:flex;align-items:center;justify-content:center;color:#7890b3;background:#f5f7fb;border-radius:7px;padding:6px}
+.london-person-icon svg{width:15px;height:15px}
+.london-person-role{font-size:11px;color:var(--ln-muted);font-weight:600}
+.london-person-status{margin-left:auto;font-size:10px;color:#667b98}
+.london-person-status.is-signed{color:var(--ln-green)}
+.london-person h4{font-size:14px;line-height:1.6;margin:0 0 7px;overflow-wrap:anywhere}
+.london-person p{font-size:12px;color:var(--ln-muted);line-height:1.6;margin:0 0 5px;overflow-wrap:anywhere}
+.london-person p.london-mobile{display:flex;align-items:center;gap:6px}
+.london-mobile svg{width:13px;height:13px;color:#8e9bb0}
+.london-source{display:inline-block;font-size:10px;color:#8191aa;text-decoration:none;margin-top:12px}
+.london-person form{margin-top:15px}
+.london-footnote{font-size:11px;color:#8a97a8;margin:20px 0 0;line-height:1.7}
+.london-footnote a{color:#6c83a5}
+.london-missing{background:#fffbf3;border:1px solid #f0e5cf;border-radius:12px;padding:16px;margin:0 0 20px}
+.london-missing h4{font-size:13px;margin:0 0 6px;color:#815e24}
+.london-missing>p{font-size:12px;line-height:1.6;color:#967e57;margin:0}
+.london-missing ul{list-style:none;padding:0;margin:10px 0 0}
+.london-missing li{font-size:12px;line-height:1.6;margin:8px 0;display:flex;flex-direction:column;gap:3px}
+.london-missing a{color:#7f642f;font-weight:600}
+.london-alert,[data-mobility-message]:not([hidden]),[data-london-send-error]:not([hidden]){font-size:13px;line-height:1.6;border-radius:10px;padding:13px 16px;background:#fff3ee;color:#963f2c;margin:14px 0}
+.london-cancel{margin-top:20px;padding-top:18px;border-top:1px solid var(--ln-line);font-size:12px;color:var(--ln-muted)}
+.london-cancel summary{cursor:pointer}.london-cancel p{line-height:1.7}.london-cancel label{display:block;margin:15px 0}
+.london-stay-details{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;padding:20px 0;margin:0 0 20px;border-block:1px solid var(--ln-line)}
+.london-checklist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:26px}
+.london-checklist>div{display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fafbfd;border:1px solid #edf1f7;border-radius:10px;font-size:12px}
+.london-checklist small{margin-left:auto;color:#8998ac;font-size:10px}.london-check{font-size:18px;color:#a4b1c4}.london-check.checked{color:var(--ln-green)}
+.london-document{display:flex;align-items:center;gap:16px;border-top:1px solid var(--ln-line);padding:21px 0}
+.london-document-info{flex:1;min-width:0}.london-document-info h4{font-size:13px;margin:0 0 7px}.london-document-info p{font-size:11px;color:var(--ln-muted);margin:0}
+.london-document-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.london-document-actions .btn{font-size:11px}
+.london-signed-label{color:var(--ln-green)}.london-empty{text-align:center;padding:40px 15px}.london-empty>svg{width:35px;height:35px;color:#9bacbf}.london-empty h4{font-size:15px}.london-empty p{font-size:13px;color:var(--ln-muted)}
+.london-dialog{border:1px solid #e0e7f2;border-radius:24px;padding:34px;width:470px;max-width:calc(100vw - 32px);box-sizing:border-box;color:#152d50;box-shadow:0 25px 100px #11294730;text-align:center;overflow:auto;max-height:90dvh}
+.london-dialog::backdrop{background:#10234270;backdrop-filter:blur(5px)}
+.london-dialog h2{font-size:23px;letter-spacing:-.5px;line-height:1.3;margin:0 0 12px}
+.london-dialog>p:not(.london-kicker){font-size:13px;line-height:1.75;color:#70819a}
+.london-dialog-art{width:76px;height:76px;display:flex;align-items:center;justify-content:center;background:#f0f4ff;border-radius:50%;position:relative;margin:0 auto 24px;color:#315fe9}
+.london-dialog-art>svg{width:30px;height:30px}.london-dialog-orbit{position:absolute;inset:-5px;border-radius:50%;border:2px solid #edf1fc;border-top-color:#5377ee;animation:london-spin 1.5s linear infinite}
+.london-dialog.is-success .london-dialog-art{color:#17765d;background:#edf9f4}.london-dialog.is-success .london-dialog-orbit{animation:none;border-color:#d2ecdf}.london-dialog.is-error .london-dialog-orbit{animation:none;border-color:#f4d5c9}
+.london-dialog-steps{list-style:none;margin:24px 0;padding:0;text-align:left;background:#f8faff;border:1px solid #e8edf7;border-radius:12px}
+.london-dialog-steps li{display:flex;align-items:center;gap:10px;padding:13px 16px;font-size:12px;color:#8b99ae}.london-dialog-steps li+li{border-top:1px solid #e8edf7}.london-dialog-steps li>span{width:17px;height:17px;border:1px solid #d7e0ef;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}.london-dialog-steps li.is-current{color:#315fe9}.london-dialog-steps li.is-current>span{border-color:#315fe9;box-shadow:0 0 0 3px #315fe910}.london-dialog-steps li.is-done{color:#17765d}.london-dialog-steps li.is-done>span{background:#e8f7ef;border-color:#cfe8db}.london-dialog-note{font-size:11px!important}.london-dialog .btn{width:100%;justify-content:center;margin-top:8px;border-radius:10px}
+@keyframes london-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.london-dialog-orbit{animation:none}}
+@media(max-width:1050px){.london-overview{grid-template-columns:minmax(0,1.5fr) minmax(230px,1fr)}.london-surface{padding:23px}.london-document{flex-wrap:wrap}.london-document-actions{width:100%}.london-stay-details{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:750px){.london-heading{gap:10px}.london-heading h2{font-size:27px}.london-heading p{font-size:12px}.london-destination{display:none}.london-overview{grid-template-columns:1fr}.london-tabs{width:100%;box-sizing:border-box}.london-tabs button{padding:10px 9px;font-size:11px;gap:5px;flex:1}.london-tabs svg{width:15px;height:15px}.london-surface{padding:20px;border-radius:15px}.london-launch h3{font-size:21px}.london-primary{width:100%}.london-steps li{font-size:10px;gap:5px}.london-steps{gap:4px}.london-steps li:not(:last-child):after{margin:0}.london-trip-summary{padding-top:22px}.london-trip-icon{display:none}.london-trip-summary dl{margin:17px 0}.london-person-grid,.london-checklist{grid-template-columns:1fr}.london-section-title{flex-wrap:wrap}.london-reassurance{font-size:10px}.london-dialog{padding:26px 22px}.london-stay-details{gap:18px}.london-document .london-round-icon{width:35px;height:40px}.london-document-actions{gap:8px}.london-document-actions .btn{padding:9px 10px}}

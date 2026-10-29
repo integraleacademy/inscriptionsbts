@@ -1,7 +1,7 @@
 """Candidate-owned Yousign requests, checkpointed before each remote mutation.
 
-No invitation is sent by generation or polling. Only an explicit, reviewed send
-activates a request. A timed-out mutation must be reconciled before any retry.
+Only an explicit administrator send authorizes activation. One-click requests
+persist that authorization so their worker can recover after a restart.
 """
 from contextlib import closing, contextmanager
 from datetime import datetime, timezone
@@ -48,6 +48,9 @@ def signature_schema(conn):
         status TEXT NOT NULL, payload TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)''')
     conn.execute('CREATE INDEX IF NOT EXISTS london_signatures_candidate ON london_mobility_signatures(candidate_id,created_at)')
     conn.execute('CREATE INDEX IF NOT EXISTS london_signatures_status ON london_mobility_signatures(status,updated_at)')
+    conn.execute('''CREATE TABLE IF NOT EXISTS london_mobility_notifications (
+        version_id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL,
+        created_at TEXT NOT NULL, read_at TEXT)''')
 
 
 def active_signature(conn, cid):
@@ -86,7 +89,7 @@ def public_state(state):
         people.append({**person, 'label': ROLES[person['role']], 'status': tracked.get('status', 'initiated'),
                        'status_label': SIGNER_LABELS.get(tracked.get('status', 'initiated'), 'En attente'),
                        'can_remind': state['status'] == 'ongoing' and tracked.get('status') == 'notified'})
-    visible = {k: state.get(k) for k in ('id', 'status', 'error', 'sent_at', 'completed_at', 'checked_at', 'pending')}
+    visible = {k: state.get(k) for k in ('id', 'version_id', 'status', 'error', 'sent_at', 'completed_at', 'checked_at', 'pending', 'automatic', 'authentication_mode')}
     visible.update(label=LABELS.get(state['status'], 'À vérifier'), recipients=people,
                    active=state['status'] in ACTIVE,
                    can_resume=state['status'] in {'preparing','draft'} and not state.get('pending'),
@@ -148,6 +151,9 @@ def recipients_for(data, raw):
     if minor_at_signing(data):
         people.append(dict(role='guardian', first_name=data['guardian_first_name'], last_name=data['guardian_last_name'], email=raw.get('guardian_email')))
     for person in people:
+        from london_mobility_data import mobile
+        try: person['phone_number'] = mobile(raw.get(person['role'] + '_phone'))
+        except ValueError: raise SignatureError('Vérifiez le mobile du signataire « ' + ROLES[person['role']] + ' » pour le code SMS.') from None
         for key in ('first_name','last_name','email'):
             person[key] = str(person[key] or '').strip()
             if not person[key] or len(person[key]) > (254 if key == 'email' else 100):
@@ -155,11 +161,16 @@ def recipients_for(data, raw):
         if not re.fullmatch(r'[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+', person['email']):
             raise SignatureError('Vérifiez l’e-mail du signataire « ' + ROLES[person['role']] + ' ».')
     if len({p['email'].casefold() for p in people}) != len(people):
-        raise SignatureError('Chaque signataire doit utiliser une adresse e-mail distincte pour recevoir son code personnel.')
+        raise SignatureError('Chaque signataire doit utiliser une adresse e-mail distincte pour son invitation.')
+    if len({p['phone_number'] for p in people}) != len(people):
+        raise SignatureError('Chaque signataire doit utiliser son propre mobile pour recevoir son code SMS.')
     return people
 
 
 def signature_fields(data):
+    if data.get('version') == 'london-20261029-2':
+        from london_mobility_documents import signature_layout
+        return signature_layout(data)
     manifest = json.loads((Path(__file__).parent / 'assets/london_mobility/manifest.json').read_text())
     variant = manifest['minor' if minor_at_signing(data) else 'adult']
     names = {'company_signature':'employer', 'beneficiary_signature':'apprentice', 'guardian':'guardian'}
@@ -200,11 +211,11 @@ class SignatureService:
         if not found: abort(404)
         return json.loads(found[0])
 
-    def begin(self, cid, vid, raw):
+    def begin(self, cid, vid, raw, *, automatic=False):
         from london_mobility import current_settings, digest, snapshot, source_fingerprint
         # Instantiate first: missing configuration must not lock a version in a draft.
         self.api()
-        if raw.get('reviewed') != 'yes':
+        if not automatic and raw.get('reviewed') != 'yes':
             raise SignatureError('Relisez le PDF et confirmez les destinataires avant l’envoi.')
         with closing(self.connect()) as conn:
             conn.execute('BEGIN IMMEDIATE')
@@ -218,16 +229,26 @@ class SignatureService:
             if version['signed_id']: raise SignatureError('Cette convention est déjà signée.')
             if active_signature(conn, cid): raise SignatureError('Une demande existe déjà. Consultez son suivi avant tout nouvel envoi.')
             latest = conn.execute('SELECT id FROM london_mobility_versions WHERE candidate_id=? ORDER BY created_at DESC LIMIT 1', (cid,)).fetchone()
-            values, _, _, selected, _ = current_settings(conn, row)
-            if latest['id'] != vid or digest(snapshot(row, values, selected)) != version['fingerprint']:
-                raise SignatureError('Les informations ont changé. Générez et relisez la nouvelle version avant l’envoi.')
-            if raw.get('source_fingerprint') != source_fingerprint(conn, row):
-                raise SignatureError('La fiche a changé. Rechargez-la pour vérifier les destinataires.')
             data = json.loads(version['snapshot'])
+            if automatic:
+                from london_mobility_data import automatic_data
+                resolved = automatic_data(conn, row, convention_date=data['convention_date'])
+                if not resolved['ready']: raise SignatureError(resolved['issues'][0]['message'])
+                current = digest(resolved['snapshot'])
+            else:
+                values, _, _, selected, _ = current_settings(conn, row)
+                current = digest(snapshot(row, values, selected))
+            if latest['id'] != vid or current != version['fingerprint']:
+                raise SignatureError('Les informations ont changé. Générez et relisez la nouvelle version avant l’envoi.')
+            if not automatic and raw.get('source_fingerprint') != source_fingerprint(conn, row):
+                raise SignatureError('La fiche a changé. Rechargez-la pour vérifier les destinataires.')
             aid = secrets.token_hex(16); created = now()
             state = dict(id=aid,candidate_id=cid,version_id=vid,status='preparing',created_at=created,
-                         external_id='london-' + aid,recipients=recipients_for(data, raw),fields=signature_fields(data),signers={},
+                         external_id='london-' + aid,recipients=resolved['recipients'] if automatic else recipients_for(data, raw),fields=signature_fields(data),signers={},
+                         automatic=automatic,authentication_mode='otp_sms',
                          pdf_hash=version['pdf_hash'], document_name='convention-londres-' + vid + '.pdf')
+            if automatic:
+                state.update(source_hash=resolved['fingerprint'],convention_date=data['convention_date'])
             self.original(conn, state)
             conn.execute('INSERT INTO london_mobility_signatures VALUES(?,?,?,?,?,?,?)', (aid,cid,vid,state['status'],dumps(state),created,created))
             conn.commit()
@@ -274,25 +295,39 @@ class SignatureService:
             actual = next(p for p in people if p.get('id') == tracked['id'])
             if any(str(actual.get('info', {}).get(k) or '').strip().casefold() != expected[k].casefold() for k in ('first_name','last_name','email')):
                 raise SignatureError('Les coordonnées d’un signataire ont changé dans Yousign. Vérifiez la demande.')
+            if state.get('authentication_mode') == 'otp_sms' and (
+                actual.get('signature_authentication_mode') != 'otp_sms' or
+                actual.get('info', {}).get('phone_number') != expected['phone_number']):
+                raise SignatureError('Le mobile ou la validation par SMS a changé dans Yousign. Vérifiez la demande.')
             if actual.get('excluded_documents') or tracked['id'] in (documents[0].get('excluded_signers') or []):
                 raise SignatureError('Un signataire n’a plus accès à la convention. Vérifiez la demande Yousign.')
             tracked['status'] = actual.get('status', 'initiated')
             if signed and tracked['status'] != 'signed':
                 raise SignatureError('Yousign doit confirmer la signature de chaque destinataire avant l’archivage.')
 
+    def validate_source(self, state):
+        from london_mobility import current_settings, digest, snapshot
+        with closing(self.connect()) as conn:
+            row = dict(conn.execute('SELECT * FROM candidats WHERE id=?', (state['candidate_id'],)).fetchone())
+            trip = conn.execute('SELECT statut FROM voyage_londres_inscriptions WHERE candidat_id=?', (state['candidate_id'],)).fetchone()
+            version = conn.execute('SELECT fingerprint FROM london_mobility_versions WHERE id=?', (state['version_id'],)).fetchone()
+            if state.get('automatic'):
+                from london_mobility_data import automatic_data
+                resolved = automatic_data(conn, row, convention_date=state['convention_date'])
+                unchanged = resolved['ready'] and resolved['fingerprint'] == state['source_hash']
+            else:
+                values, _, _, selected, _ = current_settings(conn, row)
+                unchanged = digest(snapshot(row, values, selected)) == version['fingerprint']
+            if row['mode'] != 'presentiel' or not trip or trip['statut'] != 'active' or not unchanged:
+                raise SignatureError('La fiche ou le séjour a changé. Annulez cette demande et préparez la convention actualisée.')
+
     def send(self, state):
         from london_mobility import current_settings, digest, snapshot
         if state['status'] not in {'preparing','draft'} or state.get('pending'):
             raise SignatureError('Cette demande ne peut pas être renvoyée. Actualisez son suivi pour éviter un doublon.')
         api = self.api()
-        with closing(self.connect()) as conn:
-            content = self.original(conn, state)
-            row = dict(conn.execute('SELECT * FROM candidats WHERE id=?', (state['candidate_id'],)).fetchone())
-            trip = conn.execute('SELECT statut FROM voyage_londres_inscriptions WHERE candidat_id=?', (state['candidate_id'],)).fetchone()
-            values, _, _, selected, _ = current_settings(conn, row)
-            version = conn.execute('SELECT fingerprint FROM london_mobility_versions WHERE id=?', (state['version_id'],)).fetchone()
-            if row['mode'] != 'presentiel' or trip['statut'] != 'active' or digest(snapshot(row, values, selected)) != version['fingerprint']:
-                raise SignatureError('La fiche ou le séjour a changé. Annulez cette demande et préparez la convention actualisée.')
+        self.validate_source(state)
+        with closing(self.connect()) as conn: content = self.original(conn, state)
         if not state.get('request_id'):
             person = next(p for p in state['recipients'] if p['role'] == 'apprentice')
             result = self.mutate(state, api, 'create', 'POST', '/signature_requests', json={
@@ -310,8 +345,9 @@ class SignatureService:
             role = person['role']
             if role in state['signers']: continue
             result = self.mutate(state, api, 'signer:' + role, 'POST', base + '/signers', json={
-                'info':{**{k:person[k] for k in ('first_name','last_name','email')}, 'locale':'fr'},
-                'signature_level':'electronic_signature', 'signature_authentication_mode':'otp_email',
+                'info':{**{k:person[k] for k in ('first_name','last_name','email')},
+                        **({'phone_number':person['phone_number']} if state.get('authentication_mode') == 'otp_sms' else {}), 'locale':'fr'},
+                'signature_level':'electronic_signature', 'signature_authentication_mode':state.get('authentication_mode','otp_email'),
                 'fields':[{**state['fields'][role], 'document_id':state['document_id']}]})
             state['signers'][role] = dict(id=identifier(result.get('id')), status='initiated')
             self.checkpoint(state)
@@ -320,6 +356,7 @@ class SignatureService:
         if live.get('external_id') != state['external_id'] or live.get('status') != 'draft':
             raise SignatureError('La demande Yousign a changé. Actualisez son suivi avant de continuer.')
         self.verify(state, api)
+        self.validate_source(state)  # Recheck immediately before invitations leave the service.
         result = self.mutate(state, api, 'activate', 'POST', base + '/activate', json={})
         if result.get('status') not in {'ongoing','done'}:
             raise SignatureError('Yousign n’a pas confirmé l’envoi. Actualisez le suivi.', True)
@@ -387,6 +424,8 @@ class SignatureService:
                     if latest['id'] == state['version_id']:
                         conn.execute("UPDATE voyage_londres_inscriptions SET convention=CASE WHEN convention='Transmise OPCO' THEN convention ELSE 'Signée' END,updated_at=? WHERE candidat_id=?", (created,state['candidate_id']))
                 state.update(status='completed', completed_at=now())
+                conn.execute('INSERT OR IGNORE INTO london_mobility_notifications VALUES(?,?,?,NULL)',
+                             (state['version_id'],state['candidate_id'],state['completed_at']))
                 state.pop('error', None); state.pop('pending', None)
                 conn.execute('UPDATE london_mobility_signatures SET status=?,payload=?,updated_at=? WHERE id=?', (state['status'],dumps(state),now(),state['id']))
                 conn.commit()
@@ -437,13 +476,17 @@ class SignatureService:
                                 ','.join('?' for _ in ACTIVE) + ') ORDER BY updated_at LIMIT 20', tuple(ACTIVE)).fetchall()
         for row in rows:
             state = json.loads(row['payload'])
-            if not state.get('request_id') and not state.get('pending'): continue
+            auto_pending = state.get('automatic') and state['status'] in {'preparing','draft','uncertain'}
+            if not auto_pending and not state.get('request_id') and not state.get('pending'): continue
             checked = datetime.fromisoformat(state.get('checked_at') or state['created_at']).timestamp()
             if time.time() - checked < 90: continue
             try:
                 with self.lock(row['candidate_id']):
                     state = self.load(row['candidate_id'],row['version_id'],row['id'])
-                    try: self.refresh(state)
+                    try:
+                        self.refresh(state)
+                        if state.get('automatic') and state['status'] in {'preparing','draft'} and not state.get('pending') and not state.get('error'):
+                            self.send(state)
                     except SignatureError as error: self.record_error(state, error)
             except SignatureError: pass  # An administrator is already working on it.
 

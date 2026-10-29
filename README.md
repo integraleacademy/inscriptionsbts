@@ -591,3 +591,33 @@ immédiatement disponible pour la fiche et la carte étudiante. L’accès exige
 session administrateur et le jeton CSRF, sans envoi de message à l’étudiant.
 
 Validation complémentaire : `python -m pytest -q tests/test_candidate_photo_upload.py tests/test_candidate_editor.py`.
+
+### Convention Londres — parcours automatique
+
+La fiche étudiant présente trois rubriques Londres : Convention, Le séjour et
+Documents. « Préparer et envoyer la convention » relit les fiches étudiant,
+entreprise rattachée et contrat WEDOF correspondant, produit les versions PDF et
+Word, puis autorise un envoi Yousign en arrière-plan. Les anciens champs manuels
+Londres ne servent pas de source pour l’identité ou l’entreprise. Les informations
+manquantes renvoient vers la fiche à compléter. Aucun destinataire n’est déduit
+d’une entreprise non rattachée.
+
+Chaque nouveau signataire utilise `otp_sms` et un mobile international ; l’e-mail
+sert à transmettre le lien d’invitation. Le représentant légal est inclus pour
+les mineurs. Les anciennes demandes ouvertes conservent leur suivi : pour changer
+leur authentification, les annuler puis lancer le nouveau parcours. Les documents
+archivés conservent leurs fichiers et leurs zones de signature d’origine.
+
+Le worker utilise les points de reprise de `london_mobility_signatures`, un verrou
+par candidat et un identifiant externe unique. Le polling reprend les demandes
+automatiques autorisées après un redémarrage ; une mutation ambiguë est réconciliée
+avant toute reprise. Les sources sont revérifiées avant activation. Le PDF signé
+n’est archivé qu’après confirmation de chaque signature. Une notification durable
+par version apparaît alors dans le menu Voyage à Londres et peut être marquée lue
+sur la page du voyage.
+
+Le modèle du 29 octobre 2026 comporte six pages PDF et conserve le texte des
+articles, l’annexe pédagogique et les visuels de signature du modèle original.
+Les tests `test_london_automatic.py` utilisent exclusivement des données fictives
+et un faux fournisseur. Le workflow London vérifie aussi le clic, la modale,
+les trois rubriques et les notifications en Chromium à 1440 et 390 pixels.

@@ -75,7 +75,7 @@ def send(client, **overrides):
     values = data(client)
     payload = dict(csrf_token=values['csrf_token'],source_fingerprint=values['source_fingerprint'],reviewed='yes',
                    employer_first_name='Alex',employer_last_name='EXEMPLE',employer_email='alex@entreprise.example',
-                   apprentice_email='camille@apprenti.example',guardian_email='parent@famille.example',**{})
+                   apprentice_email='camille@apprenti.example',guardian_email='parent@famille.example',employer_phone='0612345678',apprentice_phone='0676543210',guardian_phone='0712345678',**{})
     payload.update(overrides)
     return client.post(f'/admin/candidat/london/londres/conventions/{vid}/signature',data=payload,headers={'Accept':'application/json'})
 
@@ -98,8 +98,8 @@ def test_adult_send_once_and_archive_only_when_all_signers_signed(london, signin
     assert send(london).status_code == 200
     assert len(signing.requests) == 1 and len(signing.latest['signers']) == 2
     assert signing.latest['delivery_mode'] == 'email' and not signing.latest['ordered_signers']
-    assert all(p['signature_authentication_mode']=='otp_email' for p in signing.latest['signers'])
-    assert all(len(p['fields']) == 1 and p['fields'][0]['page'] == 6 for p in signing.latest['signers'])
+    assert all(p['signature_authentication_mode']=='otp_sms' for p in signing.latest['signers'])
+    assert all(len(p['fields']) == 1 and p['fields'][0]['page'] == 4 for p in signing.latest['signers'])
     assert signing.calls[-1][1].endswith('/activate')
     count = len(signing.calls)
     assert send(london).status_code == 400 and len(signing.calls) == count
@@ -128,7 +128,7 @@ def test_minor_requires_distinct_guardian_and_correct_third_signature(london, si
     guardian = signing.latest['signers'][2]
     assert guardian['info']['first_name'] == 'Charlie'
     assert guardian['fields'][0]['y'] > signing.latest['signers'][1]['fields'][0]['y'] + 45
-    assert guardian['fields'][0]['y'] + 45 < 710
+    assert guardian['fields'][0]['y'] + 45 < 790
 
 
 @pytest.mark.parametrize('overrides', [{'reviewed':''},{'employer_email':'bad'},{'employer_first_name':''},{'csrf_token':'bad'},{'source_fingerprint':'old'}])

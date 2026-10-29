@@ -5,6 +5,11 @@ on:
       - 'london_mobility*.py'
       - 'templates/_london*.html'
       - 'templates/candidate_sheet.html'
+      - 'templates/base.html'
+      - 'templates/_candidate_school_tabs.html'
+      - 'templates/voyage_londres.html'
+      - 'static/js/london-notifications.js'
+      - 'static/css/london-notifications.css'
       - 'static/js/london-mobility.js'
       - 'static/css/london-mobility.css'
       - 'tests/test_london*.py'
@@ -30,7 +35,7 @@ jobs:
       - run: pip install -r requirements.txt pytest beautifulsoup4 playwright
       - run: python -m playwright install --with-deps chromium
       - run: node tests/london_mobility_frontend.cjs
-      - run: python -m pytest tests/test_london_mobility.py tests/test_london_signatures.py tests/test_london_browser.py tests/test_voyage_londres.py tests/test_admissions_2027.py tests/test_candidate_editor.py -q
+      - run: python -m pytest tests/test_london_mobility.py tests/test_london_signatures.py tests/test_london_automatic.py tests/test_london_browser.py tests/test_voyage_londres.py tests/test_admissions_2027.py tests/test_candidate_editor.py -q
       - uses: actions/upload-artifact@v4
         if: always()
         with:
