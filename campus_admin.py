@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import secrets
 import unicodedata
+from urllib.parse import urlencode
 
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from candidate_messages import _equal
@@ -97,9 +98,16 @@ def register_campus_admin(app, db_connect, require_admin):
         return dict(campus_csrf=csrf)
 
     @app.get('/admin/inscriptions')
-    @app.get('/admin/inscriptions/donnees')
+    @app.get('/admin/inscriptions/donnees', endpoint='admin_enrollments_data')
     def admin_enrollments():
         if not require_admin(): return redirect('/login')
+        data_request = request.endpoint == 'admin_enrollments_data'
+        # Old links/bookmarks may still open the data URL in a browser. Keep
+        # fetch requests as JSON, but send page navigation to the directory.
+        if data_request and (request.headers.get('Sec-Fetch-Mode') == 'navigate' or
+                             request.accept_mimetypes['text/html'] > request.accept_mimetypes['application/json']):
+            query = urlencode(list(request.args.items(multi=True)))
+            return redirect(url_for('admin_enrollments') + ('?' + query if query else ''))
         with closing(db_connect()) as conn:
             promotions = list_promotions(conn, active_only=True)
             rows = enrolled_rows(conn)
@@ -124,7 +132,7 @@ def register_campus_admin(app, db_connect, require_admin):
                      remote=sum(r['mode']=='distanciel' for r in rows))
         context = dict(rows=rows, promotions=promotions, filters=filters, stats=stats,
                        discovery=discovery, wedof_configured=configured, title='Inscriptions · Intégrale Academy')
-        if request.path.endswith('/donnees'):
+        if data_request:
             return jsonify(ok=True, stats_html=render_template('_enrollment_stats.html', **context),
                            rows_html=render_template('_enrollment_rows.html', **context), discovery=discovery)
         return render_template('enrollments.html', **context)

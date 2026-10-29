@@ -5,7 +5,9 @@ import json
 from pathlib import Path
 import re
 import time
+from urllib.parse import parse_qs, urlsplit
 
+from flask import url_for
 from PIL import Image
 import pytest
 
@@ -113,3 +115,51 @@ def test_directory_data_and_portraits_remain_admin_only(directory):
     for route in ['/admin/inscriptions', '/admin/inscriptions/donnees']:
         assert anonymous.get(route).status_code == 302
     assert anonymous.get('/admin/candidat/onsite/photo').status_code == 403
+
+
+@pytest.mark.parametrize('cid', ['onsite', 'remote'])
+def test_return_from_enrolled_student_sheet_opens_directory(directory, cid):
+    sheet = directory.get('/admin/candidat/' + cid)
+    assert sheet.status_code == 200
+    back_url = re.search(r'class="sheet-back" href="([^"]+)"', sheet.text).group(1)
+    assert back_url == '/admin/inscriptions'
+    page = directory.get(back_url)
+    assert page.status_code == 200 and page.mimetype == 'text/html'
+    assert 'data-enrollments' in page.text and 'js/campus.js' in page.text
+    with application.app.test_request_context():
+        assert url_for('admin_enrollments') == '/admin/inscriptions'
+        assert url_for('admin_enrollments_data') == '/admin/inscriptions/donnees'
+
+
+@pytest.mark.parametrize('headers', [
+    {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'},
+    {'Sec-Fetch-Mode': 'navigate', 'Accept': '*/*'},
+])
+@pytest.mark.parametrize('query', ['', '?mode=distanciel&rentree=2026&q=Camille+TEST&contract=yes'])
+def test_browser_navigation_to_data_returns_directory_with_filters(directory, headers, query):
+    response = directory.get('/admin/inscriptions/donnees' + query, headers=headers)
+    assert response.status_code == 302
+    assert response.headers['Cache-Control'] == 'private, no-store'
+    destination = urlsplit(response.headers['Location'])
+    assert destination.path == '/admin/inscriptions'
+    assert parse_qs(destination.query) == parse_qs(query.lstrip('?'))
+    page = directory.get(response.headers['Location'], headers=headers)
+    assert page.status_code == 200 and page.mimetype == 'text/html'
+    assert 'data-enrollments' in page.text
+
+
+@pytest.mark.parametrize('accept', ['*/*', 'application/json'])
+def test_background_data_refresh_still_returns_json(directory, accept):
+    response = directory.get('/admin/inscriptions/donnees?mode=distanciel',
+                             headers={'Accept': accept, 'Sec-Fetch-Mode': 'cors'})
+    assert response.status_code == 200 and response.mimetype == 'application/json'
+    assert response.json['ok']
+    assert kpis(response.json['stats_html'])['total'] == 1
+    assert 'data-enrollment-id="remote"' in response.json['rows_html']
+
+
+def test_anonymous_browser_cannot_open_data_or_directory(directory):
+    anonymous = application.app.test_client()
+    for route in ['/admin/inscriptions', '/admin/inscriptions/donnees']:
+        response = anonymous.get(route, headers={'Accept': 'text/html', 'Sec-Fetch-Mode': 'navigate'})
+        assert response.status_code == 302 and response.headers['Location'] == '/login'
