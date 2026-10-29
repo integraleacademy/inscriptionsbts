@@ -45,7 +45,7 @@
     $('ta-save').disabled = busy || !count;
     $('ta-clear').disabled = busy || !count;
     $('ta-previous').disabled = busy || !!count || Number(data.year) <= 1900;
-    $('ta-next').disabled = busy || !!count || Number(data.year) >= 2200;
+    $('ta-next').disabled = busy || !!count || Number(data.year) >= (data.school_year ? 2199 : 2200);
     $('ta-year-select').disabled = busy || !!count;
     $('ta-year-submit').disabled = busy || !!count;
     document.querySelectorAll('[data-ta-action]').forEach(button => {
@@ -67,18 +67,24 @@
 
   function render() {
     dayMap = new Map((data.days || []).map(day => [day.date, day]));
-    $('ta-calendar-title').textContent = String(data.year);
+    $('ta-calendar-title').textContent = data.label || String(data.year);
     $('ta-year-select').value = String(data.year);
-    $('ta-month-select').value = '';
-    [...$('ta-month-select').options].forEach(option => { if (/^\d+$/.test(option.value)) option.textContent = monthFormatter.format(new Date(Date.UTC(Number(data.year), Number(option.value), 1, 12))) + ' ' + data.year; });
+    $('ta-month-select').value = 'all';
+    const monthKeys = data.months || [...new Set((data.days || []).map(day => day.date.slice(0,7)))];
+    $('ta-month-select').querySelectorAll('option[data-month]').forEach(option => option.remove());
     months.replaceChildren();
-    for (let month = 0; month < 12; month++) {
-      const first = new Date(Date.UTC(Number(data.year), month, 1, 12));
+    for (const monthKey of monthKeys) {
+      const [year, number] = monthKey.split('-').map(Number), month = number-1;
+      const first = new Date(Date.UTC(year, month, 1, 12));
+      const option = document.createElement('option');
+      option.value = monthKey; option.dataset.month = monthKey;
+      option.textContent = monthFormatter.format(first) + ' ' + year;
+      $('ta-month-select').append(option);
       const section = document.createElement('section');
-      section.className = 'ta-month'; section.dataset.month = String(month);
+      section.className = 'ta-month'; section.dataset.month = monthKey;
       const heading = document.createElement('h3');
-      heading.id = 'ta-month-' + month;
-      heading.textContent = monthFormatter.format(first) + ' ' + data.year;
+      heading.id = 'ta-month-' + monthKey;
+      heading.textContent = monthFormatter.format(first) + ' ' + year;
       section.setAttribute('aria-labelledby', heading.id);
       section.appendChild(heading);
       const grid = document.createElement('div');
@@ -90,9 +96,9 @@
       for (let blank = 0; blank < (first.getUTCDay() + 6) % 7; blank++) {
         const spacer = document.createElement('span'); spacer.setAttribute('aria-hidden', 'true'); grid.appendChild(spacer);
       }
-      const count = new Date(Date.UTC(Number(data.year), month + 1, 0)).getUTCDate();
+      const count = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
       for (let number = 1; number <= count; number++) {
-        const date = iso(new Date(Date.UTC(Number(data.year), month, number, 12)));
+        const date = iso(new Date(Date.UTC(year, month, number, 12)));
         const day = dayMap.get(date) || { date };
         dayMap.set(date, day);
         const button = document.createElement('button');
@@ -105,7 +111,6 @@
         button.classList.toggle('is-holiday', !!day.public_holiday);
         button.classList.toggle('is-partial', !!day.partial);
         button.classList.toggle('has-course', Number(day.course_count) > 0);
-        if (Number(day.course_count) > 0) { const dot = document.createElement('span'); dot.className = 'ta-course-dot'; dot.setAttribute('aria-hidden','true'); button.append(dot); }
         button.classList.toggle('is-past', date < (data.today || '1900-01-01'));
         button.classList.toggle('is-today', date === data.today);
         if (date === data.today) button.setAttribute('aria-current', 'date');
@@ -119,7 +124,16 @@
         if (!day.unavailable && !day.public_holiday) details.push('Disponible');
         button.title = details.join(' · ');
         button.setAttribute('aria-label', details.join('. '));
-        grid.appendChild(button);
+        const cell = document.createElement('div'); cell.className = 'trainer-calendar-day'; cell.append(button);
+        if (Number(day.course_count) > 0) {
+          const view = document.createElement('button'); view.type = 'button'; view.className = 'calendar-course-button';
+          view.dataset.courseDate = date;
+          view.setAttribute('aria-label', 'Voir les ' + day.course_count + ' cours du ' + label(date));
+          view.title = view.getAttribute('aria-label');
+          const dot = document.createElement('span'); dot.className = 'ta-course-dot'; dot.setAttribute('aria-hidden','true');
+          view.append(dot); cell.append(view);
+        }
+        grid.appendChild(cell);
       }
       section.appendChild(grid); months.appendChild(section);
     }
@@ -127,12 +141,16 @@
     updateSelection();
   }
 
+  function monthKeysContainCurrent() {
+    return (data.months || []).includes(String(data.today || '').slice(0,7));
+  }
+
   function filterMonths() {
     const selected = $('ta-month-select').value;
     const current = String(data.today || '');
     months.querySelectorAll('.ta-month').forEach(section => {
-      const month = Number(section.dataset.month);
-      section.hidden = selected === 'all' ? false : selected !== '' ? month !== Number(selected) : (Number(data.year) === Number(current.slice(0,4)) && month < Number(current.slice(5,7))-1);
+      const month = section.dataset.month;
+      section.hidden = selected === 'all' ? false : selected !== '' ? month !== selected : (month < current.slice(0,7) && monthKeysContainCurrent());
     });
   }
 
@@ -175,7 +193,7 @@
     const sequence = ++requestNumber;
     if (!quiet) { setBusy(true); $('ta-loading').hidden = false; }
     try {
-      const url = new URL(config.state_url, window.location.href); url.searchParams.set('year', String(year));
+      const url = new URL(config.state_url, window.location.href); url.searchParams.set(data.school_year ? 'school_year' : 'year', String(year));
       const result = await request(url.toString());
       if (sequence !== requestNumber) return;
       if (quiet && (selection.size || isOpen() || busy || drag)) return;

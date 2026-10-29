@@ -1,10 +1,14 @@
 """Independent scoped admin tabs, private PDF and atomic absence mutations."""
 from io import BytesIO
+from datetime import datetime
+import json
+import re
 from flask import session
 import pytest
 from pypdf import PdfReader
 
 import trainer_admin_planning as panels
+import trainer_access
 from test_trainer_workload import workload_db, workload_client, lesson
 
 
@@ -98,3 +102,55 @@ def test_availability_panel_shows_only_blocks_overlapping_selected_year(workload
                 (id,'t1',start,end,'[0,1,2,3,4,5,6]','[]','Audit'))
         snapshot=panels.get_admin_trainer_availability(conn,'t1',2027)
     assert {block['id'] for block in snapshot['blocks']}=={'current','overlap'}
+
+
+@pytest.mark.parametrize('today,year', [((2026,10,29),2026), ((2027,1,15),2026), ((2027,8,15),2026), ((2027,9,1),2027)])
+def test_availability_defaults_to_current_school_year(admin_client, monkeypatch, today, year):
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(*today, tzinfo=tz)
+    monkeypatch.setattr(trainer_access, 'datetime', Clock)
+    page = admin_client.get('/admin/formateurs/t1?tab=availability')
+    config = json.loads(re.search(r'id="tap-availability-config">(.*?)</script>', page.text, re.S)[1])
+    assert config['state']['start'] == f'{year}-09-01'
+    assert config['state']['end'] == f'{year+1}-07-31'
+    assert len(config['state']['months']) == 11
+    assert 'name="school_year"' in page.text
+
+
+def test_school_calendar_filters_blocks_and_course_counts_across_january(admin_client, workload_db):
+    with workload_db() as conn:
+        for cid, day in [('sep','2026-09-01'), ('jan','2027-01-04'), ('jul','2027-07-31'), ('aug','2027-08-01')]:
+            lesson(conn, cid, day=day, groups=('p1','p2'))
+            conn.execute('INSERT INTO planning_trainer_unavailability VALUES(?,?,?,?,?,?,?)',
+                (cid,'t1',day,day,'[0,1,2,3,4,5,6]','[]','Audit'))
+        data = panels.get_admin_trainer_availability(conn, 't1', 2026, school_year=True)
+    assert {row['id'] for row in data['blocks']} == {'sep','jan','jul'}
+    assert sum(row['course_count'] for row in data['state']['days']) == 3
+    page = admin_client.get('/admin/formateurs/t1?tab=availability&school_year=2026')
+    assert page.status_code == 200 and '2026–2027</option>' in page.text
+    assert admin_client.get('/admin/formateurs/t1?tab=availability&school_year=2026&month=2027-09').status_code == 400
+
+
+def test_day_course_details_are_private_current_and_trainer_scoped(admin_client, workload_db):
+    with workload_db() as conn:
+        lesson(conn, 'shared', groups=('p1','p2'))
+        lesson(conn, 'colleague', trainer='t2')
+        conn.execute("INSERT INTO planning_rooms VALUES('room','Salle Azur',1)")
+        conn.execute("UPDATE planning_courses SET room_id='room' WHERE id='shared'")
+    url = '/admin/formateurs/t1/indisponibilites/cours?date=2027-01-04'
+    response = admin_client.get(url)
+    assert response.status_code == 200 and response.headers['Cache-Control'] == 'private, no-store'
+    assert len(response.json['courses']) == 1
+    course = response.json['courses'][0]
+    assert course['room_name'] == 'Salle Azur' and course['start'] == '08:00' and course['end'] == '10:00'
+    assert set(course['promotion_names']) == {'Promotion p1','Promotion p2'} and course['shared']
+    with workload_db() as conn:
+        conn.execute("UPDATE planning_rooms SET name='Salle Olivier' WHERE id='room'")
+    assert admin_client.get(url).json['courses'][0]['room_name'] == 'Salle Olivier'
+    assert admin_client.application.test_client().get(url).status_code == 403
+    assert admin_client.get(url+'&trainer_id=t2').status_code == 400
+    assert admin_client.get(url+'&date=2027-02-01').status_code == 400
+    assert admin_client.get(url.replace('2027-01-04','2027-02-30')).status_code == 400
+    assert admin_client.get(url.replace('/t1/','/missing/')).status_code == 404

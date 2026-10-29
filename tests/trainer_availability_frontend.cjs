@@ -17,7 +17,7 @@ const baseDays = () => [
 ];
 
 function makePage() {
-  let snapshot = { year:2027, today:'2027-01-04', min_date:'2027-01-04', days:baseDays(), revision:0 };
+  let snapshot = { year:2026, school_year:true, label:'2026–2027', months:['2026-09','2026-10','2026-11','2026-12','2027-01','2027-02','2027-03','2027-04','2027-05','2027-06','2027-07'], today:'2027-01-04', min_date:'2027-01-04', days:baseDays(), revision:0 };
   const config = { year:2027, csrf_token:'fixture-csrf', state_url:'/formateur/indisponibilites/api/state', preview_url:'/formateur/indisponibilites/api/preview', commit_url:'/formateur/indisponibilites/api/commit', state:snapshot };
   const html = template.replace('{{ availability|tojson }}', JSON.stringify(config)).replace(/{%[\s\S]*?%}/g, '').replace(/{{[\s\S]*?}}/g, '');
   const dom = new JSDOM(html, { url:'https://school.example/formateur/indisponibilites', runScripts:'outside-only', pretendToBeVisual:true });
@@ -48,8 +48,8 @@ function makePage() {
 
 (async () => {
   let page = makePage(), { document, day, button, calls } = page;
-  check(document.querySelectorAll('.ta-month').length, 12, 'All twelve months appear');
-  check(document.querySelectorAll('[data-ta-date]').length, 365, 'Every date is a real button');
+  check(document.querySelectorAll('.ta-month').length, 11, 'All eleven school months appear');
+  check(document.querySelectorAll('[data-ta-date]').length, 334, 'Every school date is a real button');
   check(day('2027-01-01').disabled, true, 'Public holidays cannot be painted');
   check(day('2027-01-03').disabled, true, 'Past days cannot be newly blocked');
   check(day('2027-01-07').disabled, true, 'Full administrative blocks are protected');

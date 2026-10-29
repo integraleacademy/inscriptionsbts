@@ -355,8 +355,8 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
         raw_school_year = request.args.get('school_year')
         raw_number = request.args.get('month_number')
         if raw_school_year is not None:
-            if tab != 'accounting' or 'year' in request.args:
-                abort(400, 'Sélectionnez une seule année BTS pour la comptabilité.')
+            if tab not in ('accounting', 'availability') or 'year' in request.args:
+                abort(400, 'Sélectionnez une seule année scolaire.')
             if not re.fullmatch(r'\d{4}', raw_school_year) or not 1900 <= int(raw_school_year) < 2200:
                 abort(400, 'Sélectionnez une année BTS débutant entre 1900 et 2199.')
             school_year = int(raw_school_year)
@@ -387,7 +387,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
             abort(error.status, str(error))
         if selected_month.year != year:
             abort(400, 'Le mois sélectionné doit appartenir à cette année.')
-        if tab == 'accounting':
+        if tab in ('accounting', 'availability'):
             school_year = selected_month.year if selected_month.month >= 9 else selected_month.year - 1
             if not 1900 <= school_year < 2200:
                 abort(400, 'Sélectionnez une année BTS débutant entre 1900 et 2199.')
@@ -451,7 +451,7 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 context['trainer_planning'] = get_admin_trainer_planning(conn, trainer_id, selected_date or (selected_month.isoformat() if any(key in request.args for key in ('month','month_number','year')) else now.date().isoformat()))
             elif tab == 'availability':
                 from trainer_admin_planning import get_admin_trainer_availability
-                context['trainer_availability'] = get_admin_trainer_availability(conn, trainer_id, year)
+                context['trainer_availability'] = get_admin_trainer_availability(conn, trainer_id, school_year, school_year=True)
             else:
                 current = {item['id'] for item in trainer['assignments']}
                 context['account_promotions'] = [item for item in list_promotions(conn) if item['active'] or item['id'] in current]

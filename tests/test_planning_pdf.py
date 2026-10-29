@@ -80,6 +80,39 @@ def test_long_course_names_are_complete_on_detail_pages_without_ellipsis():
     assert '09:00 - 09:30' in text
 
 
+def test_trainer_calendar_keeps_long_subject_room_and_shared_promotions_together():
+    events = [course(day='2026-10-22', start='10:30', end='12:30',
+                     subject_name='Relation commerciale interculturelle en anglais', room_name='Salle 3B',
+                     _promotion_labels=['BTS CI 1ère année 2026-2028']),
+              course(day='2026-10-22', start='13:30', end='15:30', id='shared',
+                     subject_name='Langue vivante étrangère', room_name='Salle 3B', is_shared=True,
+                     _promotion_labels=['BTS CI 1ère année 2026-2028','BTS PI 1ère année 2026-2028'])]
+    reader = pdf(events, trainer_view=True)
+    assert len(reader.pages) == 1
+    text = ' '.join(content(reader).split())
+    assert 'Détail' not in text and 'Voir détail' not in text
+    assert text.count('Salle : Salle 3B') == 2
+    assert 'Relation commerciale interculturelle en anglais' in text
+    assert 'BTS PI 1ère année 2026-2028' in text and '4 h de cours' in text
+
+
+def test_trainer_short_slots_use_complete_weekly_agenda_without_numbered_appendices():
+    events = [course(start='09:00', end='09:15', subject_name='Matière courte', room_name='Salle Acacia'),
+              course(start='10:00', end='10:05', id='second', room_name=None)]
+    reader = pdf(events, trainer_view=True)
+    text = ' '.join(content(reader).split())
+    assert len(reader.pages) == 1 and 'PLANNING HEBDOMADAIRE' in text
+    assert 'Détail' not in text and 'détaillés' not in text
+    assert text.count('Matière courte') == 1 and text.count('Salle : Salle Acacia') == 1
+    assert 'Salle non affectée' in text and '0 h 20 de cours' in text
+
+
+def test_empty_trainer_export_on_sunday_keeps_the_requested_date_visible():
+    reader = pdf(start='2026-10-25', end='2026-10-25', trainer_view=True)
+    text = ' '.join(content(reader).split())
+    assert 'Dimanche' in text and 'Du 25 octobre 2026 au 25 octobre 2026' in text
+
+
 def test_overlap_never_loses_either_course_and_dense_details_paginate():
     events=[]
     for index in range(18):

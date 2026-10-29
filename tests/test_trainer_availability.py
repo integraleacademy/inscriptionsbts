@@ -63,7 +63,8 @@ def test_page_and_state_are_authenticated_private_and_identity_scoped(app, porta
     assert page.headers['Cache-Control'] == 'private, no-store'
     assert page.headers['Referrer-Policy'] == 'no-referrer'
     state = client.get(BASE + '/state?year=2027').json
-    assert len(state['days']) == 365
+    assert len(state['days']) == 334
+    assert state['start'] == '2026-09-01' and state['end'] == '2027-07-31'
     assert state['csrf_token'] == 'fixture-csrf'
     by_date = {day['date']: day for day in state['days']}
     # The archived primary group still represents this trainer's reservation.
@@ -77,6 +78,28 @@ def test_page_and_state_are_authenticated_private_and_identity_scoped(app, porta
 @pytest.mark.parametrize('query', ['year=2027&trainer_id=t2', 'year=2027&year=2028', 'year=1', 'year=2201', 'year=garbage'])
 def test_state_rejects_scope_override_and_invalid_year(app, query):
     assert logged(app).get(BASE + '/state?' + query).status_code == 400
+
+
+def test_school_year_state_and_course_inspection_are_identity_scoped(app, portal_db):
+    client = logged(app)
+    state = client.get(BASE + '/state').json
+    assert state['label'] == '2026–2027' and state['school_year'] is True
+    assert state['months'][0] == '2026-09' and state['months'][-1] == '2027-07'
+    assert client.get(BASE + '/state?school_year=2027').json['start'] == '2027-09-01'
+    assert client.get(BASE + '/state?school_year=2200').status_code == 400
+    assert client.get(BASE + '/state?school_year=2026&year=2027').status_code == 400
+    url = BASE + '/courses?date=2027-01-05'
+    response = client.get(url)
+    assert response.status_code == 200 and response.headers['Cache-Control'] == 'private, no-store'
+    assert len(response.json['courses']) == 1
+    assert response.json['courses'][0]['room_name'] == 'Salle locale'
+    assert set(response.json['courses'][0]['promotion_names']) == {'PROMOTION LOCALE','PROMOTION AUTRE'}
+    assert 'secret-' not in response.text
+    assert logged(app, 't2').get(url).json['courses'] == []
+    assert app.test_client().get(url).status_code == 401
+    assert client.get(url + '&trainer_id=t2').status_code == 400
+    before = count(portal_db, 'planning_courses')
+    assert before == 6
 
 
 def test_preview_is_read_only_and_lists_all_shared_promotions(app, portal_db):

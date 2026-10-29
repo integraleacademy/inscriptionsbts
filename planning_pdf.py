@@ -177,16 +177,18 @@ def _course_warnings(course):
     return list(dict.fromkeys(labels))
 
 
-def _course_text(course, *, full=True, reference=None):
+def _course_text(course, *, full=True, reference=None, trainer_view=False):
     subject = _clean(course.get('subject_name') or course.get('title') or 'Cours')
     title = _clean(course.get('title'))
     pieces = [f'<b>{_clock(course["_start"])} - {_clock(course["_end"])}</b>', '<b>' + escape(subject) + '</b>']
     if title and title != subject:
         pieces.append(escape(title))
     if full:
-        pieces.append(escape(_clean(course.get('trainer_name') or 'Formateur à préciser')))
-        pieces.append('Salle : ' + escape(_clean(course.get('room_name') or 'à préciser')))
-        if course.get('_shared_count'):
+        if not trainer_view:
+            pieces.append(escape(_clean(course.get('trainer_name') or 'Formateur à préciser')))
+        room = 'Salle : ' + escape(_clean(course['room_name'])) if course.get('room_name') else 'Salle non affectée'
+        pieces.append('<b>' + room + '</b>' if trainer_view else room)
+        if course.get('_shared_count') and not trainer_view:
             pieces.append('Cours commun - ' + str(course['_shared_count']) + ' promotions')
         if course.get('_promotion_labels'):
             pieces.append('Promotion' + ('s' if len(course['_promotion_labels']) > 1 else '') + ' : ' + escape(' / '.join(course['_promotion_labels'])))
@@ -233,9 +235,12 @@ def _lanes(records):
     return output
 
 
-def _week_geometry(week, records, day_map, start, end, show_weekends):
+def _week_geometry(week, records, day_map, start, end, show_weekends, trainer_view=False):
     weekend_offsets = [item['_day'].weekday() for item in records]
-    weekend_offsets.extend(day.weekday() for day, info in day_map.items() if week <= day <= week + timedelta(days=6) and info.get('kind') in ('school', 'company', 'public_holiday'))
+    if trainer_view and week + timedelta(days=4) < start <= week + timedelta(days=6):
+        weekend_offsets.extend((start.weekday(), min(end, week + timedelta(days=6)).weekday()))
+    if not trainer_view:
+        weekend_offsets.extend(day.weekday() for day, info in day_map.items() if week <= day <= week + timedelta(days=6) and info.get('kind') in ('school', 'company', 'public_holiday'))
     count = 7 if show_weekends or 6 in weekend_offsets else 6 if 5 in weekend_offsets else 5
     begin = min([480] + [item['_start'] // 60 * 60 for item in records])
     finish = max([1080] + [((item['_end'] + 59) // 60) * 60 for item in records])
@@ -245,8 +250,8 @@ def _week_geometry(week, records, day_map, start, end, show_weekends):
             'count': count, 'begin': begin, 'finish': finish, 'scale': (top-bottom)/(finish-begin)}
 
 
-def _week_plan(week, records, day_map, start, end, show_weekends):
-    geometry = _week_geometry(week, records, day_map, start, end, show_weekends)
+def _week_plan(week, records, day_map, start, end, show_weekends, trainer_view=False):
+    geometry = _week_geometry(week, records, day_map, start, end, show_weekends, trainer_view)
     by_day = defaultdict(list)
     for index, item in enumerate(records, 1):
         item = dict(item, _reference=index)
@@ -257,9 +262,9 @@ def _week_plan(week, records, day_map, start, end, show_weekends):
             width = geometry['column'] / total - 4
             height = (item['_end'] - item['_start']) * geometry['scale'] - 3
             content_width = max(8, width - (22 if item.get('_warning_labels') else 10))
-            paragraph, text_height = _paragraph(_course_text(item), content_width, size=8)
+            paragraph, text_height = _paragraph(_course_text(item, trainer_view=trainer_view), content_width, size=8)
             if text_height > height - 8:
-                paragraph, text_height = _paragraph(_course_text(item), content_width, size=7.3, leading=8.6)
+                paragraph, text_height = _paragraph(_course_text(item, trainer_view=trainer_view), content_width, size=7.3, leading=8.6)
             if text_height > height - 6:
                 # The full text is retained on an explicitly referenced detail page.
                 details.append(item)
@@ -275,15 +280,17 @@ def _week_plan(week, records, day_map, start, end, show_weekends):
     return {'kind': 'week', 'week': week, 'records': records, 'geometry': geometry, 'blocks': blocks, 'details': details}
 
 
-def _detail_pages(week, details):
+def _detail_pages(week, details, *, trainer_view=False):
     if not details:
         return []
     width = PAGE_W - MARGIN * 2 - 26
     limit = PAGE_H - 151 - 75
     pages, current, used = [], [], 0
-    for item in sorted(details, key=lambda value: value['_reference']):
-        heading = f'<b>Détail {item["_reference"]:02d} - {WEEKDAYS[item["_day"].weekday()]} {_date_label(item["_day"], True)} - {_hours(item["_duration"])}</b>'
-        paragraph, height = _paragraph(heading + '<br/>' + _course_text(item), width, size=9.1)
+    kind = 'trainer_agenda' if trainer_view else 'details'
+    for item in sorted(details, key=lambda value: (value['_day'], value['_start'], value['_end'])):
+        prefix = '' if trainer_view else f'Détail {item["_reference"]:02d} - '
+        heading = f'<b>{prefix}{WEEKDAYS[item["_day"].weekday()]} {_date_label(item["_day"], True)} - {_hours(item["_duration"])}</b>'
+        paragraph, height = _paragraph(heading + '<br/>' + _course_text(item, trainer_view=trainer_view), width, size=9.1)
         parts = [paragraph]
         while parts:
             part = parts.pop(0)
@@ -296,12 +303,12 @@ def _detail_pages(week, details):
                 continue
             card_height = part_height + 22
             if current and used + card_height + 8 > limit:
-                pages.append({'kind': 'details', 'week': week, 'cards': current})
+                pages.append({'kind': kind, 'week': week, 'cards': current})
                 current, used = [], 0
             current.append((part, card_height, _course_color(item)))
             used += card_height + 8
     if current:
-        pages.append({'kind': 'details', 'week': week, 'cards': current})
+        pages.append({'kind': kind, 'week': week, 'cards': current})
     return pages
 
 
@@ -457,7 +464,12 @@ def _draw_week(pdf, plan, promotion, day_map, start, end, logo_path):
 
 def _draw_details(pdf, plan, promotion, logo_path):
     week = plan['week']
-    _header(pdf, promotion, 'Détail des cours', f'Semaine {week.isocalendar().week:02d}  |  À partir du {_date_label(week, True)}', logo_path=logo_path)
+    title = 'Planning hebdomadaire' if plan['kind'] == 'trainer_agenda' else 'Détail des cours'
+    _header(pdf, promotion, title, f'Semaine {week.isocalendar().week:02d}  |  À partir du {_date_label(week, True)}', logo_path=logo_path)
+    if 'minutes' in plan:
+        _, bold = _fonts()
+        pdf.setFont(bold, 9); pdf.setFillColor(INK)
+        pdf.drawRightString(PAGE_W-MARGIN, PAGE_H-98, _hours(plan['minutes']) + ' de cours')
     y = PAGE_H-126
     for paragraph, height, color in plan['cards']:
         pdf.setFillColor(_tint(color,.95))
@@ -680,11 +692,13 @@ def _draw_budget(pdf, plan, promotion, logo_path):
     pdf.drawString(MARGIN,50,'Les heures communes sont attribuées à chacune des matières participantes, sans doubler la durée de la séance.')
 
 
-def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, mode='weekly', *, show_weekends=False, generated_at=None, logo_path=None, subjects=None):
+def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, mode='weekly', *, show_weekends=False, generated_at=None, logo_path=None, subjects=None, trainer_view=False):
     """Return A4-landscape PDF bytes for an inclusive weekly or annual period.
 
     Short slots never cause ellipses or hidden text: their complete metadata is
-    placed on numbered detail pages. Unconfigured dates stay visibly distinct
+    placed on numbered detail pages. Trainer exports instead use a complete
+    weekly agenda whenever a calendar cell cannot fit all course information.
+    Unconfigured dates stay visibly distinct
     from company, school, holiday, and closed days. Annual mode can append subject
     budgets: scheduled_hours must cover the full promotion, not the export range.
     """
@@ -700,9 +714,17 @@ def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, 
         week=start-timedelta(days=start.weekday())
         while week<=end:
             selected=[item for item in records if week<=item['_day']<=week+timedelta(days=6)]
-            plan=_week_plan(week,selected,day_map,start,end,show_weekends)
-            plans.append(plan)
-            plans.extend(_detail_pages(week,plan['details']))
+            plan=_week_plan(week,selected,day_map,start,end,show_weekends,trainer_view)
+            if trainer_view and plan['details']:
+                # Keep every course, room and promotion together. Do not send a
+                # trainer to a numbered appendix to identify where to teach.
+                agenda = _detail_pages(week, selected, trainer_view=True)
+                for page in agenda:
+                    page['minutes'] = sum(item['_duration'] for item in selected)
+                plans.extend(agenda)
+            else:
+                plans.append(plan)
+                plans.extend(_detail_pages(week,plan['details']))
             week+=timedelta(days=7)
     else:
         months=_months_between(start,end)
@@ -718,7 +740,7 @@ def build_planning_pdf(promotion, events, days, date_start=None, date_end=None, 
     for page,plan in enumerate(plans,1):
         if plan['kind']=='week':
             _draw_week(pdf,plan,promotion,day_map,start,end,logo_path)
-        elif plan['kind']=='details':
+        elif plan['kind'] in ('details', 'trainer_agenda'):
             _draw_details(pdf,plan,promotion,logo_path)
         elif plan['kind']=='budget':
             _draw_budget(pdf,plan,promotion,logo_path)
@@ -767,4 +789,4 @@ def build_portal_planning_pdf(portal_week, *, generated_at=None):
     if role == 'student' and portal_week.get('promotion_label') and portal_week['promotion_label'] not in heading:
         heading += ' · ' + portal_week['promotion_label']
     return build_planning_pdf({'nom': heading}, records, days, start, end, mode='weekly',
-                              generated_at=generated_at, show_weekends=True)
+                              generated_at=generated_at, show_weekends=role!='trainer', trainer_view=role=='trainer')

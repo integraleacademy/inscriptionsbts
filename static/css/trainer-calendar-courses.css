@@ -1,0 +1,19 @@
+.trainer-calendar-day { position:relative; min-width:0; }
+.academy-ui .calendar-course-button { position:absolute; z-index:2; bottom:-1px; left:calc(50% - 12px); display:grid; place-items:center; width:24px!important; height:16px!important; min-height:0!important; padding:0!important; margin:0!important; border:0!important; background:transparent!important; border-radius:5px!important; box-shadow:none!important; cursor:pointer; }
+.academy-ui .calendar-course-button span { display:block; position:static; width:8px; height:8px; border:1px solid #fff; background:#12834d; border-radius:50%; pointer-events:none; }
+.academy-ui .calendar-course-button:hover span { background:#075735; box-shadow:0 0 0 2px #c7ead6; }
+.academy-ui .calendar-course-button:focus-visible { outline:2px solid #936b28; outline-offset:1px; }
+.academy-ui .tc-dialog { box-sizing:border-box; width:min(600px,calc(100vw - 28px)); max-height:85vh; margin:auto; padding:28px; border:1px solid #d9e2d8; border-radius:18px; background:#fffef9; color:#293b33; overflow:auto; box-shadow:0 24px 80px #152d3355; }
+.tc-dialog::backdrop { background:#172d276b; }
+.academy-ui .tc-close { display:block; margin:0 0 14px auto!important; padding:7px 13px!important; min-height:36px; background:#edf2eb!important; border:1px solid #d9e2d8!important; border-radius:8px!important; color:#293b33!important; cursor:pointer; }
+.academy-ui .tc-dialog h2 { font-size:27px; margin:0 0 5px; }
+.tc-date { margin:0; color:#637168; text-transform:capitalize; }
+.tc-status { font-size:13px; margin:18px 0 10px; }
+.tc-courses { display:grid; gap:12px; }
+.tc-course { border:1px solid #d9e2d8; border-left:4px solid #5f7662; padding:15px; border-radius:9px; overflow-wrap:anywhere; }
+.academy-ui .tc-course h3 { font-size:17px; line-height:1.4; margin:6px 0; }
+.tc-course p { font-size:13px; line-height:1.5; margin:5px 0; }
+.tc-course .tc-time,.tc-course .tc-room { font-weight:700; }
+.tc-promotions { color:#637168; }
+.tc-planning-link { display:inline-block; margin-top:20px; color:#315f45; font-size:13px; font-weight:700; }
+@media(max-width:600px) { .academy-ui .tc-dialog { padding:20px; } }
