@@ -1,14 +1,12 @@
 # Contrats d’apprentissage dans les fiches étudiantes
 
-L’onglet administrateur « Contrat d’apprentissage » recherche automatiquement le contrat
-lorsqu’il est ouvert sur une fiche sans contrat. Le rattachement manuel reste disponible.
-La page Inscriptions lance également cette recherche pour les étudiants concernés par
-ses filtres, un étudiant et une étape à la fois. Elle réutilise les mêmes contrôles
-d’identité, caches, limites de lecture et suspensions de rattachement. Les erreurs
-de connexion ou de quota interrompent la file ; le bouton « Vérifier les contrats »
-permet de reprendre les dossiers encore à vérifier sans effacer les contrats trouvés.
-Il ne modifie jamais WEDOF et n’importe aucun dossier globalement. Il ne modifie pas
-non plus les affectations d’entreprises locales.
+Une seule vérification automatique démarre chaque jour à **8 h, heure de Paris**,
+même sans visite du site. Elle recherche les contrats des inscriptions confirmées ou
+reconfirmées et actualise tous les contrats déjà rattachés, avec leurs échéanciers.
+L’ouverture d’une fiche ou de la liste des inscriptions lit uniquement les données
+enregistrées. Le bouton « Actualiser l’affichage » de la liste reste une lecture locale.
+La recherche et l’actualisation manuelles d’un contrat restent possibles dans sa fiche.
+Aucune écriture n’est faite dans WEDOF ni dans les affectations d’entreprises locales.
 
 ## Configuration
 
@@ -17,6 +15,27 @@ renseigner la clé dans `/admin/parametres#wedof`. La seconde méthode chiffre l
 avec `SECRET_KEY` (stable et d’au moins 20 caractères). Ne jamais committer une clé.
 Les permissions du compte WEDOF et les connexions OPCO déterminent les données reçues.
 Le stockage SQLite utilise la base persistante existante de l’application.
+
+## Passage quotidien
+
+`wedof_daily_sync.py` démarre dans le service web Render, sur le même disque que la
+base SQLite. L’horaire utilise `Europe/Paris` et suit les changements d’heure. La
+première installation programme le prochain 8 h ; ensuite, un redémarrage après
+l’horaire reprend le passage du jour s’il n’a pas déjà été terminé.
+
+Une file persistante et un verrou partagé de 120 secondes empêchent plusieurs
+workers de traiter la même étape. Les dossiers terminés restent terminés après un
+redémarrage ou un déploiement. Les pauses imposées par WEDOF suspendent puis
+reprennent ce même passage. Une indisponibilité réseau ou une erreur de connexion
+interrompt le passage jusqu’au lendemain, en conservant les données précédentes.
+Une actualisation manuelle en cours fait attendre la file sans l’annuler.
+Les retraits volontaires restent exclus du rattachement automatique.
+
+Le traitement est borné à une étape à la fois ; il ne parcourt pas le catalogue
+global WEDOF. `WEDOF_DAILY_SYNC_DISABLED=1` désactive le worker pour les tests.
+Les dates et états des passages sont stockés dans `student_wedof_daily_runs` et
+les étapes dans `student_wedof_daily_items`. Les logs de début et de fin ne
+contiennent aucune identité ni clé API.
 
 ## Lectures et limitation
 
@@ -38,14 +57,16 @@ Authentification `X-Api-Key`, hôte fixe https://www.wedof.fr/api, redirections 
   Aucun scan en boucle et aucun dossier non sélectionné n’est importé.
 - Aperçu : relecture du contrat sélectionné, puis dossier de formation associé et
   `GET /workingContracts/{id}/raw` pour les données CFA Dock et échéances.
-- Actualisation : mêmes lectures ciblées, au plus une fois par 30 minutes et par
-  contrat après une réussite ; un échec autorise une nouvelle tentative après une
-  minute, sous réserve du délai WEDOF. Le GET de la liste reste une lecture du cache local ;
-  la découverte utilise des POST avec CSRF depuis la fiche ou la liste filtrée.
-  Chaque requête traite une étape bornée (au plus trois lectures externes). Les
-  résultats de découverte réussis, même vides, sont conservés 30 minutes entre
-  les sessions admin. Les erreurs sont conservées une minute ; une relance manuelle
-  peut retenter un échec, mais respecte toujours une pause imposée par WEDOF.
+- Actualisation : mêmes lectures ciblées pendant le passage du matin. Les actions
+  manuelles réutilisent un résultat réussi pendant 30 minutes ; le passage du matin
+  vérifie les données à partir de son heure de démarrage. Le GET de la liste reste
+  une lecture locale. Les POST de découverte manuelle exigent la session admin,
+  le CSRF et `origin: "interactive"` ; les anciens scripts ouverts dans un onglet
+  ne peuvent donc plus relancer de recherches automatiques.
+  Chaque étape est bornée (au plus trois lectures externes). Les résultats réussis,
+  même vides, restent affichés entre deux passages quotidiens. Les erreurs manuelles
+  sont conservées une minute ; une relance explicite peut retenter un échec,
+  mais respecte toujours une pause imposée par WEDOF.
   La découverte reprend l’étape interrompue tant que ses résultats restent valides.
   Une modification de l’identité ou de la clé invalide ce cache.
 
@@ -63,7 +84,7 @@ partagée entre fiches et workers, liée à l’empreinte de la clé. Le délai 
 à défaut, il est d’une minute. Une relance ne contourne pas cette pause. Le délai
 restant est affiché, sans annoncer à tort une conservation de l’erreur 30 minutes.
 Les compteurs du fournisseur prennent ainsi en compte l’usage du compte partagé
-avec d’autres sites. Aucun retry réseau automatique ni attente bloquante.
+avec d’autres sites. Pas de retry immédiat d’une requête réseau en échec.
 
 ## Liste des inscriptions
 
@@ -77,9 +98,9 @@ et réussie, sans résultat, encore valide pour l’identité et la connexion co
 Une erreur, un résultat ambigu, un retrait volontaire ou une absence de recherche
 reste « À vérifier ». Les trois catégories partitionnent l’effectif filtré.
 
-La recherche conserve les autres filtres même lorsque le filtre contrat masque les
-étudiants non encore vérifiés. Les résultats et tous les KPI sont relus à chaque
-découverte, avec les mêmes filtres. Le GET `/admin/inscriptions/donnees` ne lit que
+Les filtres de la liste n’influencent pas le périmètre du passage quotidien.
+Le bouton d’actualisation relit les résultats et tous les KPI avec les mêmes filtres.
+Le GET `/admin/inscriptions/donnees` ne lit que
 les données locales, exige la session administrateur et interdit le cache. La clé
 WEDOF et les informations d’identité utilisées pour la vérification ne sont pas
 incluses dans sa réponse.
@@ -96,7 +117,7 @@ naissance exacte. Toute date de naissance connue contradictoire bloque le lien.
 Le contrat et son dossier sont relus avant le rattachement ; la fiche et la clé
 sont revérifiées dans la transaction finale. Les cas ambigus sont proposés via
 l’aperçu manuel existant. Le retrait volontaire d’un lien suspend la découverte
-jusqu’au clic explicite « Rechercher automatiquement » ou au changement de fiche/clé.
+jusqu’au clic explicite « Rechercher maintenant » ou au changement de fiche/clé.
 Références et identités sont contrôlées. Un désaccord
 sur l’identité ou la date de naissance bloque le rattachement ; une identité absente
 exige une vérification manuelle explicite. Un contrat ne peut appartenir qu’à une fiche.

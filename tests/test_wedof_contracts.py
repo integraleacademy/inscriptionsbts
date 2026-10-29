@@ -81,6 +81,8 @@ def setup(tmp_path, monkeypatch):
 
 def post(env, path, data=None, cid='alice'):
     client, _, headers, *_ = env
+    if path == '/detecter':
+        data = {'origin': 'interactive', **(data or {})}
     return client.post(f'/admin/candidat/{cid}/contrats-apprentissage' + path, json=data or {}, headers=headers)
 
 

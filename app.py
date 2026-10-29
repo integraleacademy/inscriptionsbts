@@ -3646,4 +3646,5 @@ if __name__ == "__main__":
     # child as soon as it boots, so reminders do not depend on website visits.
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         app.extensions['teaching_start_reminders']()
+        app.extensions['wedof_start_daily_sync']()
     app.run(host="0.0.0.0", port=5000, debug=True)

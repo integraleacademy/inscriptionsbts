@@ -1,6 +1,6 @@
 """Admin-only WEDOF contract discovery, linking and cached reads.
 
-No remote writes, background polling, retries or bulk imports. Discovery is bounded
+No remote writes or bulk imports. Daily scheduled discovery is bounded
 to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
@@ -233,7 +233,7 @@ def directory_contracts(app, conn, rows):
             continue
         if state.get('suppressed'):
             row.update(contract_needs_check=False, contract_detail='Rattachement automatique suspendu dans la fiche.')
-        elif discovery_cache_valid(state, saved['updated_at']) and state.get('step') == 'done':
+        elif state.get('step') == 'done' and (not state.get('error_code') or discovery_cache_valid(state, saved['updated_at'])):
             row.update(contract_needs_check=False, contract_detail=state.get('message', 'Vérifiez le contrat dans la fiche.'))
             if state.get('not_found') is True and not state.get('incomplete') and not state.get('error_code') and not state.get('items'):
                 row.update(contract='no', contract_label='Aucun contrat identifié', contract_detail='Aucun contrat trouvé lors de la dernière recherche WEDOF.')
@@ -595,12 +595,14 @@ def register_wedof_contracts(app, connect, require_admin):
         return jsonify(ok=True, configured=configured, has_contracts=bool(contracts),
                        html=render_template('_wedof_contracts_list.html', contracts=contracts, row=row, configured=configured))
 
-    def discovery_state(conn, cid, fingerprint, manual):
+    def discovery_state(conn, cid, fingerprint, manual, since=None):
         stored = conn.execute('SELECT * FROM student_wedof_discovery WHERE candidate_id=?', (cid,)).fetchone()
         if stored and stored['fingerprint'] == fingerprint:
             state = json.loads(stored['payload'])
             if state.get('suppressed') and not manual:
                 return state, stored['updated_at']
+            if since is not None and stored['updated_at'] < since:
+                return {'step': 'email', 'items': [], 'folders': [], 'incomplete': False}, stored['updated_at']
             if not state.get('suppressed') and discovery_cache_valid(state, stored['updated_at'], manual):
                 return state, stored['updated_at']
             if state.get('resume') and stored['updated_at'] > time.time()-CACHE_SECONDS:
@@ -617,31 +619,28 @@ def register_wedof_contracts(app, connect, require_admin):
         error = bool(state.get('error_code') or state.get('error_status'))
         message = str(rate_limit_error(state['retry_at'])) if state.get('retry_at', 0) > time.time() else state.get('message', 'Recherche des contrats WEDOF de cet étudiant…')
         return jsonify(ok=True, pending=state['step'] != 'done', linked=bool(state.get('linked')),
-                       message=message + (' Le résultat de cette recherche est conservé 30 minutes.' if cached and not error and not state.get('suppressed') else ''),
+                       message=message + (' Résultat de la dernière vérification enregistrée.' if cached and not error and not state.get('suppressed') else ''),
                        retry_after=max(0, math.ceil(state.get('retry_at', 0)-time.time())),
                        token=token, items=public_items, cached=cached,
                        stop_sync=state.get('error_code') in {'http_401', 'http_403', 'http_429'} or state.get('error_status') in {429, 502, 503})
 
-    @bp.post('/admin/candidat/<cid>/contrats-apprentissage/detecter')
-    @guarded
-    def discover(cid):
-        row, data = candidate(cid), body()
-        manual = data.get('manual') is True
+    def discover_step(cid, manual=False, since=None):
+        row = candidate(cid)
         with closing(connection()) as conn:
             if conn.execute('SELECT 1 FROM student_wedof_contracts WHERE candidate_id=?', (cid,)).fetchone():
-                return jsonify(ok=True, pending=False, linked=True, items=[], message='Le contrat est déjà rattaché à cette fiche.')
+                return {'step': 'done', 'linked': True, 'items': [], 'message': 'Le contrat est déjà rattaché à cette fiche.'}, '', True
             config = config_id(get_key(app, conn))
             fingerprint = discovery_fingerprint(row, config)
-            state, revision = discovery_state(conn, cid, fingerprint, manual)
+            state, revision = discovery_state(conn, cid, fingerprint, manual, since)
         if state['step'] == 'done':
-            return discovery_reply(cid, state, config, cached=True)
+            return state, config, True
         # One bounded phase per request; never paginate the organism's catalogue.
         # The shared lease also prevents two tabs from advancing the same phase.
         with api_client() as client:
             with closing(connection()) as conn:
-                state, revision = discovery_state(conn, cid, fingerprint, manual)
+                state, revision = discovery_state(conn, cid, fingerprint, manual, since)
             if state['step'] == 'done':
-                return discovery_reply(cid, state, config, cached=True)
+                return state, config, True
             item_to_link = None
             resume = dict(state)
             try:
@@ -704,7 +703,18 @@ def register_wedof_contracts(app, connect, require_admin):
                 conn.execute('INSERT INTO student_wedof_discovery VALUES(?,?,?,?) ON CONFLICT(candidate_id) DO UPDATE SET fingerprint=excluded.fingerprint,payload=excluded.payload,updated_at=excluded.updated_at',
                              (cid, fingerprint, json.dumps(state, ensure_ascii=False), time.time()))
                 conn.commit()
-        return discovery_reply(cid, state, config)
+        return state, config, False
+
+    @bp.post('/admin/candidat/<cid>/contrats-apprentissage/detecter')
+    @guarded
+    def discover(cid):
+        data = body()
+        if data.get('origin') != 'interactive':
+            candidate(cid)
+            return jsonify(ok=True, pending=False, linked=bool(cards(cid)), items=[], cached=True,
+                           message='La vérification automatique est programmée chaque jour à 8 h (heure de Paris).')
+        state, config, cached = discover_step(cid, manual=data.get('manual') is True)
+        return discovery_reply(cid, state, config, cached)
 
     @bp.post('/admin/candidat/<cid>/contrats-apprentissage/rechercher')
     @guarded
@@ -813,20 +823,20 @@ def register_wedof_contracts(app, connect, require_admin):
             conn.commit()
         return jsonify(ok=True, message='Le contrat est rattaché à la fiche étudiante.')
 
-    @bp.post('/admin/candidat/<cid>/contrats-apprentissage/<key>/actualiser')
-    @guarded
-    def refresh(cid, key):
+    def refresh_contract(cid, key, since=None):
         row, key = candidate(cid), identifier(key)
         with closing(connection()) as conn:
             conn.execute('BEGIN IMMEDIATE')
             stored = conn.execute('SELECT * FROM student_wedof_contracts WHERE candidate_id=? AND contract_id=?', (cid, key)).fetchone()
             if not stored:
                 abort(404)
-            if not stored['error'] and time.time()-stored['checked_at'] < CACHE_SECONDS:
-                return jsonify(ok=True, message='Les dernières données sont conservées. Une nouvelle lecture sera possible 30 minutes après la précédente.', cached=True)
+            fresh_enough = stored['checked_at'] >= since if since is not None else time.time()-stored['checked_at'] < CACHE_SECONDS
+            if not stored['error'] and fresh_enough:
+                return dict(ok=True, message='Les dernières données sont conservées.', cached=True)
             if (not stored['error'].startswith('Le plafond interne de lectures WEDOF')
                     and time.time()-stored['last_attempt'] < ERROR_CACHE_SECONDS):
-                raise WedofError('Une actualisation est en cours ou vient d’échouer. Réessayez dans quelques instants ; les données précédentes sont conservées.', status=503)
+                raise WedofError('Une actualisation est en cours ou vient d’échouer. Réessayez dans quelques instants ; les données précédentes sont conservées.',
+                                 code='refresh_pending', status=503, retry_at=stored['last_attempt']+ERROR_CACHE_SECONDS)
             conn.execute('UPDATE student_wedof_contracts SET last_attempt=? WHERE contract_id=?', (time.time(), key))
             conn.commit()
         old = json.loads(stored['payload'])
@@ -853,7 +863,21 @@ def register_wedof_contracts(app, connect, require_admin):
                               0 if error.code == 'rate_limited' else time.time(), cid, key))
                 conn.commit()
             raise
-        return jsonify(ok=True, message='Les informations disponibles ont été actualisées depuis WEDOF.')
+        return dict(ok=True, message='Les informations disponibles ont été actualisées depuis WEDOF.')
+
+    @bp.post('/admin/candidat/<cid>/contrats-apprentissage/<key>/actualiser')
+    @guarded
+    def refresh(cid, key):
+        return jsonify(refresh_contract(cid, key))
+
+    def sync_item(cid, key, since):
+        if key:
+            return refresh_contract(cid, key, since)
+        state, _, _ = discover_step(cid, since=since)
+        return {**state, 'pending': state['step'] != 'done'}
+
+    from wedof_daily_sync import register_daily_sync
+    register_daily_sync(app, connect, sync_item, lambda conn: bool(get_key(app, conn)))
 
     @bp.post('/admin/candidat/<cid>/contrats-apprentissage/<key>/detacher')
     @guarded
