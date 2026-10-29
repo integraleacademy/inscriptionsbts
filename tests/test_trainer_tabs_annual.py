@@ -226,7 +226,7 @@ def test_default_period_tracks_the_current_bts_year(workload_client, monkeypatch
         def now(cls, tz=None):
             return cls(*today, tzinfo=tz)
     monkeypatch.setattr(trainer_access, 'datetime', Clock)
-    page = workload_client.get('/admin/formateurs/t1')
+    page = workload_client.get('/admin/formateurs/t1?tab=accounting')
     assert page.status_code == 200
     assert f'id="tw-month-title">{month_label}</h2>' in page.text
     assert f'Année BTS {period}' in page.text
