@@ -22,7 +22,7 @@ from person_names import person_name
 ROOT = Path(__file__).resolve().parent
 ASSETS = ROOT / 'assets' / 'london_mobility'
 MODEL = ASSETS / 'convention_mobilite.dotx'
-VERSION = 'london-20261028-1'
+VERSION = 'london-20261029-2'
 
 
 def date_fr(value):
@@ -62,7 +62,7 @@ def variable_text(values):
     }
 
 
-def word_document(values, *, compile_fields=False):
+def legacy_word_document(values, *, compile_fields=False):
     """Keep source clauses, annexes, graphics and run styles intact."""
     output = BytesIO()
     with zipfile.ZipFile(MODEL) as source, zipfile.ZipFile(output, 'w', zipfile.ZIP_DEFLATED) as target:
@@ -118,7 +118,7 @@ def word_document(values, *, compile_fields=False):
     return out.getvalue()
 
 
-def pdf_document(values):
+def legacy_pdf_document(values):
     from pypdf import PdfReader, PdfWriter
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
@@ -165,3 +165,11 @@ def pdf_document(values):
     writer.add_metadata({'/Title': 'Convention de mobilité internationale – Londres', '/Author': 'Intégrale Academy'})
     out = BytesIO(); writer.write(out)
     return out.getvalue()
+
+
+from london_mobility_design import pdf_document, signature_layout, word_document as designed_word_document
+
+
+def word_document(values, *, compile_fields=False):
+    # Keep the original background compiler usable for archived v1 templates.
+    return legacy_word_document(values, compile_fields=True) if compile_fields else designed_word_document(values)

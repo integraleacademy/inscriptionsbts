@@ -187,8 +187,10 @@ def london_context(conn, row):
         item.update(mobility_start=data['mobility_start'], mobility_end=data['mobility_end'],
                     stale=item['fingerprint'] != current_hash, signing_snapshot=data)
     signing = signature_context(conn, row, versions)
+    from london_mobility_data import automatic_data
+    automatic = automatic_data(conn, row)
     return dict(values=values, revision=revision, fields=FIELDS, contracts=linked, versions=versions,
-                source_fingerprint=source_fingerprint(conn, row), warning=warning, signing=signing)
+                source_fingerprint=source_fingerprint(conn, row), warning=warning, signing=signing, automatic=automatic)
 
 
 def has_mobility_archive(conn, *, candidate_id=None, document_id=None):
@@ -353,3 +355,5 @@ def register_london_mobility(app, connect, directory, require_admin, log_event):
             for path in paths: path.unlink(missing_ok=True)
 
     register_signatures(app, connect, directory, guard, answer, store_file, log_event)
+    from london_mobility_automation import register_automation
+    register_automation(app, connect, guard, store_file, log_event)

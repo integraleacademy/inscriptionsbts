@@ -92,6 +92,7 @@
   document.querySelectorAll('.sheet-tabs [role=tab]').forEach(button=>button.addEventListener('keydown',event=>{if(!['ArrowRight','ArrowLeft','Home','End'].includes(event.key))return;event.preventDefault();const buttons=[...document.querySelectorAll('.sheet-tabs [role=tab]')],current=buttons.indexOf(button);const i=event.key==='Home'?0:event.key==='End'?buttons.length-1:(current+(event.key==='ArrowRight'?1:-1)+buttons.length)%buttons.length;buttons[i].focus();tab(buttons[i].dataset.tabTarget);}));
   function setStatus(value){const select=$('#candidate-status');if(select){select.value=value;select.dataset.current=value;}}
   if(sheet){
+    window.addEventListener('hashchange',()=>tab(location.hash.slice(1)||'informations',false));
     tab(location.hash.slice(1)||'informations',false);
     $('#refresh-history')?.addEventListener('click',loadHistory);
     $('#candidate-status').addEventListener('change',event=>{const select=event.target,old=select.dataset.current,value=select.value;if(old===value)return;previewModal('Changer le statut du dossier',`Passer le dossier à « ${select.selectedOptions[0].textContent} ». Vérifiez les notifications associées avant de confirmer.`, '/admin/update-status',()=>({id:cid,value}),{sendLabel:'Confirmer le changement',after:()=>setStatus(value)});dialog.addEventListener('close',()=>{if(select.dataset.current===old)select.value=old;},{once:true});});
