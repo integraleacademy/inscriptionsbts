@@ -237,6 +237,8 @@ def register_promotions(app,db_connect,require_admin):
             return response(True,'Promotion créée. Vous pouvez maintenant y affecter les étudiants et les formateurs.',201,promotion_id=promotion_id)
         with closing(db_connect()) as conn:
             promotions=list_promotions(conn)
+            from promotion_metrics import annotate_promotion_metrics
+            annotate_promotion_metrics(app,conn,promotions)
         years=sorted({2026,2027,*range(datetime.now().year,datetime.now().year+3),*[p['rentree_annee'] for p in promotions]})
         selected_bts=request.args.get('bts','').upper()
         if selected_bts not in BTS_LABELS:selected_bts=''
