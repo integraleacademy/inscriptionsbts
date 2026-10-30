@@ -9,10 +9,14 @@ on:
       - 'planning_pdf.py'
       - 'campus_admin.py'
       - 'planning.py'
+      - 'planning_portal.py'
       - 'teaching.py'
       - 'templates/*trainer*'
       - 'static/js/trainer-invoices.js'
       - 'static/js/trainer-timetable.js'
+      - 'static/js/trainer-space.js'
+      - 'static/css/trainer-space.css'
+      - 'templates/_portal_today.html'
       - 'static/js/trainer-admin-planning.js'
       - 'static/js/trainer-availability.js'
       - 'static/js/trainer-calendar-courses.js'
@@ -20,6 +24,9 @@ on:
       - 'static/css/trainer-invoices.css'
       - 'tests/test_trainer_invoice*.py'
       - 'tests/test_trainer_workspace_updates.py'
+      - 'tests/test_trainer_home_photos.py'
+      - 'tests/test_planning_portal_security.py'
+      - 'tests/test_portal_planning_ui.py'
       - 'tests/test_trainer_availability*.py'
       - 'tests/test_planning_pdf.py'
       - 'tests/trainer_admin_planning_frontend.cjs'
@@ -38,11 +45,13 @@ jobs:
           python-version: '3.11'
           cache: pip
       - run: python -m pip install -r requirements.txt pytest beautifulsoup4
-      - run: python -m pytest -q tests/test_trainer_invoice_audit.py tests/test_trainer_invoice_routes.py tests/test_trainer_workload.py tests/test_trainer_tabs_annual.py tests/test_trainer_access.py tests/test_trainer_admin_planning_audit.py tests/test_trainer_workspace_updates.py tests/test_trainer_availability.py tests/test_trainer_availability_ui.py tests/test_planning_pdf.py
+      - run: python -m pytest -q tests/test_trainer_invoice_audit.py tests/test_trainer_invoice_routes.py tests/test_trainer_workload.py tests/test_trainer_tabs_annual.py tests/test_trainer_access.py tests/test_trainer_admin_planning_audit.py tests/test_trainer_workspace_updates.py tests/test_trainer_availability.py tests/test_trainer_availability_ui.py tests/test_planning_pdf.py tests/test_trainer_home_photos.py tests/test_planning_portal_security.py tests/test_portal_planning_ui.py tests/test_promotions.py tests/test_candidate_photo_upload.py
         env:
           TRAINER_NOTIFICATION_WORKER_DISABLED: '1'
           TEACHING_REMINDER_WORKER_DISABLED: '1'
+          WEDOF_DAILY_SYNC_DISABLED: '1'
       - run: node --check static/js/trainer-invoices.js
+      - run: node --check static/js/trainer-space.js
       - run: node --check static/js/trainer-timetable.js && node --check static/js/global-search.js
       - run: node --check static/js/trainer-admin-planning.js && node --check static/js/trainer-availability.js && node --check static/js/trainer-calendar-courses.js
       - run: npm install --prefix /tmp/trainer-calendar-checks --no-audit --no-fund jsdom@26

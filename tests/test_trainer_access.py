@@ -29,7 +29,7 @@ def access(tmp_path,monkeypatch):
         conn.row_factory=sqlite3.Row
         return conn
     with db() as conn:
-        conn.execute('''CREATE TABLE candidats(id TEXT PRIMARY KEY,nom TEXT,prenom TEXT,bts TEXT,mode TEXT,email TEXT,tel TEXT,numero_dossier TEXT,rentree_annee INTEGER,statut TEXT,slug_public TEXT,num_secu TEXT,date_naissance TEXT,f_photo TEXT)''')
+        conn.execute('''CREATE TABLE candidats(id TEXT PRIMARY KEY,nom TEXT,prenom TEXT,bts TEXT,mode TEXT,email TEXT,tel TEXT,numero_dossier TEXT,rentree_annee INTEGER,statut TEXT,slug_public TEXT,num_secu TEXT,date_naissance TEXT,fichiers_photo TEXT)''')
     mails=[]
     def mail(*args):
         mails.append(args)
@@ -205,7 +205,7 @@ def test_only_exact_assigned_pairs_and_confirmed_statuses_reach_template(access)
     assert response.status_code==200
     context=access[3][-1][1]
     assert {row['nom'] for row in context['students']}=={'ALLOWED','RECONFIRMED'}
-    expected={'nom','prenom','bts','mode','email','tel','numero_dossier','rentree_annee','statut','promotion_id','promotion_name','promotion_niveau','promotion_date_debut','promotion_date_fin','promotion_needs_setup'}
+    expected={'nom','prenom','bts','mode','email','tel','numero_dossier','rentree_annee','statut','promotion_id','promotion_name','promotion_niveau','promotion_date_debut','promotion_date_fin','promotion_needs_setup','photo_url'}
     assert all(set(row)==expected for row in context['students'])
     for forbidden in [b'PRIVATE-',b'cross-one@example',b'cross-two@example',b'pending@example',b'validated@example',b'reconfirming@example',b'cancelled@example',b'other@example',b'/admin/candidat/']:
         assert forbidden not in response.data

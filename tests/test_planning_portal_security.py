@@ -230,6 +230,24 @@ def test_today_uses_paris_date_and_retains_next_courses_without_other_groups(por
     assert 'foreign' not in json.dumps(today)
 
 
+@pytest.mark.parametrize('day,expected', [(4, {'own'}), (6, set())])
+def test_trainer_home_reads_only_today_in_paris_even_when_future_courses_exist(portal_db, monkeypatch, day, expected):
+    instant = datetime(2027, 1, day-1, 23, 30, tzinfo=timezone.utc).astimezone(ZoneInfo('Europe/Paris'))
+    monkeypatch.setattr(planning_portal, '_now_paris', lambda: instant)
+    read_ranges = []
+    original = planning_portal._courses
+    def courses(*args):
+        read_ranges.append((args[4], args[5]))
+        return original(*args)
+    monkeypatch.setattr(planning_portal, '_courses', courses)
+    with portal_db() as conn:
+        today = planning_portal.get_portal_today(conn, 'trainer', 't1')
+    assert today['today'] == f'2027-01-{day:02}'
+    assert ids(today) == expected
+    assert today['next_courses'] == []
+    assert read_ranges[0][0] == read_ranges[0][1] == instant.date()
+
+
 def test_public_holidays_are_named_and_red_ready_in_both_portals(portal_db, monkeypatch):
     monkeypatch.setattr(planning_portal, '_now_paris', lambda: datetime(2027, 1, 1, 9, 0, tzinfo=ZoneInfo('Europe/Paris')))
     for role, identity in [('student', 'c1'), ('trainer', 't1')]:

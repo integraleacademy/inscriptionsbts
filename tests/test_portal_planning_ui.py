@@ -74,3 +74,12 @@ def test_home_course_live_status_is_server_rendered_without_javascript():
     assert 'data-course-live>En cours</span>' in html
     assert 'data-course-live>À venir</span>' in html
     assert html.count('data-course-live hidden') == 1
+
+
+def test_trainer_home_does_not_show_other_days_even_if_supplied_as_upcoming():
+    html = render('_portal_today.html', portal_today=dict(role='trainer', today='2026-11-12',
+        today_label='jeudi 12 novembre', planning_url='/formateur/planning', requires_login=False,
+        day_kind='school', courses=[], next_courses=[course(subject_name='Cours de demain')],
+        empty_message='Aucun cours prévu aujourd’hui.'))
+    assert 'Pas de cours aujourd’hui.' in html and 'Voir mon planning' in html
+    assert 'Cours de demain' not in html and 'portal-next-courses' not in html

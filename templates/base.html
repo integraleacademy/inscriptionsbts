@@ -58,7 +58,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-refinement.css') }}?v=5">
   {% if is_student_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-access.css') }}?v=4">{% endif %}
   {% if request.endpoint == 'candidate_login' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-login.css') }}?v=2">{% endif %}
-  {% if is_trainer_space or is_trainer_admin or is_promotions_admin or is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-space.css') }}?v=2">{% endif %}
+  {% if is_trainer_space or is_trainer_admin or is_promotions_admin or is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-space.css') }}?v=3">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-neutral.css') }}?v=1">
   {% if is_trainer_admin or is_promotions_admin or request.endpoint in ['trainer_dashboard', 'admin_candidate_sheet'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/promotions.css') }}?v=1">{% endif %}
   {% if daily_login %}<link rel="stylesheet" href="{{ url_for('static', filename='css/daily-login.css') }}?v=3">{% endif %}
@@ -146,7 +146,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% elif is_promotions_admin %}
     <script src="{{ url_for('static', filename='js/promotions.js') }}?v=2" defer></script>
   {% elif is_trainer_space or is_trainer_admin %}
-    <script src="{{ url_for('static', filename='js/trainer-space.js') }}?v=5" defer></script>
+    <script src="{{ url_for('static', filename='js/trainer-space.js') }}?v=6" defer></script>
   {% elif request.endpoint in ['admin', 'admin_candidate_sheet'] %}
     <script src="{{ url_for('static', filename='js/bts-management.js') }}?v=6" defer></script>
   {% elif request.endpoint == 'admin_candidate_create' %}

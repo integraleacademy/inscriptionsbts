@@ -203,6 +203,10 @@
     if (requestedAccount) openEditor(requestedAccount, [...document.querySelectorAll('[data-edit-trainer]')].find(button => button.dataset.editTrainer === String(requestedAccount.id)));
     try { const message = sessionStorage.getItem('trainer-admin-notice'); if (message) { $('trainer-admin-notice').textContent = message; $('trainer-admin-notice').hidden = false; sessionStorage.removeItem('trainer-admin-notice'); } } catch (_) { /* Storage is optional. */ }
   }
+  document.querySelectorAll('[data-student-photo]').forEach(photo => {
+    photo.addEventListener('error', () => { photo.hidden = true; });
+    if (photo.complete && !photo.naturalWidth) photo.hidden = true;
+  });
   const rosterRows = [...document.querySelectorAll('[data-student-row]')];
   const studentSearch = $('trainer-student-search'), promotion = $('trainer-student-promotion');
   if (studentSearch && promotion) {
