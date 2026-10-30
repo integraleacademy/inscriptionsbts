@@ -1,5 +1,4 @@
-"""Placement counts use enrolled students and distinguish absence from unknown."""
-from datetime import date
+"""Attached-contract counts use enrolled students, with one count per student."""
 import hashlib
 import json
 
@@ -9,9 +8,6 @@ from promotion_metrics import annotate_promotion_metrics
 from promotions import assign_candidate_promotion, list_promotions
 from test_promotions import db, web, group, student
 from wedof_contracts import discovery_fingerprint, ensure_schema
-
-TODAY = date(2026, 10, 30)
-
 
 @pytest.fixture
 def metrics_db(db, monkeypatch):
@@ -47,7 +43,7 @@ def contract(conn, cid, **changes):
 
 def metrics(conn, app):
     groups = list_promotions(conn)
-    annotate_promotion_metrics(app, conn, groups, TODAY)
+    annotate_promotion_metrics(app, conn, groups)
     return {p['id']: p['placement'] for p in groups}
 
 
@@ -80,49 +76,33 @@ def test_counts_deduplicate_contracts_and_exclude_non_enrolled_or_other_groups(m
         result = metrics(conn, web[1])
         first = result['group-one']
         assert first['total'] == 7
-        expected = dict(company_found=2, company_searching=2, company_unknown=3,
-                        contract_linked=3, contract_missing=1, contract_unknown=3)
+        expected = dict(contract_linked=3)
         assert {key: first[key]['count'] for key in expected} == expected
-        assert first['company_found']['percent'] == 28.6
-        assert first['contract_missing']['percent'] == 14.3
-        assert result['other']['total'] == 1 and result['other']['company_found']['percent'] == 100
+        assert first['contract_linked']['percent'] == 42.9
+        assert result['other']['total'] == 1 and result['other']['contract_linked']['percent'] == 0
         assert result['empty']['total'] == 0 and result['empty']['contract_linked']['percent'] is None
 
 
-@pytest.mark.parametrize('changes,found', [
-    ({}, 1), ({'state': 'pendingAcceptation'}, 1), ({'state': 'sent'}, 1),
-    ({'contract_start': '2026-12-01'}, 1), ({'contract_end': '2026-10-30'}, 1),
-    ({'state': 'broken'}, 0), ({'state': 'cancelled'}, 0), ({'state': 'refused'}, 0),
-    ({'state': 'completed'}, 0), ({'state': 'draft'}, 0),
-    ({'employer_name': '', 'employer_siret': ''}, 0),
-    ({'contract_end': '2026-10-29'}, 0), ({'contract_end': 'invalid'}, 0),
-    ({'contract_break_date': '2026-10-30'}, 0), ({'contract_break_date': '2026-10-29'}, 0),
-])
-def test_historical_contracts_are_attached_but_do_not_claim_a_current_company(metrics_db, web, changes, found):
+@pytest.mark.parametrize('state', ['accepted', 'pendingAcceptation', 'sent', 'broken', 'cancelled', 'refused', 'completed', 'draft'])
+def test_attached_contracts_keep_the_directory_definition_for_all_states(metrics_db, web, state):
     with metrics_db() as conn:
         member(conn, 'one')
-        contract(conn, 'one', **changes)
+        contract(conn, 'one', state=state)
         result = metrics(conn, web[1])['group-one']
-        assert result['company_found']['count'] == found
-        assert result['company_unknown']['count'] == 1 - found
-        assert result['contract_linked']['count'] == 1
+        assert result['contract_linked'] == dict(count=1, percent=100)
 
 
-def test_company_assignment_overrides_old_no_and_refreshes_after_transfer(metrics_db, web):
+def test_contract_counts_refresh_after_transfer(metrics_db, web):
     with metrics_db() as conn:
         member(conn, 'one', 'non')
-        member(conn, 'two')
-        conn.execute("INSERT INTO companies VALUES('company',1)")
-        conn.execute("INSERT INTO company_students VALUES('one','company','2026-09-01','2028-08-31')")
-        conn.execute("INSERT INTO company_students VALUES('two','company','2025-09-01','2026-10-29')")
+        member(conn, 'two', 'oui')
+        contract(conn, 'one')
         result = metrics(conn, web[1])['group-one']
-        assert result['company_found']['count'] == 1
-        assert result['company_searching']['count'] == 0
-        assert result['company_unknown']['count'] == 1
+        assert result['contract_linked'] == dict(count=1, percent=50)
         assign_candidate_promotion(conn, 'one', 'other')
         result = metrics(conn, web[1])
-        assert result['group-one']['total'] == 1 and result['group-one']['company_found']['count'] == 0
-        assert result['other']['company_found']['percent'] == 100
+        assert result['group-one']['total'] == 1 and result['group-one']['contract_linked']['count'] == 0
+        assert result['other']['contract_linked']['percent'] == 100
 
 
 def test_page_is_admin_only_shows_denominator_and_real_contract_filter_links(metrics_db, web):
@@ -135,21 +115,21 @@ def test_page_is_admin_only_shows_denominator_and_real_contract_filter_links(met
     response = client.get('/admin/promotions')
     assert response.status_code == 200 and response.headers['Cache-Control'] == 'no-store'
     assert '3 inscriptions confirmées · base des pourcentages' in response.text
-    assert '33,3 %' in response.text and '66,7 %' in response.text
+    assert '33,3 %' in response.text
+    assert 'Contrat d’apprentissage rattaché' in response.text
+    assert 'Entreprise trouvée' not in response.text
+    assert 'En recherche' not in response.text
+    assert 'promotion-metric-breakdown' not in response.text
     assert 'Aucune inscription confirmée pour le moment' in response.text
     assert 'promotion=group-one&amp;contract=yes' in response.text
-    assert 'promotion=group-one&amp;contract=no' in response.text
-    assert 'promotion=group-one&amp;contract=linked' in response.text
     assert next(p for p in contexts[-1]['promotions'] if p['id'] == 'group-one')['placement']['total'] == 3
     assert app.test_client().get('/admin/promotions').status_code == 403
 
 
-def test_legacy_schema_without_wedof_or_company_fields_remains_unknown(db, web):
+def test_legacy_schema_without_wedof_has_no_attached_contract(db, web):
     with db() as conn:
         group(conn)
         student(conn)
         assign_candidate_promotion(conn, 'student', 'group-one')
         result = metrics(conn, web[1])['group-one']
-        assert result['company_unknown'] == dict(count=1, percent=100)
-        assert result['contract_unknown'] == dict(count=1, percent=100)
-        assert result['contract_missing']['count'] == 0
+        assert result['contract_linked'] == dict(count=0, percent=0)
