@@ -19,12 +19,12 @@ def db(tmp_path):
         conn.row_factory=sqlite3.Row
         return conn
     with connect() as conn:
-        conn.execute('''CREATE TABLE candidats(id TEXT PRIMARY KEY,nom TEXT,prenom TEXT,bts TEXT,mode TEXT,email TEXT,tel TEXT,numero_dossier TEXT,rentree_annee INTEGER,statut TEXT)''')
+        conn.execute('''CREATE TABLE candidats(id TEXT PRIMARY KEY,nom TEXT,prenom TEXT,bts TEXT,mode TEXT,email TEXT,tel TEXT,numero_dossier TEXT,rentree_annee INTEGER,statut TEXT,fichiers_photo TEXT)''')
     return connect
 
 
 def student(conn,cid='student',bts='MCO',year=2026,status='confirmee'):
-    conn.execute('INSERT INTO candidats VALUES(?,?,?,?,?,?,?,?,?,?)',(cid,cid.upper(),'Camille',bts,'presentiel',cid+'@example.test','0600000000',cid+'-DOS',year,status))
+    conn.execute('INSERT INTO candidats(id,nom,prenom,bts,mode,email,tel,numero_dossier,rentree_annee,statut) VALUES(?,?,?,?,?,?,?,?,?,?)',(cid,cid.upper(),'Camille',bts,'presentiel',cid+'@example.test','0600000000',cid+'-DOS',year,status))
 
 
 def group(conn,pid='group-one',bts='MCO',year=2026,level=1,active=1):

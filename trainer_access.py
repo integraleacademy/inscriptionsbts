@@ -1,6 +1,6 @@
 """Trainer accounts and narrowly scoped confirmed-student rosters.
 
-This module never exposes candidate bearer links, uploads, identity documents,
+This module never exposes candidate bearer links, upload paths, identity documents,
 health/identity numbers, birth dates or administrative record actions.
 """
 from person_names import person_name
@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 import hashlib
 import hmac
 import ipaddress
+import json
 import os
 import re
 import secrets
@@ -100,7 +101,28 @@ def get_authenticated_trainer(app, db_connect):
         return None
 
 
-def register_trainer_access(app, db_connect, send_mail, require_admin):
+def _trainer_students(conn, trainer, candidate_id=None):
+    """The roster and portrait reads use the same current promotion grants."""
+    sql = '''SELECT c.id,c.fichiers_photo,c.nom,c.prenom,p.bts AS bts,c.mode,c.email,c.tel,c.numero_dossier,
+            c.rentree_annee,c.statut,p.id AS promotion_id,p.nom AS promotion_name,
+            p.niveau AS promotion_niveau,p.date_debut AS promotion_date_debut,
+            p.date_fin AS promotion_date_fin,p.needs_setup AS promotion_needs_setup
+        FROM candidats c JOIN student_promotions s ON s.candidate_id=c.id
+        JOIN promotions p ON p.id=s.promotion_id
+        JOIN trainer_promotions a ON a.promotion_id=p.id
+        JOIN trainers t ON t.id=a.trainer_id
+        WHERE a.trainer_id=? AND t.active=1 AND t.version=? AND p.active=1
+            AND upper(trim(c.bts))=p.bts AND COALESCE(c.rentree_annee,2026)=p.rentree_annee
+            AND c.statut IN ('confirmee','reconfirmee')'''
+    params = [trainer['id'], trainer['version']]
+    if candidate_id is not None:
+        sql += ' AND c.id=?'
+        params.append(candidate_id)
+    sql += ' ORDER BY p.rentree_annee DESC,p.bts,COALESCE(p.niveau,0),p.nom,c.nom,c.prenom'
+    return [dict(row) for row in conn.execute(sql, params)]
+
+
+def register_trainer_access(app, db_connect, send_mail, require_admin, *, upload_dir=None):
     app.extensions['trainer_preview_admin_guard'] = require_admin
     dummy_hash = generate_password_hash(secrets.token_urlsafe(32), method='scrypt')
 
@@ -647,26 +669,37 @@ def register_trainer_access(app, db_connect, send_mail, require_admin):
                 abort(400)
         with closing(db_connect()) as conn:
             assignments=get_assignments(conn,trainer['id'])
-            # Promotion IDs are the sole grant. BTS/cohort compatibility is a
-            # second guard against later administrative edits leaving stale placements.
-            sql='''SELECT c.nom,c.prenom,p.bts AS bts,c.mode,c.email,c.tel,c.numero_dossier,
-                    c.rentree_annee,c.statut,p.id AS promotion_id,p.nom AS promotion_name,
-                    p.niveau AS promotion_niveau,p.date_debut AS promotion_date_debut,
-                    p.date_fin AS promotion_date_fin,p.needs_setup AS promotion_needs_setup
-                FROM candidats c JOIN student_promotions s ON s.candidate_id=c.id
-                JOIN promotions p ON p.id=s.promotion_id
-                JOIN trainer_promotions a ON a.promotion_id=p.id
-                JOIN trainers t ON t.id=a.trainer_id
-                WHERE a.trainer_id=? AND t.active=1 AND t.version=? AND p.active=1
-                    AND upper(trim(c.bts))=p.bts AND COALESCE(c.rentree_annee,2026)=p.rentree_annee
-                    AND c.statut IN ('confirmee','reconfirmee')
-                ORDER BY p.rentree_annee DESC,p.bts,COALESCE(p.niveau,0),p.nom,c.nom,c.prenom'''
-            students=[dict(row) for row in conn.execute(sql,(trainer['id'],trainer['version']))]
+            students = _trainer_students(conn, trainer)
+            for student in students:
+                candidate_id = student.pop('id')
+                try:
+                    photos = json.loads(student.pop('fichiers_photo') or '[]')
+                except (TypeError, ValueError):
+                    photos = []
+                has_photo = isinstance(photos, list) and any(isinstance(path, str) and path for path in photos)
+                student['photo_url'] = url_for('trainer_student_photo', candidate_id=candidate_id) if has_photo else ''
             from planning_portal import get_portal_today
             portal_today=get_portal_today(conn,'trainer',trainer['id'])
         return page('trainer_dashboard.html',title='Mes étudiants · Espace formateur',trainer=trainer,students=students,
                     assignments=assignments,promotions=assignments,bts_labels=BTS_LABELS,selected_bts=selected_bts,
                     selected_year=selected_year,selected_promotion=request.args.get('promotion',''),total_students=len(students),portal_today=portal_today)
+
+    @app.get('/formateur/etudiants/<candidate_id>/photo')
+    def trainer_student_photo(candidate_id):
+        trainer = get_authenticated_trainer(app, db_connect)
+        if not trainer:
+            abort(403)
+        if request.args or upload_dir is None:
+            abort(404)
+        with closing(db_connect()) as conn:
+            students = _trainer_students(conn, trainer, candidate_id)
+        if not students:
+            abort(404)
+        from candidate_photos import photo_response
+        response = photo_response(students[0], upload_dir(), db_connect)
+        response.headers['Referrer-Policy'] = 'no-referrer'
+        response.vary.add('Cookie')
+        return response
 
     @app.route('/formateur/deconnexion',methods=['GET','POST'])
     def trainer_logout():

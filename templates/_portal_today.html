@@ -11,7 +11,7 @@
     {% if schedule.day_kind|default('') == 'public_holiday' %}<p class="portal-holiday-banner">{{ icon('clock') }} <strong>{{ schedule.day_label or 'Jour férié' }}</strong> · Aucun cours ne doit être programmé ce jour.</p>{% endif %}
     {% if schedule.courses %}<div class="portal-today-courses">{% for course in schedule.courses %}{{ portal_course(course, schedule.role) }}{% endfor %}</div>
     {% else %}<div class="portal-today-empty"><span class="portal-today-symbol">{{ icon('clock') }}</span><div><h3>{{ 'Pas de cours aujourd’hui.' if schedule.day_kind|default('') != 'company' else ('Une journée en entreprise.' if not is_teacher else 'Pas de cours aujourd’hui.') }}</h3><p>{{ schedule.empty_message|default(schedule.empty_reason, true)|default('Les prochains cours apparaîtront ici dès leur programmation.', true) }}</p></div></div>{% endif %}
-    {% if schedule.next_courses %}<div class="portal-next-courses"><div class="portal-next-heading"><span>{{ icon('book') }}</span><h3>{{ 'Vos prochains rendez-vous' if is_teacher else 'Tes prochains cours' }}</h3></div><div class="portal-next-grid">{% for course in schedule.next_courses[:2] %}{{ portal_course(course, schedule.role, true) }}{% endfor %}</div></div>{% endif %}
+    {% if not is_teacher and schedule.next_courses %}<div class="portal-next-courses"><div class="portal-next-heading"><span>{{ icon('book') }}</span><h3>Tes prochains cours</h3></div><div class="portal-next-grid">{% for course in schedule.next_courses[:2] %}{{ portal_course(course, schedule.role, true) }}{% endfor %}</div></div>{% endif %}
   {% endif %}
 </section>
 {% endif %}

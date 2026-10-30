@@ -1075,7 +1075,7 @@ candidate_workflow_response = register_candidate_workflows(
     lambda status: campaign_rows(status))
 register_daily_login(app)
 register_promotions(app, db, require_admin)
-register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)
+register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin, upload_dir=lambda: UPLOAD_DIR)
 register_planning(app, db, require_admin)
 register_planning_portal(app, db)
 register_company_portal(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin)

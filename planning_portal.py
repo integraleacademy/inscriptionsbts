@@ -204,15 +204,16 @@ def get_portal_today(conn, role, identity_id):
     now = _now_paris()
     today = now.date()
     scope = _identity_scope(conn, role, identity_id)
-    # Find future sessions across the full training range, including a later year.
-    ends = []
-    for promotion in scope['promotions']:
-        try:
-            ends.append(date.fromisoformat(promotion.get('date_fin') or ''))
-        except (TypeError, ValueError):
-            pass
-    end = max([today+timedelta(days=366), *ends])
-    end = min(end, today+timedelta(days=1096))
+    end = today
+    if role == 'student':
+        # Students retain their next classes; the trainer home covers today only.
+        ends = []
+        for promotion in scope['promotions']:
+            try:
+                ends.append(date.fromisoformat(promotion.get('date_fin') or ''))
+            except (TypeError, ValueError):
+                pass
+        end = min(max([today+timedelta(days=366), *ends]), today+timedelta(days=1096))
     courses = _courses(conn, role, identity_id, scope['promotions'], today, end, now)
     todays = [course for course in courses if course['date'] == today.isoformat()]
     upcoming = [course for course in courses if course['date'] > today.isoformat()][:3]
