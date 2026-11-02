@@ -12,9 +12,9 @@ from datetime import datetime
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
-from flask import abort, flash, redirect, request, session, url_for
+from flask import abort, flash, redirect, render_template, request, session, url_for
 
-from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, apply_report, identity, parse_report, with_exams
+from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, apply_report, identity, parse_report, with_exams, words
 from cyclades_portal import read_academy
 
 READER_VERSION = 8
@@ -42,18 +42,47 @@ def summaries(conn):
 
 
 def sheet_status(conn, student):
-    result = summaries(conn)
-    uid = json.dumps(identity(student), ensure_ascii=False)
-    for info in result.values():
-        info["sessions"] = []
-    for entry in conn.execute("""SELECT s.*,c.outcome,c.records,c.seen FROM cyclades_sessions s
-        LEFT JOIN cyclades_students c ON c.academy=s.academy AND c.year=s.year
-            AND c.candidate_id=? AND c.identity=? ORDER BY s.year DESC""", (student["id"], uid)):
-        result[entry["academy"]]["sessions"].append({
-            "year": entry["year"], "issued": display_time(entry["issued"]), "origin": entry["origin"],
-            "outcome": entry["outcome"], "records": json.loads(entry["records"] or "[]"),
-            "seen": display_time(entry["seen"])})
-    return result
+    person = identity(student)
+    identifiable = all(person)
+    sources = {key: item["status"] for key, item in summaries(conn).items() if item["connected"]}
+    busy = any(status in (None, "pending", "running") for status in sources.values())
+    partial = "error" in sources.values()
+    checked, outcomes = set(), set()
+    matches, history = [], []
+    latest = None
+    for entry in conn.execute("""SELECT s.*,c.outcome,c.records,c.seen FROM cyclades_students c
+        JOIN cyclades_sessions s USING (academy,year) WHERE c.candidate_id=? AND c.identity=?
+        ORDER BY s.year DESC,s.issued DESC,s.academy""", (student["id"], json.dumps(person, ensure_ascii=False))):
+        checked.add(entry["academy"])
+        outcomes.add(entry["outcome"])
+        latest = max(latest or 0, entry["issued"])
+        if entry["outcome"] not in ("matched", "missing"):
+            continue
+        for record in json.loads(entry["records"]):
+            tone = {"inscrit": "green", "pre inscrit": "blue", "anomalie": "amber",
+                    "non inscrit": "amber"}.get(words(record["status"]), "slate")
+            item = dict(record, academy=ACADEMIES[entry["academy"]][0], year=entry["year"],
+                        seen=display_time(entry["seen"]), origin=entry["origin"], tone=tone)
+            (matches if entry["outcome"] == "matched" else history).append(item)
+
+    unsearched = [key for key, status in sources.items() if status == "ok" and key not in checked]
+    if not identifiable:
+        state = "identity"
+    elif matches:
+        state = "matched"
+    elif "ambiguous" in outcomes:
+        state = "ambiguous"
+    elif busy or unsearched:
+        state = "searching"
+    elif partial:
+        state = "partial"
+    elif checked:
+        state = "empty"
+    else:
+        state = "unconfigured"
+    return dict(state=state, matches=matches, history=history, verified=display_time(latest),
+                busy=busy and identifiable, partial=partial, ambiguous="ambiguous" in outcomes,
+                can_search=bool(sources) and identifiable, unsearched=unsearched if identifiable else [])
 
 
 def run_due(app, connect, directory, *, now=None, fetch=read_academy):
@@ -146,10 +175,10 @@ def register_cyclades(app, connect, require_admin, directory):
 
     app.jinja_env.globals["cyclades_accounts"] = settings
 
-    def guard(key):
+    def guard(key=None):
         if not require_admin():
             abort(403)
-        if key not in ACADEMIES:
+        if key is not None and key not in ACADEMIES:
             abort(404)
         expected = session.get("_planning_csrf", "")
         if not expected or not hmac.compare_digest(request.form.get("csrf_token", ""), expected):
@@ -158,6 +187,45 @@ def register_cyclades(app, connect, require_admin, directory):
     def finish(message, error=False):
         flash(message, "error" if error else "success")
         return redirect(url_for("admin_settings") + "#cyclades", code=303)
+
+    @app.route("/admin/candidat/<cid>/cyclades", methods=["GET", "POST"])
+    def cyclades_candidate_search(cid):
+        from training_programs import BTS_LABELS
+
+        requested = request.method == "POST"
+        if requested:
+            guard()
+        elif not require_admin():
+            abort(403)
+        queued = 0
+        notice = ""
+        with closing(connect()) as conn:
+            if requested:
+                conn.execute("BEGIN IMMEDIATE")
+            student = conn.execute("SELECT id,bts,nom,prenom,date_naissance FROM candidats WHERE id=?", (cid,)).fetchone()
+            if not student or student["bts"] not in BTS_LABELS:
+                abort(404)
+            result = sheet_status(conn, student)
+            if requested and result["can_search"]:
+                automatic = request.form.get("mode") == "initial"
+                keys = result["unsearched"] if automatic else ACADEMIES
+                cutoff = datetime.now(PARIS).timestamp() - 300
+                for key in keys:
+                    queued += conn.execute("""UPDATE cyclades_accounts SET day=NULL,status='pending',message=''
+                        WHERE academy=? AND credential IS NOT NULL AND status IN ('ok','error')
+                        AND (attempted IS NULL OR attempted < ? OR ?)""",
+                        (key, cutoff, key in result["unsearched"])).rowcount
+                conn.commit()
+                if queued:
+                    result = sheet_status(conn, student)
+                elif not automatic and not result["busy"]:
+                    notice = "Une vérification a eu lieu il y a moins de cinq minutes."
+        if queued:
+            start()
+            wake.set()
+        if requested and request.headers.get("X-Cyclades-Fragment") != "1":
+            return redirect(url_for("admin_candidate_sheet", cid=cid, return_to=request.form.get("return_to") or None) + "#cyclades", code=303)
+        return render_template("_cyclades_result.html", cyclades=result, notice=notice), 200, {"Cache-Control": "no-store"}
 
     @app.post("/admin/parametres/cyclades/<key>/connexion")
     def cyclades_settings(key):

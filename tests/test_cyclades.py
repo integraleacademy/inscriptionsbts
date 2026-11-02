@@ -131,10 +131,71 @@ def test_daily_runs_restart_concurrency_and_one_academy_down(student, tmp_path):
     with application.db() as conn:
         local = dict(conn.execute("SELECT * FROM candidats WHERE id='student'").fetchone())
         result = sheet_status(conn, local)
-        assert result["paris"]["status"] == "ok"
-        assert result["nice"]["status"] == "error"
-        assert result["paris"]["sessions"][0]["records"][0]["status"] == "Pré-inscrit"
-        assert result["nice"]["sessions"] == []
+        assert result["state"] == "matched" and result["partial"]
+        assert [(item["academy"], item["status"]) for item in result["matches"]] == [("Paris", "Pré-inscrit")]
+
+
+def test_candidate_search_shows_only_personal_results_and_preserves_history(student):
+    client = student
+    auth(client)
+    path = "/admin/candidat/student/cyclades"
+    def content():
+        return client.get(path).get_data(as_text=True)
+    with application.db() as conn:
+        for key in ACADEMIES:
+            apply_report(conn, key, parse_report(export(key, empty=True), key), "auto")
+    empty = content()
+    assert empty.count("Aucun dossier trouvé") == 1
+    assert all(value not in empty for value in ("Paris", "Nice", "Session 2027", "Ouvrir le portail"))
+    with application.db() as conn:
+        apply_report(conn, "nice", parse_report(export("nice", issued="03/11/2026 09:00"), "nice"), "import")
+    matched = content()
+    assert "Académie de Nice" in matched and "Session 2027" in matched and "Pré-inscrit" in matched
+    assert "Paris" not in matched and "Aucun dossier trouvé" not in matched
+    with application.db() as conn:
+        apply_report(conn, "nice", parse_report(export("nice", empty=True, issued="04/11/2026 09:00"), "nice"), "auto")
+    history = content()
+    assert "Aucun dossier trouvé" in history
+    assert history.index('<details class="cy-history">') < history.index("Académie de Nice")
+
+
+def test_candidate_search_queues_once_and_does_not_confuse_unchecked_with_missing(student):
+    client = student
+    path = "/admin/candidat/student/cyclades"
+    assert client.get(path).status_code == client.post(path).status_code == 403
+    auth(client)
+    client.get("/admin/candidat/student")
+    with client.session_transaction() as state:
+        token = state["_planning_csrf"]
+    assert client.post(path, data={"csrf_token":"incorrect"}).status_code == 403
+    headers = {"X-Cyclades-Fragment": "1"}
+    def post(mode):
+        return client.post(path, data={"csrf_token":token, "mode":mode}, headers=headers).get_data(as_text=True)
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_accounts SET credential=?,status='ok',attempted=?",
+                     (b"fixture", datetime.now(PARIS).timestamp()))
+        apply_report(conn, "paris", parse_report(export(empty=True), "paris"), "auto")
+    assert 'data-initial="1"' in client.get(path).get_data(as_text=True)
+    assert "Recherche en cours" in post("initial")
+    assert "Recherche en cours" in post("initial")
+    with application.db() as conn:
+        assert dict(conn.execute("SELECT academy,status FROM cyclades_accounts")) == {"paris":"ok","nice":"pending"}
+        apply_report(conn, "nice", parse_report(export("nice", empty=True), "nice"), "auto")
+        conn.execute("UPDATE cyclades_accounts SET status='ok' WHERE academy='nice'")
+    assert "moins de cinq minutes" in post("manual")
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_accounts SET status='error' WHERE academy='nice'")
+    partial = client.get(path).get_data(as_text=True)
+    assert "Recherche incomplète" in partial and "Aucun dossier trouvé" not in partial
+    assert "Nice" not in partial and "Paris" not in partial
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_accounts SET attempted=0")
+    assert 'data-busy="1"' in post("manual")
+    with application.db() as conn:
+        assert {r[0] for r in conn.execute("SELECT status FROM cyclades_accounts")} == {"pending"}
+        conn.execute("UPDATE candidats SET date_naissance=NULL WHERE id='student'")
+    assert "Identité à compléter" in post("manual")
+    assert client.get("/admin/candidat/inexistant/cyclades").status_code == 404
 
 
 def test_config_is_encrypted_and_never_redisplayed(student):
