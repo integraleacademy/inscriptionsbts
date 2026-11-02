@@ -220,14 +220,30 @@ def report_frame(shell, title, academy, label=None, already_open=False):
     raise CycladesError("CYCLADES a ouvert la session mais le formulaire d’édition CSV n’est pas apparu.")
 
 
+def state_field(page):
+    name = re.compile(r"(?:^|[^\w])[ée]tat(?:$|[^\w])", re.I)
+    legend = page.locator("fieldset > legend").filter(has_text=name)
+    field = legend.locator("..").or_(page.get_by_role("group", name=name)).filter(visible=True)
+    tab_name = re.compile(r"crit[eè]res? de s[ée]lection", re.I)
+    tab = page.get_by_role("link", name=tab_name).or_(page.get_by_role("tab", name=tab_name)).or_(
+        page.get_by_role("button", name=tab_name)).filter(visible=True)
+    # The export button appears before the selection panel is ready.
+    # Some sessions open on the parameters tab, others already show their criteria.
+    opened = False
+    deadline = time.monotonic() + 25
+    while time.monotonic() < deadline:
+        if field.count() == 1:
+            return field
+        if not opened and tab.count() == 1 and tab.is_enabled():
+            if tab.get_attribute("aria-expanded") != "true" and tab.get_attribute("aria-selected") != "true":
+                tab.click(timeout=5000)
+            opened = True
+        page.wait_for_timeout(250)
+    raise CycladesError("Le panneau « Critères de sélection » n’a pas affiché le filtre État.")
+
+
 def choose_states(page, exam_details):
-    name = re.compile(r"(?:^|[\s«:])[ée]tat(?:\s|$|[»:.])", re.I)
-    field = page.get_by_role("group", name=name)
-    if field.count() != 1:
-        field = page.get_by_text(re.compile(r"^\s*[ée]tat\s*[:*]?\s*$",re.I)).locator(
-            "xpath=ancestor::*[.//button or .//select or .//*[@aria-haspopup]][1]")
-    if field.count() != 1:
-        raise CycladesError("La rubrique du filtre État est introuvable.")
+    field = state_field(page)
     required = {"inscrit", "pre inscrit"} if exam_details else ALL_STATES
     native = field.locator("select[multiple]")
     if native.count() == 1:
@@ -245,8 +261,13 @@ def choose_states(page, exam_details):
     button.click(timeout=9000)
     # Several CYCLADES skins attach the popup to the document, outside its fieldset.
     items = page.locator('[role=option]:visible,[role=menuitemcheckbox]:visible')
+    labels = page.locator('label:visible').filter(has=page.locator('input[type=checkbox]'))
+    try:
+        items.or_(labels).first.wait_for(state="visible", timeout=9000)
+    except BrowserTimeout:
+        raise CycladesError("Le filtre État s’est ouvert sans afficher de choix.") from None
     if not items.count():
-        items = page.locator('label:visible').filter(has=page.locator('input[type=checkbox]'))
+        items = labels
     selected_names, seen = set(), set()
     for item in items.all():
         text = item.get_attribute("aria-label") or item.inner_text()
@@ -261,13 +282,21 @@ def choose_states(page, exam_details):
                 return inner.is_checked()
             return (item.get_attribute("aria-selected") or item.get_attribute("aria-checked")) == "true"
         if checked() != desired:
-            item.click(timeout=5000)
+            if inner.count() == 1 and inner.is_visible():
+                try:
+                    inner.set_checked(desired, timeout=2500)
+                except BrowserTimeout:
+                    if checked() != desired:
+                        item.click(timeout=5000)
+            else:
+                item.click(timeout=5000)
             if checked() != desired:
                 raise CycladesError("CYCLADES n’a pas appliqué la sélection des états.")
         if desired:
             selected_names.add(state)
     if not ALL_STATES.issubset(seen):
-        raise CycladesError("Le menu État ne présente pas les cinq états de la liste BTS.")
+        missing = ", ".join(sorted(ALL_STATES - seen))
+        raise CycladesError(f"Le filtre État n’a pas proposé tous les états attendus. Choix manquants : {missing}.")
     button.click(timeout=6000)
     return selected_names
 
