@@ -12,7 +12,22 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from docx.opc.exceptions import PackageNotFoundError
 from lxml.etree import XMLSyntaxError
 
-DOCUMENT_FIELDS = ('fichiers_ci', 'fichiers_photo', 'fichiers_carte_vitale', 'fichiers_cv', 'fichiers_lm')
+DOC_FIELDS = {
+    "ci": ("fichiers_ci", "🪪 Carte d’identité / Passeport"),
+    "photo": ("fichiers_photo", "📸 Photo d’identité"),
+    "carte_vitale": ("fichiers_carte_vitale", "💳 Carte Vitale"),
+    "cv": ("fichiers_cv", "📄 CV"),
+    "lm": ("fichiers_lm", "🖋️ Lettre de motivation"),
+}
+DOCUMENT_FIELDS = tuple(column for column, _ in DOC_FIELDS.values())
+
+
+def load_verif_docs(row):
+    try:
+        checks = json.loads(row.get('verif_docs') or '{}')
+    except (TypeError, ValueError):
+        return {}
+    return checks if isinstance(checks, dict) else {}
 
 
 def _private(response):

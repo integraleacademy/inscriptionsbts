@@ -3,15 +3,17 @@ from contextlib import closing
 
 import os, sqlite3, json, uuid, shutil
 from datetime import datetime, timedelta
-from admission_options import PROFILE_GROUPS
+from admission_options import PROFILE_GROUPS, profile_answers
 from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
 from candidate_creation import register_candidate_creation
+from candidate_pdf import application_pdf
+from wedof_contracts import directory_contracts
 from candidate_statuses import annotate_candidate_statuses, EMPLOYMENT_STATUS
 from candidate_workflows import register_candidate_workflows
-from candidate_documents import register_candidate_documents, document_preview_response
+from candidate_documents import DOC_FIELDS, load_verif_docs, register_candidate_documents, document_preview_response
 from london_mobility import has_mobility_archive, london_context, register_london_mobility
 from student_cards import register_student_cards, student_card_dates
 from student_documents import register_student_documents
@@ -364,13 +366,6 @@ load_dotenv()
 # 📎 GESTION DES PIÈCES JUSTIFICATIVES
 # =====================================================
 
-DOC_FIELDS = {
-    "ci": ("fichiers_ci", "🪪 Carte d’identité / Passeport"),
-    "photo": ("fichiers_photo", "📸 Photo d’identité"),
-    "carte_vitale": ("fichiers_carte_vitale", "💳 Carte Vitale"),
-    "cv": ("fichiers_cv", "📄 CV"),
-    "lm": ("fichiers_lm", "🖋️ Lettre de motivation"),
-}
 # 📦 Préfixes utilisés pour nommer les fichiers de manière déterministe
 FILE_PREFIX = {
     "ci": "CI",
@@ -398,14 +393,6 @@ def parse_list(v):
         return []
     except Exception:
         return []
-
-def load_verif_docs(row):
-    """Récupère le dictionnaire de vérification des pièces (conforme / non conforme)."""
-    try:
-        return json.loads(row.get("verif_docs") or "{}")
-    except Exception:
-        return {}
-
 
 app = Flask(__name__)
 # 🔒 Limite maximale pour les uploads (50 Mo)
@@ -1641,9 +1628,7 @@ def admin_candidate_sheet(cid):
             available_promotions = list_promotions(conn, bts=row.get('bts'), rentree_annee=candidate_year(row), active_only=True)
     if not row: abort(404)
     year = candidate_year(row)
-    columns = {"qualites": "projet_qualites", "motivation": "projet_motivation", "valeurs": "projet_recherche", "travail": "projet_travail"}
-    profile_display = {g["name"]: [dict(g["options"]).get(v, v) for v in (parse_list(row.get(columns[g["name"]])) or [v.strip() for v in (row.get(columns[g["name"]]) or "").split(",") if v.strip()])] for g in PROFILE_GROUPS}
-    return render_template("candidate_sheet.html", **school_context, current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_display, title=person_name(row.get('nom'),row.get('prenom'))+' · Plateforme de gestion des BTS', row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
+    return render_template("candidate_sheet.html", **school_context, current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_answers(row), title=person_name(row.get('nom'),row.get('prenom'))+' · Plateforme de gestion des BTS', row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
 
 
 @app.post("/admin/candidat/<cid>/informations")
@@ -1851,15 +1836,20 @@ def admin_update_status():
 
 @app.route("/admin/print/<cid>")
 def admin_print(cid):
-    if not require_admin(): abort(403)
-    from weasyprint import HTML
+    if not require_admin():
+        abort(403)
     from io import BytesIO
     with closing(db()) as conn:
-        result = conn.execute("SELECT * FROM candidats WHERE id=?", (cid,)).fetchone()
-    if not result: abort(404)
-    row = dict(result)
-    html = render_template("pdf_fiche.html", row=row, now=datetime.now())
-    pdf = HTML(string=html, base_url=url_for('index', _external=True)).write_pdf()
+        row = get_candidat(conn, cid)
+        if not row:
+            abort(404)
+        annotate_candidate_statuses(conn, [row])
+        directory_contracts(app, conn, [row], include_linked_contracts=True)
+        promotion = get_candidate_promotion(conn, cid)
+    labels = {key: label for key, label, _ in STATUTS}
+    status = row['display_status_label'] or labels.get(row['statut'], row['statut'])
+    pdf = application_pdf(row, status=status, promotion=promotion, upload_dir=UPLOAD_DIR,
+                          db_connect=db, inventory=candidate_file_inventory(row))
     fname = f"fiche_{row.get('numero_dossier','')}.pdf"
     log_event(row, "PDF_GENERE", {"file": fname})
     response = send_file(BytesIO(pdf), mimetype="application/pdf", as_attachment=False, download_name=fname)
@@ -2104,90 +2094,60 @@ def admin_files(cid):
     if not require_admin():
         abort(403)
 
-    conn = db()
-    row = get_candidat(conn, cid)
+    with closing(db()) as conn:
+        row = get_candidat(conn, cid)
     if not row:
-        conn.close()
         abort(404)
-
-    verif = load_verif_docs(row)
-    files_data = []
-
-    # === Étape 1 : Fichiers enregistrés en base ===
-    for key, (field, label) in DOC_FIELDS.items():
-        file_list = parse_list(row.get(field))
-        for path in file_list:
-            fname = os.path.basename(path)
-            status_info = verif.get(fname, {})
-            files_data.append({
-                "type": key,
-                "label": label,
-                "filename": fname,
-                "path": path,
-                "status": status_info.get("etat", "en_attente"),
-                "horodatage": status_info.get("horodatage", "")
-            })
-
-    # === Étape 2 : Détection automatique des nouveaux fichiers dans le dossier du candidat ===
-    cand_dir = os.path.join(UPLOAD_DIR, cid)
-    try:
-        all_on_disk = os.listdir(cand_dir)
-    except Exception as e:
-        print(f"⚠️ Erreur lecture du dossier candidat {cid} : {e}")
-        all_on_disk = []
-
-    existing_filenames = {os.path.basename(f["filename"]) for f in files_data}
-    nouveaux_detectes = []
-
-    for f in all_on_disk:
-        if f not in existing_filenames:
-            full_path = os.path.join(cand_dir, f)
-            if os.path.isfile(full_path):
-                files_data.append({
-                    "type": "nouveau",
-                    "label": "📥 Nouveau document déposé",
-                    "filename": f,
-                    "path": full_path,
-                    "status": "nouveau",
-                    "horodatage": datetime.fromtimestamp(os.path.getmtime(full_path)).strftime("%d/%m/%Y à %H:%M")
-                })
-                nouveaux_detectes.append(f)
-
-    # === Étape 3 : Marquage des fichiers présents dans replace_meta (si applicable) ===
-    if row.get("replace_meta"):
-        try:
-            meta = json.loads(row["replace_meta"])
-            nouveaux_fichiers = [x["fichier"] for x in meta.get("nouveaux_fichiers", [])]
-            for f in files_data:
-                if f["filename"] in nouveaux_fichiers:
-                    f["type"] = "nouveau"
-                    f["label"] = f"📥 Nouveau document déposé — {f['label']}"
-        except Exception as e:
-            print("⚠️ Erreur détection replace_meta :", e)
-
-    # === Étape 4 : Nettoyage des doublons ===
-    unique_files = []
-    seen = set()
-    for f in files_data:
-        if f["filename"] not in seen:
-            unique_files.append(f)
-            seen.add(f["filename"])
-
-    conn.close()
-
-    print(f"📎 {len(unique_files)} fichiers trouvés pour {cid} (dont {len(nouveaux_detectes)} nouveaux)")
-
-    # (Sécurité) on ignore les statuts fantômes
-    existing = {os.path.basename(f["path"]) for f in unique_files if os.path.exists(f["path"])}
-    verif = {k: v for k, v in verif.items() if k in existing}
-
-    for item in unique_files:
+    files = candidate_file_inventory(row)
+    for item in files:
         item['url'] = url_for('admin_candidate_document', cid=cid, filename=item['filename'])
-    return jsonify(unique_files)
+    return jsonify(files)
 
 
+def candidate_file_inventory(row):
+    """The admin Documents tab and the printable dossier use the same inventory."""
+    verification = load_verif_docs(row)
+    files = {}
+    for kind, (column, label) in DOC_FIELDS.items():
+        for path in parse_list(row.get(column)):
+            if not isinstance(path, str) or not os.path.basename(path):
+                continue
+            name = os.path.basename(path)
+            check = verification.get(name) or {}
+            if not isinstance(check, dict):
+                check = {}
+            files.setdefault(name, dict(type=kind, category=kind, label=label, filename=name,
+                                        path=path, status=check.get('etat', 'en_attente'),
+                                        horodatage=check.get('horodatage', '')))
 
-
+    # A replacement can be on disk before it has been merged into the dossier.
+    directory = os.path.join(UPLOAD_DIR, row['id'])
+    try:
+        if os.path.realpath(directory) == os.path.join(os.path.realpath(UPLOAD_DIR), row['id']):
+            with os.scandir(directory) as entries:
+                for entry in entries:
+                    if entry.name in files or not entry.is_file(follow_symlinks=False):
+                        continue
+                    stamp = datetime.fromtimestamp(entry.stat().st_mtime).strftime('%d/%m/%Y à %H:%M')
+                    files[entry.name] = dict(type='nouveau', category='nouveau', label='📥 Nouveau document déposé',
+                                             filename=entry.name, path=entry.path, status='nouveau', horodatage=stamp)
+    except OSError:
+        pass
+    try:
+        meta = json.loads(row.get('replace_meta') or '{}')
+    except (TypeError, ValueError):
+        meta = {}
+    replacements = meta.get('nouveaux_fichiers') if isinstance(meta, dict) else None
+    categories = {label: key for key, (_, label) in DOC_FIELDS.items()}
+    for replacement in replacements if isinstance(replacements, list) else []:
+        if not isinstance(replacement, dict) or not isinstance(replacement.get('fichier'), str):
+            continue
+        item = files.get(replacement['fichier'])
+        if item:
+            item['type'] = 'nouveau'
+            item['category'] = categories.get(str(replacement.get('label')), item['category'])
+            item['label'] = f"📥 Nouveau document déposé — {item['label']}"
+    return list(files.values())
 
 
 @app.route("/admin/files/mark", methods=["POST"])
@@ -3628,9 +3588,14 @@ def voyage_londres_recap(iid):
 def ensure_campaign_schema():
     conn = db()
     try:
+        conn.execute("BEGIN IMMEDIATE")
         columns = {r[1] for r in conn.execute("PRAGMA table_info(candidats)")}
         if "rentree_annee" not in columns:
             conn.execute("ALTER TABLE candidats ADD COLUMN rentree_annee INTEGER NOT NULL DEFAULT 2026")
+        if "cherche_idf" not in columns:
+            conn.execute("ALTER TABLE candidats ADD COLUMN cherche_idf TEXT")
+        if "consent" not in columns:
+            conn.execute("ALTER TABLE candidats ADD COLUMN consent INTEGER")
         conn.commit()
     finally:
         conn.close()
