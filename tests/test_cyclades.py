@@ -155,3 +155,47 @@ def test_config_is_encrypted_and_never_redisplayed(student):
     assert client.post(url, data=dict(csrf_token=token, action="remove")).status_code == 303
     with application.db() as conn:
         assert conn.execute("SELECT credential FROM cyclades_accounts WHERE academy='nice'").fetchone()[0] is None
+
+
+def test_recover_saved_connection_after_reader_fix_and_manual_retry(student, tmp_path):
+    from cyclades import READER_VERSION
+    clock = datetime(2026, 11, 2, 17, 30, tzinfo=PARIS)
+    credential = cipher(application.app).encrypt(b'{"username":"test","password":"unchanged"}')
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_accounts SET credential=?,day=?,status='ok'", (credential,clock.date().isoformat()))
+        conn.execute("UPDATE cyclades_accounts SET status='error' WHERE academy='paris'")
+    calls = []
+    def unavailable(key, credentials):
+        calls.append(key)
+        yield CycladesError("La liste est indisponible.")
+    def check():
+        run_due(application.app, application.db, tmp_path, now=clock, fetch=unavailable)
+    check()
+    check()
+    assert calls == ["paris"]
+    client = student
+    auth(client)
+    assert "Relancer la vérification" in client.get("/admin/parametres").get_data(as_text=True)
+    with client.session_transaction() as state:
+        token = state["_planning_csrf"]
+    for _ in range(2):
+        assert client.post("/admin/parametres/cyclades/paris/connexion", data={"action":"retry","csrf_token":token}).status_code == 303
+    check()
+    check()
+    assert calls == ["paris","paris"]
+    with application.db() as conn:
+        row = conn.execute("SELECT credential,reader_version FROM cyclades_accounts WHERE academy='paris'").fetchone()
+        assert row["credential"] == credential and row["reader_version"] == READER_VERSION
+
+
+def test_portal_diagnostic_discards_browser_exception_details():
+    from playwright.sync_api import TimeoutError as BrowserTimeout
+    from cyclades_portal import portal_step
+    class Page:
+        url = "https://login.ac-paris.fr/idp?token=confidentiel"
+        def evaluate(self, _):
+            return "chargement de session"
+    with pytest.raises(CycladesError) as caught:
+        with portal_step(Page(), "Connexion interrompue"):
+            raise BrowserTimeout("confidentiel")
+    assert str(caught.value) == "Connexion interrompue (login.ac-paris.fr, délai dépassé, chargement de session)."

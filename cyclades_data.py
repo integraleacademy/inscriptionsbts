@@ -166,6 +166,9 @@ def schema(conn):
             BEGIN DELETE FROM cyclades_students WHERE candidate_id=OLD.id; END;
     """)
     conn.executemany("INSERT OR IGNORE INTO cyclades_accounts(academy) VALUES(?)", [(key,) for key in ACADEMIES])
+    # The INSERT above holds the SQLite write lock, including during migration on existing disks.
+    if "reader_version" not in {r[1] for r in conn.execute("PRAGMA table_info(cyclades_accounts)")}:
+        conn.execute("ALTER TABLE cyclades_accounts ADD COLUMN reader_version INTEGER NOT NULL DEFAULT 0")
 
 
 def apply_report(conn, academy, report, origin):
