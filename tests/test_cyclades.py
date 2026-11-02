@@ -245,3 +245,11 @@ def test_state_filter_in_detached_listbox_and_native_select():
             frame = report_frame(page, REPORT_LINK, "paris")
             assert frame != page.main_frame
             assert choose_states(frame, False) == ALL_STATES
+            page.set_content('''<fieldset><legend>Session</legend><select id="selectContexte">
+                <option>BTS 2026</option><option>BTS 2027</option></select>
+                <button onclick="this.parentElement.hidden=true; document.getElementById('editionCSV').hidden=false">Valider</button>
+                </fieldset><button id="editionCSV" hidden>Exporter en CSV</button>
+                <button onclick="document.body.dataset.invalid='yes'">Valider l’inscription</button>''')
+            assert report_frame(page, REPORT_LINK, "paris", "BTS 2027", already_open=True) == page.main_frame
+            assert page.locator("option:checked").inner_text() == "BTS 2027"
+            assert page.locator("body").get_attribute("data-invalid") is None
