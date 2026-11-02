@@ -1,0 +1,68 @@
+{% from 'ui_icons.html' import icon %}
+{% macro dossier(record, historical=false) %}
+  {% set main_fields = ['N° de candidat', 'N° d’inscription'] %}
+  <article class="cy-record">
+    <div class="cy-record-top">
+      <div>
+        <p class="cy-session">Session {{ record.year }} <span aria-hidden="true">·</span> Académie de {{ record.academy }}</p>
+        <h3>{{ record.details.get('Spécialité') or 'Dossier d’inscription au BTS' }}</h3>
+      </div>
+      <span class="cy-badge cy-{{ 'slate' if historical else record.tone }}">{{ record.status }}</span>
+    </div>
+    {% if record.details.get(main_fields[0]) or record.details.get(main_fields[1]) %}
+    <dl class="cy-refs">{% for label in main_fields if record.details.get(label) %}
+      <div><dt>{{ label }}</dt><dd>{{ record.details[label] }}</dd></div>
+    {% endfor %}</dl>
+    {% endif %}
+    <details class="cy-disclosure">
+      <summary>Voir le détail du dossier {{ icon('chevron-down') }}</summary>
+      <div class="cy-detail-body">
+        {% set other = record.details.items()|rejectattr('0', 'in', main_fields + ['Spécialité'])|list %}
+        {% if other %}<dl class="cy-facts">{% for label, value in other %}
+          <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+        {% endfor %}</dl>{% endif %}
+        {% if record.exams %}<h4>Épreuves et langues</h4><dl class="cy-facts cy-exams">{% for label, value in record.exams.items() %}
+          <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+        {% endfor %}</dl>{% endif %}
+        <p class="cy-source">{% if historical %}Dernière présence dans une liste{% elif record.origin == 'import' %}Import manuel{% else %}Liste officielle CYCLADES{% endif %}{% if record.seen %} · {{ record.seen }}{% endif %}</p>
+      </div>
+    </details>
+  </article>
+{% endmacro %}
+<div class="cy-response" data-state="{{ cyclades.state }}" data-busy="{{ '1' if cyclades.busy else '0' }}"
+     data-initial="{{ '1' if cyclades.unsearched else '0' }}" data-can-search="{{ '1' if cyclades.can_search else '0' }}">
+  {% if cyclades.matches %}
+    {% for record in cyclades.matches %}{{ dossier(record) }}{% endfor %}
+    {% if cyclades.busy or cyclades.unsearched %}<p class="cy-note">{{ icon('clock') }} Recherche en cours. Le résultat s’actualisera ici.</p>
+    {% elif cyclades.partial %}<p class="cy-note">{{ icon('clock') }} Vérification partielle. Le dernier dossier retrouvé reste affiché.</p>{% endif %}
+    {% if cyclades.ambiguous %}<p class="cy-note">Une autre inscription nécessite de vérifier l’identité.</p>{% endif %}
+  {% else %}
+    {% set states = {
+      'empty': ('search', 'Aucun dossier trouvé', 'Aucune inscription ne correspond à cet étudiant dans les listes CYCLADES consultées.'),
+      'searching': ('clock', 'Recherche en cours', 'Le résultat s’affichera ici dès la fin de la recherche.'),
+      'partial': ('clock', 'Recherche incomplète', 'CYCLADES n’a pas fourni toutes les listes. La présence de cet étudiant reste à vérifier.'),
+      'ambiguous': ('person', 'Identité à vérifier', 'Plusieurs fiches peuvent correspondre à cette inscription. Vérifiez les noms, les prénoms et la date de naissance.'),
+      'identity': ('person', 'Identité à compléter', 'Le nom, le prénom et la date de naissance sont nécessaires pour retrouver le dossier.'),
+      'unconfigured': ('settings', 'Connexion à configurer', 'Un accès établissement est nécessaire pour rechercher les inscriptions sur CYCLADES.')
+    } %}
+    {% set symbol, title, description = states[cyclades.state] %}
+    <div class="cy-state cy-state-{{ cyclades.state }}">
+      <span class="cy-state-icon">{{ icon(symbol) }}</span>
+      <div><h3>{{ title }}</h3><p>{{ description }}</p>
+        {% if cyclades.state == 'identity' %}<a class="cy-link" href="#informations">Ouvrir les informations {{ icon('arrow') }}</a>
+        {% elif cyclades.state in ('unconfigured','partial') %}<a class="cy-link" href="{{ url_for('admin_settings') }}#cyclades">Voir les paramètres CYCLADES {{ icon('arrow') }}</a>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+  {% if cyclades.history %}
+    <details class="cy-history"><summary>Derniers dossiers connus ({{ cyclades.history|length }}) {{ icon('chevron-down') }}</summary>
+      <p>Ces dossiers figuraient dans une liste précédente et n’apparaissent plus dans la dernière liste consultée.</p>
+      {% for record in cyclades.history %}{{ dossier(record, true) }}{% endfor %}
+    </details>
+  {% endif %}
+  {% if notice %}<p class="cy-note">{{ notice }}</p>{% endif %}
+  {% if cyclades.verified or cyclades.can_search %}
+    <footer class="cy-footer">{{ icon('clock') }}<span>{% if cyclades.verified %}Dernière liste vérifiée le {{ cyclades.verified }}{% else %}Suivi automatique activé{% endif %}</span>
+    {% if cyclades.can_search %}<span class="cy-frequency">Chaque jour à 8 h</span>{% endif %}</footer>
+  {% endif %}
+</div>
