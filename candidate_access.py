@@ -13,7 +13,7 @@ import secrets
 import time
 import unicodedata
 
-from flask import abort, redirect, render_template, request, session, url_for
+from flask import abort, g, redirect, render_template, request, session, url_for
 from branded_email import render_branded_email
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -72,7 +72,10 @@ def _clear_student_session():
 
 
 def get_authenticated_student(app, db_connect, candidate_id=None, allow_initial=False):
-    """Resolve a version-bound session; never infer authentication from a slug."""
+    """Resolve the scoped admin view or a version-bound student session."""
+    preview = getattr(g, 'student_preview', None)
+    if preview:
+        return preview if candidate_id in (None, preview['candidate_id']) else None
     identity = session.get('_student_auth')
     if not isinstance(identity, dict) or not isinstance(identity.get('expires_at'), (int, float)) or identity['expires_at'] <= time.time():
         if identity:

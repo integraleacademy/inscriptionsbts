@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="student-workspace"><a class="sw-link sw-back" href="/espace/absences">← Toutes mes absences</a>
+<div class="student-workspace"><a class="sw-link sw-back" href="{{ g.student_preview_prefix }}/espace/absences">← Toutes mes absences</a>
 <header class="sw-heading"><p class="sw-kicker">UN SEUL ENVOI POUR PLUSIEURS JOURS</p><h1>Justifier <em>une période.</em></h1><p>Sélectionne les absences couvertes par le même justificatif. Un motif, un document et un suivi commun suffisent, même si plusieurs cours ont été manqués.</p></header>
 {% if error %}<div class="sw-notice error" role="alert">{{ error }}</div>{% endif %}
 {% if rows %}
-<form method="post" enctype="multipart/form-data" data-absence-form data-bulk-absence>
+<form method="post" enctype="multipart/form-data" data-absence-form data-bulk-absence>{% if g.student_preview %}<fieldset class="sw-preview-fields" disabled>{% endif %}
 <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <section class="sw-card"><h2>1. Choisis les absences concernées</h2><p>Tu peux cocher les événements un par un ou sélectionner une période entière, puis ajuster la sélection.</p>
 <div class="sw-filters sw-range"><label>Du<input type="date" data-period-start value="{{ request.form.get('period_start','') }}" name="period_start"></label><label>Au inclus<input type="date" data-period-end value="{{ request.form.get('period_end','') }}" name="period_end"></label><button type="button" class="sw-button" data-select-period hidden>Cocher cette période</button><button type="button" class="sw-link sw-clear" data-clear-period hidden>Tout décocher</button></div>
@@ -17,8 +17,8 @@
 <div class="sw-form">{% set files=[] %}{% set submission=none %}{% include '_absence_form_fields.html' %}</div></section>
 <div class="sw-bulk-submit"><p data-selection-count aria-live="polite">Vérifie ta sélection avant l’envoi.</p><button type="submit" class="sw-button primary" data-bulk-submit>Envoyer ma demande groupée</button></div>
 <p class="sw-muted">Après l’envoi, tous les événements sélectionnés passent en « En cours de traitement ». L’équipe examine la demande et le justificatif commun.</p>
-</form>
-{% else %}<section class="sw-card sw-empty"><h2>Aucune nouvelle absence à justifier.</h2><p>Les événements déjà envoyés ou justifiés ne sont pas proposés à nouveau. Tu peux compléter une demande existante depuis son suivi.</p><a class="sw-button" href="/espace/absences">Voir mes absences et leur suivi</a></section>{% endif %}
+{% if g.student_preview %}</fieldset>{% endif %}</form>
+{% else %}<section class="sw-card sw-empty"><h2>Aucune nouvelle absence à justifier.</h2><p>Les événements déjà envoyés ou justifiés ne sont pas proposés à nouveau. Tu peux compléter une demande existante depuis son suivi.</p><a class="sw-button" href="{{ g.student_preview_prefix }}/espace/absences">Voir mes absences et leur suivi</a></section>{% endif %}
 </div>
 <script src="{{ url_for('static',filename='js/student-workspace.js') }}?v=3" defer></script>
 {% endblock %}

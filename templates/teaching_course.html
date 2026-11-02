@@ -6,7 +6,7 @@
 {% set teacher = state.role == 'trainer' %}{% set course = state.course %}
 <div class="teaching-app" data-teaching-course data-csrf="{{ csrf_token }}">
 
-  <a class="teach-back" href="{{ '/formateur' if teacher else '/espace' }}/pedagogie?month={{ course.date[:7] }}">← Mes cours</a>
+  <a class="teach-back" href="{{ g.student_preview_prefix }}{{ '/formateur' if teacher else '/espace' }}/pedagogie?month={{ course.date[:7] }}">← Mes cours</a>
   <header class="teach-heading"><div><p class="teach-eyebrow">{{ course.promotion_names }}</p><h1>{{ course.subject_name }}<span>.</span></h1><p>{{ course.date[8:10] }}/{{ course.date[5:7] }}/{{ course.date[:4] }} · {{ course.start }} – {{ course.end }} · Heure de Paris</p>{% if course.title and course.title != course.subject_name %}<p>{{ course.title }}</p>{% endif %}</div><span class="teach-tag" id="teach-course-phase">{{ 'En cours' if state.window.open else 'À venir' if state.window.phase == 'before' else 'Cours terminé' }}</span></header>
   {% if not teacher %}<div class="course-student-details"><span class="study-badge attendance-{{ course.attendance_status }}">{{ course.attendance_label }}</span>{% if course.zoom_url %}<a class="zoom-join" href="{{ course.zoom_url }}" target="_blank" rel="noopener noreferrer">Rejoindre le cours sur Zoom ↗</a>{% endif %}</div>{% endif %}
   <script id="teaching-state" type="application/json">{{ state|tojson }}</script>
@@ -42,9 +42,9 @@
   <section class="teach-card teach-panel" id="panel-documents" role="tabpanel" aria-labelledby="tab-documents" hidden>
     <div class="teach-section-heading"><div><h2>Les documents du cours</h2><p>Supports, exercices et ressources partagés avec les étudiants.</p></div></div>
     {% if teacher %}<form id="teach-document-form" class="teach-upload"><label>Déposer un document<input type="file" name="file" required accept=".pdf,.docx,.pptx,.xlsx,.txt,.png,.jpg,.jpeg,.webp"></label><p>PDF, Word, PowerPoint, Excel, texte ou image · 20 Mo par fichier · 100 Mo par cours.</p><button class="teach-button primary" type="submit">Ajouter au cours</button></form>{% endif %}
-    <div id="teach-document-list" class="teach-document-list">{% for doc in state.documents %}<div class="teach-document-row"><a href="{{ '/formateur' if teacher else '/espace' }}/documents/{{ doc.id }}">{{ doc.filename }}</a><small>{{ (doc.size/1024)|round(0)|int }} Ko</small>{% if teacher %}<button type="button" class="teach-button subtle" data-delete-document="{{ doc.id }}">Retirer</button>{% endif %}</div>{% else %}<p class="teach-empty">Aucun document partagé pour le moment.</p>{% endfor %}</div>
+    <div id="teach-document-list" class="teach-document-list">{% for doc in state.documents %}<div class="teach-document-row"><a href="{{ g.student_preview_prefix }}{{ '/formateur' if teacher else '/espace' }}/documents/{{ doc.id }}">{{ doc.filename }}</a><small>{{ (doc.size/1024)|round(0)|int }} Ko</small>{% if teacher %}<button type="button" class="teach-button subtle" data-delete-document="{{ doc.id }}">Retirer</button>{% endif %}</div>{% else %}<p class="teach-empty">Aucun document partagé pour le moment.</p>{% endfor %}</div>
   </section>
-  <p><a class="teach-back" href="{{ '/formateur' if teacher else '/espace' }}/devoirs-notes">Accéder aux devoirs et aux notes →</a></p>
+  <p><a class="teach-back" href="{{ g.student_preview_prefix }}{{ '/formateur' if teacher else '/espace' }}/devoirs-notes">Accéder aux devoirs et aux notes →</a></p>
   <noscript><p class="teach-info">Activez JavaScript pour ouvrir les onglets et enregistrer vos modifications.</p></noscript>
 </div>
 <script src="{{ url_for('static', filename='js/teaching.js') }}?v=2" defer></script>

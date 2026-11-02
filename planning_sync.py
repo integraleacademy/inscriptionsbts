@@ -8,10 +8,9 @@ from datetime import datetime
 import hashlib
 import hmac
 import json
-from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
-from flask import abort, g, jsonify, request
+from flask import abort, g, jsonify, request, url_for
 from candidate_access import get_authenticated_student
 from trainer_access import get_authenticated_trainer
 from planning import ensure_planning_schema, _has_table
@@ -125,7 +124,7 @@ def register_planning_sync(app, db_connect, require_admin):
         if view == 'week' and request.args.get('date'):
             args['date'] = request.args['date']
         try:
-            g.planning_sync_config = dict(url='/planning/sync?' + urlencode(args), revision=fingerprint(scope, who, view, args.get('date')))
+            g.planning_sync_config = dict(url=url_for('planning_sync', **args), revision=fingerprint(scope, who, view, args.get('date')))
         except ValueError:
             # Let the page controller return its normal invalid-date response.
             pass

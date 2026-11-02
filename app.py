@@ -15,6 +15,7 @@ from candidate_documents import register_candidate_documents, document_preview_r
 from london_mobility import has_mobility_archive, london_context, register_london_mobility
 from student_cards import register_student_cards, student_card_dates
 from student_documents import register_student_documents
+from student_preview import register_student_preview
 from trainer_access import register_trainer_access
 from company_portal import register_company_portal
 from daily_login import register_daily_login
@@ -26,7 +27,7 @@ from trainer_availability import register_trainer_availability
 from trainer_admin_planning import register_admin_trainer_planning
 from legacy_links import snapshot_legacy_links, verify_legacy_link
 from campaign import ADMISSION_YEAR, OPENS_AT, OPENING_LABEL, campaign_is_open, candidate_year
-from flask import Flask, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
+from flask import Flask, g, render_template, request, redirect, url_for, send_file, session, abort, jsonify, flash
 from werkzeug.utils import secure_filename
 from utils import send_mail, send_sms_brevo, dossier_number, new_token, sign_token, make_signed_link
 from dotenv import load_dotenv
@@ -2946,7 +2947,10 @@ with app.app_context():
 def espace_candidat(slug):
     conn = db()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM candidats WHERE slug_public=?", (slug,))
+    if slug is None:  # Only the admin consultation route has no public slug.
+        cur.execute("SELECT * FROM candidats WHERE id=?", (g.student_preview['candidate_id'],))
+    else:
+        cur.execute("SELECT * FROM candidats WHERE slug_public=?", (slug,))
     row = cur.fetchone()
     conn.close()
 
@@ -2990,6 +2994,10 @@ def espace_candidat(slug):
             portal_today = get_portal_today(planning_conn, 'student', identity['candidate_id'])
             student_overview = student_home_summary(planning_conn, identity)
 
+    photo_url = None
+    if parse_list(row.get('fichiers_photo')):
+        photo_url = (url_for('candidate_photo', slug=slug) if slug is not None
+                     else url_for('admin_candidate_photo', cid=row['id']))
     response = app.make_response(render_template(
         "espace_candidat.html",
         title="Mon espace étudiant · Intégrale Academy",
@@ -2999,7 +3007,7 @@ def espace_candidat(slug):
         statut=statut,
         explication_statut=explication_statut,
         commentaire=commentaire,
-        candidate_photo_url=url_for('candidate_photo', slug=slug) if parse_list(row.get('fichiers_photo')) else None
+        candidate_photo_url=photo_url
     ))
     response.headers['Cache-Control'] = 'private, no-store'
     response.headers['Referrer-Policy'] = 'no-referrer'
@@ -3036,17 +3044,10 @@ def admin_espace_candidat(cid):
     if not require_admin():
         abort(403)
 
-    conn = db()
-    cur = conn.cursor()
-    cur.execute("SELECT slug_public FROM candidats WHERE id=?", (cid,))
-    row = cur.fetchone()
-    conn.close()
+    return redirect(url_for('espace_candidat', preview_cid=cid))
 
-    if not row or not row["slug_public"]:
-        abort(404)
 
-    slug = row["slug_public"]
-    return redirect(url_for("espace_candidat", slug=slug))
+register_student_preview(app, db, require_admin)
 
 # =====================================================
 # 🔁 RECONFIRMATION MANUELLE D'INSCRIPTION (depuis admin)
