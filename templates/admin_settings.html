@@ -21,6 +21,7 @@
     </div>
     <footer><span>La connexion est partagée par les administrateurs de la plateforme.</span><a href="/admin/matieres">Aller aux matières {{ icon('arrow') }}</a></footer>
   </section>
+  {% if cyclades_accounts is defined %}{% include '_cyclades_settings.html' %}{% endif %}
   {% if wedof_csrf is defined %}<section class="settings-card" id="wedof" data-wedof-csrf="{{ wedof_csrf() }}" aria-labelledby="wedof-title">
     <header><span class="settings-icon">{{ icon('file') }}</span><div><h2 id="wedof-title">WEDOF · Contrats d’apprentissage</h2><p>Informations des contrats BTS, financement OPCO et échéanciers.</p></div><span id="wedof-status" class="settings-status" role="status">Chargement…</span></header>
     <div class="settings-content">

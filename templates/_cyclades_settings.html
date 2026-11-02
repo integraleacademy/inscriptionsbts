@@ -1,0 +1,42 @@
+<section class="settings-card" id="cyclades" aria-labelledby="cyclades-title">
+  <header><span class="settings-icon">{{ icon('file') }}</span><div>
+    <h2 id="cyclades-title">CYCLADES · Inscriptions aux examens</h2>
+    <p>Accès établissement de Paris et de Nice.</p>
+  </div></header>
+  <div class="settings-content">
+    <p>Chaque académie est consultée à la première connexion, puis tous les jours à 8 h, heure de Paris. Les accès sont conservés chiffrés sur le serveur.</p>
+    {% for key, academy in cyclades_accounts().items() %}
+    <section>
+      <h3>Académie de {{ academy.label }}</h3>
+      <p>{{ 'Accès enregistré' if academy.connected else 'Connexion à configurer' }}{% if academy.attempt %} · Dernière tentative le {{ academy.attempt }}{% endif %}.</p>
+      {% if academy.status == 'error' %}<p class="settings-message error" role="status">{{ academy.message }}</p>
+      {% elif academy.status == 'ok' %}<p>Dernière vérification terminée.</p>
+      {% elif academy.status == 'running' %}<p>Vérification en cours.</p>{% endif %}
+      <details><summary>{{ 'Remplacer les accès' if academy.connected else 'Connecter l’établissement' }}</summary>
+        <form method="post" action="{{ url_for('cyclades_settings',key=key) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label>Identifiant académique<input name="username" maxlength="200" required autocomplete="off"></label>
+          <label>Mot de passe académique<input name="password" type="password" maxlength="512" required autocomplete="new-password"></label>
+          {% if key == 'nice' %}<label>Date de vérification demandée par Nice, si applicable
+            <input name="birthdate" type="password" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" placeholder="JJMMAAAA" autocomplete="off"></label>{% endif %}
+          <button type="submit" class="settings-button primary" name="action" value="save">Enregistrer et lancer la vérification</button>
+        </form>
+      </details>
+      {% if academy.connected %}
+      <form method="post" action="{{ url_for('cyclades_settings',key=key) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" name="action" value="remove" class="settings-button">Déconnecter {{ academy.label }}</button>
+      </form>{% endif %}
+      <details><summary>Importer une liste détaillée CYCLADES</summary>
+        <p>Téléchargez le CSV « Liste détaillée de mes élèves » de cette académie en cochant tous les états et en laissant les autres critères vides. L’import rattache uniquement les correspondances certaines.</p>
+        <form method="post" action="{{ url_for('cyclades_import',key=key) }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label>Export de {{ academy.label }}<input name="export" type="file" accept=".csv,text/csv" required></label>
+          <label>Liste détaillée avec épreuves de la même session (facultatif)<input name="exams" type="file" accept=".csv,text/csv"></label>
+          <button class="settings-button" type="submit">Importer</button>
+        </form>
+      </details>
+    </section>
+    {% endfor %}
+  </div>
+</section>
