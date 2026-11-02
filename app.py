@@ -658,6 +658,9 @@ def validate_nir(nir_raw, date_naissance_str, sexe_str):
 
 
 
+from cyclades_data import schema as ensure_cyclades_schema
+
+
 def init_db():
     conn = db()
     cur = conn.cursor()
@@ -715,6 +718,7 @@ CREATE TABLE IF NOT EXISTS candidats (
         created_at TEXT
     );
     """)
+    ensure_cyclades_schema(conn)
     conn.commit()
     conn.close()
 
@@ -1070,6 +1074,8 @@ register_company_portal(app, db, lambda *args, **kwargs: send_mail(*args, copy_a
 register_trainer_availability(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
 register_admin_trainer_planning(app, db, require_admin)
 register_planning_sync(app, db, require_admin)
+from cyclades import register_cyclades, sheet_status as cyclades_sheet_status
+register_cyclades(app, db, require_admin, DATA_DIR)
 from wedof_contracts import register_wedof_contracts
 register_wedof_contracts(app, db, require_admin)
 from teaching import register_teaching
@@ -1624,6 +1630,7 @@ def admin_candidate_sheet(cid):
             school_context = sheet_context(conn, cid)
             school_context['enrollments_return_url'] = enrollment_return_url(request.args.get('return_to'))
             school_context['london_mobility'] = london_context(conn, row)
+            school_context['cyclades'] = cyclades_sheet_status(conn, row)
             annotate_candidate_statuses(conn, [row])
             current_promotion = get_candidate_promotion(conn, cid)
             available_promotions = list_promotions(conn, bts=row.get('bts'), rentree_annee=candidate_year(row), active_only=True)
@@ -3614,4 +3621,5 @@ if __name__ == "__main__":
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         app.extensions['teaching_start_reminders']()
         app.extensions['wedof_start_daily_sync']()
+        app.extensions['cyclades_start']()
     app.run(host="0.0.0.0", port=5000, debug=True)

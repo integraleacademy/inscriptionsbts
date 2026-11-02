@@ -1,0 +1,45 @@
+<section id="panel-cyclades" role="tabpanel" aria-labelledby="tab-cyclades" class="sheet-panel wc-panel" hidden>
+  <section class="sheet-card">
+    <div class="sheet-section-heading"><div>
+      <p class="eyebrow">INSCRIPTION À L’EXAMEN</p>
+      <h2>Suivi CYCLADES</h2>
+      <p>Les deux académies sont consultées chaque jour à 8 h, heure de Paris, une fois leurs accès configurés.</p>
+    </div><a class="btn" href="{{ url_for('admin_settings') }}#cyclades">Gérer les connexions</a></div>
+    {% for key, academy in cyclades.items() %}
+      <article class="wc-inset-card">
+        <div class="sheet-section-heading"><h3>Académie de {{ academy.label }}</h3>
+          <a class="btn" href="{{ academy.url }}" target="_blank" rel="noopener noreferrer">Ouvrir le portail ↗</a>
+        </div>
+        {% if not academy.connected %}<p>Connexion quotidienne à configurer.</p>
+        {% elif academy.status == 'running' %}<p>Vérification en cours.</p>
+        {% elif not academy.attempt %}<p>Première vérification en attente.</p>{% endif %}
+        {% if academy.attempt %}<p>Dernière tentative le {{ academy.attempt }}.</p>{% endif %}
+        {% if academy.message %}<p role="status"><strong>Vérification incomplète.</strong> {{ academy.message }}</p>{% endif %}
+        {% for exam in academy.sessions %}
+          <h4>Session {{ exam.year }}</h4>
+          {% if exam.outcome == 'matched' %}<p>Correspondance confirmée par l’identité et la date de naissance.</p>
+          {% elif exam.outcome == 'ambiguous' %}<p><strong>Correspondance ambiguë.</strong> Plusieurs fiches BTS peuvent correspondre à cette identité.</p>
+          {% elif exam.outcome == 'incomplete' %}<p>Complétez le nom, le prénom et la date de naissance de la fiche pour vérifier cette session.</p>
+          {% elif exam.outcome == 'missing' %}<p>Aucune correspondance dans la dernière liste vérifiée pour cette session.</p>
+          {% else %}<p>Aucun dossier rapproché dans les données disponibles pour cette session.</p>{% endif %}
+          {% for record in exam.records %}
+            <p>{% if exam.outcome != 'matched' %}Dernier état connu{% else %}État du dossier{% endif %}
+              <strong class="study-badge">{{ record.status }}</strong></p>
+            <details><summary>Détails de l’inscription</summary>
+              <dl class="wc-facts wc-facts-two">{% for label, val in record.details.items() %}
+                <div><dt>{{ label }}</dt><dd>{{ val }}</dd></div>
+              {% endfor %}</dl>
+            </details>
+            {% if record.exams %}<details><summary>Épreuves et langues ({{ record.exams|length }})</summary>
+              <dl class="wc-facts">{% for label, val in record.exams.items() %}
+                <div><dt>{{ label }}</dt><dd>{{ val }}</dd></div>
+              {% endfor %}</dl>
+            </details>{% endif %}
+          {% endfor %}
+          {% if exam.seen %}<p class="status-helper">Dossier observé le {{ exam.seen }}.</p>{% endif %}
+          <p class="status-helper">{{ 'Import manuel' if exam.origin == 'import' else 'Vérification automatique' }} · Liste CYCLADES éditée le {{ exam.issued }}.</p>
+        {% else %}<p>Aucune liste de cette académie n’a encore été récupérée.</p>{% endfor %}
+      </article>
+    {% endfor %}
+  </section>
+</section>
