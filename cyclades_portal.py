@@ -12,7 +12,7 @@ from urllib.parse import urljoin, urlsplit
 
 from playwright.sync_api import Error, TimeoutError as BrowserTimeout
 
-from cyclades_data import ACADEMIES, MAX_BYTES, CycladesError, parse_report, with_exams, words
+from cyclades_data import ACADEMIES, ALL_STATES, MAX_BYTES, CycladesError, parse_report, with_exams, words
 
 CENTRAL = "cyclades.education.gouv.fr"
 REPORT_LINK = "Liste détaillée de mes élèves"
@@ -129,30 +129,86 @@ def open_establishment(page, academy, credentials):
         page.get_by_role("link", name=REPORT_LINK, exact=True).click()
 
 
+def filter_structure(page):
+    # Only static widget types and known filter vocabulary. No values, candidate or account data.
+    return page.evaluate("""() => {
+        const clean = s => (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
+        const vocab = ['etat','critere','valeur','selection','inscrit','egal','session','recherche','liste','operateur'];
+        const nodes = [...document.querySelectorAll('fieldset,legend,[role=group],label,button,select,[role=button],[role=combobox],[role=listbox],[role=option],input[type=checkbox]')];
+        return nodes.filter(e => e.getClientRects().length).map(e => {
+            const label = clean([e.getAttribute('aria-label'),e.getAttribute('title'),
+                e.labels?.[0]?.textContent,e.matches('fieldset,[role=group]') ? e.querySelector('legend')?.textContent : e.innerText].filter(Boolean).join(' '));
+            const tokens = vocab.filter(t => label.includes(t)).join('+');
+            return [e.tagName,e.getAttribute('role'),tokens].filter(Boolean).join('/');
+        }).filter((s,i,a) => a.indexOf(s) === i).slice(0,60).join(' ');
+    }""")
+
+
+def choose_states(page, exam_details):
+    name = re.compile(r"(?:^|[\s«:])[ée]tat(?:\s|$|[»:.])", re.I)
+    field = page.get_by_role("group", name=name)
+    if field.count() != 1:
+        field = page.get_by_text(re.compile(r"^\s*[ée]tat\s*[:*]?\s*$",re.I)).locator(
+            "xpath=ancestor::*[.//button or .//select or .//*[@aria-haspopup]][1]")
+    if field.count() != 1:
+        raise CycladesError("La rubrique du filtre État est introuvable.")
+    required = {"inscrit", "pre inscrit"} if exam_details else ALL_STATES
+    native = field.locator("select[multiple]")
+    if native.count() == 1:
+        options = native.locator("option").all_text_contents()
+        names = {words(v) for v in options if v.strip()}
+        if not ALL_STATES.issubset(names):
+            raise CycladesError("Le filtre État ne propose pas tous les états attendus.")
+        native.select_option(index=[i for i,v in enumerate(options) if words(v) in required or (not exam_details and v.strip())])
+        return required if exam_details else names
+    button = field.get_by_role("button", name=re.compile("valeur recherchée", re.I))
+    if button.count() != 1:
+        button = field.locator('[aria-haspopup="listbox"],[aria-haspopup="menu"],[role=combobox],button').filter(visible=True)
+    if button.count() != 1:
+        raise CycladesError("La commande de sélection des états est introuvable.")
+    button.click(timeout=9000)
+    # Several CYCLADES skins attach the popup to the document, outside its fieldset.
+    items = page.locator('[role=option]:visible,[role=menuitemcheckbox]:visible')
+    if not items.count():
+        items = page.locator('label:visible').filter(has=page.locator('input[type=checkbox]'))
+    selected_names, seen = set(), set()
+    for item in items.all():
+        text = item.get_attribute("aria-label") or item.inner_text()
+        state = words(text)
+        if state not in ALL_STATES:
+            continue
+        seen.add(state)
+        desired = state in required
+        inner = item.locator('input[type=checkbox],[role=checkbox]')
+        def checked():
+            if inner.count() == 1:
+                return inner.is_checked()
+            return (item.get_attribute("aria-selected") or item.get_attribute("aria-checked")) == "true"
+        if checked() != desired:
+            item.click(timeout=5000)
+            if checked() != desired:
+                raise CycladesError("CYCLADES n’a pas appliqué la sélection des états.")
+        if desired:
+            selected_names.add(state)
+    if not ALL_STATES.issubset(seen):
+        raise CycladesError("Le menu État ne présente pas les cinq états de la liste BTS.")
+    button.click(timeout=6000)
+    return selected_names
+
+
 def download_session(page, label, academy, year, *, exam_details=False):
     select = page.locator("#selectContexte")
-    if select.locator("option:checked").inner_text().strip() != label:
-        # The old form remains briefly in the page when changing sessions.
-        # Confirm the year again inside the downloaded CSV before accepting it.
-        select.select_option(label=label)
-    state = page.get_by_role("group", name=re.compile(r"^Configurer le critère [ÉE]tat$", re.I))
-    states_button = state.get_by_role("button", name=re.compile("Valeur recherchée", re.I))
-    states_button.click()
-    choices = state.get_by_role("checkbox")
-    choices.first.wait_for(state="attached")
-    expected_states = set()
-    for option in state.get_by_role("option").all():
-        name = words(option.inner_text())
-        selected = not exam_details or name in {"inscrit", "pre inscrit"}
-        checkbox = option.get_by_role("checkbox")
-        checkbox.set_checked(selected)
-        if checkbox.is_checked() != selected:
-            raise CycladesError("CYCLADES n’a pas appliqué les critères d’état.")
-        if selected:
-            expected_states.add(name)
-    if not expected_states:
-        raise CycladesError("Le filtre des états de CYCLADES est indisponible.")
-    states_button.click()
+    with portal_step(page, f"La sélection de la session {year} a échoué"):
+        if select.locator("option:checked").inner_text().strip() != label:
+            labels = [value.strip() for value in select.locator("option").all_text_contents()]
+            if label not in labels:
+                raise CycladesError(f"Session {year} introuvable.")
+            select.select_option(index=labels.index(label))
+    try:
+        expected_states = choose_states(page, exam_details)
+    except (CycladesError, Error):
+        logging.getLogger(__name__).warning("CYCLADES %s filtre %d | %s", academy, year, filter_structure(page))
+        raise
     try:
         with page.expect_download(timeout=45000) as download:
             page.locator("#editionCSV").click()

@@ -17,6 +17,7 @@ ACADEMIES = {
              "https://id.ac-nice.fr/mdp/redirectionhub/redirect.jsp?applicationname=cycetab"),
 }
 MAX_BYTES = 12 * 1024 * 1024
+ALL_STATES = {"anomalie", "inscrit", "non inscrit", "pre inscrit", "redoublant"}
 # Exact headers from the detailed BTS CSV. Health data and login information in
 # other columns must never be retained with a student's exam record.
 DETAILS = {
@@ -128,8 +129,7 @@ def parse_report(raw, academy, expected_year=None, expected_states=None):
     criteria = next((line.partition(":")[2].strip() for line in meta if words(line).startswith("criteres de recherche ")), "")
     states = re.fullmatch(r"[ÉE]tat\s+[EÉ]gal\s+(.+)", criteria, flags=re.I)
     selected = {words(v) for v in states[1].split(",")} if states else set()
-    all_states = {"anomalie", "inscrit", "non inscrit", "pre inscrit", "redoublant"}
-    return Report(year, issued, records, selected == (expected_states or all_states))
+    return Report(year, issued, records, selected == (expected_states or ALL_STATES))
 
 
 def with_exams(report, supplement):
