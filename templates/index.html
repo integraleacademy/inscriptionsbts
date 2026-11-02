@@ -3,8 +3,9 @@
 {% from 'application_fields.html' import field, choices, screen, upload %}
 {% import 'application_information.html' as information %}
 {% block body_class %}application-page{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/application-journey.css') }}?v=3">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/admission-catalog.css') }}"><link rel="stylesheet" href="{{ url_for('static',filename='css/application-journey.css') }}?v=3">{% endblock %}
 {% block content %}
+{% if title_offers is defined %}{% include 'admission_catalog.html' %}{% endif %}
 {% if preview %}<div class="preview-notice"><b>Aperçu administrateur</b><span>Parcourez le guide et toutes les questions sans saisir de données.</span><label><input type="checkbox" id="preview-validation"> Tester les contrôles de saisie</label><label>Aller à <select id="preview-step"><option value="guide">Guide de préparation</option></select></label><button type="button" id="preview-success">Voir la confirmation</button></div>{% endif %}
 {% include 'application_preparation.html' %}
 <div id="application-journey" class="application-layout" hidden>
@@ -19,7 +20,8 @@
     <div class="application-progress"><span id="step-label" aria-live="polite"></span><span id="step-percent">0 %</span><progress id="application-progress" value="0" max="1" aria-label="Avancement du formulaire"></progress></div>
     <form id="application-form" action="{{ url_for('submit') }}" method="post" enctype="multipart/form-data" novalidate data-preview="{{ 'true' if preview else 'false' }}">
       <input type="hidden" name="rentree_annee" value="2027">{% if preview %}<input type="hidden" name="admin_preview" value="1">{% endif %}
-      {% call screen('formation','Ton BTS',0,'Quelle voie <em>te fait envie ?</em>','Choisis ton BTS pour découvrir la formation. Tu pourras modifier ton choix avant l’envoi.') %}
+      {% call screen('formation','Ton BTS',0,'Quel <em>BTS</em> te fait envie ?','Choisis ton BTS pour découvrir la formation. Tu pourras modifier ton choix avant l’envoi.') %}
+        <a class="catalog-return" href="{{ url_for('candidature', preview='1' if preview else none, _anchor='choix-formation') }}" data-choose-formation>← Voir les titres professionnels et le parcours sécurité</a>
         <div class="training-choices">{% for code,label in [('MOS','Management opérationnel de la sécurité'),('MCO','Management commercial opérationnel'),('NDRC','Négociation et digitalisation de la relation client'),('PI','Professions immobilières'),('CI','Commerce international'),('CG','Comptabilité et gestion')] %}<label class="training-choice"><input type="radio" name="bts" value="{{ code }}" required><span><b>BTS {{ code }}</b><small>{{ label }}</small></span><i aria-hidden="true">↗</i></label>{% endfor %}</div>
         {{ information.training_details() }}
       {% endcall %}
@@ -79,5 +81,5 @@
 <script id="saved-application" type="application/json">{{ saved_data | default(None) | tojson }}</script>
 <script src="{{ url_for('static', filename='js/admission-validation.js') }}?v=3" defer></script>
 <script src="{{ url_for('static', filename='js/place-autocomplete.js') }}" defer></script>
-<script src="{{ url_for('static', filename='js/application-2027.js') }}?v=5" defer></script>
+<script src="{{ url_for('static', filename='js/application-2027.js') }}?v=6" defer></script>
 {% endblock %}

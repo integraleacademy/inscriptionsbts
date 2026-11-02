@@ -3,14 +3,20 @@
 {% block content %}
 <main class="candidate-create">
 {% if received %}<section class="create-card"><h1>Candidature reçue</h1><p>Merci. L’équipe d’Intégrale Academy étudiera votre dossier et prendra contact avec vous.</p></section>
-{% else %}<header class="create-heading"><div><p class="eyebrow">INTÉGRALE ACADEMY · TITRE PROFESSIONNEL</p><h1>{{ program_name(promotion.bts) }}</h1><p>{{ promotion.nom }} · Du {{ promotion.date_debut|dmy }} au {{ promotion.date_fin|dmy }}</p></div></header>
-<form method="post" class="candidate-create-form"><section class="create-card"><h2>Votre candidature</h2>
-<input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="submission_token" value="{{ submission_token }}">
+{% else %}
+<p><a href="{{ url_for('candidature', preview=1, _anchor='titres-professionnels') if preview else url_for('index', _anchor='titres-professionnels') }}">← Tous les titres professionnels</a></p>
+<header class="create-heading"><div><p class="eyebrow">INTÉGRALE ACADEMY · TITRE PROFESSIONNEL</p><h1>{{ title_label }}</h1>
+{% if promotion %}<p>{{ promotion.nom }} · Du {{ promotion.date_debut|dmy }} au {{ promotion.date_fin|dmy }}</p>{% else %}<p>Aucune session ouverte pour ce titre.</p>{% endif %}
+{% if preview %}<p><a href="{{ url_for('admin_promotions', bts=title_code) }}">Gérer les promotions de ce titre</a></p>{% endif %}</div></header>
+{% if preview %}<p role="note"><strong>Aperçu administrateur.</strong> Vous pouvez parcourir les champs. L’envoi est désactivé.</p><div class="candidate-create-form">
+{% else %}<form method="post" class="candidate-create-form"><input type="hidden" name="csrf" value="{{ csrf }}"><input type="hidden" name="submission_token" value="{{ submission_token }}">{% endif %}
+<section class="create-card"><h2>Votre candidature</h2>
 {% if error %}<p role="alert">{{ error }}</p>{% endif %}
 <div class="create-fields">{% for name,label,type,maximum in [('first_name','Prénom','text',100),('last_name','Nom','text',100),('birth_date','Date de naissance','date',10),('email','Adresse e-mail','email',254),('phone','Téléphone','tel',25)] %}
 <label>{{ label }}<input name="{{ name }}" type="{{ type }}" maxlength="{{ maximum }}" value="{{ (values or {}).get(name,'') }}" required></label>{% endfor %}</div>
 <label>Votre projet (facultatif)<textarea name="motivation" maxlength="2000">{{ (values or {}).get('motivation','') }}</textarea></label>
 <p>Vos réponses permettent à Intégrale Academy d’étudier votre candidature. Pour toute demande concernant vos données, écrivez à ecole@integraleacademy.com.</p>
 <label><input type="checkbox" name="privacy_consent" value="yes" required> J’accepte d’être recontacté au sujet de ma candidature.</label>
-<p><button class="btn primary" type="submit">Envoyer ma candidature</button></p></section></form>{% endif %}
+<p><button class="btn primary" type="submit" {% if preview %}disabled{% endif %}>Envoyer ma candidature</button></p></section>
+{% if preview %}</div>{% else %}</form>{% endif %}{% endif %}
 </main>{% endblock %}

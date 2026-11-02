@@ -266,8 +266,12 @@ def register_promotions(app,db_connect,require_admin):
         except ValueError as error:
             return response(False, str(error), 400)
         with closing(db_connect()) as conn:
-            catalog(conn)
-            conn.execute('INSERT OR IGNORE INTO professional_titles(code,name) VALUES(?,?)', (code, name))
+            known = {key.replace("’", "'"): key for key in catalog(conn)}
+            existing = known.get(code.replace("’", "'"))
+            if existing:
+                code = existing
+            else:
+                conn.execute('INSERT OR IGNORE INTO professional_titles(code,name) VALUES(?,?)', (code, name))
             conn.commit()
         flash('Le titre professionnel est disponible pour les candidatures et les promotions.', 'success')
         return redirect(url_for('admin_promotions', bts=code), code=303)

@@ -9,7 +9,7 @@ from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
-from formation_intake import ensure_schema as ensure_formation_schema, register_formation_intake
+from formation_intake import admission_titles, ensure_schema as ensure_formation_schema, register_formation_intake
 from candidate_creation import register_candidate_creation
 from candidate_pdf import application_pdf
 from wedof_contracts import directory_contracts
@@ -1038,7 +1038,9 @@ def admissions_available():
 
 def admission_landing():
     portal = get_portal_status()
-    return render_template("admissions_landing.html", title="BTS en alternance · Rentrée 2027", admission_open=admissions_available(), scheduled=not campaign_is_open(), portal_message=portal.get("message", "") if portal.get("campaign_year") == ADMISSION_YEAR else "")
+    with closing(db()) as conn:
+        titles = admission_titles(conn)
+    return render_template("admissions_landing.html", title="Candidatures · Intégrale Academy", title_offers=titles, admission_open=admissions_available(), scheduled=not campaign_is_open(), portal_message=portal.get("message", "") if portal.get("campaign_year") == ADMISSION_YEAR else "")
 
 
 @app.route("/")
@@ -1053,7 +1055,9 @@ def candidature():
         return redirect(url_for("login", next="/candidature?preview=1"))
     if not admissions_available() and not preview:
         return redirect(url_for("index"))
-    return render_template("index.html", title="Ma candidature BTS · Rentrée 2027", saved_data=None, preview=preview)
+    with closing(db()) as conn:
+        titles = admission_titles(conn)
+    return render_template("index.html", title="Choisir ma formation · Intégrale Academy", title_offers=titles, saved_data=None, preview=preview)
 
 
 register_place_search(app)
@@ -3624,7 +3628,7 @@ snapshot_legacy_links(db)
 
 from gestionstagiaires_api import register_gestionstagiaires_api
 register_gestionstagiaires_api(app, db, UPLOAD_DIR)
-register_formation_intake(app, db, lambda *args, **kwargs: send_mail(*args, **kwargs))
+register_formation_intake(app, db, lambda *args, **kwargs: send_mail(*args, **kwargs), require_admin)
 
 if __name__ == "__main__":
     # Render starts this file with Werkzeug's reloader. Start in the serving

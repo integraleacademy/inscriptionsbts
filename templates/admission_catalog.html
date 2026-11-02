@@ -1,0 +1,31 @@
+{% from 'ui_icons.html' import icon %}
+<section class="admission-catalog" id="choix-formation" aria-labelledby="catalog-title">
+  <header class="catalog-intro">
+    <p class="catalog-kicker">INTÉGRALE ACADEMY · {% if preview %}APERÇU ADMINISTRATEUR{% else %}CANDIDATURES{% endif %}</p>
+    <h1 id="catalog-title" tabindex="-1">Quelle formation souhaites-tu rejoindre&nbsp;?</h1>
+    <p>{% if preview %}Choisis une formation pour parcourir son formulaire en mode aperçu.{% else %}Choisis ta formation pour accéder à sa candidature et aux dates des sessions.{% endif %}</p>
+  </header>
+  <nav class="catalog-families" aria-label="Choix de la formation">
+    <a href="#titres-professionnels">{{ icon('briefcase') }}<span>Titres professionnels <small>Voir les titres et les sessions</small></span>{{ icon('chevron-down') }}</a>
+    <a href="{{ url_for('security_application_preview' if preview else 'security_application') }}">{{ icon('shield') }}<span>Parcours sécurité en alternance <small>{{ 'Voir le formulaire' if preview else 'Déposer ma candidature' }}</small></span>{{ icon('arrow') }}</a>
+    <a href="{{ '#application-guide' if request.endpoint == 'candidature' else (url_for('candidature', _anchor='application-guide') if admission_open else '#inscriptions-bts') }}">{{ icon('book') }}<span>BTS en alternance <small>{{ 'Voir les modalités d’ouverture' if request.endpoint == 'index' and not admission_open else 'Préparer mon dossier BTS' }}</small></span>{{ icon('arrow') }}</a>
+  </nav>
+  <section class="catalog-titles" id="titres-professionnels" aria-labelledby="titles-heading">
+    <h2 id="titles-heading">Titres professionnels <span>(TP)</span></h2>
+    <ul class="catalog-title-list">
+      {% for offer in title_offers %}
+      <li>
+        <h3>{{ offer.name }}</h3>
+        {% for group in offer.promotions %}
+        <p class="catalog-session"><span><b>{{ group.nom }}</b><br>Du {{ group.date_debut|dmy }} au {{ group.date_fin|dmy }}</span>
+          <a href="{{ url_for('title_application_preview', formation=offer.code, promotion=group.id) if preview else url_for('title_application', promotion_id=group.id) }}" aria-label="{{ 'Voir l’aperçu' if preview else 'Candidater' }} · {{ offer.name }} · {{ group.nom }}">{{ 'Voir l’aperçu' if preview else 'Candidater' }} {{ icon('arrow') }}</a></p>
+        {% else %}
+        <p class="catalog-session"><span>Aucune session ouverte</span>{% if preview %}
+          <a href="{{ url_for('title_application_preview', formation=offer.code) }}" aria-label="Voir l’aperçu · {{ offer.name }}">Voir l’aperçu {{ icon('arrow') }}</a>{% endif %}</p>
+        {% endfor %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if preview %}<p class="catalog-manage">Pour ouvrir les candidatures à un titre, crée une promotion avec ses dates dans <a href="{{ url_for('admin_promotions') }}">l’espace Promotions</a>.</p>{% endif %}
+  </section>
+</section>

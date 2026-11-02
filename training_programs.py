@@ -12,6 +12,14 @@ BTS_LABELS = {
 }
 SECURITY = 'PARCOURS-SECURITE'
 SECURITY_LABEL = 'Parcours sécurité en alternance'
+ACADEMY_TITLES = (
+    'Agent de sûreté et de sécurité privée',
+    'Assistant ressources humaines',
+    'Chargé d’accueil et de gestion administrative',
+    'Gestionnaire de paie',
+    'Opérateur en vidéoprotection et en télésurveillance',
+    'Secrétaire assistant médico-administratif',
+)
 
 
 def is_professional_title(code):
@@ -26,10 +34,20 @@ def program_name(code):
     return 'BTS ' + code if code in BTS_LABELS else (code or '')
 
 
-def catalog(conn):
+def professional_titles(conn):
     conn.execute('CREATE TABLE IF NOT EXISTS professional_titles (code TEXT PRIMARY KEY, name TEXT NOT NULL)')
-    titles = conn.execute('SELECT code,name FROM professional_titles ORDER BY name COLLATE NOCASE')
-    return {**BTS_LABELS, SECURITY: SECURITY_LABEL, **{code: 'TP · ' + name for code, name in titles}}
+    titles = dict(conn.execute('SELECT code,name FROM professional_titles ORDER BY name COLLATE NOCASE'))
+    configured = {code.replace("’", "'") for code in titles}
+    for name in ACADEMY_TITLES:
+        code = 'TP ' + name.upper()
+        if code.replace("’", "'") not in configured:
+            titles[code] = name
+    return dict(sorted(titles.items(), key=lambda item: item[1].casefold()))
+
+
+def catalog(conn):
+    titles = professional_titles(conn)
+    return {**BTS_LABELS, SECURITY: SECURITY_LABEL, **{code: 'TP · ' + name for code, name in titles.items()}}
 
 
 def professional_title(value):
