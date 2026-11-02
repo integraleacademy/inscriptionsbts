@@ -227,3 +227,21 @@ def test_state_filter_in_detached_listbox_and_native_select():
             assert choose_states(page, False) == ALL_STATES
             assert choose_states(page, True) == {"inscrit", "pre inscrit"}
             assert page.locator('[aria-selected=true]').all_text_contents() == ["Inscrit","Pré-inscrit"]
+
+            # The shell can display the session picker before loading the report in an iframe.
+            from cyclades_portal import REPORT_LINK, report_frame
+            origin = "https://cyclades.education.gouv.fr"
+            def serve_fixture(route):
+                body = ('<fieldset><legend>État</legend><select multiple>' +
+                        ''.join(f'<option>{v}</option>' for v in labels) +
+                        '</select></fieldset><button id="editionCSV">CSV</button>')
+                if route.request.url.endswith("/shell"):
+                    body = ('<select id="selectContexte"><option>BTS</option></select>'
+                            '<a href="/edition" target="edition">' + REPORT_LINK + '</a>'
+                            '<iframe name="edition"></iframe>')
+                route.fulfill(content_type="text/html; charset=utf-8", body=body)
+            page.route(origin + "/**", serve_fixture)
+            page.goto(origin + "/shell")
+            frame = report_frame(page, REPORT_LINK, "paris")
+            assert frame != page.main_frame
+            assert choose_states(frame, False) == ALL_STATES

@@ -5,6 +5,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -126,15 +127,15 @@ def open_establishment(page, academy, credentials):
     with portal_step(page, "Le menu d’édition des listes d’inscription n’est pas accessible"):
         page.locator("#ACTV_EDITION_LISTE_CAND_INSCRIPTION").click()
     with portal_step(page, "La liste détaillée des élèves n’est pas accessible"):
-        page.get_by_role("link", name=REPORT_LINK, exact=True).click()
+        page.get_by_role("link", name=REPORT_LINK, exact=True).wait_for(state="visible")
 
 
 def filter_structure(page):
     # Only static widget types and known filter vocabulary. No values, candidate or account data.
     return page.evaluate("""() => {
         const clean = s => (s || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase();
-        const vocab = ['etat','critere','valeur','selection','inscrit','egal','session','recherche','liste','operateur'];
-        const nodes = [...document.querySelectorAll('fieldset,legend,[role=group],label,button,select,[role=button],[role=combobox],[role=listbox],[role=option],input[type=checkbox]')];
+        const vocab = ['etat','critere','valeur','selection','inscrit','egal','session','recherche','liste','operateur','csv','edition','eleves','generer','editer','epreuves'];
+        const nodes = [...document.querySelectorAll('fieldset,legend,[role=group],label,button,select,a,[role=button],[role=combobox],[role=listbox],[role=option],input[type=checkbox],input[type=button],input[type=submit]')];
         return nodes.filter(e => e.getClientRects().length).map(e => {
             const label = clean([e.getAttribute('aria-label'),e.getAttribute('title'),
                 e.labels?.[0]?.textContent,e.matches('fieldset,[role=group]') ? e.querySelector('legend')?.textContent : e.innerText].filter(Boolean).join(' '));
@@ -142,6 +143,35 @@ def filter_structure(page):
             return [e.tagName,e.getAttribute('role'),tokens].filter(Boolean).join('/');
         }).filter((s,i,a) => a.indexOf(s) === i).slice(0,60).join(' ');
     }""")
+
+
+def report_frame(shell, title, academy):
+    """A context selector belongs to the shell. Wait for the actual edition form."""
+    existing = list(shell.context.pages)
+    with portal_step(shell, "Le lien d’édition de la liste ne s’est pas ouvert"):
+        shell.get_by_role("link", name=title, exact=True).click()
+    deadline = time.monotonic() + 25
+    while True:
+        windows = shell.context.pages
+        ordered = [w for w in windows if w not in existing] + [shell] + [w for w in windows if w != shell and w in existing]
+        frames = [frame for window in ordered for frame in window.frames if
+                  official(frame.url) or (frame.url in ("about:blank","about:srcdoc")
+                     and frame.parent_frame and official(frame.parent_frame.url))]
+        for frame in frames:
+            try:
+                csv = frame.locator("#editionCSV")
+                if csv.count() and (csv.first.is_visible() or frame.get_by_role("group",name=re.compile("[ée]tat",re.I)).count()):
+                    return frame
+            except Error:
+                continue  # The official application is replacing the frame.
+        if time.monotonic() >= deadline:
+            break
+        shell.wait_for_timeout(200)
+    for frame in frames:
+        if not frame.is_detached():
+            logging.getLogger(__name__).warning("CYCLADES %s édition | %s | %s", academy,
+                urlsplit(frame.url).hostname or "document intégré", filter_structure(frame))
+    raise CycladesError("CYCLADES a ouvert la session mais le formulaire d’édition CSV n’est pas apparu.")
 
 
 def choose_states(page, exam_details):
@@ -196,21 +226,23 @@ def choose_states(page, exam_details):
     return selected_names
 
 
-def download_session(page, label, academy, year, *, exam_details=False):
-    select = page.locator("#selectContexte")
-    with portal_step(page, f"La sélection de la session {year} a échoué"):
+def download_session(shell, label, academy, year, *, exam_details=False):
+    select = shell.locator("#selectContexte")
+    with portal_step(shell, f"La sélection de la session {year} a échoué"):
         if select.locator("option:checked").inner_text().strip() != label:
             labels = [value.strip() for value in select.locator("option").all_text_contents()]
             if label not in labels:
                 raise CycladesError(f"Session {year} introuvable.")
             select.select_option(index=labels.index(label))
+    title = "Liste détaillée avec épreuves" if exam_details else REPORT_LINK
+    page = report_frame(shell, title, academy)
     try:
         expected_states = choose_states(page, exam_details)
     except (CycladesError, Error):
         logging.getLogger(__name__).warning("CYCLADES %s filtre %d | %s", academy, year, filter_structure(page))
         raise
     try:
-        with page.expect_download(timeout=45000) as download:
+        with page.page.expect_download(timeout=45000) as download:
             page.locator("#editionCSV").click()
         item = download.value
         with TemporaryDirectory() as temp:
@@ -262,6 +294,8 @@ def read_academy(academy, credentials):
                 open_establishment(page, academy, credentials)
                 select = page.locator("#selectContexte")
                 with portal_step(page, "La liste des sessions BTS ne s’est pas affichée"):
+                    if not select.is_visible():
+                        page.get_by_role("link", name=REPORT_LINK, exact=True).click()
                     select.wait_for(state="visible")
                     labels = select.locator("option").all_text_contents()
                 area = "PARIS" if academy == "paris" else "NICE"
@@ -271,8 +305,6 @@ def read_academy(academy, credentials):
                     raise CycladesError("Aucune session BTS de cette académie n’est accessible à l’établissement.")
                 for label, year in sorted(sessions, key=lambda item: -item[1]):
                     try:
-                        with portal_step(page, f"Impossible d’ouvrir la liste des élèves pour {year}"):
-                            page.get_by_role("link", name=REPORT_LINK, exact=True).click()
                         with portal_step(page, f"Les critères de la liste des élèves pour {year} ne sont pas accessibles"):
                             report = download_session(page, label, academy, year)
                     except CycladesError as error:
@@ -281,7 +313,6 @@ def read_academy(academy, credentials):
                     if any(words(row[-1]["status"]) in {"inscrit", "pre inscrit"} for row in report.records):
                         try:
                             with portal_step(page, f"Le détail des épreuves pour {year} n’est pas accessible"):
-                                page.get_by_role("link", name="Liste détaillée avec épreuves", exact=True).click()
                                 supplement = download_session(page, label, academy, year, exam_details=True)
                             with_exams(report, supplement)
                         except CycladesError as error:
