@@ -17,7 +17,7 @@ from flask import abort, flash, redirect, request, session, url_for
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, apply_report, identity, parse_report, with_exams
 from cyclades_portal import read_academy
 
-READER_VERSION = 2
+READER_VERSION = 3
 
 
 def cipher(app):
@@ -98,6 +98,7 @@ def run_due(app, connect, directory, *, now=None, fetch=read_academy):
                             if apply_report(conn, key, report, "auto"):
                                 counts.append(f"{report.year}={len(report.records)}")
                             conn.commit()
+                            app.logger.info("CYCLADES %s session %d, %d dossiers lus", key, report.year, len(report.records))
             except InvalidToken:
                 errors.append("La clé du serveur a changé. Renseignez de nouveau les accès.")
             except CycladesError as error:

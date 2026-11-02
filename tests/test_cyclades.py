@@ -199,3 +199,31 @@ def test_portal_diagnostic_discards_browser_exception_details():
         with portal_step(Page(), "Connexion interrompue"):
             raise BrowserTimeout("confidentiel")
     assert str(caught.value) == "Connexion interrompue (login.ac-paris.fr, délai dépassé, chargement de session)."
+
+
+def test_state_filter_in_detached_listbox_and_native_select():
+    import os
+    from pathlib import Path
+    from playwright.sync_api import sync_playwright
+    from cyclades_data import ALL_STATES
+    from cyclades_portal import choose_states
+
+    labels = ["Inscrit", "Non inscrit", "Pré-inscrit", "Redoublant", "Anomalie"]
+    with sync_playwright() as engine:
+        path = os.getenv("CYCLADES_CHROMIUM_EXECUTABLE")
+        if not path and not Path(engine.chromium.executable_path).exists():
+            pytest.skip("Chromium requis pour le test des filtres CYCLADES")
+        with engine.chromium.launch(executable_path=path) as browser:
+            page = browser.new_page()
+            page.set_content('<fieldset><legend>État</legend><select multiple>' +
+                             ''.join(f'<option>{label}</option>' for label in labels) + '</select></fieldset>')
+            assert choose_states(page, False) == ALL_STATES
+            assert page.locator("option:checked").count() == 5
+            page.set_content('<fieldset><legend>Configurer le critère État</legend>'
+                '<button onclick="document.querySelector(\'ul\').hidden=!document.querySelector(\'ul\').hidden">Valeur recherchée</button></fieldset>'
+                '<ul role="listbox" hidden>' + ''.join(
+                f'<li role="option" aria-selected="false" onclick="this.ariaSelected=this.ariaSelected===\'true\'?\'false\':\'true\'">{label}</li>'
+                for label in labels) + '</ul>')
+            assert choose_states(page, False) == ALL_STATES
+            assert choose_states(page, True) == {"inscrit", "pre inscrit"}
+            assert page.locator('[aria-selected=true]').all_text_contents() == ["Inscrit","Pré-inscrit"]
