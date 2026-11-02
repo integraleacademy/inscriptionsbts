@@ -1,284 +1,173 @@
-{% from 'person_names.html' import person_name, first_name, last_name, person_initials %}
+{% from 'person_names.html' import person_name, person_initials %}
+{% macro fact(label, value) -%}
+  <div class="fact"><div class="label">{{ label }}</div>{% if value %}<div class="value">{{ value }}</div>{% else %}<div class="empty">Non renseigné</div>{% endif %}</div>
+{%- endmacro %}
+{% macro section(title) -%}<h2>{{ title }}</h2>{%- endmacro %}
+{% macro response(label, value) -%}
+  <div class="response"><h3>{{ label }}</h3>{% if value %}<p class="answer">{{ value }}</p>{% else %}<p class="empty">Non renseigné</p>{% endif %}</div>
+{%- endmacro %}
+{% set name = person_name(row.nom, row.prenom) %}
+{% set mode = {'presentiel':'Présentiel', 'distanciel':'Distanciel'}.get(row.mode, row.mode) %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
+<title>Fiche de candidature BTS · {{ name or row.numero_dossier }}</title>
+<meta name="author" content="Intégrale Academy">
 <style>
-  body {
-    font-family: 'Segoe UI', 'Segoe UI Emoji', 'Apple Color Emoji', Arial, sans-serif;
-    font-size: 11.5px;
-    color: #222;
-    margin: 40px;
-    background: #fff;
+  @page {
+    size: A4; margin: 18mm 15mm 19mm;
+    @top-left { content: "INTÉGRALE ACADEMY  /  ADMISSIONS BTS"; font: bold 7pt sans-serif; letter-spacing: .8pt; color: #426758; }
+    @top-right { content: string(candidate); font: 8pt sans-serif; color: #4f655d; }
+    @bottom-left { content: element(footer); border-top: .6pt solid #cbd9d1; vertical-align: middle; width: 78%; }
+    @bottom-right { width: 22%; content: counter(page) "  /  " counter(pages); border-top: .6pt solid #cbd9d1; font: bold 9pt sans-serif; color: #205240; }
   }
-
-  header {
-    display: flex;
-    align-items: center;
-    border-bottom: 3px solid #f4c45a;
-    padding-bottom: 10px;
-    margin-bottom: 25px;
-  }
-
-  header img {
-    height: 70px;
-    margin-right: 20px;
-  }
-
-  header h1 {
-    font-size: 20px;
-    margin: 0;
-    color: #111;
-  }
-
-  .sub-info {
-    font-size: 13px;
-    color: #555;
-    margin-top: 3px;
-  }
-
-  h2 {
-    background: #f4c45a;
-    color: #111;
-    font-size: 13.5px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    margin-top: 25px;
-  }
-
-  .box {
-    border: 1px solid #ddd;
-    border-radius: 6px;
-    padding: 8px 10px;
-    margin-bottom: 6px;
-    background: #fafafa;
-  }
-
-  .label {
-    font-weight: 600;
-    color: #111;
-  }
-
-  .nir-box {
-    border: 2px solid #f4c45a;
-    background: #fffbea;
-    padding: 10px;
-    font-size: 13px;
-    font-weight: bold;
-    text-align: center;
-    margin: 20px 0;
-    border-radius: 8px;
-  }
-
-  footer {
-    text-align: right;
-    font-style: italic;
-    font-size: 10px;
-    color: #555;
-    margin-top: 25px;
-  }
+  @page:first { margin-top: 13mm; @top-left { content: none; } @top-right { content: none; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: #19382d; font: 10pt/1.36 "DejaVu Sans", sans-serif; overflow-wrap: break-word; }
+  h1, h2, h3, p { margin: 0; }
+  h1, h2, h3, .label { break-after: avoid; }
+  table { border-spacing: 0; width: 100%; table-layout: fixed; }
+  td { vertical-align: top; padding: 0; }
+  .footer { position: running(footer); font-size: 7.5pt; color: #55685f; }
+  .footer b { color: #224a39; }
+  .hero { background: #193b30; border-radius: 4mm 4mm 0 0; padding: 6mm 7mm; color: #fff; }
+  .hero-copy { vertical-align: middle; padding-right: 6mm; }
+  .brand { display: block; width: 36mm; margin: 0 0 4mm; }
+  .eyebrow { margin: 0 0 1.2mm; font-size: 7.5pt; font-weight: bold; letter-spacing: 1.35pt; color: #f6cd74; }
+  h1 { string-set: candidate content(); font-size: 25pt; line-height: 1.12; letter-spacing: -.8pt; }
+  .course { margin-top: 2.1mm; font-size: 10.5pt; color: #e0eee6; }
+  .portrait-cell { width: 32mm; vertical-align: middle; }
+  .portrait { width: 32mm; height: 40mm; padding: 1.1mm; background: #faf8ed; border-radius: 2mm; }
+  .portrait img { display: block; width: 100%; height: 100%; object-fit: contain; }
+  .initials { background: #2a5141; border: .7pt solid #71917d; color: #fff0c7; text-align: center; padding-top: 8.5mm; }
+  .initials b { display: block; font: 23pt "DejaVu Serif", serif; }
+  .initials small { display: block; color: #ecf2eb; font-size: 6.5pt; margin-top: 1mm; }
+  .meta { background: #edf4ee; border-bottom: 1.6pt solid #dbad55; padding: 3.4mm 5mm; }
+  .meta td { padding: 0 2.5mm; border-left: .65pt solid #c7d7ca; }
+  .meta td:first-child { border-left: 0; padding-left: 1.4mm; }
+  .meta .label { font-size: 7.3pt; }
+  .meta b { display: block; padding-top: .6mm; font-size: 9pt; }
+  .label { color: #546b60; font-size: 8.2pt; }
+  .value { font-weight: bold; font-size: 10pt; white-space: pre-line; }
+  .empty { font-size: 9pt; color: #64766c; }
+  h2 { margin: 5.3mm 0 2.3mm; font: bold 15pt/1.14 "DejaVu Serif", serif; letter-spacing: -.35pt; color: #204e3a; }
+  h2::before { content: ""; display: inline-block; width: 3.2mm; height: 3.2mm; margin-right: 2.5mm; margin-bottom: .65mm; background: #dbad55; }
+  .facts td { padding: 2.1mm 3mm 2.1mm 0; border-top: .55pt solid #d6e0d8; }
+  .facts td + td { padding-left: 2.5mm; }
+  .fact .value, .fact .empty { margin-top: .5mm; }
+  .quiet-panel { margin-top: 2mm; background: #f0f5ef; padding: 3mm 3.7mm; border-left: 2pt solid #7fa28b; }
+  .quiet-panel h3 { margin-bottom: 1.5mm; color: #295640; }
+  .quiet-panel td { padding-right: 3mm; }
+  h3 { font-size: 10pt; color: #264838; }
+  .lead { break-before: page; margin-bottom: 4mm; padding: 3.5mm 0; border-top: 2pt solid #d6a751; border-bottom: .6pt solid #ccdcd0; }
+  .lead .eyebrow { color: #40735b; }
+  .lead-title { font: bold 24pt/1.18 "DejaVu Serif", serif; letter-spacing: -.7pt; color: #193b30; }
+  .response { margin: 0 0 3.2mm; }
+  .answer { margin-top: .8mm; white-space: pre-wrap; orphans: 2; widows: 2; }
+  .profile, .pieces { border-collapse: collapse; }
+  .profile td, .pieces td { padding: 1.6mm 1.6mm; border-top: .55pt solid #d4dfd5; }
+  .profile td:first-child { width: 36%; color: #476556; font-weight: bold; font-size: 8.7pt; }
+  .profile td:last-child, .pieces td { font-size: 9pt; }
+  .pieces thead { display: table-header-group; }
+  .pieces th { background: #e8f1e9; color: #345844; text-align: left; font-size: 8pt; padding: 1.5mm; }
+  .qty { text-align: center !important; width: 16%; }
+  .doc-check { width: 39%; }
+  .check { display: inline-block; padding: .3mm 1.6mm; border-radius: 1.5mm; font-size: 8.4pt; color: #43564c; background: #edf0ed; }
+  .check.ok { background: #e0efe3; color: #225c3e; }
+  .check.pending { background: #fcf0d6; color: #71511d; }
+  .check.issue { background: #f8e7df; color: #803f2d; }
+  .note { margin-top: 2mm; }
+  .tracking { padding: 1.6mm 0; border-top: .55pt solid #d4dfd5; font-size: 9pt; }
+  .tracking b { color: #3e5d4f; }
+  .kept { break-inside: avoid; }
 </style>
 </head>
 <body>
-
-{% set QUALITES = {
-  'rigoureux': 'Rigueur',
-  'organise': 'Organisation',
-  'autonome': 'Autonomie',
-  'communication': 'Communication',
-  'esprit_equipe': 'Esprit d’équipe',
-  'curieux': 'Curiosité',
-  'leadership': 'Leadership',
-  'creatif': 'Créativité',
-  'empathique': 'Empathie',
-  'serieux': 'Sérieux'
-} %}
-{% set MOTIVATIONS = {
-  'reussite': 'La réussite personnelle et professionnelle',
-  'stabilite': 'La stabilité et la sécurité de l’emploi',
-  'utilite': 'Être utile et aider les autres',
-  'defis': 'Les défis et les responsabilités',
-  'contact': 'Le contact humain et le travail d’équipe',
-  'innovation': 'L’innovation et les nouvelles technologies',
-  'evolution': 'Les perspectives d’évolution',
-  'apprentissage': 'L’envie d’apprendre et de me perfectionner'
-} %}
-{% set VALEURS = {
-  'salaire': 'Un bon salaire et des avantages',
-  'sens': 'Un métier qui a du sens',
-  'contact': 'Être en contact avec le public',
-  'mobilite': 'Pouvoir bouger et voyager',
-  'stabilite': 'La stabilité et la sécurité de l’emploi',
-  'responsabilite': 'Des responsabilités importantes',
-  'autonomie': 'Travailler de manière autonome',
-  'equipe': 'Un bon esprit d’équipe'
-} %}
-{% set TRAVAIL = {
-  'methodique': 'Je suis méthodique et j’aime planifier',
-  'pratique': 'J’apprends mieux en pratiquant',
-  'collaboratif': 'J’aime travailler en groupe',
-  'independant': 'Je préfère travailler seul(e)',
-  'creatif': 'J’aime proposer des idées nouvelles',
-  'objectif': 'Je me fixe des objectifs précis'
-} %}
-
-<header>
-  <img src="{{ url_for('static', filename='logo-integrale.png') }}" alt="Logo Intégrale Academy">
-  <div>
-    <h1>{{ person_name(row.nom,row.prenom) }}</h1>
-    <div class="sub-info">
-      {{ row.bts|btsfull }} — 
-      {% if row.mode == "presentiel" %}🧑‍🏫 Présentiel
-      {% elif row.mode == "distanciel" %}💻 Distanciel
-      {% else %}{{ row.mode }}{% endif %}<br>
-      <strong>Dossier n° {{ row.numero_dossier }}</strong>
-    </div>
-  </div>
+<div class="footer"><b>Document confidentiel</b>  ·  Édité le {{ issued.strftime('%d/%m/%Y à %H:%M') }}</div>
+<header class="kept">
+  <div class="hero"><table><tr>
+    <td class="hero-copy">
+      <img class="brand" src="academy-official-logo.png" alt="Intégrale Academy">
+      <p class="eyebrow">FICHE DE CANDIDATURE BTS</p>
+      <h1>{{ name or 'Identité non renseignée' }}</h1>
+      <p class="course">{{ row.bts|btsfull or 'BTS non renseigné' }}</p>
+    </td>
+    <td class="portrait-cell">{% if portrait %}<div class="portrait"><img src="{{ portrait }}" alt="Photo d’identité"></div>
+      {% else %}<div class="portrait initials"><b>{{ person_initials(row.nom, row.prenom) or '·' }}</b><small>Photo indisponible</small></div>{% endif %}</td>
+  </tr></table></div>
+  <div class="meta"><table><tr>
+    <td><div class="label">N° de dossier</div><b>{{ row.numero_dossier or 'Non renseigné' }}</b></td>
+    <td><div class="label">Rentrée · Modalité</div><b>{{ year }}{% if mode %} · {{ mode }}{% endif %}</b></td>
+    <td><div class="label">Candidature reçue</div><b>{{ row.created_at|dmy or 'Non renseigné' }}</b></td>
+    <td><div class="label">Statut du dossier</div><b>{{ status or 'Non renseigné' }}</b></td>
+  </tr></table></div>
 </header>
-
-<div class="box">
-  <span class="label">Formulaire envoyé le :</span> {{ row.created_at|dmy }}
-</div>
-
-<h2>1. INFORMATIONS PERSONNELLES</h2>
-<div class="box"><span class="label">Prénom :</span> {{ first_name(row.prenom) }}</div>
-<div class="box"><span class="label">Nom :</span> {{ last_name(row.nom) }}</div>
-<div class="box"><span class="label">Date de naissance :</span> {{ row.date_naissance|dmy }}</div>
-<div class="box"><span class="label">Pays de naissance :</span> {{ row.pays_naissance }}</div>
-<div class="box"><span class="label">Code postal de naissance :</span> {{ row.cp_naissance }}</div>
-<div class="box"><span class="label">Ville de naissance :</span> {{ row.ville_naissance }}</div>
-<div class="box"><span class="label">Nationalité :</span> {{ row.nationalite }}</div>
-
-{# ✅ Affiche responsable légal si mineur OU si au moins un champ est rempli #}
-{% set is_mineur = (row.est_mineur|default(0)|int == 1) %}
-{% set has_resp = (row.resp_nom or row.resp_prenom or row.resp_email or row.resp_tel) %}
-
-{% if is_mineur or has_resp %}
-<div class="box">
-  <span class="label">Responsable légal :</span><br>
-  {{ person_name(row.resp_nom,row.resp_prenom) or "—" }}<br>
-  📧 {{ (row.resp_email or "—") }} — 📞 {{ (row.resp_tel or "—") }}
-</div>
+{{ section('Identité et coordonnées') }}
+<table class="facts">
+  <tr><td>{{ fact('Date de naissance', row.date_naissance|dmy) }}</td><td>{{ fact('Sexe à l’état civil', row.sexe) }}</td><td>{{ fact('Nationalité', row.nationalite) }}</td></tr>
+  <tr><td colspan="2">{{ fact('Lieu de naissance', [[row.cp_naissance, (row.ville_naissance or '')|upper]|select|join(' '), row.pays_naissance]|select|join(' · ')) }}</td><td>{{ fact('N° de Sécurité sociale', row.num_secu|nirsp) }}</td></tr>
+  <tr><td colspan="2">{{ fact('Adresse e-mail', row.email) }}</td><td>{{ fact('Téléphone', row.tel) }}</td></tr>
+  <tr><td colspan="2">{{ fact('Adresse postale', [row.adresse, [row.cp, row.ville]|select|join(' ')]|select|join(' · ')) }}</td><td>{{ fact('Permis B', answer(row.permis_b)) }}</td></tr>
+</table>
+{% if answer(row.est_mineur) == 'Oui' or row.resp_nom or row.resp_prenom or row.resp_email or row.resp_tel %}
+<div class="quiet-panel kept"><h3>Responsable légal{% if answer(row.est_mineur) == 'Oui' %} · mineur au dépôt{% endif %}</h3><table><tr>
+  <td>{{ fact('Prénom et nom', person_name(row.resp_nom, row.resp_prenom)) }}</td>
+  <td>{{ fact('Adresse e-mail', row.resp_email) }}</td><td>{{ fact('Téléphone', row.resp_tel) }}</td>
+</tr></table></div>
 {% endif %}
-
-<div class="box"><span class="label">Adresse postale :</span> {{ row.adresse }}</div>
-<div class="box"><span class="label">Code postal :</span> {{ row.cp }}</div>
-<div class="box"><span class="label">Ville :</span> {{ row.ville }}</div>
-<div class="box"><span class="label">E-mail :</span> {{ row.email }}</div>
-<div class="box"><span class="label">Téléphone :</span> {{ row.tel }}</div>
-<div class="box"><span class="label">Permis B :</span> {% if row.permis_b %}✅ Oui{% else %}❌ Non{% endif %}</div>
-
-<div class="nir-box">
-  N° de Sécurité sociale : {{ row.num_secu|nirsp }}
-</div>
-
-<h2>2. ANTÉRIORITÉ SCOLAIRE</h2>
-
-<div class="box">
-  <span class="label">Baccalauréat :</span>
-  {% if row.baccalaureat %}
-    {% if 'oui' in row.baccalaureat.lower() %}✅ Oui
-    {% elif 'non' in row.baccalaureat.lower() %}❌ Non
-    {% elif 'prévu' in row.baccalaureat.lower() or '2026' in row.baccalaureat %}📅 {{ row.baccalaureat }}
-    {% else %}{{ row.baccalaureat }}
-    {% endif %}
-  {% else %}
-    —
-  {% endif %}
-  {% if row.bac_status %}
-    <br><span style="font-size:11px;color:#555;">
-      ⚙️ Précision MOS : {{ row.bac_status }}
-    </span>
-  {% endif %}
-</div>
-
-<div class="box"><span class="label">Type de bac :</span> {{ row.bac_type or "—" }}</div>
-<div class="box"><span class="label">Autre formation / précisions :</span> {{ row.bac_autre or "—" }}</div>
-
-
-<h2>4. 💬 PROJET MOTIVÉ</h2>
-<div class="box"><span class="label">Pourquoi souhaitez-vous intégrer ce BTS ?</span><br>🎯 {{ row.projet_pourquoi or "—" }}</div>
-<div class="box"><span class="label">Quel est votre projet professionnel ?</span><br>🚀 {{ row.projet_objectif or "—" }}</div>
-<div class="box"><span class="label">Vos passions / centres d’intérêt :</span><br>❤️ {{ row.projet_passions or "—" }}</div>
-
-<div class="box"><span class="label">Vos principales qualités :</span><br>🌟
-  {% set items = (row.projet_qualites or '').split(',') %}
-  {% if items %}
-    {% for q in items %}
-      {{ QUALITES[q.strip().lower()] or q.strip() }}{% if not loop.last %}, {% endif %}
-    {% endfor %}
-  {% else %}—{% endif %}
-</div>
-
-<div class="box"><span class="label">Ce qui vous motive le plus :</span><br>🔥
-  {% set items = (row.projet_motivation or '').split(',') %}
-  {% if items %}
-    {% for m in items %}
-      {{ MOTIVATIONS[m.strip().lower()] or m.strip() }}{% if not loop.last %}, {% endif %}
-    {% endfor %}
-  {% else %}—{% endif %}
-</div>
-
-<div class="box"><span class="label">Ce que vous recherchez dans votre futur métier :</span><br>💼
-  {% set items = (row.projet_recherche or '').split(',') %}
-  {% if items %}
-    {% for v in items %}
-      {{ VALEURS[v.strip().lower()] or v.strip() }}{% if not loop.last %}, {% endif %}
-    {% endfor %}
-  {% else %}—{% endif %}
-</div>
-
-<div class="box"><span class="label">Votre manière de travailler :</span><br>🧠
-  {% set items = (row.projet_travail or '').split(',') %}
-  {% if items %}
-    {% for t in items %}
-      {{ TRAVAIL[t.strip().lower()] or t.strip() }}{% if not loop.last %}, {% endif %}
-    {% endfor %}
-  {% else %}—{% endif %}
-</div>
-
- <h2>🛡️ FORMATION APS (Sécurité privée)</h2>
-
-<div class="box">
-  <span class="label">Souhaite suivre la formation APS :</span><br>
-  {% if row.aps_souhaitee is not none %}
-    {% if row.aps_souhaitee|int == 1 %}
-      ✅ Oui, le candidat souhaite suivre la formation APS
-    {% elif row.aps_souhaitee|int == 0 %}
-      ❌ Non, le candidat ne souhaite pas suivre la formation APS
-    {% else %}
-      {{ row.aps_souhaitee }}
-    {% endif %}
-  {% else %}
-    —
-  {% endif %}
-</div>
-
-<div class="box">
-  <span class="label">Session APS choisie :</span><br>
-  {{ row.aps_session or "—" }}
-</div>
-
-<div class="box">
-  <span class="label">Commentaire / raison si la formation APS n’est pas souhaitée :</span><br>
-  {{ row.raison_aps or "—" }}
-</div>
- 
-
-<!-- 🔹 Nouveau bloc : CONTRAT D'APPRENTISSAGE -->
-<h2>🎓 CONTRAT D’APPRENTISSAGE</h2>
-<div class="box">
-  <span class="label">Avez-vous déjà trouvé une entreprise pour votre alternance ?</span><br>
-  {{ row.entreprise_trouvee or "—" }}
-</div>
-<div class="box">
-  <span class="label">Avez-vous déjà commencé vos recherches ?</span><br>
-  {{ row.recherches_commencees or "—" }}
-</div>
-
-<footer>
-  Fiche générée le {{ now.strftime('%d/%m/%Y %H:%M') }} — Intégrale Academy
-</footer>
-
+{{ section('Parcours et alternance') }}
+<table class="facts">
+  <tr><td>{{ fact('Baccalauréat', bac) }}</td><td>{{ fact('Type de bac', row.bac_type) }}</td><td>{{ fact('Promotion', promotion.nom if promotion else 'Non affectée') }}</td></tr>
+  <tr><td>{{ fact('Entreprise trouvée au dépôt', answer(row.entreprise_trouvee)) }}</td><td>{{ fact('Recherches commencées', answer(row.recherches_commencees)) }}</td><td>{{ fact('Recherche en Île-de-France', answer(row.get('cherche_idf'))) }}</td></tr>
+</table>
+{% if bac_detail %}{{ response('Précision sur le baccalauréat', bac_detail) }}{% endif %}
+{% if row.bac_autre %}{{ response('Précisions sur le parcours scolaire', row.bac_autre) }}{% endif %}
+{% if row.get('souhaite_accompagnement') %}<p class="tracking"><b>Accompagnement à la recherche d’entreprise</b> · {{ answer(row.souhaite_accompagnement) }}</p>{% endif %}
+<p class="tracking"><b>Contrat d’apprentissage</b> · {% if row.contract == 'yes' %}Rattaché · {{ row.contract_detail }}{% else %}{{ row.contract_label }}{% endif %}</p>
+{% for contract in row.get('linked_contracts', []) %}
+<p class="tracking"><b>{{ contract.employer_name or 'Employeur non renseigné' }}</b>{% if contract.contract_start %} · Début {{ contract.contract_start|dmy }}{% endif %}{% if contract.contract_end %} · Fin {{ contract.contract_end|dmy }}{% endif %}{% if contract.contract_break_date %} · Rupture {{ contract.contract_break_date|dmy }}{% endif %}{% if contract.deca_number %} · DECA {{ contract.deca_number }}{% endif %}{% if contract.external_number %} · Réf. OPCO {{ contract.external_number }}{% endif %}</p>
+{% endfor %}
+{% if row.bts == 'MOS' %}
+  {{ section('Sécurité privée · BTS MOS') }}
+  <table class="facts"><tr><td>{{ fact('Situation déclarée', mos_path) }}</td>
+    {% if show_aps %}<td>{{ fact('Formation APS souhaitée', answer(row.aps_souhaitee)) }}</td>{% endif %}
+    {% if row.aps_session %}<td>{{ fact('Session APS', row.aps_session) }}</td>{% endif %}
+  </tr></table>
+  {% if row.raison_aps %}{{ response('Solution envisagée pour l’APS', row.raison_aps) }}{% endif %}
+{% endif %}
+{% if has_project %}
+  <div class="lead"><p class="eyebrow">PAROLES DU CANDIDAT</p><p class="lead-title">Projet de formation</p></div>
+  {{ response('Pourquoi ce BTS ?', row.projet_pourquoi) }}
+  {{ response('Projet professionnel après le BTS', row.projet_objectif) }}
+  {{ response('Personnalité et centres d’intérêt', row.projet_passions) }}
+  {{ section('Profil du candidat') }}
+  <table class="profile">
+    {% for key, title in [('qualites','Qualités'),('motivation','Sources de motivation'),('valeurs','Attentes pour le futur métier'),('travail','Façon de travailler')] %}
+    <tr><td>{{ title }}</td><td>{{ profile[key]|join(' · ') or 'Non renseigné' }}</td></tr>{% endfor %}
+  </table>
+{% else %}
+  {{ section('Projet de formation') }}<p class="empty">Aucune réponse enregistrée pour le projet et le profil.</p>
+{% endif %}
+{{ section('Pièces justificatives') }}
+<table class="pieces">
+  <thead><tr><th>Pièce du dossier</th><th class="qty">Fichiers reçus</th><th class="doc-check">État du contrôle</th></tr></thead>
+  <tbody>{% for item in documents %}<tr><td>{{ item.label }}</td><td class="qty">{{ item.count }}</td><td>{% for state, n in item.checks.items() %}
+      <span class="check {{ 'ok' if state == 'Conforme' else 'issue' if state in ['Refus antérieur','Indisponible','Non conforme'] else 'pending' }}">{{ n ~ ' × ' if n > 1 }}{{ state }}</span>
+      {% else %}<span class="check">Non fournie</span>{% endfor %}</td></tr>{% endfor %}</tbody>
+</table>
+{% set steps = [('Candidature validée',row.date_validee),('Inscription confirmée',row.date_confirmee),('Reconfirmation',row.date_reconfirmee),('Dernière relance',row.last_relance)] %}
+{% set flags = [('APS',row.label_aps),('Autorisation vérifiée',row.label_aut_ok),('Chèque vérifié',row.label_cheque_ok),('Carte étudiante envoyée',row.label_carte_etudiante)] %}
+{% set follow = namespace(dates=[], flags=[]) %}
+{% for label, date in steps if date and date != 'null' %}{% set follow.dates = follow.dates + [label ~ ' le ' ~ date|dmy] %}{% endfor %}
+{% for label, flag in flags if answer(flag) == 'Oui' %}{% set follow.flags = follow.flags + [label] %}{% endfor %}
+{% if follow.dates or follow.flags or row.commentaires or row.get('consent') is not none or row.updated_at %}
+  {{ section('Suivi de la candidature') }}
+  {% if follow.dates %}<p class="tracking">{{ follow.dates|join(' · ') }}</p>{% endif %}
+  {% if follow.flags %}<p class="tracking"><b>Repères de suivi</b> · {{ follow.flags|join(' · ') }}</p>{% endif %}
+  {% if answer(row.get('consent')) %}<p class="tracking"><b>Exactitude des informations confirmée au dépôt</b> · {{ answer(row.consent) }}</p>{% endif %}
+  {% if row.updated_at %}<p class="tracking"><b>Dernière mise à jour</b> · {{ row.updated_at|dmy }}</p>{% endif %}
+  {% if row.commentaires %}<div class="note">{{ response('Note de suivi', row.commentaires) }}</div>{% endif %}
+{% endif %}
 </body>
 </html>

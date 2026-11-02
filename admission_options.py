@@ -1,4 +1,7 @@
 """Original application choices, shared by the form and candidate records."""
+import json
+
+
 PROFILE_GROUPS = [{'name': 'qualites',
   'title': 'Tes principales qualités',
   'options': [('rigoureux', 'Rigueur'),
@@ -39,3 +42,22 @@ PROFILE_GROUPS = [{'name': 'qualites',
               ('independant', 'Je préfère travailler seul(e)'),
               ('creatif', 'J’aime proposer des idées nouvelles'),
               ('objectif', 'Je me fixe des objectifs précis')]}]
+
+
+def profile_answers(row):
+    """Use the form labels for both historical JSON lists and current CSV answers."""
+    columns = {'qualites': 'projet_qualites', 'motivation': 'projet_motivation',
+               'valeurs': 'projet_recherche', 'travail': 'projet_travail'}
+    answers = {}
+    for group in PROFILE_GROUPS:
+        raw = (row.get(columns[group['name']]) or '').strip()
+        try:
+            values = json.loads(raw)
+        except ValueError:
+            values = None
+        if not isinstance(values, list):
+            values = raw.split(',')
+        labels = dict(group['options'])
+        choices = (value.strip() for value in values if isinstance(value, str))
+        answers[group['name']] = [labels.get(value.lower(), value) for value in choices if value]
+    return answers

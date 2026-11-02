@@ -181,7 +181,7 @@ def discovery_fingerprint(candidate, config):
     return hashlib.sha256(json.dumps([fields, config], sort_keys=True).encode()).hexdigest()
 
 
-def directory_contracts(app, conn, rows):
+def directory_contracts(app, conn, rows, *, include_linked_contracts=False):
     """Read the same links as the student sheet, without making remote calls.
 
     A missing local link is unknown until a complete, successful discovery. Keep
@@ -217,6 +217,8 @@ def directory_contracts(app, conn, rows):
             row['contract_needs_check'] = False
             items = [i for i in linked if isinstance(i, dict) and i]
             if items:
+                if include_linked_contracts:
+                    row['linked_contracts'] = items
                 row.update(contract='yes', contract_label='Contrat d’apprentissage',
                            contract_detail=' · '.join(dict.fromkeys(STATES.get(i.get('state'), 'État à vérifier') for i in items)))
             else:
