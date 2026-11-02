@@ -215,6 +215,14 @@ def test_state_filter_in_detached_listbox_and_native_select():
             pytest.skip("Chromium requis pour le test des filtres CYCLADES")
         with engine.chromium.launch(executable_path=path) as browser:
             page = browser.new_page()
+            from cyclades_portal import open_list_menu
+            page.set_content('''<button id="ETABLISSEMENT_INSCRIPTION" onclick="document.body.dataset.closed='yes'">Inscription</button>
+                <button id="ACTV_EDITION_LISTE_CAND_INSCRIPTION" hidden onclick="document.querySelector('a').hidden=false">Listes</button>
+                <a href="#edition" hidden>Liste détaillée de mes élèves</a>
+                <script>setTimeout(() => document.querySelector('[hidden]').hidden = false, 250)</script>''')
+            assert open_list_menu(page)
+            assert open_list_menu(page)
+            assert page.locator("body").get_attribute("data-closed") is None
             page.set_content('<fieldset><legend>État</legend><select multiple>' +
                              ''.join(f'<option>{label}</option>' for label in labels) + '</select></fieldset>')
             assert choose_states(page, False) == ALL_STATES
