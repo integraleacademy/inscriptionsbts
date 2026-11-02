@@ -115,7 +115,7 @@ def own_company(conn, candidate_id):
 
 def student_home_summary(conn, identity):
     ensure_workspace_schema(conn)
-    rows = student_events(conn, identity['account_id'])
+    rows = student_events(conn, identity)
     conn.commit()
     return dict(company=own_company(conn, identity['candidate_id']),
                 absences=sum(r['kind'] == 'absence' for r in rows),
@@ -123,12 +123,19 @@ def student_home_summary(conn, identity):
                 pending=sum(r['state'] == 'pending' for r in rows))
 
 
-def student_events(conn, account_id):
+def attendance_scope(identity):
+    # Before the first login a consultation has no account or linked dossiers.
+    if identity['account_id'] is None:
+        return 'SELECT ?', identity['candidate_id']
+    return 'SELECT candidate_id FROM student_account_members WHERE account_id=? AND candidate_id IS NOT NULL', identity['account_id']
+
+
+def student_events(conn, identity):
+    scope, key = attendance_scope(identity)
     rows = []
-    for row in conn.execute('''SELECT a.*,c.bts FROM student_attendance a
-        JOIN student_account_members m ON m.candidate_id=a.candidate_id
+    for row in conn.execute(f'''SELECT a.*,c.bts FROM student_attendance a
         JOIN candidats c ON c.id=a.candidate_id
-        WHERE m.account_id=? AND a.deleted=0 ORDER BY a.date DESC,a.start_min DESC,a.id''', (account_id,)):
+        WHERE a.candidate_id IN ({scope}) AND a.deleted=0 ORDER BY a.date DESC,a.start_min DESC,a.id''', (key,)):
         item = dict(row)
         submission = event_submission(conn, item)
         item['state'], item['state_label'] = state_for(item, submission)
@@ -256,9 +263,10 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
         event = conn.execute('SELECT * FROM student_attendance WHERE id=? AND deleted=0', (event_id,)).fetchone()
         if not event:
             abort(404)
-        if identity and not conn.execute('SELECT 1 FROM student_account_members WHERE candidate_id=? AND account_id=?',
-                                        (event['candidate_id'], identity['account_id'])).fetchone():
-            abort(404)
+        if identity:
+            scope, key = attendance_scope(identity)
+            if not conn.execute(f'SELECT 1 WHERE ? IN ({scope})', (event['candidate_id'], key)).fetchone():
+                abort(404)
         return dict(event)
 
     def submission_for(conn, event):
@@ -270,11 +278,11 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
             abort(404)
         # Check every linked dossier, including removed events: a shared file must
         # never become available to a different account after reassignment.
-        if identity and conn.execute('''SELECT 1 FROM absence_request_events l
-            WHERE l.request_id=? AND NOT EXISTS (SELECT 1 FROM student_account_members m
-            WHERE m.candidate_id=l.candidate_id AND m.account_id=?)''',
-            (submission['id'],identity['account_id'])).fetchone():
-            abort(404)
+        if identity:
+            scope, key = attendance_scope(identity)
+            if conn.execute(f'''SELECT 1 FROM absence_request_events
+                WHERE request_id=? AND candidate_id NOT IN ({scope})''', (submission['id'], key)).fetchone():
+                abort(404)
         return events
 
     def version_check(value, expected):
@@ -365,7 +373,7 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
     @student_required
     def student_absences(identity):
         with closing(connect()) as conn:
-            rows = student_events(conn, identity['account_id'])
+            rows = student_events(conn, identity)
         justified_absences = [r for r in rows if r['kind']=='absence' and r['state']=='accepted']
         summary = dict(count=sum(r['kind']=='absence' for r in rows), minutes=sum(r['minutes'] for r in rows if r['kind']=='absence'),
                        justified=len(justified_absences), justified_minutes=sum(r['minutes'] for r in justified_absences),
@@ -415,7 +423,7 @@ def register_student_workspace(app, db_connect, uploads_dir, require_admin):
                     if not isinstance(exc,ValueError):
                         raise
                     error = str(exc)
-            rows = [r for r in student_events(conn,identity['account_id']) if r['can_group']]
+            rows = [r for r in student_events(conn,identity) if r['can_group']]
         return page('student_absence_bulk.html',title='Justifier une période · Espace étudiant',rows=rows,
                     selected=selected,csrf_token=csrf(),error=error),400 if error else 200
 

@@ -1,6 +1,7 @@
 {% from 'study_badges.html' import study_mode %}
 {% from "ui_icons.html" import icon %}
 {% set student_auth_endpoints = ['candidate_login', 'candidate_verify', 'student_change_password', 'student_forgot_password', 'student_reset_password', 'student_logout'] %}
+{% set portal_path = g.student_portal_path or request.path %}
 {% set is_student_auth = request.endpoint in student_auth_endpoints %}
 {% set is_company_auth = request.endpoint in ['company_login', 'company_forgot_password', 'company_password'] %}
 {% set is_company_space = request.path.startswith('/entreprise') or request.path.startswith('/admin/entreprises') or request.path.startswith('/admin/assiduite') %}
@@ -13,7 +14,7 @@
 {% set is_planning_catalog = request.path in ['/admin/matieres', '/admin/salles'] %}
 {% set is_portal_planning = request.endpoint in ['trainer_planning', 'student_planning'] %}
 {% set is_admin = (request.path.startswith('/admin') and 'login' not in request.path) or request.path.startswith('/parcoursup') %}
-{% set is_student_portal = request.path.startswith('/espace/') and (not is_student_auth or request.endpoint == 'student_change_password') %}
+{% set is_student_portal = portal_path.startswith('/espace/') and (not is_student_auth or request.endpoint == 'student_change_password') %}
 {% set has_student_navigation = is_student_portal and student_session and (request.endpoint != 'espace_candidat' or (row and student_session.candidate_id == row.id)) %}
 {% macro academy_logo() %}<span class="academy-sigle" aria-hidden="true"><img src="{{ url_for('static', filename='academy-official-logo.png') }}" width="5906" height="1772" alt=""></span><span class="academy-wordmark"><span>INTÉGRALE</span><span>ACADEMY</span></span>{% endmacro %}
 <!DOCTYPE html>
@@ -26,7 +27,7 @@
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-integrale.png') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
-  {% if not is_admin and not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
+  {% if not is_admin and not portal_path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
   <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -75,7 +76,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if is_company_space and not is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-space.css') }}?v=2">{% endif %}
   {% block page_styles %}{% endblock %}
   {% if is_trainer_portal %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-portal.css') }}?v=1">{% endif %}
-  {% if has_student_navigation %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-workspace.css') }}?v=5">{% endif %}
+  {% if has_student_navigation %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-workspace.css') }}?v=6">{% endif %}
   {% if has_student_navigation %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-documents.css') }}?v=3">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
   {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
@@ -88,7 +89,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if has_student_navigation %}student-portal-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_trainer_portal %}trainer-portal-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
 
-    {% if not is_admin and not request.path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
+    {% if not is_admin and not portal_path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
     <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PKTXJCXF"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -112,7 +113,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% include 'academy_header.html' %}
 
   <!-- ✅ Contenu principal -->
-  <main id="main-content" class="{% if 'admin' in request.path or 'parcoursup' in request.path %}admin-full{% elif 'espace' in request.path %}container candidat{% else %}container{% endif %}">
+  <main id="main-content" class="{% if 'admin' in portal_path or 'parcoursup' in portal_path %}admin-full{% elif 'espace' in portal_path %}container candidat{% else %}container{% endif %}">
     {% if is_trainer_portal %}{% include '_trainer_portal_nav.html' %}{% endif %}
     {% if has_student_navigation %}{% include '_student_portal_nav.html' %}{% endif %}
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -157,9 +158,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     {# Dedicated settings script is loaded by the page. #}
   {% elif is_company_space %}
     {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<script src="{{ url_for('static', filename='js/company-admin.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/company-registry.js') }}?v=2" defer></script>{% endif %}
-  {% elif 'admin' in request.path or 'parcoursup' in request.path %}
+  {% elif 'admin' in portal_path or 'parcoursup' in portal_path %}
     <script src="{{ url_for('static', filename='js/main_admin.js') }}?v=1"></script>
-  {% elif request.path.startswith('/replace-files') or request.path.startswith('/espace/') or request.path == '/login' or request.path == '/' or request.path == '/candidature' or request.path.startswith('/reprendre/') %}
+  {% elif request.path.startswith('/replace-files') or portal_path.startswith('/espace/') or request.path == '/login' or request.path == '/' or request.path == '/candidature' or request.path.startswith('/reprendre/') %}
     {# Pas de JS front sur cette page #}
   {% else %}
     <script src="{{ url_for('static', filename='js/main_front.js') }}?v=1" defer></script>
