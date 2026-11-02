@@ -219,6 +219,13 @@ def test_state_filter_in_detached_listbox_and_native_select():
                              ''.join(f'<option>{label}</option>' for label in labels) + '</select></fieldset>')
             assert choose_states(page, False) == ALL_STATES
             assert page.locator("option:checked").count() == 5
+            page.locator("select").evaluate("""el => {
+                el.hidden = true;
+                el.addEventListener('change', () => document.body.dataset.changed = 'yes');
+            }""")
+            assert choose_states(page, True) == {"inscrit", "pre inscrit"}
+            assert page.locator("option:checked").all_text_contents() == ["Inscrit", "Pré-inscrit"]
+            assert page.locator("body").get_attribute("data-changed") == "yes"
             page.set_content('''<input id="editionCSV" type="button" value="Exporter en CSV">
                 <a href="#criteres" onclick="setTimeout(() => document.querySelector('fieldset').hidden = false, 100)">
                 Critères de sélection</a><fieldset hidden><legend>Configurer le critère « État »</legend>

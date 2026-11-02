@@ -54,7 +54,12 @@ def portal_step(page, label):
         if network:
             reason = network[1]
         elif isinstance(exc, BrowserTimeout):
-            reason = "délai dépassé"
+            methods = {"select_option": "sélection du filtre", "get_attribute": "lecture de la commande",
+                       "inner_text": "lecture du libellé", "click": "activation de la commande",
+                       "set_checked": "sélection de l’état", "wait_for": "attente de l’écran"}
+            action = re.search(r"Locator\.([a-z_]+):", str(exc))
+            detail = methods.get(action[1]) if action else None
+            reason = f"délai dépassé ({detail})" if detail else "délai dépassé"
         elif "strict mode violation" in str(exc):
             reason = "plusieurs éléments correspondent"
         else:
@@ -242,17 +247,24 @@ def state_field(page):
     raise CycladesError("Le panneau « Critères de sélection » n’a pas affiché le filtre État.")
 
 
-def choose_states(page, exam_details):
+def choose_states(page, exam_details, *, use_widget=False):
     field = state_field(page)
     required = {"inscrit", "pre inscrit"} if exam_details else ALL_STATES
     native = field.locator("select[multiple]")
-    if native.count() == 1:
+    if not use_widget and native.count() == 1:
         options = native.locator("option").all_text_contents()
         names = {words(v) for v in options if v.strip()}
         if not ALL_STATES.issubset(names):
             raise CycladesError("Le filtre État ne propose pas tous les états attendus.")
-        native.select_option(index=[i for i,v in enumerate(options) if words(v) in required or (not exam_details and v.strip())])
-        return required if exam_details else names
+        selected = required if exam_details else names
+        # The custom menu can hide the underlying HTML select. Its normal input/change
+        # events still apply the filter; the official CSV independently confirms it.
+        native.select_option(index=[i for i,v in enumerate(options) if words(v) in selected],
+                             force=not native.is_visible(), timeout=5000)
+        actual = {words(v) for v in native.locator("option:checked").all_text_contents()}
+        if actual != selected:
+            raise CycladesError("La sélection des états dans le formulaire CYCLADES a échoué.")
+        return selected
     button = field.get_by_role("button", name=re.compile("valeur recherchée", re.I))
     if button.count() != 1:
         button = field.locator('[aria-haspopup="listbox"],[aria-haspopup="menu"],[role=combobox],button').filter(visible=True)
@@ -270,7 +282,7 @@ def choose_states(page, exam_details):
         items = labels
     selected_names, seen = set(), set()
     for item in items.all():
-        text = item.get_attribute("aria-label") or item.inner_text()
+        text = item.get_attribute("aria-label", timeout=3000) or item.inner_text(timeout=3000)
         state = words(text)
         if state not in ALL_STATES:
             continue
@@ -301,14 +313,7 @@ def choose_states(page, exam_details):
     return selected_names
 
 
-def download_session(shell, label, academy, year, *, exam_details=False, already_open=False):
-    title = "Liste détaillée avec épreuves" if exam_details else REPORT_LINK
-    page = report_frame(shell, title, academy, label, already_open)
-    try:
-        expected_states = choose_states(page, exam_details)
-    except (CycladesError, Error):
-        logging.getLogger(__name__).warning("CYCLADES %s filtre %d | %s", academy, year, filter_structure(page))
-        raise
+def export_csv(page, academy, year, expected_states):
     try:
         with page.page.expect_download(timeout=45000) as download:
             csv_control(page).click()
@@ -318,14 +323,30 @@ def download_session(shell, label, academy, year, *, exam_details=False, already
             item.save_as(str(path))
             if path.stat().st_size > MAX_BYTES:
                 raise CycladesError("L’export CYCLADES dépasse la taille admise.")
-            report = parse_report(path.read_bytes(), academy, expected_year=year, expected_states=expected_states)
-            if not report.complete:
-                raise CycladesError("La liste téléchargée ne couvre pas tous les états attendus.")
-            return report
+            return parse_report(path.read_bytes(), academy, expected_year=year, expected_states=expected_states)
     except CycladesError:
         raise
     except Exception:
         raise CycladesError(f"CYCLADES n’a pas fourni la liste détaillée pour la session {year}.") from None
+
+
+def download_session(shell, label, academy, year, *, exam_details=False, already_open=False):
+    title = "Liste détaillée avec épreuves" if exam_details else REPORT_LINK
+    page = report_frame(shell, title, academy, label, already_open)
+    try:
+        expected_states = choose_states(page, exam_details)
+        report = export_csv(page, academy, year, expected_states)
+        if not report.complete and state_field(page).locator("select[multiple]:not(:visible)").count() == 1:
+            # Some widgets keep their own selection. Repeat through the visible menu
+            # only when the first downloaded CSV disproves the native selection.
+            expected_states = choose_states(page, exam_details, use_widget=True)
+            report = export_csv(page, academy, year, expected_states)
+        if not report.complete:
+            raise CycladesError("La liste téléchargée ne couvre pas tous les états attendus.")
+        return report
+    except (CycladesError, Error):
+        logging.getLogger(__name__).warning("CYCLADES %s filtre %d | %s", academy, year, filter_structure(page))
+        raise
 
 
 def read_academy(academy, credentials):
