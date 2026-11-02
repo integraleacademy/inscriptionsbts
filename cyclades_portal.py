@@ -100,6 +100,35 @@ def submit_login(page, host, fields):
     submit.click()
 
 
+def open_list_menu(page):
+    parent = page.locator("#ETABLISSEMENT_INSCRIPTION")
+    activity = page.locator("#ACTV_EDITION_LISTE_CAND_INSCRIPTION")
+    report = page.get_by_role("link", name=REPORT_LINK, exact=True)
+    visible = activity.or_(report).filter(visible=True).first
+    for attempt in range(3):
+        if report.is_visible():
+            return True
+        try:
+            # The shell can restore an expanded menu after it paints the header.
+            if not activity.is_visible():
+                try:
+                    visible.wait_for(state="visible", timeout=1400)
+                except BrowserTimeout:
+                    parent.click(timeout=3500)
+                    visible.wait_for(state="visible", timeout=4000)
+            if report.is_visible():
+                return True
+            if attempt == 1 and activity.evaluate("e => e.matches('a,button,[role=menuitem]')"):
+                activity.press("Enter", timeout=3500)
+            else:
+                activity.click(timeout=3500)
+            report.wait_for(state="visible", timeout=4000)
+            return True
+        except BrowserTimeout:
+            continue
+    return False
+
+
 def open_establishment(page, academy, credentials):
     _, uai, portal, hub = ACADEMIES[academy]
     idp = f"login.ac-{academy}.fr"
@@ -121,22 +150,17 @@ def open_establishment(page, academy, credentials):
                 submit_login(page, idp, {"j_password": credentials["birthdate"]})
         page.wait_for_url(re.compile(r"^https://" + re.escape(urlsplit(portal).hostname) + r"(?=[:/])"),
                           wait_until="domcontentloaded", timeout=45000)
-    with portal_step(page, "L’espace établissement CYCLADES ne s’est pas ouvert"):
-        navigate(page, hub)
-        header = page.get_by_role("heading", level=1).filter(has_text=uai)
-        header.wait_for(state="visible")
-        if urlsplit(page.url).hostname != CENTRAL or "brevet de technicien superieur" not in words(header.inner_text()):
-            raise CycladesError("L’établissement ou l’examen ouvert dans CYCLADES ne correspond pas au BTS attendu.")
-    activity = page.locator("#ACTV_EDITION_LISTE_CAND_INSCRIPTION")
-    report = page.get_by_role("link", name=REPORT_LINK, exact=True)
-    if not report.is_visible():
-        if not activity.is_visible():
-            with portal_step(page, "La rubrique Inscription de l’établissement n’est pas accessible"):
-                page.locator("#ETABLISSEMENT_INSCRIPTION").click()
+    for _ in range(2):
+        with portal_step(page, "L’espace établissement CYCLADES ne s’est pas ouvert"):
+            navigate(page, hub)
+            header = page.get_by_role("heading", level=1).filter(has_text=uai)
+            header.wait_for(state="visible")
+            if urlsplit(page.url).hostname != CENTRAL or "brevet de technicien superieur" not in words(header.inner_text()):
+                raise CycladesError("L’établissement ou l’examen ouvert dans CYCLADES ne correspond pas au BTS attendu.")
         with portal_step(page, "Le menu d’édition des listes d’inscription n’est pas accessible"):
-            activity.click()
-    with portal_step(page, "La liste détaillée des élèves n’est pas accessible"):
-        page.get_by_role("link", name=REPORT_LINK, exact=True).wait_for(state="visible")
+            if open_list_menu(page):
+                return
+    raise CycladesError("Le menu d’édition des listes d’inscription ne s’est pas ouvert dans l’espace BTS.")
 
 
 def filter_structure(page):
