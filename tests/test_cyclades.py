@@ -219,6 +219,15 @@ def test_state_filter_in_detached_listbox_and_native_select():
                              ''.join(f'<option>{label}</option>' for label in labels) + '</select></fieldset>')
             assert choose_states(page, False) == ALL_STATES
             assert page.locator("option:checked").count() == 5
+            page.set_content('''<input id="editionCSV" type="button" value="Exporter en CSV">
+                <a href="#criteres" onclick="setTimeout(() => document.querySelector('fieldset').hidden = false, 100)">
+                Critères de sélection</a><fieldset hidden><legend>Configurer le critère « État »</legend>
+                <button onclick="document.querySelector('ul').hidden=!document.querySelector('ul').hidden">
+                Valeur recherchée</button><ul role="listbox" hidden>''' +
+                ''.join(f'<li role="option"><label><input type="checkbox">{v}</label></li>' for v in labels) +
+                '</ul></fieldset>')
+            assert choose_states(page, False) == ALL_STATES
+            assert page.locator("input:checked").count() == 5
             page.set_content('<fieldset><legend>Configurer le critère État</legend>'
                 '<button onclick="document.querySelector(\'ul\').hidden=!document.querySelector(\'ul\').hidden">Valeur recherchée</button></fieldset>'
                 '<ul role="listbox" hidden>' + ''.join(
