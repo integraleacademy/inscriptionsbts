@@ -10,7 +10,7 @@
       <span class="campus-person-details"><b>{{ person_name(r.nom,r.prenom) }}</b><span class="campus-person-meta"><small title="{{ r.email }}">{{ r.email }}</small><small>{{ r.display_status_label or ('Re-confirmée' if r.statut=='reconfirmee' else 'Inscription confirmée') }}</small></span></span>
     </a>
   </td>
-  <td><b>BTS {{ r.bts }} · {{ r.rentree_annee or 2026 }}</b><div>{{ study_mode(r.mode) }}</div></td>
+  <td><b>{{ program_name(r.bts) }} · {{ r.rentree_annee or 2026 }}</b><div>{{ study_mode(r.mode) }}</div></td>
   <td>
     <div class="campus-contract-summary"><span class="study-badge contract-{{ r.contract }}">{{ r.contract_label }}</span><a href="{{ candidate_url }}#contrat-apprentissage" aria-label="Voir le contrat de {{ person_name(r.nom,r.prenom) }}">Voir →</a></div>
     <small class="campus-contract-detail" title="{{ r.contract_detail }}">{{ r.contract_detail }}</small>

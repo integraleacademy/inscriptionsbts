@@ -1,5 +1,6 @@
 import os, secrets, hmac, hashlib, ssl, smtplib
 from datetime import datetime
+from training_programs import program_name
 from campaign import ADMISSION_YEAR, candidate_year
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -140,9 +141,9 @@ def send_sms_brevo(phone_number, message):
 # =====================================================
 # 🔢 Numérotation de dossier
 # =====================================================
-def dossier_number(now=None, counter=1, year=ADMISSION_YEAR):
+def dossier_number(now=None, counter=1, year=ADMISSION_YEAR, series="BTS"):
     now = now or datetime.now()
-    return f"{year}BTS{now.strftime('%d')}{now.strftime('%m')}{counter:04d}"
+    return f"{year}{series}{now.strftime('%d')}{now.strftime('%m')}{counter:04d}"
 
 # =====================================================
 # 🔐 Génération et signature de token
@@ -219,6 +220,7 @@ def get_mail_context(row, lien_espace=None, lien_confirmation=None):
 
     return {
         "rentree_annee": candidate_year(row),
+        "program_code": bts_code,
         "prenom": row.get("prenom", ""),
         "form_nom": row.get("nom", ""),
         "form_prenom": row.get("prenom", ""),
@@ -226,7 +228,7 @@ def get_mail_context(row, lien_espace=None, lien_confirmation=None):
         "form_tel": row.get("tel", ""),
         "numero_dossier": row.get("numero_dossier", ""),
         "form_mode_label": row.get("mode", ""),
-        "bts_label": BTS_LABELS.get(bts_code, bts_code),
+        "bts_label": BTS_LABELS.get(bts_code, program_name(bts_code)),
         "lien_espace": lien_espace,
         "lien_confirmation": lien_confirmation or "",
     }

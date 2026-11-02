@@ -380,6 +380,8 @@ def normalize_phone(value):
 
 
 def register_teaching(app, db_connect, uploads_dir, require_admin):
+    from training_programs import program_name
+    app.jinja_env.globals.setdefault('program_name', program_name)
     def connect():
         conn = db_connect()
         schema(conn)

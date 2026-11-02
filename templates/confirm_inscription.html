@@ -34,7 +34,7 @@
       </div>
 
       <div class="info-line">
-        <span>BTS :</span>
+        <span>Formation</span>
         <strong>{{ bts_label }}</strong>
       </div>
 
@@ -77,7 +77,7 @@
 
       <label class="checkbox-line">
         <input type="checkbox" name="c3">
-        <span>Je m’engage à intégrer cette formation à partir de septembre {{ candidate_year(row) }}</span>
+        <span>Je m’engage à intégrer cette formation {% if row.bts in bts_codes %}à partir de septembre {{ candidate_year(row) }}{% else %}selon le calendrier de ma formation{% endif %}</span>
       </label>
 
       <button class="btn primary confirm-btn">Valider mon inscription</button>

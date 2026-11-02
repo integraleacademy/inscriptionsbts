@@ -48,6 +48,13 @@ ADDRESSES = {
 def student_card_dates(row, today=None):
     """Current school year within this student's two-year cohort, editable in UI."""
     today = today or datetime.now(ZoneInfo('Europe/Paris')).date()
+    from training_programs import SECURITY, is_professional_title
+    if row.get('bts') == SECURITY or is_professional_title(row.get('bts')):
+        from flask import current_app
+        from promotions import get_candidate_promotion
+        with closing(current_app.extensions['formation_connect']()) as conn:
+            promotion = get_candidate_promotion(conn,row['id']) or {}
+        return {'start': promotion.get('date_debut') or '', 'end': promotion.get('date_fin') or ''}
     cohort = candidate_year(row)
     academic_year = today.year if today.month >= 9 else today.year - 1
     year = max(cohort, min(academic_year, cohort + 1))

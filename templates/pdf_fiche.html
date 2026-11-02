@@ -12,12 +12,12 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Fiche de candidature BTS · {{ name or row.numero_dossier }}</title>
+<title>Fiche de candidature · {{ name or row.numero_dossier }}</title>
 <meta name="author" content="Intégrale Academy">
 <style>
   @page {
     size: A4; margin: 18mm 15mm 19mm;
-    @top-left { content: "INTÉGRALE ACADEMY  /  ADMISSIONS BTS"; font: bold 7pt sans-serif; letter-spacing: .8pt; color: #426758; }
+    @top-left { content: "INTÉGRALE ACADEMY  /  ADMISSIONS"; font: bold 7pt sans-serif; letter-spacing: .8pt; color: #426758; }
     @top-right { content: string(candidate); font: 8pt sans-serif; color: #4f655d; }
     @bottom-left { content: element(footer); border-top: .6pt solid #cbd9d1; vertical-align: middle; width: 78%; }
     @bottom-right { width: 22%; content: counter(page) "  /  " counter(pages); border-top: .6pt solid #cbd9d1; font: bold 9pt sans-serif; color: #205240; }
@@ -89,9 +89,9 @@
   <div class="hero"><table><tr>
     <td class="hero-copy">
       <img class="brand" src="academy-official-logo.png" alt="Intégrale Academy">
-      <p class="eyebrow">FICHE DE CANDIDATURE BTS</p>
+      <p class="eyebrow">FICHE DE CANDIDATURE</p>
       <h1>{{ name or 'Identité non renseignée' }}</h1>
-      <p class="course">{{ row.bts|btsfull or 'BTS non renseigné' }}</p>
+      <p class="course">{{ row.bts|btsfull or 'Formation non renseignée' }}</p>
     </td>
     <td class="portrait-cell">{% if portrait %}<div class="portrait"><img src="{{ portrait }}" alt="Photo d’identité"></div>
       {% else %}<div class="portrait initials"><b>{{ person_initials(row.nom, row.prenom) or '·' }}</b><small>Photo indisponible</small></div>{% endif %}</td>
@@ -138,8 +138,8 @@
 {% endif %}
 {% if has_project %}
   <div class="lead"><p class="eyebrow">PAROLES DU CANDIDAT</p><p class="lead-title">Projet de formation</p></div>
-  {{ response('Pourquoi ce BTS ?', row.projet_pourquoi) }}
-  {{ response('Projet professionnel après le BTS', row.projet_objectif) }}
+  {{ response('Pourquoi cette formation ?', row.projet_pourquoi) }}
+  {{ response('Projet professionnel après la formation', row.projet_objectif) }}
   {{ response('Personnalité et centres d’intérêt', row.projet_passions) }}
   {{ section('Profil du candidat') }}
   <table class="profile">

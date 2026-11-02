@@ -14,7 +14,7 @@
       <p>Le document officiel pour justifier ton inscription à Intégrale Academy.</p>
       <dl class="sw-details">
         <div><dt>Étudiant</dt><dd>{{ person_name(row.nom, row.prenom) }}</dd></div>
-        <div><dt>Formation</dt><dd>BTS {{ row.bts }} · {{ year }}–{{ year + 2 }}</dd></div>
+        <div><dt>Formation</dt><dd>{{ program_name(row.bts) }} · {{ year }}–{{ year + 2 }}</dd></div>
       </dl>
       {% if certificate_error %}
       <p class="sw-school-document-notice">{{ certificate_error }}</p>

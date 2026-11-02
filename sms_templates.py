@@ -2,11 +2,16 @@
 # 📱 Modèles SMS – Intégrale Academy (version complète)
 # =====================================================
 
-def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmation=""):
+def sms_text(template, prenom="", bts_label="", lien_espace="", lien_confirmation="", *, program_code=None, rentree_annee=None):
     """
     Retourne le message formaté selon le type de SMS demandé.
     Tous les messages utilisent Unicode (accents et emojis OK).
     """
+    from formation_messages import NOTICES, notice
+    from training_programs import SECURITY, is_professional_title
+    if (program_code == SECURITY or is_professional_title(program_code)) and (template in NOTICES or template == 'reconfirmation_demandee'):
+        return notice(template, program_code, prenom, lien_espace, lien_confirmation, sms=True)
+
     templates = {
         # 📨 Accusé de réception
 "accuse_reception": (

@@ -4,6 +4,7 @@
     the stored HTML/SMS/PDF bytes once, after checking the dossier is unchanged.
 """
 from person_names import person_name
+from training_programs import BTS_LABELS, program_name
 import base64
 import io
 import json
@@ -110,6 +111,11 @@ def prepare_workflow(row, kind, data):
     else:
         raise ValueError('Action non reconnue.')
 
+    if row.get('bts') not in BTS_LABELS:
+        if kind == 'certificate':
+            subject = 'Votre certificat de scolarité · ' + program_name(row.get('bts'))
+        elif kind == 'remind' and action == 'candidature_validee':
+            subject = 'Merci de confirmer votre inscription · ' + program_name(row.get('bts'))
     ctx = get_mail_context(row)
     if action in ('candidature_validee', 'reconfirmation', 'docs_non_conformes'):
         field, route, days = {
@@ -160,7 +166,7 @@ def prepare_workflow(row, kind, data):
         if not str(row.get('tel') or '').strip():
             item['warnings'].append('Téléphone absent : seul l’e-mail sera envoyé.')
         else:
-            body = sms_text(sms_template, prenom=ctx['prenom'], bts_label=ctx['bts_label'],
+            body = sms_text(sms_template, program_code=row.get('bts'), prenom=ctx['prenom'], bts_label=ctx['bts_label'],
                             lien_espace=ctx['lien_espace'], lien_confirmation=ctx['lien_confirmation'])
             item['messages'].append(dict(type='sms', recipient=_recipient(row, 'sms'), body=body))
     return item

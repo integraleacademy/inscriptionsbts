@@ -17,7 +17,7 @@
       <label>Date de naissance<input name="date_naissance" type="date" value="{{ values.date_naissance }}" min="1900-01-01" autocomplete="bday"></label>
     </div></section>
     <section class="create-card"><h2>{{ icon('book') }} Formation et inscription</h2><div class="create-fields">
-      <label>BTS *<select name="bts" required><option value="">Choisir un BTS</option>{% for code,label in diplomas.items() %}<option value="{{ code }}" {% if values.bts == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>Formation *<select name="bts" required><option value="">Choisir une formation</option>{% for code,label in diplomas.items() %}<option value="{{ code }}" {% if values.bts == code %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
       <label>Rentrée d’origine *<select name="rentree_annee" required>{% for year in years %}<option value="{{ year }}" {% if values.rentree_annee == year|string %}selected{% endif %}>Rentrée {{ year }}</option>{% endfor %}</select></label>
       <label>Mode de suivi *<select name="mode" required><option value="presentiel" {% if values.mode == 'presentiel' %}selected{% endif %}>Présentiel</option><option value="distanciel" {% if values.mode == 'distanciel' %}selected{% endif %}>Distanciel</option></select></label>
       <label>Statut initial *<select name="statut" required>{% for key,label in [('preinscription','Pré-inscription à traiter'),('validee','Candidature validée'),('confirmee','Inscription confirmée')] %}<option value="{{ key }}" {% if values.statut == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>

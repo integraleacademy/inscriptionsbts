@@ -23,11 +23,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="{{ url_for('static', filename='js/person-names.js') }}?v=2"></script>
-  <title>{{ title or "Plateforme de gestion des BTS" }}</title>
+  <title>{{ title or "Plateforme des inscriptions" }}</title>
   <link rel="icon" type="image/png" href="{{ url_for('static', filename='logo-integrale.png') }}?v=2">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
-  {% if not is_admin and not portal_path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
+  {% if not is_admin and not portal_path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space and not portal_path.startswith('/titres-professionnels/') %}
   <!-- Google Tag Manager -->
 <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
@@ -89,7 +89,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if has_student_navigation %}student-portal-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_trainer_portal %}trainer-portal-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
 <a class="skip-link" href="#main-content">Aller au contenu</a>
 
-    {% if not is_admin and not portal_path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space %}
+    {% if not is_admin and not portal_path.startswith('/espace/') and not is_trainer_space and not is_trainer_admin and not is_promotions_admin and not is_planning_admin and not is_planning_catalog and not is_admin_settings and not is_company_space and not portal_path.startswith('/titres-professionnels/') %}
     <!-- Google Tag Manager (noscript) -->
   <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PKTXJCXF"
   height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -99,7 +99,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if is_admin %}
   <link rel="stylesheet" href="{{ url_for('static',filename='css/london-notifications.css') }}?v=1"><script src="{{ url_for('static',filename='js/london-notifications.js') }}?v=1" defer></script>
   <aside class="workspace-sidebar" id="workspace-sidebar">
-    <a href="/admin" class="workspace-brand official-academy-brand" title="Plateforme de gestion des BTS">{{ academy_logo() }}</a>
+    <a href="/admin" class="workspace-brand official-academy-brand" title="Plateforme des inscriptions">{{ academy_logo() }}</a>
     <span class="nav-caption">VOTRE ESPACE ÉQUIPE</span>
     <nav aria-label="Navigation administration">
       {% for href,label,symbol in [('/admin','Candidatures','grid'),('/admin/inscriptions','Inscriptions','person'),('/admin/messagerie','Messagerie','mail'),('/admin/promotions','Promotions','briefcase'),('/admin/planning','Plannings','clock'),('/admin/matieres','Matières','book'),('/admin/salles','Salles','home'),('/admin/formateurs','Formateurs','book'),('/admin/entreprises','Entreprises','briefcase'),('/admin/assiduite','Absences et retards','clock'),('/admin/reprendre-plus-tard','Dossiers à reprendre','clock'),('/parcoursup','Parcoursup','arrow'),('/admin/voyage-londres','Voyage à Londres','globe'),('/admin/parametres','Paramètres','settings')] %}
@@ -160,7 +160,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<script src="{{ url_for('static', filename='js/company-admin.js') }}?v=1" defer></script><script src="{{ url_for('static', filename='js/company-registry.js') }}?v=2" defer></script>{% endif %}
   {% elif 'admin' in portal_path or 'parcoursup' in portal_path %}
     <script src="{{ url_for('static', filename='js/main_admin.js') }}?v=1"></script>
-  {% elif request.path.startswith('/replace-files') or portal_path.startswith('/espace/') or request.path == '/login' or request.path == '/' or request.path == '/candidature' or request.path.startswith('/reprendre/') %}
+  {% elif request.path.startswith('/replace-files') or portal_path.startswith('/espace/') or request.path == '/login' or request.path == '/' or request.path == '/candidature' or request.path.startswith('/titres-professionnels/') or request.path.startswith('/reprendre/') %}
     {# Pas de JS front sur cette page #}
   {% else %}
     <script src="{{ url_for('static', filename='js/main_front.js') }}?v=1" defer></script>
