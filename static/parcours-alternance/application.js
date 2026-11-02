@@ -3,6 +3,7 @@
   const form = document.getElementById('application-form');
   if (!form) return;
   const questions = [...form.querySelectorAll('.question')];
+  const previewReturn = form.dataset.previewReturn;
   const next = document.getElementById('next');
   const previous = document.getElementById('previous');
   const error = document.getElementById('form-error');
@@ -28,6 +29,7 @@
     error.textContent = '';
     previous.hidden = i === 0;
     next.innerHTML = i === questions.length - 1 ? 'Envoyer ma candidature <span aria-hidden="true">↗</span>' : 'Continuer <span aria-hidden="true">→</span>';
+    if (previewReturn && i === questions.length - 1) next.textContent = 'Terminer l’aperçu';
     progress.value = i + 1;
     progressLabel.textContent = `QUESTION ${i + 1} / ${questions.length}`;
     if (questions[i].dataset.field === 'review') renderReview();
@@ -101,6 +103,11 @@
   form.addEventListener('submit', event => {
     event.preventDefault();
     if (busy) return;
+    if (previewReturn) {
+      if (index === questions.length - 1) window.location.assign(previewReturn);
+      else show(index + 1);
+      return;
+    }
     if (index === questions.length - 1) { submit(); return; }
     if (validateStep(index)) show(index + 1);
   });

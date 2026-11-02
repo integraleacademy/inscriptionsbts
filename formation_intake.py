@@ -17,13 +17,37 @@ from itsdangerous import BadData, URLSafeTimedSerializer
 from candidate_creation import insert_candidate
 from promotions import assign_candidate_promotion
 from security_intake import PUBLIC_URL, SITUATIONS, SLOTS, TIMELINE, YEAR, today, validate
-from training_programs import SECURITY, is_professional_title, program_name
+from training_programs import SECURITY, professional_titles, program_name
 
 STATUS_MAP = {'new': 'preinscription', 'contacted': 'preinscription', 'interview': 'preinscription',
               'accepted': 'validee', 'declined': 'annulee', 'archived': 'annulee'}
 STATUS_NAMES = {'new': 'Nouvelle', 'contacted': 'À recontacter', 'interview': 'Entretien prévu',
                 'accepted': 'Retenue', 'declined': 'Non retenue', 'archived': 'Archivée'}
 TRANSFER_SCOPE = b'parcours-securite-import-v1'
+
+
+def open_title_promotions(conn, promotion_id=None):
+    # A fresh installation may not have opened the promotions module yet.
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='promotions'").fetchone():
+        return []
+    sql = """SELECT id, nom, bts, rentree_annee, date_debut, date_fin FROM promotions
+             WHERE bts GLOB 'TP *' AND active=1 AND needs_setup=0
+             AND date_debut IS NOT NULL AND date_fin >= ?"""
+    args = [today().isoformat()]
+    if promotion_id is not None:
+        sql += ' AND id=?'
+        args.append(promotion_id)
+    return conn.execute(sql + ' ORDER BY date_debut, nom, id', args).fetchall()
+
+
+def admission_titles(conn):
+    offers = {code: dict(code=code, name=name, promotions=[]) for code, name in professional_titles(conn).items()}
+    for row in open_title_promotions(conn):
+        code = row['bts']
+        if code not in offers:
+            offers[code] = dict(code=code, name=code[3:].capitalize(), promotions=[])
+        offers[code]['promotions'].append(row)
+    return offers.values()
 
 
 def ensure_schema(conn):
@@ -42,7 +66,7 @@ def ensure_schema(conn):
     """)
 
 
-def register_formation_intake(app, connect, send_mail):
+def register_formation_intake(app, connect, send_mail, require_admin):
     app.extensions['formation_connect'] = connect
     tokens = URLSafeTimedSerializer(app.secret_key, salt='formation-intake-v1')
 
@@ -167,11 +191,21 @@ def register_formation_intake(app, connect, send_mail):
         with closing(connect()) as conn:
             return receipt(conn, cid), 201
 
+    def security_form(preview=False):
+        return render_template('parcours_alternance/application.html', preview=preview, timeline=TIMELINE,
+                               situations=SITUATIONS, slots=SLOTS, public_url=PUBLIC_URL, server_date=today().isoformat(),
+                               **({} if preview else credentials(SECURITY)))
+
+    @app.get('/parcoursalternance/candidature/apercu')
+    def security_application_preview():
+        if not require_admin():
+            return redirect(url_for('login', next=request.path))
+        return security_form(preview=True)
+
     @app.route('/parcoursalternance/candidature', methods=['GET','POST'])
     def security_application():
         if request.method == 'GET':
-            return render_template('parcours_alternance/application.html', **credentials(SECURITY), timeline=TIMELINE,
-                                   situations=SITUATIONS, slots=SLOTS, public_url=PUBLIC_URL, server_date=today().isoformat())
+            return security_form()
         if request.content_length and request.content_length > 20000:
             return jsonify(ok=False, error='Le formulaire est trop volumineux.'), 413
         data = request.get_json(silent=True)
@@ -184,17 +218,34 @@ def register_formation_intake(app, connect, send_mail):
             return jsonify(ok=False, error=str(error)), 400
 
     def active_title_promotion(conn, pid):
-        row = conn.execute('SELECT * FROM promotions WHERE id=? AND active=1 AND needs_setup=0', (pid,)).fetchone()
-        if not row or not is_professional_title(row['bts']) or row['date_fin'] < today().isoformat():
+        rows = open_title_promotions(conn, pid)
+        if not rows:
             abort(404)
-        return row
+        return rows[0]
+
+    @app.get('/titres-professionnels/apercu')
+    def title_application_preview():
+        if not require_admin():
+            return redirect(url_for('login', next=request.full_path))
+        code = request.args.get('formation', '')
+        pid = request.args.get('promotion')
+        with closing(connect()) as conn:
+            promotion = active_title_promotion(conn, pid) if pid else None
+            if promotion and promotion['bts'] != code:
+                abort(404)
+            title = professional_titles(conn).get(code)
+            if not title and not promotion:
+                abort(404)
+        return render_template('title_application.html', preview=True, promotion=promotion, title_code=code,
+                               title_label=title or code[3:].capitalize())
 
     @app.route('/titres-professionnels/candidature/<promotion_id>', methods=['GET','POST'])
     def title_application(promotion_id):
         with closing(connect()) as conn:
             promotion = active_title_promotion(conn, promotion_id)
+            title_label = professional_titles(conn).get(promotion['bts'], promotion['bts'][3:].capitalize())
         if request.method == 'GET':
-            return render_template('title_application.html', promotion=promotion, **credentials(promotion_id))
+            return render_template('title_application.html', promotion=promotion, title_label=title_label, **credentials(promotion_id))
         if request.content_length and request.content_length > 15000:
             abort(413)
         data = request.form.to_dict()
@@ -219,7 +270,7 @@ def register_formation_intake(app, connect, send_mail):
             clean['privacy_consent'] = True
             store_public(clean, key, promotion['bts'], promotion['rentree_annee'], promotion)
         except ValueError as error:
-            return render_template('title_application.html', promotion=promotion, values=data, error=str(error), **credentials(promotion_id)), 400
+            return render_template('title_application.html', promotion=promotion, title_label=title_label, values=data, error=str(error), **credentials(promotion_id)), 400
         return redirect(url_for('title_application_received'), code=303)
 
     @app.get('/titres-professionnels/candidature-recue')
@@ -256,9 +307,9 @@ def register_formation_intake(app, connect, send_mail):
 
     @app.after_request
     def private_formation_response(response):
-        if request.endpoint in ('security_application','title_application','title_application_received','import_security_application'):
+        if request.endpoint in ('security_application','security_application_preview','title_application','title_application_preview','title_application_received','import_security_application'):
             response.headers.update({'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow','X-Content-Type-Options':'nosniff'})
-        if request.endpoint == 'security_application':
+        if request.endpoint in ('security_application','security_application_preview'):
             response.headers['Content-Security-Policy'] = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'"
         return response
 

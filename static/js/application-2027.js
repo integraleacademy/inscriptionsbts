@@ -194,6 +194,12 @@
   }));
   document.querySelectorAll('[data-start-application]').forEach(button => button.addEventListener('click', () => show(index)));
   document.getElementById('review-preparation').addEventListener('click', () => showGuide());
+  const catalog = document.getElementById('choix-formation');
+  if (catalog) document.querySelector('[data-choose-formation]').addEventListener('click', event => {
+    event.preventDefault();
+    showGuide(false);
+    focusHeading(document.getElementById('catalog-title'), catalog);
+  });
   document.querySelectorAll('[data-prepared]').forEach(input => input.addEventListener('change', () => {
     document.getElementById('preparation-count').textContent = `${document.querySelectorAll('[data-prepared]:checked').length} / 5 pièces préparées`;
   }));
