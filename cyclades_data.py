@@ -180,7 +180,9 @@ def apply_report(conn, academy, report, origin):
         return False
     students = {}
     by_name_birth = defaultdict(list)
-    for row in conn.execute("SELECT id,nom,prenom,date_naissance FROM candidats"):
+    from training_programs import BTS_LABELS
+    bts = tuple(BTS_LABELS)
+    for row in conn.execute("SELECT id,nom,prenom,date_naissance FROM candidats WHERE bts IN (" + ",".join("?" for _ in bts) + ")", bts):
         family, given, dob = identity(row)
         students[row["id"]] = (family, given, dob)
         if all((family, given, dob)):

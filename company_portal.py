@@ -170,6 +170,8 @@ def month_bounds(value):
 
 
 def register_company_portal(app, db_connect, send_mail, require_admin):
+    from training_programs import program_name
+    app.jinja_env.globals.setdefault('program_name', program_name)
     dummy_hash = generate_password_hash(secrets.token_urlsafe(32), method='scrypt')
 
     def configured():

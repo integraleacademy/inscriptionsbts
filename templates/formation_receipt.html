@@ -1,0 +1,8 @@
+{% if staff %}
+<p>{{ row.prenom }} {{ row.nom }} a déposé une candidature pour la formation <strong>{{ program }}</strong>.</p>
+<p><a href="{{ admin_url }}">Ouvrir la fiche de candidature {{ row.numero_dossier }}</a></p>
+{% else %}
+<p>Bonjour {{ row.prenom }},</p><p>Nous avons reçu votre candidature pour la formation <strong>{{ program }}</strong>. Votre numéro de dossier est <strong>{{ row.numero_dossier }}</strong>.</p>
+<p>L’équipe va étudier votre dossier et vous recontacter pour la suite de l’admission.</p>
+{% if security %}<p>Pour préparer votre échange avec Aurélie, vous pouvez <a href="{{ public_url }}/brochure">consulter la brochure du parcours</a> ou appeler le 04 87 83 06 15 ou le 07 69 39 04 57.</p>{% endif %}
+{% endif %}

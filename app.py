@@ -3,11 +3,13 @@ from contextlib import closing
 
 import os, sqlite3, json, uuid, shutil
 from datetime import datetime, timedelta
+from training_programs import SECURITY, catalog, program_name
 from admission_options import PROFILE_GROUPS, profile_answers
 from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
+from formation_intake import ensure_schema as ensure_formation_schema, register_formation_intake
 from candidate_creation import register_candidate_creation
 from candidate_pdf import application_pdf
 from wedof_contracts import directory_contracts
@@ -461,7 +463,7 @@ def btsfull(value):
     if value == "CI": return "BTS Commerce International (CI)"
     if value == "NDRC": return "BTS Négociation et Digitalisation de la Relation Client (NDRC)"
     if value == "CG": return "BTS Comptabilité et Gestion (CG)"
-    return value or ""
+    return program_name(value)
 
 @app.template_filter('bacdisp')
 def bacdisp(value):
@@ -528,7 +530,7 @@ def _bts_full(code: str) -> str:
         "NDRC":"BTS NÉGOCIATION ET DIGITALISATION DE LA RELATION CLIENT (NDRC)",
         "CG":  "BTS COMPTABILITÉ ET GESTION (CG)",
         "CI":  "BTS COMMERCE INTERNATIONAL (CI)",
-    }.get(code, code)
+    }.get(code, program_name(code))
 
 def _mode_emoji(mode: str) -> str:
     m = _normalize((mode or "").strip().lower())
@@ -719,6 +721,7 @@ CREATE TABLE IF NOT EXISTS candidats (
     );
     """)
     ensure_cyclades_schema(conn)
+    ensure_formation_schema(conn)
     conn.commit()
     conn.close()
 
@@ -1585,7 +1588,7 @@ def _admin_filtered_rows(args, *, admission_only=False):
     def match(row):
         ok = flt_year == "all" or str(candidate_year(row)) == flt_year
         if q:
-            blob = " ".join([str(row.get(k, "")) for k in ("nom", "prenom", "email", "tel", "bts", "numero_dossier")]).lower()
+            blob = " ".join([str(row.get(k, "")) for k in ("nom", "prenom", "email", "tel", "bts", "numero_dossier")] + [program_name(row.get("bts"))]).lower()
             ok &= q in blob
         if flt_bts:
             ok &= row.get("bts", "") == flt_bts
@@ -1617,7 +1620,7 @@ def admin():
         return redirect(url_for("login"))
 
     rows = _admin_filtered_rows(request.args)
-    return render_template("admin.html", title="Plateforme de gestion des BTS", rows=rows, statuts=[s for s in STATUTS + [EMPLOYMENT_STATUS] if s[0] not in ENROLLED])
+    return render_template("admin.html", title="Candidatures · Intégrale Academy", rows=rows, statuts=[s for s in STATUTS + [EMPLOYMENT_STATUS] if s[0] not in ENROLLED])
 
 
 @app.route("/admin/candidat/<cid>")
@@ -1628,9 +1631,13 @@ def admin_candidate_sheet(cid):
         row = get_candidat(conn, cid)
         if row:
             school_context = sheet_context(conn, cid)
+            intake = conn.execute('SELECT details,legacy_ref FROM formation_submissions WHERE candidate_id=?',(cid,)).fetchone()
+            school_context['intake_details'] = json.loads(intake['details']) if intake else {}
+            school_context['intake_reference'] = intake['legacy_ref'] if intake else ''
             school_context['enrollments_return_url'] = enrollment_return_url(request.args.get('return_to'))
-            school_context['london_mobility'] = london_context(conn, row)
-            school_context['cyclades'] = cyclades_sheet_status(conn, row)
+            if row.get('bts') in BTS_LABELS:
+                school_context['london_mobility'] = london_context(conn, row)
+                school_context['cyclades'] = cyclades_sheet_status(conn, row)
             annotate_candidate_statuses(conn, [row])
             current_promotion = get_candidate_promotion(conn, cid)
             available_promotions = list_promotions(conn, bts=row.get('bts'), rentree_annee=candidate_year(row), active_only=True)
@@ -1653,12 +1660,12 @@ def admin_candidate_information(cid):
         row = get_candidat(conn, cid)
         if not row: abort(404)
         merged = {**row, **changes}
-        if merged.get("bts") not in BTS_LABELS or merged.get("mode") not in ("presentiel", "distanciel"):
+        if merged.get("bts") not in catalog(conn) or merged.get("mode") not in ("presentiel", "distanciel"):
             return jsonify(ok=False, error="Vérifiez la formation et son mode de suivi."), 400
         placement = get_candidate_promotion(conn, cid)
         if placement and merged.get('bts') != placement['bts']:
-            return jsonify(ok=False, error="Retirez d’abord la promotion de cet étudiant avant de changer son BTS, puis affectez-lui une promotion du nouveau BTS."), 409
-        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", merged.get("email") or "") or (merged.get("tel") and not re.fullmatch(r"0[1-9]\d{8}", merged["tel"])):
+            return jsonify(ok=False, error="Retirez d’abord la promotion de cet étudiant avant de changer sa formation, puis affectez-lui une promotion correspondante."), 409
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", merged.get("email") or "") or (merged.get("tel") and not re.fullmatch(r"(?:0[1-9]\d{8}|\+[1-9]\d{7,14})", merged["tel"])):
             return jsonify(ok=False, error="Vérifiez l’e-mail et le téléphone."), 400
         if {"num_secu", "date_naissance", "sexe"}.intersection(changes) and merged.get("num_secu") and merged["num_secu"] != "123456789123456":
             ok, message = validate_nir(merged["num_secu"], merged.get("date_naissance"), merged.get("sexe"))
@@ -1805,15 +1812,15 @@ def admin_update_field():
         conn = db()
         if field == 'bts':
             value = value.upper()
-            if value not in BTS_LABELS:
+            if value not in catalog(conn):
                 conn.close()
-                return jsonify(ok=False, error="Choisissez un BTS valide."), 400
+                return jsonify(ok=False, error="Choisissez une formation proposée."), 400
             ensure_promotions_schema(conn)
             conn.execute('BEGIN IMMEDIATE')
             placement = get_candidate_promotion(conn, cid)
             if placement and value != placement['bts']:
                 conn.close()
-                return jsonify(ok=False, error="Retirez d’abord la promotion de cet étudiant avant de changer son BTS."), 409
+                return jsonify(ok=False, error="Retirez d’abord la promotion de cet étudiant avant de changer sa formation."), 409
         cur = conn.cursor()
         cur.execute(f"UPDATE candidats SET {field}=?, updated_at=? WHERE id=?",
                     (value, datetime.now().isoformat(), cid))
@@ -2548,7 +2555,7 @@ def confirm_inscription():
         # 🎓 Nom complet du BTS
         bts_label = BTS_LABELS.get(
             (row.get("bts") or "").strip().upper(),
-            row.get("bts")
+            program_name(row.get("bts"))
         )
 
         return render_template(
@@ -2611,8 +2618,9 @@ def confirm_inscription():
     html = mail_html(
         "inscription_confirmee",
         rentree_annee=candidate_year(row),
+        program_code=row.get("bts"),
         prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts")),
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), program_name(row.get("bts"))),
         numero_dossier=row.get("numero_dossier", ""),
         form_nom=row.get("nom", ""),
         form_prenom=row.get("prenom", ""),
@@ -2651,7 +2659,7 @@ def reconfirm():
     msg = sms_text(
     "reconfirmation_validee",
     prenom=row.get("prenom", ""),
-    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+    bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), program_name(row.get("bts")))
 )
 
     send_sms_brevo(tel, msg)
@@ -2682,7 +2690,7 @@ def reconfirm_page():
 
     row = dict(row)
     prenom = row.get("prenom", "")
-    bts_label = BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+    bts_label = BTS_LABELS.get((row.get("bts") or "").strip().upper(), program_name(row.get("bts")))
 
     return render_template(
         "reconfirm.html",
@@ -2731,8 +2739,9 @@ def reconfirm_validate():
     html = mail_html(
         "reconfirmation_validee",
         rentree_annee=candidate_year(row),
+        program_code=row.get("bts"),
         prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), program_name(row.get("bts")))
     )
     send_mail(row.get("email", ""), "Reconfirmation validée ✅", html)
 
@@ -2743,8 +2752,9 @@ def reconfirm_validate():
     msg = sms_text(
         "reconfirmation_validee",
         rentree_annee=candidate_year(row),
+        program_code=row.get("bts"),
         prenom=row.get("prenom", ""),
-        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), row.get("bts"))
+        bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), program_name(row.get("bts")))
     )
     send_sms_brevo(tel, msg)
 
@@ -2930,7 +2940,7 @@ def espace_candidat(slug):
 
     # === Nom complet de la formation ===
     bts_code = (row.get("bts") or "").strip().upper()
-    bts_label = BTS_LABELS.get(bts_code, row.get("bts"))
+    bts_label = BTS_LABELS.get(bts_code, program_name(bts_code))
     row["bts_label"] = bts_label
 
         # === Libellé du mode de formation ===
@@ -3614,6 +3624,7 @@ snapshot_legacy_links(db)
 
 from gestionstagiaires_api import register_gestionstagiaires_api
 register_gestionstagiaires_api(app, db, UPLOAD_DIR)
+register_formation_intake(app, db, lambda *args, **kwargs: send_mail(*args, **kwargs))
 
 if __name__ == "__main__":
     # Render starts this file with Werkzeug's reloader. Start in the serving

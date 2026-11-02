@@ -22,6 +22,12 @@ def _normalize_mode_text(value: str) -> str:
 def mail_html(template_name, **kwargs):
     """Retourne le HTML complet d’un mail avec logo et design unifié."""
 
+    from formation_messages import NOTICES, notice
+    from training_programs import SECURITY, is_professional_title
+    program = kwargs.get('program_code')
+    if (program == SECURITY or is_professional_title(program)) and template_name in NOTICES:
+        return notice(template_name, program, first_name(kwargs.get('prenom')), kwargs.get('lien_espace'), kwargs.get('lien_confirmation'))
+
     rentree = kwargs.get("rentree_annee") or (candidate_year(kwargs) if kwargs.get("numero_dossier") else ADMISSION_YEAR)
     # === Variables de base ===
     prenom = first_name(kwargs.get("prenom"))

@@ -30,6 +30,8 @@ def enrollment_message(row):
 
 
 def register_student_documents(app, db_connect, upload_dir):
+    from training_programs import program_name
+    app.jinja_env.globals.setdefault('program_name', program_name)
     @app.after_request
     def student_document_headers(response):
         if request.path == '/espace/documents' or request.path.startswith('/espace/documents/'):

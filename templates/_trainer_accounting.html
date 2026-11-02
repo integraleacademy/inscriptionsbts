@@ -85,7 +85,7 @@
       <div class="tw-breakdown-content">
         <p class="tw-help">Un cours commun compte intégralement pour chaque promotion présente et une seule fois par BTS. Ces répartitions ne s’additionnent pas au total mensuel.</p>
         <h3>Par promotion</h3>
-        <div class="tw-breakdown-list">{% for row in workload.by_promotion %}<article><div><strong>{{ row.name }}</strong><span>{{ row.courses }} séance{{ 's' if row.courses != 1 else '' }} · BTS {{ row.bts }}</span></div><b>{{ row.hours_label }}</b><meter value="{{ row.minutes }}" max="{{ workload.total_minutes or 1 }}" aria-label="{{ row.hours_label }} pour {{ row.name }}"></meter></article>{% else %}<p class="tw-empty">Aucun cours planifié ce mois-ci.</p>{% endfor %}</div>
+        <div class="tw-breakdown-list">{% for row in workload.by_promotion %}<article><div><strong>{{ row.name }}</strong><span>{{ row.courses }} séance{{ 's' if row.courses != 1 else '' }} · {{ program_name(row.bts) }}</span></div><b>{{ row.hours_label }}</b><meter value="{{ row.minutes }}" max="{{ workload.total_minutes or 1 }}" aria-label="{{ row.hours_label }} pour {{ row.name }}"></meter></article>{% else %}<p class="tw-empty">Aucun cours planifié ce mois-ci.</p>{% endfor %}</div>
         <h3>Par BTS</h3>
         <div class="tw-bts-list">{% for row in workload.by_bts %}<article><span>BTS {{ row.name }}</span><strong>{{ row.hours_label }}</strong><small>{{ row.courses }} séance{{ 's' if row.courses != 1 else '' }}</small></article>{% else %}<p class="tw-empty">La répartition apparaîtra avec les premiers cours.</p>{% endfor %}</div>
         {% if workload.shared_minutes %}<p class="tw-shared-note">{{ workload.shared_label }} de cours communs ce mois-ci, comptés une seule fois dans l’estimation globale.</p>{% endif %}

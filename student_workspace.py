@@ -214,6 +214,8 @@ def validated_files(files):
 
 
 def register_student_workspace(app, db_connect, uploads_dir, require_admin):
+    from training_programs import program_name
+    app.jinja_env.globals.setdefault('program_name', program_name)
     app.jinja_env.filters['student_date'] = display_date
 
     def connect():

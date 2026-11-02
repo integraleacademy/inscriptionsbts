@@ -16,6 +16,7 @@
   <a class="calendar-reminder" href="{{ url_for('opening_calendar') }}">{{ icon('clock') }} Ajouter la date à mon calendrier</a>
   <noscript><p>Rendez-vous le 1er décembre 2026 à 10 h, heure de Paris.</p></noscript>
   {% elif admission_open %}<a class="button button-gold" href="{{ url_for('candidature') }}">Commencer mon inscription</a>{% endif %}
+  <p class="waiting-intro"><a class="calendar-reminder" href="{{ url_for('security_application') }}">Candidater au parcours sécurité en alternance ↗</a></p>
 </section>
 <script src="{{ url_for('static', filename='js/countdown.js') }}" defer></script>
 {% endblock %}

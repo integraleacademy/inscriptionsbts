@@ -1,5 +1,6 @@
 """Enrollment directory, contextual student records and administration search."""
 from person_names import person_name
+from training_programs import program_name
 from contextlib import closing
 from datetime import datetime, timezone
 import json
@@ -185,7 +186,7 @@ def register_campus_admin(app, db_connect, require_admin):
             with closing(db_connect()) as conn:
                 for r in conn.execute('SELECT id,nom,prenom,bts,mode,rentree_annee,email,numero_dossier FROM candidats ORDER BY nom,prenom'):
                     if all(w in key(' '.join(str(r[k] or '') for k in ('nom','prenom','bts','email','numero_dossier'))) for w in query.split()):
-                        results.append(dict(label=person_name(r['nom'],r['prenom']), detail=f"BTS {r['bts']} · {r['rentree_annee'] or 2026}", mode=r['mode'], url='/admin/candidat/'+r['id'],kind='Étudiant'))
+                        results.append(dict(label=person_name(r['nom'],r['prenom']), detail=f"{program_name(r['bts'])} · {r['rentree_annee'] or 2026}", mode=r['mode'], url='/admin/candidat/'+r['id'],kind='Étudiant'))
                         if len(results)>=15: break
                 # Separate limits keep a common name from hiding other types.
                 tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
@@ -207,7 +208,7 @@ def register_campus_admin(app, db_connect, require_admin):
                     matches = 0
                     for r in conn.execute('SELECT id,nom,bts,rentree_annee FROM promotions ORDER BY nom'):
                         if all(w in key(f"{r['nom']} {r['bts']} {r['rentree_annee']}") for w in query.split()):
-                            results.append(dict(label=r['nom'], detail=f"BTS {r['bts']} · {r['rentree_annee']}", url='/admin/planning?'+urlencode({'promotion_id':r['id']}), kind='Promotion'))
+                            results.append(dict(label=r['nom'], detail=f"{program_name(r['bts'])} · {r['rentree_annee']}", url='/admin/planning?'+urlencode({'promotion_id':r['id']}), kind='Promotion'))
                             matches += 1
                             if matches >= 10: break
         for label,url,detail in FUNCTIONS:

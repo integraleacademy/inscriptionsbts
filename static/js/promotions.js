@@ -20,6 +20,13 @@
   }
   function setDirty() { dirty = true; confirmation.hidden = true; confirmed = false; updateActions(); }
   function setDateRange() { form.elements.date_fin.min = form.elements.date_debut.value || ''; }
+  function offerFirstYear() {
+    const code = form.elements.bts.value;
+    if ((code === 'PARCOURS-SECURITE' || code.startsWith('TP ')) && !form.elements.niveau.value) {
+      form.elements.niveau.value = '1';
+    }
+  }
+  form.elements.bts.addEventListener('change', offerFirstYear);
   function openEditor(promotion, trigger) {
     if (busy) return;
     current = promotion || null; opener = trigger; dirty = false; confirmed = false;
@@ -27,6 +34,7 @@
     form.elements.nom.value = promotion?.nom || '';
     form.elements.bts.value = promotion?.bts || config.selected_bts || '';
     form.elements.niveau.value = promotion?.niveau ? String(promotion.niveau) : '';
+    offerFirstYear();
     const year = String(promotion?.rentree_annee || config.selected_year || '');
     if (year && ![...form.elements.rentree_annee.options].some(option => option.value === year)) form.elements.rentree_annee.add(new Option('Rentrée ' + year, year));
     form.elements.rentree_annee.value = year;

@@ -11,14 +11,8 @@ import sqlite3
 
 from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
 
-BTS_LABELS = {
-    'MOS': 'BTS Management opérationnel de la sécurité',
-    'MCO': 'BTS Management commercial opérationnel',
-    'NDRC': 'BTS Négociation et digitalisation de la relation client',
-    'PI': 'BTS Professions immobilières',
-    'CI': 'BTS Commerce international',
-    'CG': 'BTS Comptabilité et gestion',
-}
+from training_programs import BTS_LABELS, catalog, is_professional_title, professional_title, program_name
+
 _MIGRATION = 'explicit-promotions-v1'
 
 
@@ -158,7 +152,7 @@ def assign_candidate_promotion(conn,candidate_id,promotion_id):
         if not promotion or (not promotion['active'] and old_id!=promotion_id):
             raise ValueError('Choisissez une promotion existante et active.')
         if str(candidate['bts'] or '').strip().upper()!=promotion['bts'] or int(candidate['rentree_annee'] or 2026)!=promotion['rentree_annee']:
-            raise ValueError('La promotion doit correspondre au BTS et à la rentrée d’origine de cet étudiant.')
+            raise ValueError('La promotion doit correspondre à la formation et à la rentrée d’origine de cet étudiant.')
     if old_id!=promotion_id:
         now=datetime.now(timezone.utc).isoformat()
         conn.execute('DELETE FROM student_promotions WHERE candidate_id=?',(candidate_id,))
@@ -169,6 +163,17 @@ def assign_candidate_promotion(conn,candidate_id,promotion_id):
 
 
 def register_promotions(app,db_connect,require_admin):
+    from flask import g
+
+    def training_choices():
+        if 'training_choices' not in g:
+            with closing(db_connect()) as conn:
+                g.training_choices = catalog(conn)
+        return g.training_choices
+
+    app.jinja_env.globals.update(training_choices=training_choices, is_professional_title=is_professional_title,
+                                 program_name=program_name, bts_codes=BTS_LABELS)
+
     def csrf():
         if '_promotion_csrf' not in session:
             session['_promotion_csrf']=secrets.token_urlsafe(32)
@@ -207,8 +212,10 @@ def register_promotions(app,db_connect,require_admin):
             end=date.fromisoformat(data.get('date_fin',''))
         except (ValueError,TypeError):
             raise ValueError('Renseignez le niveau, la rentrée d’origine et deux dates valides.')
-        if not nom or len(nom)>140 or any(ord(c)<32 for c in nom) or bts not in BTS_LABELS or level not in (1,2) or not 2000<=year<=datetime.now().year+5:
-            raise ValueError('Vérifiez le nom, le BTS, le niveau et la rentrée d’origine.')
+        with closing(db_connect()) as conn:
+            programs = catalog(conn)
+        if not nom or len(nom)>140 or any(ord(c)<32 for c in nom) or bts not in programs or level not in (1,2) or not 2000<=year<=datetime.now().year+5:
+            raise ValueError('Vérifiez le nom, la formation, le niveau et la rentrée d’origine.')
         if end<beginning:
             raise ValueError('La date de fin doit être postérieure ou égale à la date de début.')
         return nom,bts,level,year,beginning.isoformat(),end.isoformat()
@@ -236,18 +243,34 @@ def register_promotions(app,db_connect,require_admin):
                 conn.commit()
             return response(True,'Promotion créée. Vous pouvez maintenant y affecter les étudiants et les formateurs.',201,promotion_id=promotion_id)
         with closing(db_connect()) as conn:
+            programs = catalog(conn)
             promotions=list_promotions(conn)
             from promotion_metrics import annotate_promotion_metrics
             annotate_promotion_metrics(app,conn,promotions)
         years=sorted({2026,2027,*range(datetime.now().year,datetime.now().year+3),*[p['rentree_annee'] for p in promotions]})
         selected_bts=request.args.get('bts','').upper()
-        if selected_bts not in BTS_LABELS:selected_bts=''
+        if selected_bts not in programs:selected_bts=''
         try:selected_year=int(request.args.get('rentree',datetime.now().year+1))
         except ValueError:selected_year=datetime.now().year+1
         if selected_year not in years:selected_year=datetime.now().year+1
-        result=app.make_response(render_template('promotions_admin.html',title='Promotions · Plateforme de gestion des BTS',promotions=promotions,bts_labels=BTS_LABELS,years=years,selected_bts=selected_bts,selected_year=selected_year,csrf_token=csrf()))
+        result=app.make_response(render_template('promotions_admin.html',title='Promotions · Intégrale Academy',promotions=promotions,bts_labels=programs,years=years,selected_bts=selected_bts,selected_year=selected_year,csrf_token=csrf()))
         result.headers['Cache-Control']='no-store'
         return result
+
+    @app.post('/admin/promotions/titres-professionnels')
+    def admin_add_professional_title():
+        guard()
+        check_csrf()
+        try:
+            code, name = professional_title(request.form.get('name', ''))
+        except ValueError as error:
+            return response(False, str(error), 400)
+        with closing(db_connect()) as conn:
+            catalog(conn)
+            conn.execute('INSERT OR IGNORE INTO professional_titles(code,name) VALUES(?,?)', (code, name))
+            conn.commit()
+        flash('Le titre professionnel est disponible pour les candidatures et les promotions.', 'success')
+        return redirect(url_for('admin_promotions', bts=code), code=303)
 
     @app.post('/admin/promotions/<promotion_id>/update')
     def admin_promotion_update(promotion_id):
@@ -265,7 +288,7 @@ def register_promotions(app,db_connect,require_admin):
                 return response(False,'Ces dates rendraient le planning incohérent. Ajustez d’abord les cours et les périodes concernés.',409,conflicts=planning_conflicts)
             mismatch=conn.execute('''SELECT 1 FROM student_promotions s JOIN candidats c ON c.id=s.candidate_id
                 WHERE s.promotion_id=? AND (upper(trim(COALESCE(c.bts,'')))<>? OR COALESCE(c.rentree_annee,2026)<>?) LIMIT 1''',(promotion_id,bts,year)).fetchone()
-            if mismatch:return response(False,'Cette promotion contient des étudiants d’un autre BTS ou d’une autre rentrée. Réaffectez-les avant de modifier ces informations.',409)
+            if mismatch:return response(False,'Cette promotion contient des étudiants d’une autre formation ou d’une autre rentrée. Réaffectez-les avant de modifier ces informations.',409)
             previous_fields=tuple(previous[key] for key in ('nom','bts','niveau','rentree_annee','date_debut','date_fin'))
             if values!=previous_fields or previous['needs_setup']:
                 conn.execute('UPDATE promotions SET nom=?,bts=?,niveau=?,rentree_annee=?,date_debut=?,date_fin=?,needs_setup=0,updated_at=? WHERE id=?',(*values,datetime.now(timezone.utc).isoformat(),promotion_id))

@@ -1,4 +1,5 @@
 """Personalise legacy Word templates without changing their run formatting."""
+from training_programs import SECURITY, is_professional_title, program_name
 from person_names import person_name
 import re
 from datetime import datetime
@@ -9,11 +10,39 @@ from zoneinfo import ZoneInfo
 from docx.oxml.ns import qn
 
 
+def formation_period(row):
+    from contextlib import closing
+    from flask import current_app
+    from promotions import get_candidate_promotion
+    if row.get('statut') not in ('confirmee','reconfirmee','reconf_en_cours'):
+        raise ValueError('Confirmez l’inscription avant de générer le certificat de scolarité.')
+    with closing(current_app.extensions['formation_connect']()) as conn:
+        group = get_candidate_promotion(conn, row['id'])
+    if not group or not group['date_debut'] or not group['date_fin']:
+        raise ValueError('Affectez une promotion avec ses dates avant de générer le certificat de scolarité.')
+    return tuple(datetime.fromisoformat(group[k]).strftime('%d/%m/%Y') for k in ('date_debut','date_fin'))
+
+
+def formation_certificate_text(row):
+    start, end = formation_period(row)
+    name = person_name(row.get('nom'), row.get('prenom'))
+    return (f'Intégrale Academy certifie que {name} est inscrit(e) à la formation '
+            f'« {program_name(row["bts"])} », du {start} au {end}.',
+            'Établi à Puget-sur-Argens, le ' + datetime.now(ZoneInfo('Europe/Paris')).strftime('%d/%m/%Y'))
+
+
 def certificate_word(row):
     """Keep the original Word bundle available, using the current dossier mode."""
     from docx import Document
     from campaign import candidate_year
     from utils import BTS_LABELS
+    if row.get('bts') == SECURITY or is_professional_title(row.get('bts')):
+        doc = Document()
+        doc.add_heading('Intégrale Academy', 2)
+        doc.add_heading('Certificat de scolarité', 1)
+        for paragraph in formation_certificate_text(row):
+            doc.add_paragraph(paragraph)
+        return doc
     mode = row.get('mode')
     if mode not in ('presentiel', 'distanciel'):
         raise ValueError('Renseignez le parcours présentiel ou distanciel avant de générer le certificat.')
@@ -43,6 +72,19 @@ def certificate_pdf(row):
     from reportlab.pdfbase.ttfonts import TTFont
     from campaign import candidate_year
 
+    if row.get('bts') == SECURITY or is_professional_title(row.get('bts')):
+        from html import escape
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+        out = BytesIO()
+        styles = getSampleStyleSheet()
+        text, issued = formation_certificate_text(row)
+        story = [Paragraph('INTÉGRALE ACADEMY', styles['Heading3']), Spacer(1,40),
+                 Paragraph('Certificat de scolarité', styles['Title']), Spacer(1,32),
+                 Paragraph(escape(text), styles['Normal']), Spacer(1,32), Paragraph(issued, styles['Normal'])]
+        SimpleDocTemplate(out, pagesize=A4, title='Certificat de scolarité', author='Intégrale Academy').build(story)
+        return out.getvalue()
     mode = row.get('mode')
     if mode not in ('presentiel', 'distanciel'):
         raise ValueError('Renseignez le parcours présentiel ou distanciel avant de générer le certificat.')

@@ -123,6 +123,8 @@ def _trainer_students(conn, trainer, candidate_id=None):
 
 
 def register_trainer_access(app, db_connect, send_mail, require_admin, *, upload_dir=None):
+    from training_programs import program_name
+    app.jinja_env.globals.setdefault('program_name', program_name)
     app.extensions['trainer_preview_admin_guard'] = require_admin
     dummy_hash = generate_password_hash(secrets.token_urlsafe(32), method='scrypt')
 
