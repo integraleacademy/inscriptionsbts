@@ -17,6 +17,8 @@ from flask import abort, flash, redirect, request, session, url_for
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, apply_report, identity, parse_report, with_exams
 from cyclades_portal import read_academy
 
+READER_VERSION = 2
+
 
 def cipher(app):
     key = app.secret_key
@@ -72,15 +74,16 @@ def run_due(app, connect, directory, *, now=None, fetch=read_academy):
                 if not row or not row["credential"]:
                     continue
                 # First connection is checked immediately. Subsequent days start at 08:00.
-                if row["day"] == today and row["status"] != "running":
-                    continue
-                if row["day"] is not None and clock.hour < 8 and row["status"] != "running":
+                recovering = row["status"] == "running" or (
+                    row["status"] == "error" and row["reader_version"] < READER_VERSION)
+                if not recovering and row["day"] is not None and (row["day"] == today or clock.hour < 8):
                     continue
                 revision = row["revision"]
-                conn.execute("UPDATE cyclades_accounts SET day=?,attempted=?,status='running',message='' WHERE academy=?",
-                             (today, clock.timestamp(), key))
+                conn.execute("UPDATE cyclades_accounts SET day=?,attempted=?,reader_version=?,status='running',message='' WHERE academy=?",
+                             (today, clock.timestamp(), READER_VERSION, key))
                 conn.commit()
             errors = []
+            counts = []
             try:
                 credentials = json.loads(cipher(app).decrypt(row["credential"]))
                 with closing(fetch(key, credentials)) as reports:
@@ -92,7 +95,8 @@ def run_due(app, connect, directory, *, now=None, fetch=read_academy):
                             conn.execute("BEGIN IMMEDIATE")
                             if conn.execute("SELECT revision FROM cyclades_accounts WHERE academy=?", (key,)).fetchone()[0] != revision:
                                 break
-                            apply_report(conn, key, report, "auto")
+                            if apply_report(conn, key, report, "auto"):
+                                counts.append(f"{report.year}={len(report.records)}")
                             conn.commit()
             except InvalidToken:
                 errors.append("La clé du serveur a changé. Renseignez de nouveau les accès.")
@@ -101,9 +105,12 @@ def run_due(app, connect, directory, *, now=None, fetch=read_academy):
             except Exception:
                 errors.append("La lecture de CYCLADES a été interrompue. Les dernières données sont conservées.")
             with closing(connect()) as conn:
-                conn.execute("UPDATE cyclades_accounts SET status=?, message=? WHERE academy=? AND revision=?",
+                updated = conn.execute("UPDATE cyclades_accounts SET status=?, message=? WHERE academy=? AND revision=?",
                              ("error" if errors else "ok", " ".join(errors), key, revision))
                 conn.commit()
+            if updated.rowcount:
+                log = app.logger.warning if errors else app.logger.info
+                log("CYCLADES %s | %s | listes %s", key, " ".join(errors) or "lecture terminée", ", ".join(counts) or "—")
 
 
 def register_cyclades(app, connect, require_admin, directory):
@@ -155,6 +162,15 @@ def register_cyclades(app, connect, require_admin, directory):
     def cyclades_settings(key):
         guard(key)
         action = request.form.get("action")
+        if action == "retry":
+            with closing(connect()) as conn:
+                queued = conn.execute("""UPDATE cyclades_accounts SET day=NULL,status='pending',message=''
+                    WHERE academy=? AND credential IS NOT NULL AND status='error'""", (key,)).rowcount
+                conn.commit()
+            if queued:
+                start()
+                wake.set()
+            return finish("Nouvelle vérification demandée." if queued else "Aucune vérification en erreur à relancer.")
         credential = None
         if action == "save":
             username = request.form.get("username", "").strip()

@@ -25,6 +25,7 @@
       {% if academy.connected %}
       <form method="post" action="{{ url_for('cyclades_settings',key=key) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {% if academy.status == 'error' %}<button type="submit" name="action" value="retry" class="settings-button primary">Relancer la vérification</button>{% endif %}
         <button type="submit" name="action" value="remove" class="settings-button">Déconnecter {{ academy.label }}</button>
       </form>{% endif %}
       <details><summary>Importer une liste détaillée CYCLADES</summary>
