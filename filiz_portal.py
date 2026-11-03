@@ -1,0 +1,333 @@
+"""Read the school's FILIZ contract lists and dossier tabs. No changes to FILIZ."""
+from datetime import datetime
+from decimal import Decimal
+import re
+import logging
+from urllib.parse import urlsplit
+
+from playwright.sync_api import Error as BrowserError, sync_playwright
+from akto_portal import START_DATE, launch_chromium, norm
+from opco_convergence import ReadError, identity
+from training_programs import BTS_LABELS
+from wedof_contract_data import FINANCERS, stamp
+
+HOME = 'https://app.filiz.io'
+CATALOG = HOME + '/school/folder'
+AUTH_HOST = 'filizio.eu.auth0.com'
+CARDS = 'a[href*="/school/folder/"][href$="#trackingFolder"]'
+MONTHS = {'jan':1,'fev':2,'mar':3,'avr':4,'mai':5,'juin':6,'juil':7,'aou':8,
+          'sep':9,'oct':10,'nov':11,'dec':12}
+DAY = r'\d{1,2}\s+[A-Za-zÀ-ÿ.]+\s+\d{4}'
+AMOUNT = r'\d[\d\s]*(?:,\d{2})?\s*€'
+STATUS = {'engage':'accepted', 'dossier refuse':'refused', 'refuse':'refused', 'rompu':'broken',
+          'rupture':'broken', 'solde':'completed', 'annule':'cancelled', 'en instruction':'pendingAcceptation'}
+FINANCER_ALIASES = {norm(v).replace(' ',''): k for k,v in FINANCERS.items()}
+FINANCER_ALIASES.update({'opcommerce':'opcoCfaOpcommerce','opcodelaproximite':'opcoCfaEp',
+                         'opcoep':'opcoCfaEp', 'opcodesentreprisesdeproximite':'opcoCfaEp'})
+
+
+def iso(value):
+    value = (value or '').strip()
+    for fmt in ('%d/%m/%Y', '%Y-%m-%d'):
+        try:
+            return datetime.strptime(value, fmt).date().isoformat()
+        except ValueError:
+            pass
+    parts = norm(value).split()
+    if len(parts) == 3 and parts[0].isdigit() and parts[2].isdigit():
+        month = next((n for label,n in MONTHS.items() if parts[1].startswith(label)), None)
+        if month:
+            try:
+                return datetime(int(parts[2]),month,int(parts[0])).date().isoformat()
+            except ValueError:
+                pass
+    return ''
+
+
+def money(value):
+    if not value or not re.fullmatch(AMOUNT, value.strip()):
+        return None
+    return float(Decimal(''.join(value.strip()[:-1].split()).replace(',','.')))
+
+
+def lines(value):
+    return [s.strip() for s in value.splitlines() if s.strip()]
+
+
+def labeled_amount(values, label):
+    for i,line in enumerate(values[:-1]):
+        if line == label:
+            return money(values[i+1])
+    return None
+
+
+def due_row(summary, detail):
+    values = lines(summary)
+    number = re.fullmatch(r'Échéance N°\s*(\d+)', values[0], re.I) if values else None
+    if not number or len(values)<3 or money(values[1]) is None:
+        raise ReadError('Format d’échéance FILIZ non reconnu.')
+    state = values[2]
+    state_code = 'unknown'
+    for label, code in [('payee','paid'),('a venir','upcoming'),('en attente de paiement','pending'),
+                        ('a facturer','open'),('a enregistrer','open'),('en instruction','pending')]:
+        if norm(state).startswith(label):
+            state_code = code
+            break
+    dates = re.search(r'(?:Du|À partir du) (' + DAY + r')(?: au ('+DAY+r'))?', summary, re.I)
+    paid = labeled_amount(values, 'Payé OPCO')
+    row = {'numero':number[1], 'montantTotal':money(values[1]), 'montantRegle':paid,
+           'filiz_label':state, 'filiz_code':state_code}
+    if dates:
+        row.update(dateDebut=iso(dates[1]),dateFin=iso(dates[2]))
+    invoices = []
+    for label, value in re.findall(r'(Facture [^\n]+? n°\s*[^\n]+)\n+('+AMOUNT+')', detail, re.I):
+        invoices.append({'reference':label,'amount':money(value),'state':'','paid_on':''})
+    return row, invoices
+
+
+def consent(page):
+    for name in ('Fermer sans accepter les cookies','Fermer le widget sans consentement'):
+        btn = page.get_by_role('button',name=name,exact=True)
+        if btn.is_visible():
+            btn.click(timeout=3000)
+            break
+    for phrase in ('La gestion des droits évolue','Certains chiffres partent'):
+        dialog = page.get_by_role('dialog').filter(has_text=phrase)
+        if dialog.count() and dialog.first.is_visible():
+            close = dialog.first.get_by_role('button',name='Fermer',exact=True)
+            (close.last if close.count() else dialog.first.get_by_role('button').first).click()
+
+
+def login(page, config):
+    page.goto(HOME+'/school',wait_until='domcontentloaded')
+    page.wait_for_function("""() => document.querySelector('a[href$="/school/folder"]') ||
+        document.querySelector('input[name=email],input[name=username]')""")
+    if page.locator('a[href$="/school/folder"]').count():
+        return
+    consent(page)
+    if urlsplit(page.url).hostname == 'app.filiz.io':
+        page.locator('input[name=email]').fill(config['email'])
+        page.get_by_role('button',name='Continuer',exact=True).click()
+    try:
+        page.wait_for_url('https://'+AUTH_HOST+'/**',timeout=30000)
+        if urlsplit(page.url).hostname != AUTH_HOST:
+            raise ReadError('Mode de connexion FILIZ non reconnu.')
+        page.locator('input[name=username]').fill(config['email'])
+        page.locator('input[name=password]').fill(config['password'])
+        page.get_by_role('button',name='Continuer',exact=True).click()
+        page.wait_for_url(HOME+'/school**',timeout=35000)
+        page.locator('a[href$="/school/folder"]').first.wait_for(state='attached')
+    except BrowserError:
+        raise ReadError('FILIZ n’a pas ouvert l’espace école. Vérifiez vos accès ou une validation demandée par FILIZ.') from None
+
+
+def catalogue(page):
+    page.goto(CATALOG, wait_until='domcontentloaded')
+    page.locator('[role=tab]').filter(has_text='Alternance').wait_for(state='attached')
+    consent(page)
+    search = page.get_by_placeholder('Rechercher...')
+    search.fill('')
+    # Never mistake a loader or a filtered catalogue for a completed scan.
+    page.locator(CARDS).first.wait_for(state='attached',timeout=30000)
+    expected = re.search(r'\d+',page.get_by_role('tab',name=re.compile('Alternance')).inner_text())
+    records = {}
+    while True:
+        cards = page.locator(CARDS).evaluate_all("""els=>els.map(a=>({href:a.getAttribute('href'),
+            text:a.innerText, paragraphs:[...a.querySelectorAll('p')].map(x=>x.innerText),
+            opco:a.querySelector('img[alt]')?.alt}))""")
+        before = len(records)
+        for card in cards:
+            m = re.fullmatch(r'/school/folder/([a-zA-Z0-9_-]+)#trackingFolder',card['href'])
+            if not m or m[1] in records:
+                raise ReadError('Pagination FILIZ incohérente. Dernier relevé conservé.')
+            records[m[1]] = card
+        if len(records) == before:
+            raise ReadError('Liste FILIZ incomplète.')
+        nxt = page.get_by_role('button',name='Go to next page')
+        if not nxt.count() or nxt.is_disabled():
+            break
+        old = cards[0]['href']
+        nxt.click()
+        page.wait_for_function("""([selector,old])=>{let a=document.querySelector(selector);
+            return a && a.getAttribute('href')!==old}""",arg=[CARDS,old])
+    if not expected or len(records) != int(expected[0]):
+        raise ReadError('Le nombre de dossiers lus diffère du compteur FILIZ. Relancez la synchronisation.')
+    return records
+
+
+def fields(page, names):
+    return page.evaluate("""names=>Object.fromEntries(names.map(n=>[n,
+        document.querySelector('[role=tabpanel] input[name="'+n+'"]')?.value?.trim()||'']))""",names)
+
+
+def summary_values(page):
+    return page.locator('[role=tabpanel]').first.evaluate("""root=>{
+        let result={};
+        for(let e of root.querySelectorAll('span')){
+          let k=e.textContent.trim();
+          if(['Contrat','Formation','Type d’alternance',"Type d'alternance",'N° DECA','N° dossier OPCO',
+              'N° interne OPCO',"Maître d'apprentissage",'OPCO'].includes(k) && !e.children.length)
+            result[k]=k==='OPCO'?e.parentElement.querySelector('img')?.alt:e.nextElementSibling?.textContent.trim();
+        }
+        let company=[...root.querySelectorAll('h6')].find(e=>e.parentElement.parentElement.innerText.includes('Entreprise'));
+        result.company=company?.textContent.trim();
+        return result;
+    }""")
+
+
+def switch_tab(page, title, anchor):
+    tab = page.get_by_role('heading',name=title,exact=True).first
+    for attempt in range(2):
+        tab.click()
+        try:
+            page.wait_for_url('**#'+anchor,timeout=5000)
+            return
+        except BrowserError:
+            if attempt:
+                raise
+            consent(page)
+
+
+def finance(page, item):
+    switch_tab(page,'Comptabilité','invoice')
+    panel = page.get_by_role('tabpanel').filter(has=page.get_by_role('heading',name='Facture OPCO',exact=True)).last
+    panel.wait_for(state='visible',timeout=10000)
+    portal_lines = lines(panel.inner_text())
+    item['filiz_paid'] = labeled_amount(portal_lines, 'Payé')
+    item['engagement'] = labeled_amount(portal_lines,'Montant total de la facture OPCO')
+    item['filiz_pending'] = labeled_amount(portal_lines,'En attente de paiement')
+    item['filiz_updated'] = next((x for x in portal_lines if x.startswith('Actualisé le ')), '')
+    dues = panel.get_by_role('button',name=re.compile(r'^Échéance N°\s*\d+'))
+    if not dues.count():
+        raise ReadError('Échéancier FILIZ indisponible.')
+    rows, invoices = [], []
+    for due in dues.all():
+        summary = due.inner_text()
+        detail = ''
+        more = due.get_by_text('Afficher les détails',exact=True)
+        if more.is_visible():
+            more.click()
+            detail = due.locator('xpath=../..').inner_text()
+        row, bills = due_row(summary, detail)
+        rows.append(row)
+        invoices.extend(bills)
+    if len({r['numero'] for r in rows}) != len(rows):
+        raise ReadError('Numéros d’échéances FILIZ en double.')
+    # Where the displayed paid amounts account for the complete FILIZ paid total,
+    # future lines without an amount carry zero paid. Otherwise preserve unknowns.
+    stated = item.get('filiz_paid')
+    allocated = sum((Decimal(str(r['montantRegle'])) for r in rows if r['montantRegle'] is not None),Decimal(0))
+    if stated is not None and Decimal(str(stated)) == allocated:
+        for r in rows:
+            if r['filiz_code']=='upcoming' and r['montantRegle'] is None:
+                r['montantRegle'] = 0
+    item.update(schedules=rows, invoices=invoices, raw_checked_at=stamp())
+    extras = []
+    for name in ('Premier équipement','Hébergement','Restauration'):
+        val = labeled_amount(portal_lines,name)
+        if val is not None:
+            extras.append({'natureFrais':name,'montantTotal':val})
+    if extras:
+        item.update(extra_costs_available=True,extra_costs=extras)
+
+
+def read_item(page, ref, card, people):
+    page.goto(CATALOG+'/'+ref+'#trackingFolder',wait_until='domcontentloaded')
+    page.get_by_role('heading',name='Avancée du dossier').wait_for()
+    consent(page)
+    summary = summary_values(page)
+    period = (summary.get('Contrat') or '').split(' - ')
+    if len(period)!=2 or not iso(period[0]):
+        raise ReadError('Date de début FILIZ non confirmée.')
+    if iso(period[0]) < START_DATE:
+        return None
+    card_lines = lines(card['text'])
+    provider = norm(summary.get('OPCO') or card.get('opco') or '').replace(' ','')
+    financer = FINANCER_ALIASES.get(provider)
+    deca = summary.get('N° DECA') or ''
+    external = summary.get('N° dossier OPCO') or ''
+    if not financer or not any(v and v.lower() not in ('n/a','-','non renseigné') for v in (deca,external)):
+        return None  # A school draft without an OPCO reference is not an OPCO contract.
+    switch_tab(page,'Étudiant','student')
+    page.locator('input[name=birthDate]').wait_for(state='attached')
+    person = fields(page,['firstName','lastName','birthDate','mailAddress','phoneNumber','address','postalCode','city'])
+    birth = iso(person['birthDate'])
+    key = identity(person['lastName'],person['firstName'],birth)
+    matched = [p for p in people if all(key) and key == identity(p['nom'],p['prenom'],p['date_naissance'])]
+    if len(matched)!=1:
+        raise ReadError('Identité FILIZ non confirmée.')
+    title = norm(next(iter(card['paragraphs']),''))
+    expected = matched[0]['bts'].strip().upper()
+    if not (norm(BTS_LABELS[expected]).removeprefix('bts ') in title or
+            expected.lower() in title.split() or any(re.search(r'\bbts '+expected.lower()+r'\b', norm(p)) for p in card['paragraphs'])):
+        raise ReadError('Filière BTS FILIZ à vérifier.')
+    item = {'source':'filiz','working_contract_id':'filiz-'+ref,'filiz_id':ref,'financer':financer,
+        'external_number':external or deca,'internal_number':summary.get('N° interne OPCO'), 'deca_number':deca,
+        'training_title':next(iter(card['paragraphs']),''),'employer_name':summary.get('company'),
+        'tutor_name':summary.get("Maître d'apprentissage"),'contract_start':iso(period[0]),'contract_end':iso(period[1]),
+        'apprentice_birth_date':birth,'apprentice_last_name':person['lastName'],'apprentice_first_name':person['firstName'],
+        'apprentice_email':person['mailAddress'],'apprentice_phone':person['phoneNumber'],'apprentice_address':person['address'],
+        'apprentice_postcode':person['postalCode'],'apprentice_city':person['city'],'checked_at':stamp(),
+        'state':STATUS.get(norm(card_lines[3]),'unknown'),'state_label':card_lines[3]}
+    training = (summary.get('Formation') or '').split(' - ')
+    if len(training)==2:
+        item.update(training_start=iso(training[0]),training_end=iso(training[1]))
+    switch_tab(page,'Contrat','contract')
+    page.locator('input[name=contractStartDate]').wait_for(state='attached')
+    contract = fields(page,['contractStartDate','contractEndDate','contractClosingDate','MonthlySalaryAmount'])
+    if iso(contract['contractStartDate']) != item['contract_start']:
+        raise ReadError('Les dates du contrat FILIZ diffèrent.')
+    item.update(contract_conclusion=iso(contract['contractClosingDate']),gross_salary=contract['MonthlySalaryAmount'] or None)
+    switch_tab(page,'Entreprise','company')
+    page.locator('input[name=apeCode]').wait_for(state='attached')
+    company = fields(page,['address','postalCode','city'])
+    heading = page.locator('[role=tabpanel] h5').first
+    if heading.count():
+        item['employer_name'] = heading.inner_text().strip()
+    item.update(employer_address=company['address'],employer_postcode=company['postalCode'],employer_city=company['city'])
+    try:
+        finance(page,item)
+    except (ReadError,BrowserError):
+        item.update(raw_stale=True,raw_error='L’échéancier FILIZ n’a pas pu être relu.')
+    return matched[0]['id'], item
+
+
+def read_filiz(config, people, stored_session, save_session):
+    names = {norm(p['prenom']+' '+p['nom']) for p in people}
+    with sync_playwright() as pw:
+        browser = launch_chromium(pw)
+        try:
+            with browser.new_context(locale='fr-FR',storage_state=stored_session,service_workers='block') as ctx:
+                page = ctx.new_page()
+                page.set_default_timeout(20000)
+                # The login page and password form use different origins. Restrict credential submissions.
+                def guard(route):
+                    u=urlsplit(route.request.url)
+                    if route.request.method=='POST' and not (u.scheme=='https' and (u.hostname==AUTH_HOST or
+                            u.hostname=='filiz.io' or (u.hostname or '').endswith('.filiz.io'))):
+                        return route.abort()
+                    route.continue_()
+                ctx.route('**/*',guard)
+                login(page,config)
+                save_session(ctx.storage_state())
+                cards = catalogue(page)
+                logging.getLogger(__name__).info('FILIZ : catalogue complet (%d dossiers).',len(cards))
+                results, failed = {}, set()
+                for ref,card in cards.items():
+                    values=lines(card['text'])
+                    if len(values)<4 or norm(values[0]) not in names or norm(values[2])!='apprentissage':
+                        continue
+                    period = re.search('('+DAY+')\\s*-\\s*('+DAY+')',card['text'])
+                    if period and iso(period[1]) and iso(period[1]) < START_DATE:
+                        continue
+                    try:
+                        entry=read_item(page, ref, card, people)
+                        if entry:
+                            results[ref]=entry
+                            if entry[1].get('raw_stale'):
+                                failed.add(ref)
+                    except (BrowserError,ReadError):
+                        failed.add(ref)
+                return results, failed, set(cards)
+        finally:
+            browser.close()

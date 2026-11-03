@@ -315,29 +315,34 @@ def dossier(page, lines, person, previous):
     return record
 
 
+def launch_chromium(pw):
+    exe=shutil.which('chromium') or os.getenv('CYCLADES_CHROMIUM_EXECUTABLE')
+    try:
+        browser=pw.chromium.launch(executable_path=exe)
+    except Error as exc:
+        # No account data has been used during browser setup.
+        logging.getLogger(__name__).warning('AKTO initialisation Chromium : %.500s',str(exc))
+        if not exe and "Executable doesn't exist" in str(exc):
+            try:
+                subprocess.run([sys.executable,'-m','playwright','install','--only-shell','chromium'],check=True,timeout=180,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            except (OSError,subprocess.SubprocessError):
+                raise PortalError('Installation de Chromium indisponible sur le serveur.') from None
+        # On Render the first launch can race browser installation at boot.
+        time.sleep(2)
+        try:
+            browser=pw.chromium.launch(executable_path=exe)
+        except Error as retry:
+            logging.getLogger(__name__).warning('AKTO lancement Chromium : %.600s',str(retry))
+            raise PortalError('Le serveur ne peut pas démarrer Chromium pour la lecture du portail.') from None
+    return browser
+
+
 def read_portal(email,password,people,save,excluded=None,remember=None,previous=None):
     by_name={}
     for p in people:
         by_name.setdefault(norm(p['prenom']+' '+p['nom']),[]).append(p)
     with sync_playwright() as pw:
-        exe=shutil.which('chromium') or os.getenv('CYCLADES_CHROMIUM_EXECUTABLE')
-        try:
-            browser=pw.chromium.launch(executable_path=exe)
-        except Error as exc:
-            # No account data has been used during browser setup.
-            logging.getLogger(__name__).warning('AKTO initialisation Chromium : %.500s',str(exc))
-            if not exe and "Executable doesn't exist" in str(exc):
-                try:
-                    subprocess.run([sys.executable,'-m','playwright','install','--only-shell','chromium'],check=True,timeout=180,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-                except (OSError,subprocess.SubprocessError):
-                    raise PortalError('Installation de Chromium indisponible sur le serveur.') from None
-            # On Render the first launch can race browser installation at boot.
-            time.sleep(2)
-            try:
-                browser=pw.chromium.launch(executable_path=exe)
-            except Error as retry:
-                logging.getLogger(__name__).warning('AKTO lancement Chromium : %.600s',str(retry))
-                raise PortalError('Le serveur ne peut pas démarrer Chromium pour AKTO.') from None
+        browser=launch_chromium(pw)
         try:
             with browser.new_context(locale='fr-FR',accept_downloads=True,service_workers='block',viewport={'width':1280,'height':900}) as ctx:
                 # Never submit login form data to a host outside the portal / its IdP.

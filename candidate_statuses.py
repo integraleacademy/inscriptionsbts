@@ -31,15 +31,14 @@ def annotate_candidate_statuses(conn, rows, today=None):
         from akto_sync import get_records
         from opco_sync import student_records
         for cid,row in eligible.items():
-            if (row.get('bts') or '').strip().upper() != 'MOS':
-                continue
-            records, message = get_records(conn,cid)
+            is_mos = (row.get('bts') or '').strip().upper() == 'MOS'
+            records, message = get_records(conn,cid) if is_mos else ([], '')
             direct = student_records(conn, row)
             if any(i.get('state') == 'accepted' and
                    (not i.get('contract_break_date') or i['contract_break_date'] > today.isoformat()) and
                    active_period(i.get('contract_start'),i.get('contract_end'),today) for i in direct):
                 employed.add(cid)
-            if records or direct or not message:
+            if is_mos and (records or direct or not message):
                 verified_mos.add(cid)
             if any(r.get('status') == 'Accordé' and active_period(r.get('contract_start'),r.get('contract_end'),today) for r in records):
                 employed.add(cid)

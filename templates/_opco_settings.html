@@ -1,16 +1,27 @@
 {% for account in opco_statuses() %}
 {% set key = 'opco-' ~ account.provider %}
 <details class="settings-card" id="{{ key }}" aria-labelledby="{{ key }}-title">
-  {{ card_summary(key, 'briefcase', account.label ~ ' · BTS MOS', 'Contrats, échéanciers et règlements du CFA.') }}
+  {{ card_summary(key, 'briefcase', account.label ~ ' · Tous les BTS', 'Contrats, échéanciers et règlements du CFA.') }}
   <div class="settings-content">
-    <p class="settings-message" role="status"><strong>{{ {'unconfigured':'Accès Convergence à configurer','pending':'Vérification en attente','running':'Lecture en cours','error':'Échec de la dernière lecture','partial':'Lecture partielle','ok':'Synchronisation réussie'}.get(account.state) }}</strong> {{ account.message }}
+    <p class="settings-message" role="status"><strong>{{ {'unconfigured':'Compte à connecter','pending':'Vérification en attente','running':'Lecture en cours','error':'Échec de la dernière lecture','partial':'Lecture partielle','ok':'Synchronisation réussie'}.get(account.state) }}</strong> {{ account.message }}
       {% if account.attempted %} Dernière tentative le {{ account.attempted }}.{% endif %}{% if account.succeeded %} Dernier passage complet le {{ account.succeeded }}.{% endif %}{% if account.requested %} Une lecture est en attente.{% endif %}</p>
-    <p>Une fois connecté, le serveur lit les contrats des BTS MOS qui débutent à compter du 1er juin 2025 inclus. La lecture démarre chaque jour à 5 h, heure de Paris, même si vous quittez la page.</p>
+    <p>Une fois connecté, le serveur lit les contrats de toutes les filières BTS qui débutent à compter du 1er juin 2025 inclus. La lecture démarre chaque jour à 5 h, heure de Paris, même si vous quittez la page.</p>
     {% if account.configured %}
     <form method="post" action="{{ url_for('opco_settings',provider=account.provider) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="settings-actions"><button class="settings-button primary" data-background-job name="action" value="sync" {% if account.requested or account.state=='running' %}disabled{% endif %}>Synchroniser maintenant</button>
       <button type="button" class="settings-button" data-refresh-job>Actualiser le statut</button>
       <button class="settings-button" name="action" value="disconnect">Déconnecter</button></div></form>{% endif %}
+    {% if account.provider=='filiz' %}
+    <form method="post" class="settings-academy-body" action="{{ url_for('opco_settings',provider='filiz') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <p>Utilisez votre compte école FILIZ. Les dossiers et les échéances des différents OPCO sont consultés en lecture seule, sans clé Convergence.</p>
+      <label for="filiz-email">Adresse e-mail FILIZ</label><input id="filiz-email" name="email" type="email" required maxlength="254" autocomplete="off">
+      <label for="filiz-password">Mot de passe FILIZ</label><input id="filiz-password" name="password" type="password" required maxlength="1024" autocomplete="new-password">
+      <p class="settings-help">Vos accès sont chiffrés sur le serveur. La première lecture commence dès l’enregistrement.</p>
+      <button class="settings-button primary" type="submit" name="action" value="connect">{{ 'Remplacer les accès et synchroniser' if account.configured else 'Connecter FILIZ et synchroniser' }}</button>
+    </form>
+    <p><a href="{{ account.portal }}" target="_blank" rel="noopener noreferrer">Ouvrir FILIZ ↗</a></p>
+    {% else %}
     <details class="settings-academy"{% if not account.configured %} open{% endif %}><summary>{{ 'Remplacer les accès Convergence' if account.configured else 'Connecter le CFA via l’API Convergence' }}</summary>
       <form method="post" class="settings-academy-body" action="{{ url_for('opco_settings',provider=account.provider) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -22,6 +33,7 @@
         <button class="settings-button primary" name="action" value="connect">Enregistrer et synchroniser</button>
       </form></details>
     <p><a href="{{ account.portal }}" target="_blank" rel="noopener noreferrer">Espace CFA {{ account.label }} ↗</a> · <a href="https://www.cfadock.fr/portail_developpeur/Contacts" target="_blank" rel="noopener noreferrer">Contacts techniques Convergence ↗</a></p>
+    {% endif %}
   </div>
 </details>
 {% endfor %}

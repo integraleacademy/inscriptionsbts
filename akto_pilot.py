@@ -45,7 +45,7 @@ def contract_card(pilot, candidate, billing):
     period = str(pilot.get('period') or '').split(' au ')
     item = {
         'source': 'akto', 'rupture_notice': bool(pilot.get('rupture_notice')),
-        'working_contract_id': pilot['reference'], 'external_number': pilot['reference'],
+        'deca_number': pilot.get('dgefp'), 'working_contract_id': pilot['reference'], 'external_number': pilot['reference'],
         'financer': 'opcoCfaAkto', 'employer_name': pilot.get('employer'),
         'employer_siret': pilot.get('siret'), 'training_title': pilot.get('training'),
         'training_hours': pilot.get('hours'), 'engagement': total,
