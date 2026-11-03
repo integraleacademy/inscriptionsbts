@@ -1,5 +1,7 @@
 """Read-only AKTO provider portal. Nothing is submitted except authentication."""
 import re
+import logging
+from contextlib import contextmanager
 import shutil
 import os
 import subprocess
@@ -21,8 +23,27 @@ PARIS = ZoneInfo('Europe/Paris')
 DATE = r'\d{2}/\d{2}/\d{4}'
 
 
+START_DATE = '2025-06-01'
+
+
+class BeforeCutoff(Exception):
+    pass
+
+
 class PortalError(Exception):
     pass
+
+
+@contextmanager
+def stage(page, label):
+    try:
+        yield
+    except Error as exc:
+        host=urlsplit(page.url).hostname or "navigation"
+        reason=re.search(r'net::ERR_[A-Z_]+',str(exc))
+        detail=reason[0] if reason else type(exc).__name__
+        logging.getLogger(__name__).warning('AKTO MOS : %s | %s | %s',label,host,detail)
+        raise PortalError(f"{label} : {detail} ({host}).") from None
 
 
 def norm(value):
@@ -47,8 +68,11 @@ def notice(path, record, person):
         if person.get('date_naissance') and iso(ident[2]) != person['date_naissance']:
             raise PortalError('Date de naissance différente sur le courrier AKTO.')
         dates = re.search(r'Dates de contrat\s*:\s*Du ('+DATE+') au ('+DATE+')', first, re.I)
-        if dates:
-            record.update(contract_start=iso(dates[1]), contract_end=iso(dates[2]))
+        if not dates:
+            raise PortalError('Date de début du contrat non confirmée dans le courrier AKTO.')
+        record.update(contract_start=iso(dates[1]), contract_end=iso(dates[2]))
+        if record['contract_start'] < START_DATE:
+            raise BeforeCutoff
         rncp = re.search(r'RNCP\s*(\d{4,6})', first)
         if rncp:
             record['rncp'] = 'RNCP' + rncp[1]
@@ -76,22 +100,25 @@ def notice(path, record, person):
 
 
 def sign_in(page, email, password):
-    page.goto(ROOT, wait_until='domcontentloaded')
-    page.get_by_role('button',name='Se connecter',exact=True).click()
-    field = page.locator('input[name="username"]')
-    field.wait_for(timeout=45000)
-    # Credentials may only be entered on AKTO's observed Microsoft tenant.
-    if not page.url.startswith(LOGIN+'/'):
-        raise PortalError('Domaine de connexion Microsoft inattendu.')
-    field.fill(email)
-    page.get_by_role('button',name='Suivant',exact=True).click()
-    pwd = page.locator('input[type=password]')
-    pwd.wait_for(timeout=30000)
-    if not page.url.startswith(LOGIN+'/'):
-        raise PortalError('Domaine de connexion Microsoft inattendu.')
-    pwd.fill(password)
-    page.get_by_role('button',name='Se connecter',exact=True).click()
-    keep = page.get_by_role('button',name='Oui',exact=True)
+    with stage(page,'Ouverture de Mon Espace AKTO'):
+        page.goto(ROOT, wait_until='domcontentloaded')
+        page.get_by_role('button',name='Se connecter',exact=True).click()
+    # The Microsoft screen may be localized independently of the AKTO portal.
+    with stage(page,'Ouverture du formulaire Microsoft'):
+        field = page.locator('input[name="username"],input[name="loginfmt"],input[autocomplete="username webauthn"]').first
+        field.wait_for(timeout=45000)
+        if not page.url.startswith(LOGIN+'/'):
+            raise PortalError('Domaine de connexion Microsoft inattendu.')
+        field.fill(email)
+        field.press('Enter')
+    with stage(page,'Passage au mot de passe Microsoft'):
+        pwd = page.locator('input[type=password]').first
+        pwd.wait_for(timeout=30000)
+        if not page.url.startswith(LOGIN+'/'):
+            raise PortalError('Domaine de connexion Microsoft inattendu.')
+        pwd.fill(password)
+        pwd.press('Enter')
+    keep = page.get_by_role('button',name=re.compile('^(Oui|Yes)$',re.I))
     provider = page.get_by_role('button',name='Profil Prestataire')
     try:
         keep.or_(provider).first.wait_for(timeout=45000)
@@ -180,6 +207,8 @@ def dossier(page, lines, person):
         record['document']="Courrier d’accord de prise en charge (prestataire)"
         if not record.get('schedules') and record['status']=='Accordé':
             raise PortalError('Échéancier non reconnu dans le courrier AKTO.')
+    if not record.get('contract_start'):
+        raise PortalError('Aucun courrier confirmant la date de début du contrat.')
     invoices=page.get_by_role('button',name='Voir la facture / DR',exact=True)
     if invoices.count()==1:
         invoices.click()
@@ -208,7 +237,7 @@ def dossier(page, lines, person):
     return record
 
 
-def read_portal(email,password,people,save):
+def read_portal(email,password,people,save,excluded=None,remember=None):
     by_name={}
     for p in people:
         by_name.setdefault(norm(p['prenom']+' '+p['nom']),[]).append(p)
@@ -222,7 +251,7 @@ def read_portal(email,password,people,save):
             subprocess.run([sys.executable,'-m','playwright','install','--only-shell','chromium'],check=True,timeout=180,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             browser=pw.chromium.launch()
         try:
-            with browser.new_context(locale='fr-FR',accept_downloads=True,service_workers='block',viewport={'width':800,'height':800}) as ctx:
+            with browser.new_context(locale='fr-FR',accept_downloads=True,service_workers='block',viewport={'width':1280,'height':900}) as ctx:
                 # Never submit login form data to a host outside the portal / its IdP.
                 def guard(route):
                     u=urlsplit(route.request.url)
@@ -232,8 +261,14 @@ def read_portal(email,password,people,save):
                 ctx.route('**/*',guard)
                 page=ctx.new_page()
                 page.set_default_timeout(30000)
+                def navigation_failed(req):
+                    if req.is_navigation_request():
+                        code=re.search(r'ERR_[A-Z_]+',req.failure or '')
+                        logging.getLogger(__name__).warning('AKTO navigation : %s | %s', urlsplit(req.url).hostname,code[0] if code else 'interrompue')
+                page.on('requestfailed',navigation_failed)
                 sign_in(page,email,password)
-                cards=catalogue(page)
+                with stage(page,'Lecture du catalogue prestataire'):
+                    cards=catalogue(page)
                 matches={}
                 for lines in cards:
                     if lines[0]!='CAPP' or 'Stagiaire(s)' not in lines:
@@ -252,11 +287,21 @@ def read_portal(email,password,people,save):
                         continue
                     person=persons[0]
                     try:
-                        records=[dossier(page,lines,person) for lines in matches.get(name,[])]
+                        records=[]
+                        for lines in matches.get(name,[]):
+                            if excluded and lines[1] in excluded:
+                                continue
+                            try:
+                                records.append(dossier(page,lines,person))
+                            except BeforeCutoff:
+                                if remember:
+                                    remember(lines[1])
+
                         save(person,records,'')
                     except (PortalError,Error,ValueError,ArithmeticError,OSError):
                         errors+=1
                         save(person,None,'Lecture du dossier ou de son courrier incomplète. Relevé précédent conservé.')
+                logging.getLogger(__name__).info('AKTO MOS : %d dossiers en catalogue, %d fiches examinées, %d à vérifier.',len(cards),len(people),errors)
                 return errors
         finally:
             browser.close()

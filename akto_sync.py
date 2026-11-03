@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from cryptography.fernet import Fernet
 from flask import abort, flash, redirect, request, session, url_for
 
-from akto_portal import PortalError, read_portal
+from akto_portal import START_DATE, PortalError, read_portal
 from akto_pilot import contract_for
 
 PARIS = ZoneInfo('Europe/Paris')
@@ -26,6 +26,8 @@ def schema(conn):
           day TEXT DEFAULT '', state TEXT DEFAULT 'unconfigured', message TEXT DEFAULT '',
           attempted TEXT DEFAULT '', succeeded TEXT DEFAULT '');
         INSERT OR IGNORE INTO akto_connection(id) VALUES(1);
+        CREATE TABLE IF NOT EXISTS akto_before_cutoff (reference TEXT PRIMARY KEY, verified TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS akto_upgrades (id TEXT PRIMARY KEY);
         CREATE TABLE IF NOT EXISTS akto_students (
           candidate_id TEXT PRIMARY KEY, records TEXT, message TEXT NOT NULL, seen TEXT NOT NULL);
     ''')
@@ -42,7 +44,8 @@ def secret(app):
 def get_records(conn,cid):
     result=conn.execute('SELECT records,message FROM akto_students WHERE candidate_id=?',(cid,)).fetchone()
     if result and result['records'] is not None:
-        return json.loads(result['records']),result['message']
+        records=[r for r in json.loads(result['records']) if r.get('contract_start','') >= START_DATE]
+        return records,result['message']
     pilot=contract_for(cid)
     return ([pilot] if pilot else []), (result['message'] if result else 'En attente de la première lecture AKTO.')
 
@@ -90,23 +93,36 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
                 conn.commit()
         try:
             email,password=json.loads(secret(app).decrypt(row['credential']))
-            errors=reader(email,password,people,save)
+            if reader is read_portal:
+                with closing(connect()) as conn:
+                    excluded={entry[0] for entry in conn.execute("SELECT reference FROM akto_before_cutoff WHERE verified >= date('now','-90 days')")}
+                def remember(ref):
+                    with closing(connect()) as conn:
+                        conn.execute("INSERT OR REPLACE INTO akto_before_cutoff VALUES (?,date('now'))",(ref,))
+                        conn.commit()
+                errors=reader(email,password,people,save,excluded,remember)
+            else:
+                errors=reader(email,password,people,save)
             state='partial' if errors else 'ok'
             message=f'{len(people)} fiche(s) MOS examinée(s). {errors} lecture(s) à vérifier.'
         except PortalError as exc:
             state,message='error',str(exc)
-        except Exception:
+        except Exception as exc:
+            app.logger.warning('AKTO MOS : exception %s',type(exc).__name__)
             state,message='error','Lecture AKTO interrompue. Vérifiez le compte prestataire et relancez la synchronisation.'
         with closing(connect()) as conn:
             conn.execute('''UPDATE akto_connection SET state=?,message=?,succeeded=CASE WHEN ?='ok' THEN ? ELSE succeeded END
                             WHERE id=1 AND credential=?''',(state,message,state,stamp,row['credential']))
             conn.commit()
-        app.logger.info('AKTO MOS : %s (%s)',state,stamp)
+        app.logger.info('AKTO MOS : %s (%s) %s',state,stamp,message)
 
 
 def register_akto(app,connect,require_admin,directory):
     with closing(connect()) as conn:
         schema(conn)
+        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('cutoff-20250601-v1')").rowcount:
+            conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state='error'")
+        conn.commit()
     wake,guard=threading.Event(),threading.Lock()
     thread=None
     def worker():
