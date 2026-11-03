@@ -1,8 +1,13 @@
-{% macro admission_card(title, image, description, status, href, id=none, timer=none) %}
+{% macro admission_card(title, image, description, status, href, id=none, timer=none, online=false) %}
 <a class="admission-card" href="{{ href }}"{% if id %} id="{{ id }}"{% endif %}>
   <img src="{{ url_for('static', filename=image) }}" width="640" height="340" alt="">
   <div class="admission-card-copy">
-    <h2>{{ title }}</h2><p>{{ description }}</p>
+    <h2>{{ title }}</h2>
+    <div class="admission-formats">
+      <span>Présentiel</span>
+      {% if online %}<span class="format-online">100 % en ligne · à distance en visioconférence</span>{% endif %}
+    </div>
+    <p>{{ description }}</p>
     <ul class="admission-programs">{{ caller() }}</ul>
   </div>
   <div class="admission-foot"{% if timer %} id="{{ timer }}"{% endif %}>
@@ -21,19 +26,19 @@
 <section class="admission-home" id="choix-formation" aria-labelledby="catalog-title" {% if scheduled %}data-opens="{{ opening_iso }}" data-server-now="{{ server_now }}"{% endif %}>
   <header class="home-intro">
     <p class="home-kicker">INTÉGRALE ACADEMY · ADMISSIONS 2027</p>
-    <h1 id="catalog-title">Choisis ta <em>formation.</em></h1>
+    <h1 id="catalog-title">Choisis ta <em>formation en alternance</em></h1>
     <p>Découvre les formations proposées dans chaque parcours.</p>
   </header>
   <nav class="admission-grid" aria-label="Choix de la formation">
-    {% call admission_card('BTS en alternance', 'admissions/student-space-illustration.webp', 'Deux ans pour préparer ton diplôme, à l’école à Puget-sur-Argens, Côte d’Azur, ou en ligne.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', timer='inscriptions-bts') %}
+    {% call admission_card('BTS en alternance', 'admissions/student-space-illustration.webp', 'Deux ans pour préparer ton diplôme, à l’école à Puget-sur-Argens, Côte d’Azur, ou en ligne.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', timer='inscriptions-bts', online=true) %}
       {% for code,label in bts_programs.items() %}<li><strong>{{ code }}</strong><span>{{ label.removeprefix('BTS ') }}</span></li>{% endfor %}
     {% endcall %}
-    {% call admission_card('Titres professionnels', 'admissions/company-space-illustration.webp', 'Prépare un titre professionnel en présentiel à l’école à Puget-sur-Argens, Côte d’Azur.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#ouverture-tp', id='titres-professionnels', timer='ouverture-tp') %}
-      {% for offer in title_offers %}<li>{{ offer.name }}</li>{% endfor %}
+    {% call admission_card('Titre professionnel en alternance', 'admissions/company-space-illustration.webp', 'Prépare un titre professionnel en présentiel à l’école à Puget-sur-Argens, Côte d’Azur.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#ouverture-tp', id='titres-professionnels', timer='ouverture-tp') %}
+      {% for offer in title_offers %}<li>TP {{ offer.name }}</li>{% endfor %}
     {% endcall %}
     {% call admission_card('Parcours sécurité en alternance', 'parcours-alternance/aps.webp', 'En un an, prépare trois qualifications complémentaires en alternant formation et missions en entreprise.', 'Candidatures ouvertes · Candidater', url_for('security_application')) %}
       <li><strong>Agent de sécurité</strong><span>Surveiller les sites et prévenir les incidents (APS).</span></li>
-      <li><strong>Garde du corps</strong><span>Assurer la protection rapprochée d’une personne (A3P).</span></li>
+      <li><strong>Agent de protection physique des personnes</strong><span>Assurer la protection rapprochée d’une personne (A3P).</span></li>
       <li><strong>Agent de sécurité incendie</strong><span>Prévenir les incendies et porter assistance aux occupants (SSIAP 1).</span></li>
     {% endcall %}
   </nav>
