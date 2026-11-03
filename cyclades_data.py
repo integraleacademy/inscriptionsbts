@@ -210,6 +210,64 @@ def schema(conn):
         conn.execute("ALTER TABLE cyclades_accounts ADD COLUMN network_retry REAL")
 
 
+def registration_indicator(record):
+    status = record.get("status")
+    if words(status) != "inscrit":
+        return "red", status or "Statut inconnu"
+    summary = record.get("piece_summary") or {}
+    docs = record.get("documents") or []
+    # A newer count-only or partial observation cannot confirm an older complete list.
+    if summary and summary.get("checked") != record.get("documents_checked"):
+        if not record.get("documents_checked"):
+            return "red", "Lecture partielle"
+        stamp_format = "%d/%m/%Y à %Hh%M"
+        if datetime.strptime(summary["checked"], stamp_format) > datetime.strptime(record["documents_checked"], stamp_format):
+            return "red", "Lecture partielle"
+        summary = {}  # A more recent complete observation takes precedence.
+    requested = summary.get("requested", record.get("requested"))
+    conforming = summary.get("conforming", record.get("conforming"))
+    if requested != len(docs) or conforming is None:
+        return "red", "Pièces à vérifier"
+    if any(p.get("review") == "Non conforme" for p in docs):
+        return "red", "Pièce non conforme"
+    for piece in docs:
+        if "Déposée" not in (piece.get("deposit"), piece.get("manager")):
+            return "red", "Dépôt à vérifier" if not piece.get("deposit") else "Dépôt manquant"
+    reviews = [p.get("review") for p in docs]
+    if conforming != reviews.count("Conforme"):
+        return "red", "Contrôle à vérifier"
+    if conforming == requested:
+        return "green", "Pièces conformes" if requested else "Aucune pièce demandée"
+    if all(r in ("Conforme", "En attente de contrôle") for r in reviews):
+        return "orange", "En attente de contrôle"
+    return "red", "Contrôle à vérifier"
+
+
+def directory_indicators(conn, rows):
+    """Add a single status per BTS student for the current exam session."""
+    from training_programs import BTS_LABELS
+    today = datetime.now(PARIS).date()
+    year = today.year + (today.month >= 9)
+    students = {r["id"]: r for r in rows if r["bts"] in BTS_LABELS}
+    indicators = defaultdict(list)
+    for entry in conn.execute("""SELECT candidate_id,identity,outcome,records FROM cyclades_students
+                                 WHERE year=? AND outcome IN ('matched','ambiguous')""", (year,)):
+        row = students.get(entry["candidate_id"])
+        if row is None or json.dumps(identity(row), ensure_ascii=False) != entry["identity"]:
+            continue
+        results = indicators[row["id"]]
+        if entry["outcome"] == "ambiguous":
+            results.append(("red", "Identité à vérifier"))
+        else:
+            results.extend(registration_indicator(rec) for rec in json.loads(entry["records"]))
+    # When several registrations are attached, show the one that needs attention.
+    rank = {"red": 0, "orange": 1, "green": 2}
+    for cid, row in students.items():
+        row["cyclades_indicator"] = min(indicators[cid], key=lambda item: rank[item[0]],
+                                        default=("red", "Inscription non vérifiée"))
+    return year
+
+
 def match_report(conn, report):
     students = {}
     by_name_birth = defaultdict(list)

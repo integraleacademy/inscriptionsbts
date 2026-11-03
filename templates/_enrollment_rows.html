@@ -15,6 +15,11 @@
     <div class="campus-contract-summary"><span class="study-badge contract-{{ r.contract }}">{{ r.contract_label }}</span><a href="{{ candidate_url }}#contrat-apprentissage" aria-label="Voir le contrat de {{ person_name(r.nom,r.prenom) }}">Voir →</a></div>
     <small class="campus-contract-detail" title="{{ r.contract_detail }}">{{ r.contract_detail }}</small>
   </td>
+  <td class="enrollment-cyclades-col">{% if r.cyclades_indicator %}
+    {% set tone, label = r.cyclades_indicator %}
+    <a class="enrollment-cyclades" href="{{ candidate_url }}#cyclades" title="{{ label }}" aria-label="Cyclades {{ exam_year }} · {{ person_name(r.nom,r.prenom) }} · {{ label }}"><span class="cyclades-dot cyclades-dot-{{ tone }}" aria-hidden="true"></span><span class="sr-only">{{ label }}</span></a>
+    {% else %}<span title="Formation hors BTS" aria-label="Formation hors BTS">—</span>{% endif %}
+  </td>
   <td>
     {% if r.promotion_id and not r.promotion_active %}<small class="campus-archived-promotion" title="{{ r.promotion_name }} · Archivée">{{ r.promotion_name }} · Archivée</small>{% endif %}
     <div class="campus-inline-assign">
@@ -28,5 +33,5 @@
   <td><a class="btn" href="{{ candidate_url }}">Fiche ↗</a></td>
 </tr>
 {% else %}
-<tr><td colspan="6" class="campus-empty">Aucune inscription pour ces filtres.</td></tr>
+<tr><td colspan="7" class="campus-empty">Aucune inscription pour ces filtres.</td></tr>
 {% endfor %}

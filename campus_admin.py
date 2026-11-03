@@ -9,6 +9,7 @@ import unicodedata
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for
+from cyclades_data import directory_indicators
 from candidate_messages import _equal
 from promotions import assign_candidate_promotion, list_promotions
 from teaching import schema as teaching_schema
@@ -128,6 +129,7 @@ def register_campus_admin(app, db_connect, require_admin):
             promotions = list_promotions(conn, active_only=True)
             rows = enrolled_rows(conn)
             configured = directory_contracts(current_app, conn, rows)
+            exam_year = directory_indicators(conn, rows)
         filters = {name:request.args.get(name,'').strip() for name in ENROLLMENT_FILTERS}
         for name, value in filters.items():
             if not value or name == 'contract': continue
@@ -146,7 +148,7 @@ def register_campus_admin(app, db_connect, require_admin):
                      unverified=sum(r['contract']=='linked' for r in rows),
                      unassigned=sum(not r['promotion_id'] for r in rows),
                      remote=sum(r['mode']=='distanciel' for r in rows))
-        context = dict(rows=rows, promotions=promotions, filters=filters, stats=stats,
+        context = dict(rows=rows, promotions=promotions, filters=filters, stats=stats, exam_year=exam_year,
                        enrollments_return_url=url_for('admin_enrollments', **{name:value for name,value in filters.items() if value}),
                        discovery=discovery, wedof_configured=configured, title='Inscriptions · Intégrale Academy')
         if data_request:

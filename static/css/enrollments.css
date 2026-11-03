@@ -43,3 +43,13 @@ body.academy-ui.workspace-page.enrollments-page{--academy-workspace-gutter:20px}
 @media(max-width:760px){body.academy-ui.workspace-page.enrollments-page{--academy-workspace-gutter:14px}[data-enrollments] .campus-contract-detail{max-width:none}}
 @media(max-width:1250px){.campus-stats.enrollment-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:640px){.campus-stats.enrollment-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.campus-contract-sync{align-items:flex-start;flex-direction:column}}
+
+[data-enrollments] .enrollment-cyclades-col{width:78px;text-align:center;box-sizing:border-box}
+.enrollment-cyclades{display:inline-grid;width:32px;height:32px;place-items:center;border-radius:6px}
+.cyclades-dot{display:block;width:12px;height:12px;border-radius:50%}
+.cyclades-dot-red{background:#c53742}
+.cyclades-dot-orange{background:#d57612}
+.cyclades-dot-green{background:#15805c}
+.cyclades-legend{display:flex;align-items:center;flex-wrap:wrap;gap:6px 16px;margin:12px 0;color:#536275;font-size:12px}
+.cyclades-legend span{display:inline-flex;align-items:center;gap:6px}
+.cyclades-legend .cyclades-dot{width:8px;height:8px}
