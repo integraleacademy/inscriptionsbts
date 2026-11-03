@@ -6,7 +6,7 @@ from decimal import Decimal
 import re
 import logging
 import subprocess
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 from playwright.sync_api import Error as BrowserError, TimeoutError as BrowserTimeout, expect
 from portal_browser import persistent_playwright, launch_chromium
@@ -103,8 +103,8 @@ def consent(page):
             (close.last if close.count() else dialog.first.get_by_role('button').first).click()
 
 
-class InactiveLoginForm(ReadError):
-    """No submission took place; a stale browser session may be discarded."""
+class StaleSchoolSession(ReadError):
+    """The login form or callback did not open school; retry once without stored state."""
 
 
 def fill_login_form(page, config, host, address, password, submit):
@@ -133,17 +133,37 @@ def fill_login_form(page, config, host, address, password, submit):
         value_kept = address.is_visible() and address.input_value().casefold() == config['email'].casefold()
         logging.getLogger(__name__).warning('FILIZ : formulaire inactif avant soumission, origine=%s, adresse conservée=%s.',
                                             host, value_kept)
-        raise InactiveLoginForm('Le formulaire de connexion FILIZ ne s’est pas activé après la saisie.') from None
+        raise StaleSchoolSession('Le formulaire de connexion FILIZ ne s’est pas activé après la saisie.') from None
 
 
 def login(page, config):
     visited = set()
     school = page.locator('a[href$="/school/folder"]').first
     logger = logging.getLogger(__name__)
+    notices = set()
+    seen_responses = set()
     def login_response(response):
-        host = urlsplit(response.url).hostname
-        if response.status >= 400 and host in ('app.filiz.io', AUTH_HOST):
-            logger.warning('FILIZ : accès école, HTTP %d (%s).', response.status, host)
+        url = urlsplit(response.url)
+        host = url.hostname or ''
+        if host != AUTH_HOST and host != 'filiz.io' and not host.endswith('.filiz.io'):
+            return
+        request = response.request
+        is_token = url.path.rstrip('/').endswith('/oauth/token')
+        if is_token or response.status >= 400 or request.resource_type == 'document':
+            kind = 'jeton' if is_token else 'page' if request.resource_type == 'document' else 'API'
+            params = parse_qs(url.query)
+            oauth = params.get('error', [''])[0]
+            if oauth:
+                notices.add('oauth_error')
+            event = (host, kind, response.status, bool(params.get('code')), bool(oauth))
+            if event not in seen_responses:
+                seen_responses.add(event)
+                logger.warning('FILIZ : réponse de connexion %s %s HTTP %d, retour avec code=%s, erreur OAuth=%s.',
+                               *event)
+            if response.status == 429:
+                notices.add('throttled')
+            if is_token and response.status in (400,401,403):
+                notices.add('token_error')
     page.on('response', login_response)
     page.goto(HOME+'/school', wait_until='commit', timeout=45000)
     for _ in range(4):
@@ -156,6 +176,10 @@ def login(page, config):
         if host == 'app.filiz.io' and school.count() and school.is_visible():
             page.remove_listener('response', login_response)
             return
+        if 'throttled' in notices:
+            raise ReadError('FILIZ limite temporairement les tentatives de connexion. Réessayez après le délai du portail.')
+        if 'oauth_error' in notices or 'token_error' in notices:
+            raise ReadError('Le service d’identification FILIZ a refusé l’ouverture de la session école.')
         if host not in ('app.filiz.io', AUTH_HOST):
             raise ReadError('Mode de connexion FILIZ non reconnu.')
         challenge = page.locator('input[autocomplete=one-time-code], iframe[title*="captcha" i]').first
@@ -184,7 +208,9 @@ def login(page, config):
                     school.wait_for(state='visible', timeout=15000)
                 except BrowserError:
                     if page.locator('input[name=email]').first.is_visible():
-                        raise ReadError('Après identification, FILIZ renvoie à la page de connexion sans ouvrir l’espace école.') from None
+                        if 'oauth_error' in notices or 'token_error' in notices:
+                            raise ReadError('Le service d’identification FILIZ a refusé l’ouverture de la session école.') from None
+                        raise StaleSchoolSession('La session FILIZ n’a pas donné accès à l’espace école après identification.') from None
                     raise
             else:
                 school.wait_for(state='visible', timeout=20000)
@@ -454,10 +480,10 @@ def school_browser(config, stored_session):
                     try:
                         login(page, config)
                         login_pending = False
-                    except InactiveLoginForm:
+                    except StaleSchoolSession:
                         if state is None:
                             raise
-                        logging.getLogger(__name__).warning('FILIZ : formulaire inactif, nouvelle session avant toute soumission.')
+                        logging.getLogger(__name__).warning('FILIZ : session école inutilisable, reprise sans les données de session précédentes.')
                         continue
                     except BrowserError as exc:
                         host = urlsplit(page.url).hostname
@@ -497,27 +523,34 @@ def eligible_card(card, names):
     return not start or start >= START_DATE
 
 
-def read_group(config, stored_session, group, cards, people):
+def read_group(ctx, group, cards, people):
     results, failed, reasons = {}, set(), Counter()
-    with school_browser(config, stored_session) as (page, ctx):
-        for ref in group:
-            try:
+    for ref in group:
+        page = ctx.new_page()
+        page.set_default_timeout(20000)
+        try:
+            for attempt in range(2):
                 try:
                     entry = read_item(page, ref, cards[ref], people)
+                    break
                 except BrowserError:
-                    entry = read_item(page, ref, cards[ref], people)
-                if entry:
-                    results[ref] = entry
-                    if entry[1].get('raw_stale'):
-                        failed.add(ref)
-                        reasons[entry[1]['raw_error']] += 1
-            except (BrowserError, ReadError) as exc:
-                failed.add(ref)
-                # ReadError messages from read_item are fixed labels. Browser errors may contain private page data.
-                reasons[str(exc) if isinstance(exc, ReadError) else 'navigation du dossier'] += 1
-        stored_session = ctx.storage_state()
-
-    return results, failed, reasons, stored_session
+                    url = urlsplit(page.url)
+                    if url.hostname == AUTH_HOST or url.path.rstrip('/') == '/login' or attempt:
+                        raise
+            if entry:
+                results[ref] = entry
+                if entry[1].get('raw_stale'):
+                    failed.add(ref)
+                    reasons[entry[1]['raw_error']] += 1
+        except (BrowserError, ReadError) as exc:
+            url = urlsplit(page.url)
+            if url.hostname == AUTH_HOST or url.path.rstrip('/') == '/login':
+                raise BrowserTimeout('Session école FILIZ interrompue.') from None
+            failed.add(ref)
+            reasons[str(exc) if isinstance(exc, ReadError) else 'navigation du dossier'] += 1
+        finally:
+            page.close()
+    return results, failed, reasons
 
 
 def read_filiz(config, people, stored_session, save_session, completed, save_batch):
@@ -535,29 +568,22 @@ def read_filiz(config, people, stored_session, save_session, completed, save_bat
                     if isinstance(exc, BrowserError):
                         raise
                     raise ReadError(message) from None
-        stored_session = ctx.storage_state()
-        save_session(stored_session)
-    names = {norm(p['prenom']+' '+p['nom']) for p in people}
-    eligible = [ref for ref, card in cards.items() if eligible_card(card, names)]
-    remaining = [ref for ref in eligible if ref not in completed]
-    done = len(eligible) - len(remaining)
-    logger.warning('FILIZ : catalogue complet (%d dossiers), %d à examiner, %d déjà traités.',
-                   len(cards), len(eligible), done)
-    # Retire Chromium and its driver regularly to release portal rendering memory.
-    size = 3
-    for offset in range(0, len(remaining), size):
-        group = remaining[offset:offset + size]
-        for attempt in range(3):
-            try:
-                results, failed, reasons, stored_session = read_group(config, stored_session, group, cards, people)
-                save_session(stored_session)
-                break
-            except BrowserError:
-                logger.warning('FILIZ : ouverture du groupe interrompue, essai %d/3.', attempt + 1)
-                if attempt == 2:
-                    raise
-        done += len(group)
-        save_batch(group, results, failed, done, len(eligible))
-        logger.warning('FILIZ : %d/%d examinés. Groupe : %d rattachés, %d à vérifier. %s',
-                       done, len(eligible), len(results), len(failed), dict(reasons) if reasons else '')
-    return set(eligible)
+        save_session(ctx.storage_state())
+        # Release the catalogue renderer, retain the authenticated school context.
+        page.close()
+        names = {norm(p['prenom']+' '+p['nom']) for p in people}
+        eligible = [ref for ref, card in cards.items() if eligible_card(card, names)]
+        remaining = [ref for ref in eligible if ref not in completed]
+        done = len(eligible) - len(remaining)
+        logger.warning('FILIZ : catalogue complet (%d dossiers), %d à examiner, %d déjà traités.',
+                       len(cards), len(eligible), done)
+        size = 3
+        for offset in range(0, len(remaining), size):
+            group = remaining[offset:offset + size]
+            results, failed, reasons = read_group(ctx, group, cards, people)
+            done += len(group)
+            save_batch(group, results, failed, done, len(eligible))
+            save_session(ctx.storage_state())
+            logger.warning('FILIZ : %d/%d examinés. Groupe : %d rattachés, %d à vérifier. %s',
+                           done, len(eligible), len(results), len(failed), dict(reasons) if reasons else '')
+        return set(eligible)

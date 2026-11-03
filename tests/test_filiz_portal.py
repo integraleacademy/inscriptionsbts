@@ -149,22 +149,29 @@ def test_filiz_rupture_precedes_older_wedof_status():
     conn.close()
 
 
-def test_catalogue_and_batches_release_their_browsers(monkeypatch):
+def test_catalogue_and_batches_share_login_but_close_each_dossier(monkeypatch):
     from contextlib import contextmanager
     import filiz_portal as portal
     active, launches, groups = [], [], []
+    class Page:
+        url = 'https://app.filiz.io/school'
+        def __init__(self):
+            assert not active
+            active.append(self)
+        def set_default_timeout(self, ms):
+            pass
+        def close(self):
+            assert active.pop() is self
+    class Context:
+        def new_page(self):
+            return Page()
+        def storage_state(self):
+            return len(launches)
     @contextmanager
     def browser(config, stored):
-        assert not active
-        active.append(True)
         launches.append(stored)
-        class Context:
-            def storage_state(self):
-                return len(launches)
-        try:
-            yield object(), Context()
-        finally:
-            active.pop()
+        yield Page(), Context()
+        assert not active
     card = {'text': 'Léa Test\nTitre\nApprentissage\nEngagé'}
     cards = {str(n):card for n in range(9)}
     cards['old'] = dict(text=card['text']+'\n01 mai 2025 - 01 mai 2027')
@@ -176,7 +183,7 @@ def test_catalogue_and_batches_release_their_browsers(monkeypatch):
         groups.append((len(group),done))
     refs = portal.read_filiz({}, [{'prenom':'Léa','nom':'Test'}], None, lambda data:None, {'1'}, save)
     assert refs == {str(n) for n in range(9)}
-    assert groups == [(3,4),(3,7),(2,9)] and launches == [None,1,2,3]
+    assert groups == [(3,4),(3,7),(2,9)] and launches == [None]
 
 
 def test_confirmed_waiting_schedule_preserves_previous_finance():
