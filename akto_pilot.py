@@ -44,6 +44,7 @@ def contract_card(pilot, candidate, billing):
     total, paid, remaining = (amount(pilot.get(k)) for k in ('funding', 'paid', 'balance'))
     period = str(pilot.get('period') or '').split(' au ')
     item = {
+        'source': 'akto', 'rupture_notice': bool(pilot.get('rupture_notice')),
         'working_contract_id': pilot['reference'], 'external_number': pilot['reference'],
         'financer': 'opcoCfaAkto', 'employer_name': pilot.get('employer'),
         'employer_siret': pilot.get('siret'), 'training_title': pilot.get('training'),
@@ -60,7 +61,8 @@ def contract_card(pilot, candidate, billing):
     # Keep the overall award (including extras) separate from the pedagogical schedule.
     account = billing(item)
     account.update({
-        'total': total, 'paid': paid, 'pending': None, 'remaining': remaining,
+        'total': total, 'paid': paid, 'pending': pilot.get('pending'), 'remaining': remaining,
         'paid_percent': round(100 * paid / total) if total and total > 0 and paid is not None else None,
     })
     return {'item': item, 'billing': account, 'module_dates': period if len(period) == 2 else []}
+

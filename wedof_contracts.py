@@ -297,6 +297,10 @@ def billing(item):
             row['status'], row['status_code'] = 'Réglée', 'paid'
         elif pending is not None and pending > 0:
             row['status'], row['status_code'] = 'En instruction', 'pending'
+        elif item.get('source')=='akto' and item.get('rupture_notice'):
+            row['status'], row['status_code'] = 'Prévision à vérifier', 'stale'
+        elif item.get('source')=='akto' and paid is None and row.get('dateOuverture','') <= today:
+            row['status'], row['status_code'] = 'Règlement à vérifier', 'unknown'
         elif row.get('dateOuverture') and row['dateOuverture'] <= today:
             row['status'], row['status_code'] = 'Ouverte à facturation', 'open'
         elif row.get('dateOuverture'):
@@ -946,4 +950,5 @@ def register_wedof_contracts(app, connect, require_admin):
         return jsonify(ok=True, message='Le lien avec cette fiche a été retiré. Le contrat reste dans WEDOF.')
 
     app.register_blueprint(bp)
+
 
