@@ -431,7 +431,7 @@ PJ_TITLE = "Suivre les retours de pièces justificatives"
 
 def read_pieces(page, academy, label, report, records):
     """Open the read-only worklist in its own tab so the CSV editions stay open."""
-    from cyclades_pieces import COUNT, PIECE, REF_FIELDS, number, parse_detail, verified_counts
+    from cyclades_pieces import COUNT, PIECE, REF_FIELDS, REVIEWS, number, parse_detail, verified_counts
     from datetime import datetime
     from cyclades_data import PARIS
 
@@ -534,7 +534,11 @@ def read_pieces(page, academy, label, report, records):
                 copy.querySelectorAll('div,p,tr,fieldset,legend,h1,h2,h3,h4,b,strong,label').forEach(e=>{
                     e.prepend('\\n'); e.append('\\n');
                 });
-                return {rendered:body.innerText, annotated:copy.textContent};
+                const reviews = originals.filter(s => s.getClientRects().length).map(s => ({
+                    options: [...s.options].map(o=>o.textContent.trim()),
+                    selected: s.selectedOptions[0]?.textContent.trim() || ''
+                }));
+                return {rendered:body.innerText, annotated:copy.textContent, reviews};
             }""")
             visible = text["rendered"]
             annotated = text["annotated"]
@@ -548,26 +552,40 @@ def read_pieces(page, academy, label, report, records):
                 if summary is None:
                     continue
                 record["piece_summary"] = dict(summary, checked=stamp)
-                result = parse_detail(annotated, record, ACADEMIES[academy][1])
+                # The portal keeps additional, hidden rows in the DOM. Read actual displayed
+                # items first. Pair status controls by order only for a complete set.
+                result = parse_detail(visible, record, ACADEMIES[academy][1])
+                if result is not None:
+                    controls = [s for s in text["reviews"] if any(words(opt) in REVIEWS for opt in s["options"])]
+                    docs = result["documents"]
+                    if len(controls) == len(docs):
+                        for doc, control in zip(docs, controls):
+                            doc["review"] = REVIEWS.get(words(control["selected"]))
+                else:
+                    result = parse_detail(annotated, record, ACADEMIES[academy][1])
                 if result is not None:
                     record.update(result, documents_checked=stamp)
+                    docs = result["documents"]
+                    logging.getLogger(__name__).info("CYCLADES %s PJ pièces lues : %d, dépôts explicites %d, contrôles explicites %d",
+                        academy, len(docs), sum(bool(d["deposit"]) for d in docs), sum(bool(d["review"]) for d in docs))
                     return 1
             # Show structural reasons only; never emit a student's name or references.
             header = visible[:shown.start()] if shown else ""
             markers = [set(number(v) for v in re.findall(pattern, header, re.I)) for pattern, _ in REF_FIELDS]
             matches = [[values == {number(r["details"].get(field, ""))} for values, (_,field) in zip(markers, REF_FIELDS)]
                        for r in records]
-            logging.getLogger(__name__).warning("CYCLADES %s PJ détail : références concordantes=%s, UAI=%s, compteur=%s, rubriques=%d",
+            logging.getLogger(__name__).warning("CYCLADES %s PJ détail : références concordantes=%s, UAI=%s, compteur=%s, rubriques visibles=%s, rubriques DOM=%d",
                 academy, matches, ACADEMIES[academy][1] in header, shown.groups() if shown else (),
+                [m[1] for m in PIECE.finditer(visible[shown.end():]) if re.fullmatch(r"[A-Z]{2,10}\d{1,3}",m[1])] if shown else [],
                 len(PIECE.findall(annotated[annotated.find(shown[0]):] if shown else annotated)))
             return 0
         counter = re.compile(r"Pièces justificatives conformes\s*:")
-        next_name = re.compile(r"^(?:(?:aller [àa] la |afficher la )?page )?suivant(?:e)?$", re.I)
+        next_name = re.compile(r"^(?:(?:aller [àa] la |afficher la )?page )?suivant(?:e)?(?:\s*\([^)]*\))?$", re.I)
         targets = [r for items in expected.values() for r in items]
 
         def next_control(frame):
             return frame.get_by_role("link", name=next_name).or_(
-                frame.get_by_role("button", name=next_name)).or_(frame.get_by_title(next_name)).filter(visible=True)
+                frame.get_by_role("button", name=next_name)).or_(frame.get_by_title(next_name)).or_(frame.get_by_alt_text(next_name)).filter(visible=True)
 
         # Some selections lead directly to the detail navigator.
         detail = next((f for f in active() if f.get_by_text(counter).count()), None)
@@ -710,6 +728,19 @@ def read_pieces(page, academy, label, report, records):
                     advanced = True
                     break
             if not advanced:
+                for frame in active():
+                    counts = frame.evaluate("""() => ({
+                        rows: document.querySelectorAll('tr').length,
+                        pages: [...document.querySelectorAll('a,button,input,select,img,[role=button]')].map(e =>
+                           [e.title,e.getAttribute('alt'),e.getAttribute('aria-label'),e.textContent?.trim()].find(t =>
+                              t && /^(?:page |suivant|précédent|.{0,15}page suivante|[1-9]$)/i.test(t) && t.length < 40))
+                           .filter(Boolean).map(t => t.replace(/[^0-9]/g,'').length > 0 ? 'numéroté' : 'navigation'),
+                        scrollables: [...document.querySelectorAll('div')].filter(e => e.clientHeight > 0 &&
+                            e.scrollHeight > e.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(e).overflowY)).length
+                    })""")
+                    logging.getLogger(__name__).warning("CYCLADES %s PJ navigation | %s", academy, counts)
+                logging.getLogger(__name__).info("CYCLADES %s PJ fin de liste | %s", academy,
+                    " ".join(filter_structure(f) for f in active()))
                 break
     except (Error, CycladesError) as exc:
         action = re.search(r"(Locator|Page|ElementHandle)\.([a-z_]+):", str(exc))

@@ -58,7 +58,9 @@ def test_activity_reads_each_matched_registration_in_both_academies(monkeypatch)
                     body = f"""<p>N° candidat : {n} N° inscription : 001 Version : 3</p><p>Code Etab : {uai}</p>
                     <p>Pièces justificatives conformes : 0 / 1</p><div>CINSIG03 : Confirmation signée</div>
                     <div>Aucun fichier par le candidat</div><div>Aucun fichier par le gestionnaire</div>
-                    <select><option>En attente de contrôle</option></select>"""
+                    <select><option>En attente de contrôle</option><option>Conforme</option></select>
+                    <div style="display:none">IDENT01 : Identité ancienne
+                    <select><option>Conforme</option></select></div>"""
                 route.fulfill(content_type="text/html; charset=utf-8", body=body)
             with browser.new_context() as context:
                 context.route("**/*", serve)
