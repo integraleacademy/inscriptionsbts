@@ -49,9 +49,13 @@ function setup({preview = true, saved = null} = {}) {
     const {dom,d,form,click,current,choose,fill,jump,file,calls} = setup();
     check(!d.getElementById('application-guide').hidden && d.getElementById('application-journey').hidden, 'Preparation is the initial view');
     check(d.getElementById('start-application').textContent.includes('Commencer ma pré-inscription'), 'Requested start label appears');
+    check(d.getElementById('choix-formation').hidden, 'Training choices are hidden on arrival');
     d.querySelector('[data-prepared=identity]').click();
     check(d.getElementById('preparation-count').textContent === '1 / 5 pièces préparées', 'Checklist counts prepared documents');
     click('start-application');
+    check(!d.getElementById('choix-formation').hidden && d.getElementById('application-journey').hidden, 'First click shows the three routes without the form');
+    click('choice-back'); check(!d.getElementById('application-guide').hidden && d.getElementById('choix-formation').hidden, 'Back restores preparation');
+    click('start-application'); click('start-bts');
     check(current() === 'formation' && d.getElementById('application-guide').hidden, 'Starting reveals only the BTS choice');
     check(d.querySelectorAll('.application-step:not([hidden])').length === 1, 'Exactly one question screen is visible');
     choose('bts','MCO'); click('next-step');
@@ -98,7 +102,7 @@ function setup({preview = true, saved = null} = {}) {
   }
   {
     const {dom,d,form,calls,click,current,choose,fill,file,w,celebrated} = setup({preview:false});
-    click('start-application'); click('next-step');
+    click('start-application'); click('start-bts'); click('next-step');
     check(current() === 'formation' && !d.getElementById('application-error').hidden, 'BTS selection is required');
     choose('bts','MCO'); click('next-step'); click('next-step');
     check(current() === 'format', 'Course mode is required on its own screen');
@@ -159,7 +163,7 @@ function setup({preview = true, saved = null} = {}) {
     dom.window.close();
   }
   {
-    const {dom,click,current,calls} = setup({preview:false}); click('start-application'); click('save-application');
+    const {dom,click,current,calls} = setup({preview:false}); click('start-application'); click('start-bts'); click('save-application');
     check(current()==='email' && calls.length===0, 'Saving without email focuses the correct new email screen without sending');
     dom.window.close();
   }

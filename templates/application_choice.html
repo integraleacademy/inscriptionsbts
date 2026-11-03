@@ -1,17 +1,11 @@
-<section class="route-picker" id="choix-formation" aria-labelledby="catalog-title">
+<section class="route-picker" id="choix-formation" hidden aria-labelledby="catalog-title">
   <div class="section-overline"><span>01</span> ORIENTATION</div>
   <h2 id="catalog-title" tabindex="-1">Choisis ta formation</h2>
-  {% if title_code %}
-    <div class="picked-route"><span class="route-symbol">{{ icon('briefcase') }}</span><div><small>TITRE PROFESSIONNEL</small><h3>{{ title_label }}</h3>
-      {% if promotion %}<p>{{ promotion.nom }} · Du {{ promotion.date_debut|dmy }} au {{ promotion.date_fin|dmy }}</p>{% endif %}</div>
-      <button type="button" id="start-application" class="button button-dark" data-start-application><span data-start-label>Commencer ma pré-inscription</span> {{ icon('arrow') }}</button>
-    </div>
-  {% else %}
     <p class="section-description">Sélectionne le parcours que tu souhaites rejoindre.</p>
     <div class="route-options">
-      <button type="button" class="route-option route-bts" id="start-application" data-start-application>
+      <button type="button" class="route-option route-bts" id="start-bts">
         <span class="route-symbol">{{ icon('book') }}</span>
-        <strong>BTS en alternance</strong><span class="route-action"><span data-start-label>Commencer ma pré-inscription</span> {{ icon('arrow') }}</span>
+        <strong>BTS en alternance</strong><span class="route-action">Choisir un BTS {{ icon('arrow') }}</span>
       </button>
       <a class="route-option route-titles" id="toggle-titles" href="#titres-professionnels" aria-expanded="false" aria-controls="titres-professionnels">
         <span class="route-symbol">{{ icon('briefcase') }}</span>
@@ -26,5 +20,5 @@
       <h3 id="titles-heading" tabindex="-1">Titres et sessions</h3>
       {% include '_title_offers.html' %}
     </section>
-  {% endif %}
+  <button type="button" class="text-link" id="choice-back">← Revoir les pièces à préparer</button>
 </section>

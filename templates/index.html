@@ -4,19 +4,11 @@
 {% import 'application_information.html' as information %}
 {% set formation_chapter = 'Ton titre professionnel' if title_code else 'Ton BTS' %}
 {% block body_class %}application-page{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/admission-catalog.css') }}"><link rel="stylesheet" href="{{ url_for('static',filename='css/application-journey.css') }}?v=4">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/admission-catalog.css') }}"><link rel="stylesheet" href="{{ url_for('static',filename='css/application-journey.css') }}?v=5">{% endblock %}
 {% block content %}
-{% if preview %}
-<details class="preview-tools">
-  <summary><span><i aria-hidden="true"></i> Aperçu administrateur</span><span>Options d’aperçu {{ icon('chevron-down') }}</span></summary>
-  <div class="preview-notice">
-    <label><input type="checkbox" id="preview-validation"> Tester les contrôles de saisie</label>
-    <label>Aller à <select id="preview-step"><option value="guide">Guide de préparation</option></select></label>
-    <button type="button" id="preview-success">Voir la confirmation</button>
-  </div>
-</details>
-{% endif %}
+{% if preview %}<div class="preview-notice"><b>Aperçu administrateur</b><span>Parcourez le guide et toutes les questions sans saisir de données.</span><label><input type="checkbox" id="preview-validation"> Tester les contrôles de saisie</label><label>Aller à <select id="preview-step"><option value="guide">Guide de préparation</option>{% if not title_code %}<option value="choice">Choix de formation</option>{% endif %}</select></label><button type="button" id="preview-success">Voir la confirmation</button></div>{% endif %}
 {% include 'application_preparation.html' %}
+{% if not title_code %}{% include 'application_choice.html' %}{% endif %}
 <div id="application-journey" class="application-layout" hidden>
   <aside class="application-aside">
     <div class="journey-intro"><p class="eyebrow">DOSSIER DE CANDIDATURE</p><h2>Ta candidature, <br><em>pas à pas.</em></h2><p>{{ title_label or "Intégrale Academy" }}</p></div>
@@ -105,5 +97,5 @@
 <script id="saved-application" type="application/json">{{ saved_data | default(None) | tojson }}</script>
 <script src="{{ url_for('static', filename='js/admission-validation.js') }}?v=3" defer></script>
 <script src="{{ url_for('static', filename='js/place-autocomplete.js') }}" defer></script>
-<script src="{{ url_for('static', filename='js/application-2027.js') }}?v=7" defer></script>
+<script src="{{ url_for('static', filename='js/application-2027.js') }}?v=8" defer></script>
 {% endblock %}
