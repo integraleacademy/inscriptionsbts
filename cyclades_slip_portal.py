@@ -11,7 +11,7 @@ from cyclades_data import ACADEMIES, MAX_BYTES, CycladesError, words
 from cyclades_slips import read_slips, slip_key
 
 ACTIVITY = re.compile(r"^G[ée]n[ée]rer\s+les comptes\s+(?:CYCLADES\s+)?(?:de mes|des)\s+[ée]l[èe]ves$", re.I)
-SUMMARY = re.compile(r"^Afficher le compte[ -]rendu$", re.I)
+SUMMARY = re.compile(r"^(?:Afficher|Consulter|Voir)\s+(?:le |les )?comptes?[\s-]*rendus?(?:\s+du traitement)?$", re.I)
 DOCUMENT = re.compile(r"papillons?\s*(?:d['’]\s*)?informations?\s*(?:de\s*)?connexion\s*(?:cyclades)?", re.I)
 
 
@@ -27,7 +27,13 @@ def open_accounts_menu(shell):
             labels = frame.get_by_text(ACTIVITY)
             for label in labels.all():
                 if label.evaluate("e => !e.closest('button,input[type=submit]') && (!e.closest('form') || e.closest('nav,aside,a,li,[role=menuitem],[id^=ACTV_],[id^=ETABLISSEMENT_]'))"):
-                    label.dispatch_event("click")
+                    # An accessible label can be a span inside the actual shell link.
+                    link = label.locator("xpath=ancestor-or-self::a[1]")
+                    action = link if link.count() == 1 else label
+                    if action.is_visible():
+                        action.click()
+                    else:
+                        action.evaluate("e => e.click()")
                     return True
         return False
 
@@ -52,6 +58,7 @@ def read_account_slips(page, academy, session, records, cipher):
         return
     context = page.context
     existing = set(context.pages)
+    previous = {frame: frame.url for tab in existing for frame in tab.frames}
     shell = context.new_page()
     shell.set_default_timeout(6000)
     downloads, responses = [], []
@@ -63,17 +70,18 @@ def read_account_slips(page, academy, session, records, cipher):
         if (official(response.url) and response.ok
                 and "application/pdf" in response.headers.get("content-type", "").lower()
                 and "attachment" not in response.headers.get("content-disposition", "").lower()
-                and response.frame.page not in existing):
+                and previous.get(response.frame) != response.frame.url):
             responses.append(response)
 
     def frames():
-        return [f for window in context.pages if window not in existing for f in window.frames
-                if urlsplit(f.url).hostname == CENTRAL]
+        return [f for window in context.pages for f in window.frames if previous.get(f) != f.url and (
+                official(f.url) or (f.url in ("about:blank", "about:srcdoc") and f.parent_frame and official(f.parent_frame.url)))]
 
     def visible_control(frame, pattern):
         return frame.get_by_role("button", name=pattern).or_(frame.get_by_role("link", name=pattern)).filter(visible=True)
 
     phase = "menu établissement"
+    context_seen = False
     context.on("page", watch)
     context.on("response", pdf_response)
     watch(shell)
@@ -95,6 +103,8 @@ def read_account_slips(page, academy, session, records, cipher):
         selected_session = False
         while time.monotonic() < deadline and summary is None:
             for frame in frames():
+                if frame.locator("#selectContexte:visible").count():
+                    context_seen = True
                 if select_report_context(frame, session):
                     selected_session = True
                     break
@@ -162,10 +172,27 @@ def read_account_slips(page, academy, session, records, cipher):
         logging.getLogger(__name__).warning("CYCLADES %s papillons : %d/%d accès rattachés", academy, len(found), len(wanted))
     except (Error, CycladesError, OSError, ValueError):
         # Keep navigation identifiers only, never page text or candidate data.
+        structure = []
         ids = set()
         controls = set()
         for frame in frames():
             try:
+                # Log structural facts from the menu only. Never values, URLs or PDF text.
+                nodes = frame.get_by_text(ACTIVITY)
+                if nodes.count():
+                    structure.extend(nodes.evaluate_all("""els => els.slice(0,4).map(e => {
+                        const tags=[]; for(let n=e; n && tags.length<5; n=n.parentElement) {
+                            tags.push(n.tagName + (n.hasAttribute('onclick')?'*':'') +
+                                (n.tagName==='A' && n.getAttribute('href')?'(link)':''));
+                        } return tags.join('/');
+                    })"""))
+                for flag, pattern in (("générer",re.compile("^Générer$",re.I)),
+                                      ("choix",re.compile("choisir.*session",re.I)),
+                                      ("aucune édition",re.compile("aucun(?:e)? (?:édition|compte.rendu|traitement)",re.I))):
+                    if frame.get_by_text(pattern).count():
+                        controls.add(flag)
+                if frame.locator("#selectContexte:visible").count():
+                    controls.add("sélecteur")
                 ids.update(frame.locator('[id^="ACTV_"],[id^="ETABLISSEMENT_"]').evaluate_all(
                     "(els) => els.map(e => e.id).filter(s => /^(ACTV|ETABLISSEMENT)_[A-Z_]{1,90}$/.test(s) && /COMPTE|ETABLISSEMENT_|PAPILLON/.test(s))"))
                 for name, pattern in (("activité", ACTIVITY), ("compte-rendu", SUMMARY), ("document", DOCUMENT)):
@@ -173,8 +200,9 @@ def read_account_slips(page, academy, session, records, cipher):
                         controls.add(name)
             except Error:
                 continue
-        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), menu %s, contrôles %s",
-            academy, phase, ",".join(sorted(ids)) or "—", ",".join(sorted(controls)) or "—")
+        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), structure %s, contexte %s/%s, contrôles %s, menu %s",
+            academy, phase, ",".join(structure) or "—", context_seen, selected_session if phase not in
+            ("menu établissement","chargement du menu","activité comptes élèves") else False, ",".join(sorted(controls)) or "—", ",".join(sorted(ids)) or "—")
     finally:
         context.remove_listener("response", pdf_response)
         context.remove_listener("page", watch)
