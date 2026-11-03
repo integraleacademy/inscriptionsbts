@@ -237,6 +237,18 @@ def apply_report(conn, academy, report, origin):
         outcome = ("ambiguous" if cid in ambiguous else "matched" if found[cid] else
                    "incomplete" if not all(ident) else "missing")
         fingerprint = json.dumps(ident, ensure_ascii=False)
+        if outcome == "matched":
+            last = conn.execute("SELECT records FROM cyclades_students WHERE candidate_id=? AND academy=? AND year=? AND identity=?",
+                                (cid, academy, year, fingerprint)).fetchone()
+            if last:
+                def registration(record):
+                    return tuple(record["details"].get(k) for k in ("N° de candidat", "N° d’inscription", "Version"))
+                earlier = {registration(r): r for r in json.loads(last[0]) if r.get("documents_checked")}
+                for record in found[cid]:
+                    old = earlier.get(registration(record))
+                    if old and not record.get("documents_checked") and not record.get("documents"):
+                        for key in ("documents", "documents_checked", "requested", "conforming"):
+                            record[key] = old[key]
         payload = json.dumps(found[cid] if outcome == "matched" else [], ensure_ascii=False)
         conn.execute("""INSERT INTO cyclades_students VALUES (?,?,?,?,?,?,?)
             ON CONFLICT(candidate_id,academy,year) DO UPDATE SET

@@ -114,3 +114,5 @@
   .cy-facts { grid-template-columns: 1fr; }
   .cy-pieces { padding: 10px; }
 }
+
+.cy-pj-meta { display: block; font-size: .75rem; font-weight: 400; color: var(--cy-muted); }

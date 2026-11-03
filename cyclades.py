@@ -17,7 +17,7 @@ from flask import abort, flash, redirect, render_template, request, session, url
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, apply_report, identity, parse_report, with_exams, words
 from cyclades_portal import read_academy
 
-READER_VERSION = 8
+READER_VERSION = 9
 
 
 def cipher(app):
@@ -85,7 +85,7 @@ def sheet_status(conn, student):
                 can_search=bool(sources) and identifiable, unsearched=unsearched if identifiable else [])
 
 
-def run_due(app, connect, directory, *, now=None, fetch=read_academy):
+def run_due(app, connect, directory, *, now=None, fetch=None):
     # flock is held only across this worker's batch, never across a web request.
     # A worker exit frees it immediately. SQLite stores the durable per-academy
     # day and checkpoints completed sessions, independently of Flask sessions.
@@ -104,7 +104,7 @@ def run_due(app, connect, directory, *, now=None, fetch=read_academy):
                     continue
                 # First connection is checked immediately. Subsequent days start at 08:00.
                 recovering = row["status"] == "running" or (
-                    row["status"] == "error" and row["reader_version"] < READER_VERSION)
+                    (row["status"] == "error" or (key == "nice" and row["reader_version"] == 8)) and row["reader_version"] < READER_VERSION)
                 if not recovering and row["day"] is not None and (row["day"] == today or clock.hour < 8):
                     continue
                 revision = row["revision"]
@@ -115,7 +115,16 @@ def run_due(app, connect, directory, *, now=None, fetch=read_academy):
             counts = []
             try:
                 credentials = json.loads(cipher(app).decrypt(row["credential"]))
-                with closing(fetch(key, credentials)) as reports:
+                if fetch is None:
+                    with closing(connect()) as conn:
+                        known = set()
+                        for item in conn.execute("SELECT year, records FROM cyclades_students WHERE academy=? AND outcome='matched'", (key,)):
+                            for known_record in json.loads(item["records"]):
+                                known.add((item["year"], known_record["details"].get("N° de candidat")))
+                    source = read_academy(key, credentials, known)
+                else:
+                    source = fetch(key, credentials)
+                with closing(source) as reports:
                     for report in reports:
                         if isinstance(report, CycladesError):
                             errors.append(str(report))
