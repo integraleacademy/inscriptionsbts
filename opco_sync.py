@@ -5,6 +5,7 @@ import fcntl
 import hashlib
 import hmac
 import json
+import os
 from pathlib import Path
 import threading
 
@@ -209,7 +210,7 @@ def register_opcos(app, connect, require_admin, directory):
 
     def start():
         nonlocal thread
-        if not app.testing:
+        if not app.testing and os.environ.get('FILIZ_SYNC_DISABLED') != '1':
             with guard:
                 if thread is None or not thread.is_alive():
                     thread = threading.Thread(target=worker, name='opco-bts', daemon=True)

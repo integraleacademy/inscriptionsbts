@@ -76,6 +76,7 @@ def test_a_link_appears_immediately_and_multiple_contracts_count_one_student(dir
     assert kpis(directory.get('/admin/inscriptions').text)['with_contract'] == 2
     with application.db() as conn:
         contract(conn,'unknown','found')
+        complete(conn)
     data = directory.get('/admin/inscriptions/donnees?contract=yes').json
     assert kpis(data['stats_html'])['with_contract'] == 3
     assert 'data-enrollment-id="unknown"' in data['rows_html']
