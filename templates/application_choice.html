@@ -1,10 +1,10 @@
-{% macro pathway(image, badge, title, description, action, glyph='arrow') %}
+{% macro pathway(image, badge, title, description, action) %}
   <span class="route-art">
     <img src="{{ url_for('static', filename=image) }}" alt="" width="480" height="270" loading="lazy">
     <span class="route-badge">{{ badge }}</span>
   </span>
   <span class="route-copy"><strong>{{ title }}</strong><span>{{ description }}</span></span>
-  <span class="route-action">{{ action }} <span>{{ icon(glyph) }}</span></span>
+  <span class="route-action">{{ action }}</span>
 {% endmacro %}
 <section class="route-picker" id="choix-formation" hidden aria-labelledby="catalog-title">
   <header class="route-heading">
@@ -23,5 +23,5 @@
       {{ pathway('parcours-alternance/aps.webp', 'Terrain', 'Parcours sécurité en alternance', 'Forme-toi en un an à la surveillance de sites, à la protection rapprochée (garde du corps) et à la sécurité incendie.', 'Ouvrir ma candidature') }}
     </a>
   </div>
-  <button type="button" class="text-link" id="choice-back">← Revoir les pièces à préparer</button>
+  <button type="button" class="text-link" id="choice-back">Revoir les pièces à préparer</button>
 </section>

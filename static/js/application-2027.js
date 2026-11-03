@@ -176,6 +176,7 @@
     document.getElementById('step-percent').textContent = `${Math.round(position / (active.length - 1) * 100)} %`;
     document.getElementById('application-progress').value = position;
     document.getElementById('application-progress').max = active.length - 1;
+    previous.setAttribute('aria-label', position === 0 ? 'Revenir au choix de formation' : 'Revenir à l’étape précédente');
     next.hidden = current === active.at(-1); send.hidden = !next.hidden;
     if (previewSelect && started && !journey.hidden) previewSelect.value = String(index);
   }
@@ -223,7 +224,7 @@
   }
   previous.addEventListener('click', () => {
     const active = activeSteps(), position = active.indexOf(steps[index]);
-    if (position > 0) show(steps.indexOf(active[position-1])); else if (titleJourney) location.assign(document.querySelector('.catalog-return').href); else if (catalog) showChoice(); else showGuide();
+    if (position > 0) show(steps.indexOf(active[position-1])); else if (titleJourney) location.assign(previous.dataset.orientationUrl); else if (catalog) showChoice(); else showGuide();
   });
   next.addEventListener('click', advance);
   nav.forEach(button => button.addEventListener('click', () => {
@@ -243,10 +244,6 @@
   document.getElementById('start-bts')?.addEventListener('click', () => show(index));
   document.getElementById('choice-back')?.addEventListener('click', () => showGuide());
   document.getElementById('review-preparation').addEventListener('click', () => showGuide());
-  document.querySelector('[data-choose-formation]')?.addEventListener('click', event => {
-    event.preventDefault();
-    showChoice();
-  });
   function openLinkedSection() {
     if (location.hash === '#titres-professionnels') {
       location.replace(document.getElementById('choose-titles').href);

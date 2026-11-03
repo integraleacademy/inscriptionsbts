@@ -14,4 +14,3 @@
   </select>
 </label>
 {% if not preview and not title_offers|selectattr('promotions')|list %}<p class="field-hint">Les candidatures ouvriront dès qu’une session sera programmée.</p>{% endif %}
-<a class="catalog-return" href="{{ url_for('candidature', preview=1, _anchor='choix-formation') if preview else url_for('candidature', _anchor='choix-formation') }}">← Revenir au choix de formation</a>
