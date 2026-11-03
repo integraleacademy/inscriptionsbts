@@ -6,7 +6,7 @@
 {% endmacro %}
 {% macro screen(id,title,group,heading,hint='',condition='') %}
 <section class="application-step" data-step-id="{{ id }}" data-title="{{ title }}" data-group="{{ group }}" {% if condition %}data-step-condition="{{ condition }}"{% endif %} hidden aria-labelledby="heading-{{ id }}">
-  <p class="eyebrow">{{ ['TA FORMATION','FAISONS CONNAISSANCE','POUR GARDER LE CONTACT','TON POINT DE DÉPART','CE QUI TE RESSEMBLE','LES PIÈCES DE TON DOSSIER','LE DERNIER COUP D’ŒIL'][group] }}</p>
+  <p class="eyebrow">{{ ['TA FORMATION','FAISONS CONNAISSANCE','POUR GARDER LE CONTACT','TON POINT DE DÉPART','CE QUI TE RESSEMBLE','LES PIÈCES DE TON DOSSIER','VÉRIFICATION DU DOSSIER'][group] }}</p>
   <h2 id="heading-{{ id }}" tabindex="-1">{{ heading|safe }}</h2>
   {% if hint %}<p class="step-hint">{{ hint }}</p>{% endif %}
   {{ caller() }}

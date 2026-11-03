@@ -24,7 +24,7 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     assert catalog.has_attr('hidden') and guide.find_next_sibling('section') == catalog
     assert catalog.select_one('#start-bts') and catalog.select_one('a#choose-titles')
     shared_fields = {field['name'] for field in preview.select('#application-form [name]')}
-    shared_fields -= {'mos_parcours', 'aps_souhaitee', 'raison_aps', 'admin_preview'}
+    shared_fields -= {'mos_parcours', 'aps_souhaitee', 'raison_aps', 'admin_preview', 'cherche_idf'}
     public = page(guest, '/').select_one('#choix-formation')
     assert public.select_one('a[href="#inscriptions-bts"]')
     assert not preview.select('.catalog-title-list') and not public.select('.catalog-title-list')
@@ -38,7 +38,10 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
         assert len(form.select('#step-navigation button')) == 7
         assert form.select_one('#next-step') and form.select_one('#application-progress')
         assert form.select_one('#application-form')['data-title-journey'] == 'true'
-    assert all(radio.has_attr('disabled') for radio in public_titles.select('#titres-professionnels input'))
+    assert public_titles.select_one('#title-intake-notice')
+    assert not public_titles.select('[name=cherche_idf], [name=mode][value=distanciel]')
+    assert len(public_titles.select('[data-training-info]')) == len(ACADEMY_TITLES)
+    assert not public_titles.select('[data-token]')
     assert not title_page.select('#titres-professionnels input[disabled]')
     assert title_page.select_one('button[type=submit][disabled]')
     assert not title_page.select('[name=submission_token]')

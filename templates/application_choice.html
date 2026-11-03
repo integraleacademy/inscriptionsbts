@@ -17,7 +17,7 @@
       {{ pathway('admissions/student-space-illustration.webp', 'Diplôme', 'BTS en alternance', 'Choisis ta spécialité et partage ton temps entre les cours et l’entreprise.', 'Choisir un BTS') }}
     </button>
     <a class="route-option route-titles" id="choose-titles" href="{{ url_for('title_selection', preview=1) if preview else url_for('title_selection') }}">
-      {{ pathway('admissions/company-space-illustration.webp', 'Certification', 'Titres professionnels', 'Découvre les métiers proposés et les sessions ouvertes aux candidatures.', 'Choisir un titre professionnel') }}
+      {{ pathway('admissions/company-space-illustration.webp', 'Certification', 'Titres professionnels', 'Découvre les métiers et leurs formations à l’école à Puget-sur-Argens, Côte d’Azur.', 'Choisir un titre professionnel') }}
     </a>
     <a class="route-option route-security" href="{{ url_for('security_application_preview' if preview else 'security_application') }}">
       {{ pathway('parcours-alternance/aps.webp', 'Terrain', 'Parcours sécurité en alternance', 'Forme-toi en un an à la surveillance de sites, à la protection rapprochée (garde du corps) et à la sécurité incendie.', 'Ouvrir ma candidature') }}

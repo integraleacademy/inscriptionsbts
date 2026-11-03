@@ -11,6 +11,7 @@ import threading
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
+from campaign import campaign_is_open
 from flask import abort, jsonify, redirect, render_template, request, session, url_for
 from itsdangerous import BadData, URLSafeTimedSerializer
 
@@ -73,7 +74,7 @@ def ensure_schema(conn):
 
 
 def register_formation_intake(app, connect, send_mail, require_admin, validate_application, attach_title_dossier,
-                              save_application_draft):
+                              save_application_draft, admissions_available):
     app.extensions['formation_connect'] = connect
     tokens = URLSafeTimedSerializer(app.secret_key, salt='formation-intake-v1')
 
@@ -243,20 +244,28 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
             abort(404)
         return rows[0]
 
+    def title_intake_notice():
+        return ('Les candidatures pour les titres professionnels ouvrent le 1er décembre 2026 à 10 h.'
+                if not campaign_is_open() else 'Les candidatures pour les titres professionnels sont momentanément fermées.')
+
     def title_form(code=None, promotion=None, *, preview=False, saved_data=None):
         with closing(connect()) as conn:
             offers = list(admission_titles(conn))
         labels = {offer['code']: offer['name'] for offer in offers}
         if code is not None and code not in labels:
             abort(404)
-        session_tokens = {} if preview else {
+        intake_open = admissions_available()
+        if saved_data is not None:
+            saved_data = dict(saved_data, mode='presentiel')
+            saved_data.pop('cherche_idf', None)
+        session_tokens = {} if preview or not intake_open else {
             group['id']: credentials(group['id'])['submission_token']
             for offer in offers for group in offer['promotions']
         }
         return render_template('index.html', title='Choisir un titre professionnel · Intégrale Academy',
                                title_offers=offers, title_code=code, title_label=labels.get(code), promotion=promotion,
                                preview=preview, saved_data=saved_data, csrf=None if preview else csrf(),
-                               session_tokens=session_tokens,
+                               session_tokens=session_tokens, intake_open=intake_open, intake_notice=title_intake_notice(),
                                submission_token=session_tokens.get(promotion['id']) if promotion else None)
 
     @app.get('/titres-professionnels/apercu')
@@ -277,6 +286,8 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
             promotion = active_title_promotion(conn, promotion_id)
         if request.method == 'GET':
             return title_form(promotion['bts'], promotion)
+        if not admissions_available():
+            return jsonify(ok=False, error=title_intake_notice()), 403
         form = request.form
         if form.get('admin_preview') == '1':
             return jsonify(ok=False, error='Cet aperçu ne permet pas de déposer un dossier.'), 403
@@ -300,6 +311,8 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
 
     @app.post('/titres-professionnels/candidature/<promotion_id>/brouillon')
     def title_application_draft(promotion_id):
+        if not admissions_available():
+            return jsonify(success=False, error=title_intake_notice()), 403
         with closing(connect()) as conn:
             promotion = active_title_promotion(conn, promotion_id)
         data = request.get_json(silent=True) or {}
@@ -310,7 +323,9 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
                 raise ValueError('Le titre doit correspondre à la session choisie.')
         except ValueError as error:
             return jsonify(success=False, error=str(error)), 400
-        return save_application_draft(dict(form, title_promotion_id=promotion_id), promotion['rentree_annee'])
+        draft = dict(form, title_promotion_id=promotion_id, mode='presentiel')
+        draft.pop('cherche_idf', None)
+        return save_application_draft(draft, promotion['rentree_annee'])
 
     @app.get('/titres-professionnels/candidature-recue')
     def title_application_received():

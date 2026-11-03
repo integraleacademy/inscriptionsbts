@@ -1117,7 +1117,7 @@ def opening_calendar():
         "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Integrale Academy//Admissions//FR",
         "BEGIN:VEVENT", "UID:bts-2027-opening@integraleacademy.com", "DTSTAMP:20261024T000000Z",
         "DTSTART:20261201T090000Z", "DTEND:20261201T093000Z",
-        "SUMMARY:Ouverture des inscriptions BTS 2027 - Integrale Academy",
+        "SUMMARY:Ouverture des inscriptions BTS en alternance et titres professionnels 2027 - Integrale Academy",
         "DESCRIPTION:Candidatez sur https://inscriptionsbts.onrender.com/",
         "URL:https://inscriptionsbts.onrender.com/", "END:VEVENT", "END:VCALENDAR", ""
     ])
@@ -1211,6 +1211,8 @@ def reprendre_formulaire(token):
     draft = next((d for d in drafts if d.get("id") == token), None)
     saved_full_form = (draft or {}).get("full_form", {})
     if saved_full_form.get("title_promotion_id"):
+        if not admissions_available():
+            return redirect(url_for("title_selection"))
         with closing(db()) as conn:
             rows = open_title_promotions(conn, saved_full_form["title_promotion_id"])
         if not rows or (rows[0]["bts"], rows[0]["rentree_annee"]) != (saved_full_form.get("bts"), saved_full_form.get("rentree_annee")):
@@ -1235,7 +1237,9 @@ def validate_application(form, files, *, title_code=None):
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", form.get("email", "")) or form.get("email", "").lower() != form.get("email_confirm", "").lower():
         return "Les deux adresses e-mail doivent être valides et identiques."
     if title_code:
-        if form.get("bts") != title_code or form.get("mode") not in {"presentiel", "distanciel"}:
+        if form.get("mode") != "presentiel":
+            return "Les cours de ce titre ont lieu à l’école à Puget-sur-Argens, Côte d’Azur."
+        if form.get("bts") != title_code:
             return "La formation doit correspondre à la session choisie."
     elif form.get("bts") not in BTS_LABELS or form.get("mode") not in {"presentiel", "distanciel"}:
         return "Choisissez votre BTS et votre mode de formation."
@@ -1265,7 +1269,8 @@ def validate_application(form, files, *, title_code=None):
             return "Précisez votre souhait concernant la formation APS."
     if form.get("bac_type") == "Autre" and not form.get("bac_autre", "").strip():
         return "Précisez votre type de baccalauréat."
-    for key in ("entreprise_trouvee", "recherches_commencees", "cherche_idf"):
+    search_fields = ("entreprise_trouvee", "recherches_commencees")
+    for key in search_fields if title_code else (*search_fields, "cherche_idf"):
         if form.get(key) not in ("oui", "non"):
             return "Complétez les réponses concernant votre recherche d’entreprise."
     if form.get("bts") == "MOS" and form.get("mos_parcours") == "autre" and form.get("aps_souhaitee") == "non" and not form.get("raison_aps", "").strip():
@@ -3553,7 +3558,7 @@ from gestionstagiaires_api import register_gestionstagiaires_api
 register_gestionstagiaires_api(app, db, UPLOAD_DIR)
 render_title_journey = register_formation_intake(
     app, db, lambda *args, **kwargs: send_mail(*args, **kwargs), require_admin,
-    validate_application, attach_title_dossier, save_application_draft)
+    validate_application, attach_title_dossier, save_application_draft, admissions_available)
 
 if __name__ == "__main__":
     # Render starts this file with Werkzeug's reloader. Start in the serving

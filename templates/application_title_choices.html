@@ -1,6 +1,6 @@
 <div class="training-choices" id="titres-professionnels">
   {% for offer in title_offers %}
-    <label class="training-choice"><input type="radio" name="bts" value="{{ offer.code }}" required {% if offer.code == title_code %}checked{% endif %} {% if not preview and not offer.promotions %}data-unavailable disabled{% endif %}>
+    <label class="training-choice"><input type="radio" name="bts" value="{{ offer.code }}" required {% if offer.code == title_code %}checked{% endif %} >
       <span><b>{{ offer.name }}</b>{% if not offer.promotions and not preview %}<small>Aucune session ouverte</small>{% endif %}</span></label>
   {% endfor %}
 </div>
@@ -8,9 +8,32 @@
   <select id="title-session"><option value="">Choisis une session</option>
     {% for offer in title_offers %}{% for group in offer.promotions %}
       <option value="{{ group.id }}" data-title="{{ offer.code }}" data-year="{{ group.rentree_annee }}"
-        {% if not preview %}data-submit="{{ url_for('title_application', promotion_id=group.id) }}" data-draft="{{ url_for('title_application_draft', promotion_id=group.id) }}" data-token="{{ session_tokens[group.id] }}"{% endif %}
+        {% if not preview and intake_open %}data-submit="{{ url_for('title_application', promotion_id=group.id) }}" data-draft="{{ url_for('title_application_draft', promotion_id=group.id) }}" data-token="{{ session_tokens[group.id] }}"{% endif %}
         {% if promotion and promotion.id == group.id %}selected{% endif %}>{{ group.nom }} · Du {{ group.date_debut|dmy }} au {{ group.date_fin|dmy }}</option>
     {% endfor %}{% endfor %}
   </select>
 </label>
-{% if not preview and not title_offers|selectattr('promotions')|list %}<p class="field-hint">Les candidatures ouvriront dès qu’une session sera programmée.</p>{% endif %}
+{% if not preview and not intake_open %}<p class="field-hint" id="title-intake-notice">{{ intake_notice }} Tu peux déjà sélectionner un titre pour découvrir la formation.</p>
+{% elif not preview and not title_offers|selectattr('promotions')|list %}<p class="field-hint">Les candidatures ouvriront dès qu’une session sera programmée.</p>{% endif %}
+
+{% set profiles = {
+  "ASSISTANT RESSOURCES HUMAINES": ("41366", "Tu apprends à suivre les dossiers du personnel, à préparer les éléments de paie et à participer aux recrutements.", "En service RH, tu peux par exemple préparer l’arrivée d’un salarié ou organiser des entretiens."),
+  "CHARGÉ D’ACCUEIL ET DE GESTION ADMINISTRATIVE": ("41239", "Tu apprends à accueillir les visiteurs, à traiter leurs demandes et à assurer le suivi administratif d’une équipe.", "Tu peux par exemple orienter un usager, rédiger un courrier et mettre à jour un dossier."),
+  "GESTIONNAIRE DE PAIE": ("37948", "Tu apprends à préparer et à vérifier des bulletins de paie à partir des contrats, des horaires et des absences.", "En entreprise ou en cabinet, tu peux par exemple calculer l’incidence d’un arrêt ou d’heures supplémentaires sur un salaire."),
+  "OPÉRATEUR EN VIDÉOPROTECTION ET EN TÉLÉSURVEILLANCE": ("37879", "Tu apprends à analyser les images de caméras, à vérifier une alarme et à coordonner une intervention à distance.", "Depuis un poste de surveillance, tu peux par exemple vérifier une intrusion et transmettre les informations à l’équipe sur place."),
+  "SECRÉTAIRE ASSISTANT MÉDICO-ADMINISTRATIF": ("40800", "Tu apprends à accueillir les patients, à organiser les rendez-vous et à tenir les dossiers dans le respect du secret professionnel.", "En cabinet ou en établissement de santé, tu peux par exemple préparer le dossier d’une consultation et transmettre un compte rendu.")
+} %}
+<div id="formation-info" class="training-information" role="region" aria-label="Informations sur le titre choisi" aria-live="polite" hidden>
+  {% for offer in title_offers %}
+  {% set profile = profiles.get(offer.name.upper().replace("'", "’")) %}
+  <article data-training-info="{{ offer.code }}" hidden>
+    <p class="eyebrow">TA FORMATION EN QUELQUES MOTS</p><h3>{{ offer.name }}</h3>
+    {% if profile %}<p>{{ profile[1] }}</p><p>{{ profile[2] }}</p>{% endif %}
+    <dl class="training-facts">
+      <div><dt>Lieu des cours</dt><dd>À l’école à Puget-sur-Argens, Côte d’Azur</dd></div>
+      <div><dt>Format</dt><dd>En présentiel uniquement · Région PACA</dd></div>
+      {% if profile %}<div><dt>Certification</dt><dd><a href="https://www.francecompetences.fr/recherche/rncp/{{ profile[0] }}/" target="_blank" rel="noopener">Fiche RNCP {{ profile[0] }}</a></dd></div>{% endif %}
+    </dl>
+  </article>
+  {% endfor %}
+</div>

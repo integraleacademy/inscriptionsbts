@@ -93,7 +93,7 @@ function setup({preview = true, saved = null} = {}) {
     jump('photo'); const originalFile = file('photo','portrait.png'); click('review-preparation'); click('start-application');
     check(current() === 'photo' && form.elements.photo.files[0] === originalFile, 'Guide keeps already selected files in the same page');
     jump('recap');
-    check(d.querySelectorAll('#application-recap > details').length > 0, 'Recap groups answers into expandable chapters');
+    check(d.querySelectorAll('#application-recap > .review-card').length === 6, 'Recap displays six visible chapters');
     check(!d.getElementById('application-recap').textContent.includes('Ton responsable légal'), 'Recap omits irrelevant guardian questions');
     check(d.getElementById('send-application').disabled, 'Admin preview cannot send');
     form.dispatchEvent(new dom.window.Event('submit',{bubbles:true,cancelable:true}));

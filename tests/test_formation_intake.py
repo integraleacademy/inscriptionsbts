@@ -74,7 +74,7 @@ def test_security_to_enrollment_and_promotion(client, monkeypatch):
 
 
 def test_title_uses_full_dossier_and_dated_promotion_independently_of_bts(client, monkeypatch):
-    monkeypatch.setattr(application, 'campaign_is_open', lambda: False)
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: True)
     messages = []
     monkeypatch.setattr(application, 'send_mail', lambda *a, **kw: messages.append(a) or True)
     auth(client)
@@ -86,7 +86,10 @@ def test_title_uses_full_dossier_and_dated_promotion_independently_of_bts(client
     form = BeautifulSoup(guest.get(path).data, 'html.parser').select_one('#application-form')
     credentials = {key: form.select_one(f'[name={key}]')['value'] for key in ('csrf', 'submission_token')}
     def dossier():
-        return dict(payload(), **credentials, bts=code, mode='distanciel')
+        data = payload()
+        data.pop('cherche_idf')
+        return dict(data, **credentials, bts=code, mode='presentiel')
+    assert guest.post(path, data=dict(dossier(), mode='distanciel')).status_code == 400
     assert guest.post(path, data=dict(dossier(), bts='MCO')).status_code == 400
     incomplete = dossier()
     del incomplete['lm']
@@ -101,7 +104,7 @@ def test_title_uses_full_dossier_and_dated_promotion_independently_of_bts(client
     with application.db() as conn:
         row, = conn.execute('SELECT c.*,s.promotion_id FROM candidats c JOIN student_promotions s ON s.candidate_id=c.id').fetchall()
         assert (row['bts'], row['statut'], row['promotion_id']) == (code, 'preinscription', pid)
-        assert row['numero_dossier'].startswith('2027TP') and row['mode'] == 'distanciel'
+        assert row['numero_dossier'].startswith('2027TP') and row['mode'] == 'presentiel'
         assert row['adresse'] == '1 rue Test' and row['projet_objectif'] == 'Devenir responsable' and row['projet_qualites']
         for key, count in [('ci', 2), ('photo', 1), ('carte_vitale', 1), ('cv', 1), ('lm', 1)]:
             paths = json.loads(row['fichiers_' + key])
@@ -112,8 +115,23 @@ def test_title_uses_full_dossier_and_dated_promotion_independently_of_bts(client
     assert guest.post(path,data=dossier()).status_code == 404
 
 
-def test_title_draft_resumes_correct_session_with_fresh_credentials(client, monkeypatch):
+def test_before_opening_only_security_accepts_applications(client, monkeypatch):
     monkeypatch.setattr(application, 'campaign_is_open', lambda: False)
+    auth(client)
+    pid = promotion(client, 'TP GESTIONNAIRE DE PAIE')
+    guest = application.app.test_client()
+    path = '/titres-professionnels/candidature/' + pid
+    form = BeautifulSoup(guest.get(path).data, 'html.parser')
+    assert not form.select('[data-token]')
+    assert '1er décembre' in form.select_one('#title-intake-notice').get_text()
+    assert guest.post(path, data={}).status_code == 403
+    assert guest.post(path+'/brouillon', json={}).status_code == 403
+    assert guest.post('/submit', data={}).status_code == 403
+    assert guest.post('/parcoursalternance/candidature', json=security_data(guest)).status_code == 201
+
+
+def test_title_draft_resumes_correct_session_with_fresh_credentials(client, monkeypatch):
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: True)
     auth(client)
     code = 'TP GESTIONNAIRE DE PAIE'
     pid = promotion(client, code)
