@@ -83,7 +83,8 @@ def test_existing_official_report_is_downloaded_without_creating_accounts(studen
     record = parse_report(export(), "paris").records[0][-1]
     assert slip_key(record) == REF
     landing = '<h1>BTS 0756548K</h1><div hidden><span onclick="location.href=\'/accounts\'">Générer les comptes Cyclades de mes élèves</span></div>'
-    accounts = f'<h2>{session}</h2><button onclick="location.href=\'/forbidden\'">Générer</button><a href="/results">Afficher le compte rendu</a>'
+    accounts = '<select id="selectContexte"><option>Choisir</option><option>BTS – JUIN 2027 – Académie de Paris</option></select><a href="/confirmed">Valider</a>'
+    confirmed = f'<h2>{session}</h2><button onclick="location.href=\'/forbidden\'">Générer</button><a href="/results">Afficher le compte rendu</a>'
     results = '<a href="/file">papillonsInformationsConnexionCyclades</a>'
     requests = []
     with sync_playwright() as pw, pw.chromium.launch(executable_path=binary) as browser:
@@ -94,7 +95,7 @@ def test_existing_official_report_is_downloaded_without_creating_accounts(studen
                 if path == "/file":
                     return route.fulfill(content_type="application/pdf", body=document(OTHER, SAMPLE),
                                          headers={"Content-Disposition": "attachment; filename=papillons.pdf"})
-                route.fulfill(content_type="text/html; charset=utf-8", body={"/cycetablissement/": landing, "/accounts":accounts, "/results":results}.get(path, ""))
+                route.fulfill(content_type="text/html; charset=utf-8", body={"/cycetablissement/": landing, "/accounts":accounts, "/confirmed":confirmed, "/results":results}.get(path, ""))
             ctx.route("**/*", serve)
             page = ctx.new_page()
             page.goto(origin+"/cycetablissement/")

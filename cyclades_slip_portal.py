@@ -50,8 +50,48 @@ def open_accounts_menu(shell):
             shell.get_by_text(ACTIVITY).filter(visible=True).first.click()
 
 
+CONFIRM_CONTEXT = re.compile(r"^\s*(?:valider|confirmer|continuer|sélectionner|appliquer|ok|accéder|choisir|suivant|ouvrir)(?:\s+(?:(?:la|le|ce|cette|mon|ma)\s+)?(?:session|contexte|choix|sélection)(?: de travail)?)?[!.]?\s*$", re.I)
+
+
+def select_account_context(frame, session, academy, attempted, observed):
+    from cyclades_portal import select_report_context
+    control = frame.locator("#selectContexte:visible")
+    if control.count() != 1:
+        return False
+    options = [v.strip() for v in control.locator("option").all_text_contents()]
+    year = re.search(r"\b20\d{2}\b", session).group()
+    labels = [words(v).split() for v in options]
+    observed.update("-".join(t for t in tokens if t in ("bts","paris","nice") or re.fullmatch(r"20\d{2}",t)) or "autre" for tokens in labels)
+    exact = [v for v in options if words(v) == words(session)]
+    by_year = [v for v,t in zip(options,labels) if year in t and "bts" in t and not (set(t) & ({"paris","nice"} - {academy}))]
+    intermediate = [v for v,t in zip(options,labels) if "bts" in t and not any(re.fullmatch(r"20\d{2}",x) for x in t)
+                    and not (set(t) & ({"paris","nice"} - {academy}))]
+    school = [v for v,t in zip(options,labels) if ACADEMIES[academy][1].lower() in t]
+    choices = exact or by_year or intermediate or school
+    if len(choices) != 1:
+        return False
+    choice = choices[0]
+    if (frame, choice) in attempted:
+        return False
+    scoped_year = bool(exact or by_year)
+    if select_report_context(frame, choice):
+        attempted.add((frame,choice))
+        return scoped_year
+    control.select_option(index=options.index(choice))
+    attempted.add((frame,choice))
+    # Some versions use a link or styled span instead of a submit button in
+    # the context dialog. Never submit an account-generation form.
+    if control.is_visible():
+        confirm = frame.get_by_role("button",name=CONFIRM_CONTEXT).or_(frame.get_by_role("link",name=CONFIRM_CONTEXT)).filter(visible=True)
+        if not confirm.count():
+            confirm = frame.get_by_text(CONFIRM_CONTEXT).filter(visible=True)
+        if confirm.count() == 1 and confirm.is_enabled():
+            confirm.click()
+    return scoped_year
+
+
 def read_account_slips(page, academy, session, records, cipher):
-    from cyclades_portal import CENTRAL, navigate, official, select_report_context
+    from cyclades_portal import CENTRAL, navigate, official
 
     wanted = {key for record in records if (key := slip_key(record))}
     if not wanted:
@@ -82,6 +122,8 @@ def read_account_slips(page, academy, session, records, cipher):
 
     phase = "menu établissement"
     context_seen = False
+    selected_session = False
+    attempted, observed = set(), set()
     context.on("page", watch)
     context.on("response", pdf_response)
     watch(shell)
@@ -100,12 +142,11 @@ def read_account_slips(page, academy, session, records, cipher):
         phase = "compte rendu existant"
         deadline = time.monotonic() + 16
         summary = None
-        selected_session = False
         while time.monotonic() < deadline and summary is None:
             for frame in frames():
                 if frame.locator("#selectContexte:visible").count():
                     context_seen = True
-                if select_report_context(frame, session):
+                if select_account_context(frame, session, academy, attempted, observed):
                     selected_session = True
                     break
                 button = visible_control(frame, SUMMARY)
@@ -114,7 +155,9 @@ def read_account_slips(page, academy, session, records, cipher):
                 if button.count() == 1 and button.is_enabled():
                     # The activity displays the selected BTS context above its parameters.
                     text = frame.locator("body").inner_text(timeout=1500)
-                    if selected_session or words(session) in words(text):
+                    target_year = re.search(r"\b20\d{2}\b",session).group()
+                    if selected_session or (target_year in words(text).split() and "bts" in words(text).split()
+                            and academy in words(text).split()):
                         summary = button
                         break
             if summary is None:
@@ -200,9 +243,9 @@ def read_account_slips(page, academy, session, records, cipher):
                         controls.add(name)
             except Error:
                 continue
-        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), structure %s, contexte %s/%s, contrôles %s, menu %s",
+        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), structure %s, contexte %s/%s [%s], contrôles %s, menu %s",
             academy, phase, ",".join(structure) or "—", context_seen, selected_session if phase not in
-            ("menu établissement","chargement du menu","activité comptes élèves") else False, ",".join(sorted(controls)) or "—", ",".join(sorted(ids)) or "—")
+            ("menu établissement","chargement du menu","activité comptes élèves") else False, ",".join(sorted(observed)), ",".join(sorted(controls)) or "—", ",".join(sorted(ids)) or "—")
     finally:
         context.remove_listener("response", pdf_response)
         context.remove_listener("page", watch)
