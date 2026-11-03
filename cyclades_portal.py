@@ -460,22 +460,25 @@ def read_pieces(page, academy, label, report, records):
             return [f for f in frames() if "suivre_retours_pj" in f.url or (
                 f.parent_frame and "suivre_retours_pj" in f.parent_frame.url)]
         def lookup():
+            action = re.compile(r"^(?:rechercher|lancer la recherche|afficher les résultats)$", re.I)
             for frame in active():
-                button = frame.get_by_role("button", name=re.compile(r"^Rechercher$", re.I)).filter(visible=True)
-                if button.count() == 1:
+                button = frame.get_by_role("button", name=action).or_(frame.get_by_role("link", name=action)).filter(visible=True)
+                if button.count() == 1 and button.is_enabled():
                     button.click()
                     return True
             return False
-        did_search = lookup()
-        for _ in range(30):
-            if any(f.get_by_role("link", name=re.compile(r"^\s*0*\d{8,12}\s*$")).count() for f in active()):
+        did_search = False
+        record_number = re.compile(r"(?<!\d)\d{8,12}(?!\d)")
+        for _ in range(50):
+            if any(f.locator("tr:visible,[role=row]:visible").filter(has_text=record_number).count() for f in active()):
                 break
             if any(f.get_by_text(re.compile(r"Pièces justificatives conformes\s*:")).count() for f in active()):
                 break
-            shell.wait_for_timeout(200)
-        logging.getLogger(__name__).info("CYCLADES %s PJ : %d cadres de suivi, %d tableaux, %d liens candidats, recherche %s",
-            academy, len(active()), sum(f.locator("table:visible").count() for f in active()),
-            sum(f.get_by_role("link", name=re.compile(r"^\s*0*\d{8,12}\s*$")).count() for f in active()), did_search)
+            if not did_search:
+                did_search = lookup()
+            shell.wait_for_timeout(240)
+        logging.getLogger(__name__).warning("CYCLADES %s PJ : %d cadres de suivi, %d tableaux, recherche %s",
+            academy, len(active()), sum(f.locator("table:visible,[role=grid]:visible").count() for f in active()), did_search)
         phase = "dossiers"
         stamp = datetime.now(PARIS).strftime("%d/%m/%Y à %Hh%M")
         def consume(frame, records):
@@ -534,10 +537,14 @@ def read_pieces(page, academy, label, report, records):
             # Restrict navigation to rows containing a known candidate number.
             visible = []
             for f in active():
-                cells = f.locator("tr:visible").get_by_text(re.compile(r"^\s*\d{8,12}\s*$"))
-                visible.extend(number(value) for value in cells.all_text_contents())
+                rows = f.locator("tr:visible,[role=row]:visible").filter(has_text=record_number)
+                for row_text in rows.all_inner_texts():
+                    visible.extend(number(v) for v in record_number.findall(row_text))
             signature = tuple(visible)
             if not signature or signature in seen_pages:
+                if not signature:
+                    for f in active():
+                        logging.getLogger(__name__).warning("CYCLADES %s PJ écran de recherche | %s", academy, filter_structure(f))
                 break
             seen_pages.add(signature)
             for candidate in dict.fromkeys(visible):
@@ -545,15 +552,19 @@ def read_pieces(page, academy, label, report, records):
                 if not records:
                     continue
                 for frame in active():
-                    cells = frame.locator("tr:visible").get_by_text(re.compile(r"^\s*0*" + re.escape(candidate) + r"\s*$"))
-                    row_count = cells.count()
-                    if not row_count:
+                    reference = re.compile(r"(?<!\d)0*" + re.escape(candidate) + r"(?!\d)")
+                    rows = frame.locator("tr:visible,[role=row]:visible").filter(has_text=reference)
+                    if not rows.count():
                         continue
-                    for index in range(row_count):
-                        ident = cells.nth(index)
-                        row = ident.locator("xpath=ancestor::tr[1]")
-                        links = row.get_by_role("link")
-                        link = ident if ident.evaluate("e=>e.matches('a')") else links
+                    for index in range(rows.count()):
+                        row = rows.nth(index)
+                        all_links = row.get_by_role("link").filter(visible=True)
+                        link = all_links.filter(has_text=reference)
+                        if link.count() != 1:
+                            link = all_links if all_links.count() == 1 else row.get_by_role(
+                                "link", name=re.compile(r"consulter|voir le détail|ouvrir le dossier", re.I))
+                        if not link.count() and row.evaluate("e => e.hasAttribute('onclick')"):
+                            link = row
                         if link.count() != 1:
                             continue
                         window = frame.page
