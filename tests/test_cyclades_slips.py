@@ -39,6 +39,19 @@ def test_pdf_matching_uses_the_entire_registration_and_rejects_conflicting_slips
         assert not read_slips(document(changed), {REF})
 
 
+def test_unique_slip_with_credentials_before_the_reference_across_pages():
+    data = io.BytesIO()
+    doc = Canvas(data)
+    doc.drawString(30, 700, "Accès au service en ligne des examens")
+    doc.drawString(30, 650, f"Votre identifiant de connexion : {LOGIN}")
+    doc.drawString(30, 630, f"Votre mot de passe provisoire : {SAMPLE[-1]}")
+    doc.showPage()
+    doc.drawString(30, 750, "N° de candidat 0001234 - Inscription n° : 001")
+    doc.save()
+    assert read_slips(data.getvalue(), {REF}) == {REF: SAMPLE[-1]}
+    assert not read_slips(data.getvalue(), {REF, (REF[0], REF[1], "autre.login")})
+
+
 def test_only_an_admin_can_reveal_a_matched_slip_after_import(student):
     auth(student)
     record_url = "/admin/candidat/student/cyclades"
