@@ -81,3 +81,15 @@ def test_summary_can_be_verified_without_treating_incomplete_rows_as_a_full_read
     assert parse_detail(screen, rec, "1234567A") is None
     assert verified_counts(screen, rec, "1234567B") is None
     assert verified_counts(screen.replace("Version : 2", "Version : 3"), rec, "1234567A") is None
+
+
+def test_partial_observation_keeps_explicit_rows_without_claiming_a_complete_read():
+    record = {"details": {"N° de candidat": "12", "N° d’inscription": "1", "Version": "3"}}
+    screen = ("N° candidat : 12 N° inscription : 1 Version : 3\nCode Etab : 1234567A\n"
+              "Pièces justificatives conformes : 0 / 3\nNATIDE06 : Identité\n"
+              "Aucun fichier par le candidat\nPJ-CONTROLE En attente de contrôle\n"
+              "PJ-CFA : Attestation\nPJ-CONTROLE Non conforme")
+    assert parse_detail(screen, record, "1234567A") is None
+    read = parse_detail(screen, record, "1234567A", allow_partial=True)
+    assert [doc["review"] for doc in read["documents"]] == ["En attente de contrôle", "Non conforme"]
+    assert read["documents"][1]["deposit"] is None and read["requested"] == 3
