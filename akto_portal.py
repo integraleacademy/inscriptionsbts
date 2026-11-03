@@ -11,6 +11,7 @@ import unicodedata
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from akto_payments import funding_lines, number, reconcile
 from urllib.parse import quote, urlsplit
 from zoneinfo import ZoneInfo
 
@@ -87,7 +88,7 @@ def notice(path, record, person):
                 if 'montant accorde ht' in header and 'date de l echeance' in header:
                     for cells in table[1:]:
                         if len(cells) >= 5 and cells[2] and re.fullmatch(DATE,cells[2].strip()):
-                            schedules.append(dict(dateOuverture=iso(cells[2].strip()), montantTotal=float(money(cells[4]))))
+                            schedules.append(dict(dateOuverture=iso(cells[2].strip()), montantTotal=float(money(cells[4])), annee=' '.join((cells[0] or '').split()), taux=' '.join((cells[3] or '').split())))
                 for cells in table:
                     if len(cells)==2 and (cells[0] or '').startswith('Frais annexes :') and cells[1]:
                         vals=re.findall(r'[\d\s]+[,.]\d{2}\s*€', cells[1])
@@ -186,7 +187,48 @@ def catalogue(page):
     raise PortalError(f'Catalogue AKTO incomplet ({len(found)}/{total} dossiers). Relevés précédents conservés.')
 
 
-def dossier(page, lines, person):
+def read_invoices(page,ref,previous):
+    buttons=page.get_by_role('button',name='Voir la facture / DR',exact=True)
+    cards=page.locator('.mobileCardWrapper').filter(has=buttons)
+    snapshots=cards.all_inner_texts()
+    invoices=[]
+    cached={i['ref']:i for i in previous.get('invoices',[]) if i.get('payment_date') and i.get('no_credit')}
+    for raw in snapshots:
+        lines=raw.splitlines()
+        code=re.search(r'(?m)^Référence\s*:\s*(.+)$',raw)
+        when=re.search(r'Date facturation\s*:\s*('+DATE+')',raw)
+        price=re.search(r'Montant HT\s*:\s*([^\n]+)',raw)
+        if len(lines)<2 or not (code and when and price):
+            continue
+        inv=dict(ref=code[1].strip(),issued=when[1],amount=float(number(price[1])),status=lines[1].strip(),kind=lines[0].strip())
+        old=cached.get(inv['ref'],{})
+        if previous.get('checked')==datetime.now(PARIS).strftime('%d/%m/%Y') and all(old.get(k)==v for k,v in inv.items()):
+            invoices.append(old)
+            continue
+        invoices.append(inv)
+        if inv['kind']!='Facture' or inv['status'].casefold() not in ('payé','payée'):
+            continue
+        btn=cards.filter(has_text=re.compile(r'Référence\s*:\s*'+re.escape(inv['ref'])+r'(?![\w-])')).get_by_role('button',name='Voir la facture / DR',exact=True)
+        if btn.count()!=1:
+            continue
+        btn.click()
+        page.get_by_role('heading',name='Détail de la facture').wait_for()
+        data=page.locator('main').inner_text()
+        pay=re.search(r'Payé le\s*:\s*('+DATE+')',data)
+        credit=re.search(r'Montant Avoir HT\s*\n([^\n]+)',data)
+        invoice_amount=re.search(r'(?m)^Montant HT\s*\n([^\n]+)',data)
+        valid_title='Facture n° '+inv['ref'] in data.splitlines()
+        listing=data.partition('Liste des dossiers')[2].split('Pièces justificatives')[0]
+        inv['single_dossier']=bool(valid_title and invoice_amount and float(number(invoice_amount[1]))==inv['amount'] and ref in listing.splitlines() and page.get_by_role('button',name='Consulter',exact=True).count()==1)
+        inv['no_credit']=bool(credit and number(credit[1])==0)
+        if pay and valid_title:
+            inv['payment_date']=pay[1]
+        page.go_back(wait_until='domcontentloaded')
+        page.get_by_text("Contrat d'apprentissage N° "+ref, exact=True).wait_for()
+    return invoices
+
+
+def dossier(page, lines, person, previous):
     ref=lines[1]
     if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9._-]{1,100}',ref):
         raise PortalError('Référence de contrat AKTO non reconnue.')
@@ -237,35 +279,18 @@ def dossier(page, lines, person):
     piece=re.search(r'Convention\s*\n(CONFORME|NON CONFORME)\s*\n(REÇU|ATTENDU)',body)
     if piece:
         record['evidence']='Convention · '+' · '.join(piece.groups())
-    invoices=page.get_by_role('button',name='Voir la facture / DR',exact=True)
-    if invoices.count()==1:
-        invoices.click()
-        page.get_by_role('heading',name='Détail de la facture').wait_for()
-        invoice=page.locator('main').inner_text()
-        match=re.search(r'Facture n°\s*([^\n]+)',invoice)
-        when=re.search(r"Date d'émission\s*\n("+DATE+')',invoice)
-        payment=re.search(r'Payé le\s*:\s*('+DATE+')',invoice)
-        if match and when and payment and ref in invoice.splitlines():
-            record.update(invoice=match[1].strip(),invoice_date=when[1],payment_date=payment[1])
-    # Attribute payment only when all pedagogical fees are paid or the single
-    # paid invoice matches the one due installment and the pedagogical payment.
-    dues=record.get('schedules',[])
-    pedagogical=re.search(r'Montant CP\s*\n.*?Payé \(HT\)\s*\n([^\n]+)',body,re.S)
-    if pedagogical and dues:
-        paid=money(euros(pedagogical[1]))
-        due_total=sum((Decimal(str(d['montantTotal'])) for d in dues),Decimal(0))
-        if paid==0 or paid==due_total:
-            for due in dues:
-                due['montantRegle']=due['montantTotal'] if paid else 0
-        elif record.get('payment_date') and money(record['paid'])==paid:
-            matches=[d for d in dues if Decimal(str(d['montantTotal']))==paid and d['dateOuverture']<=iso(record['payment_date'])]
-            if len(matches)==1:
-                for due in dues:
-                    due['montantRegle']=float(paid) if due is matches[0] else 0
+    record['funding_lines']=funding_lines(body)
+    evidence=page.get_by_text(re.compile(r'^Courrier de rupture$',re.I))
+    record['rupture_notice']=bool(evidence.count())
+    invoices=read_invoices(page,ref,previous)
+    count=re.search(r'Factures & Remboursements\s*\((\d+)\)',body)
+    record['invoices_complete']=bool(count and int(count[1])==len(invoices) and len({i['ref'] for i in invoices})==len(invoices) and all(i['kind']=='Facture' for i in invoices))
+    record['invoices']=invoices
+    reconcile(record)
     return record
 
 
-def read_portal(email,password,people,save,excluded=None,remember=None):
+def read_portal(email,password,people,save,excluded=None,remember=None,previous=None):
     by_name={}
     for p in people:
         by_name.setdefault(norm(p['prenom']+' '+p['nom']),[]).append(p)
@@ -333,7 +358,7 @@ def read_portal(email,password,people,save,excluded=None,remember=None):
                         if excluded and lines[1] in excluded:
                             continue
                         try:
-                            records.append(dossier(page,lines,person))
+                            records.append(dossier(page,lines,person,(previous or {}).get((person['id'],lines[1]),{})))
                         except BeforeCutoff:
                             if remember:
                                 remember(lines[1])
@@ -351,3 +376,4 @@ def read_portal(email,password,people,save,excluded=None,remember=None):
             # A secondary close error must not mask the original failing step.
             with suppress(Error):
                 browser.close()
+

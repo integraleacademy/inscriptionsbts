@@ -100,11 +100,12 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
             if reader is read_portal:
                 with closing(connect()) as conn:
                     excluded={entry[0] for entry in conn.execute("SELECT reference FROM akto_before_cutoff WHERE verified >= date('now','-90 days')")}
+                    previous={(p['id'],r['reference']):r for p in people for r in get_records(conn,p['id'])[0]}
                 def remember(ref):
                     with closing(connect()) as conn:
                         conn.execute("INSERT OR REPLACE INTO akto_before_cutoff VALUES (?,date('now'))",(ref,))
                         conn.commit()
-                errors=reader(email,password,people,save,excluded,remember)
+                errors=reader(email,password,people,save,excluded,remember,previous)
             else:
                 errors=reader(email,password,people,save)
             state='partial' if errors else 'ok'
@@ -132,8 +133,8 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
 def register_akto(app,connect,require_admin,directory):
     with closing(connect()) as conn:
         schema(conn)
-        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('catalogue-20250601-v5')").rowcount:
-            conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state='error'")
+        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('invoices-multi-v1')").rowcount:
+            conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state IN ('error','partial','ok')")
         conn.commit()
     wake,guard=threading.Event(),threading.Lock()
     thread=None
@@ -189,3 +190,4 @@ def register_akto(app,connect,require_admin,directory):
         start()
         wake.set()
         return redirect(url_for('admin_settings',_anchor='akto'),303)
+

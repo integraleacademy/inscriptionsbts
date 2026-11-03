@@ -1,0 +1,13 @@
+{% if pilot.funding_lines %}
+<details class="wc-inset-card"><summary>Financement et frais pris en charge par AKTO</summary>
+<div class="wc-table-wrap"><table class="wc-table"><thead><tr><th>Nature</th><th>Accordé HT</th><th>Facturé HT</th><th>Payé HT</th><th>Solde HT</th></tr></thead><tbody>
+{% for line in pilot.funding_lines %}<tr><td>{{ 'Formation' if line.name == 'Montant CP' else line.name }}</td>{% for k in ['amount','billed','paid','balance'] %}<td>{{ line[k]|wedof_money }}</td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div></details>
+{% endif %}
+{% if pilot.invoices %}
+<details class="wc-inset-card"><summary>Factures AKTO ({{ pilot.invoices|length }})</summary>
+<div class="wc-table-wrap"><table class="wc-table"><thead><tr><th>Référence</th><th>Émise le</th><th>Montant HT</th><th>État AKTO</th><th>Date de paiement</th></tr></thead><tbody>
+{% for f in pilot.invoices %}<tr><td>{{ f.ref }}</td><td>{{ f.issued }}</td><td>{{ f.amount|wedof_money }}</td><td>{{ f.status }}</td><td>{{ f.payment_date or 'Non communiquée' }}</td></tr>{% endfor %}
+</tbody></table></div></details>
+{% endif %}
+<p class="wc-help">Les règlements par échéance sont rapprochés des factures et du total pédagogique payé. Si la répartition ne peut pas être établie, les montants restent consultables dans le détail du financement.</p>
