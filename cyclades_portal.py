@@ -1,10 +1,7 @@
 """Read the two official establishment lists in separate, short-lived browser contexts."""
 import logging
-import os
 import re
-import shutil
 import subprocess
-import sys
 import time
 from contextlib import contextmanager
 from pathlib import Path
@@ -12,6 +9,7 @@ from tempfile import TemporaryDirectory
 from urllib.parse import urljoin, urlsplit
 
 from playwright.sync_api import Error, TimeoutError as BrowserTimeout
+from portal_browser import persistent_playwright, launch_chromium
 
 from cyclades_data import ACADEMIES, ALL_STATES, MAX_BYTES, CycladesError, CycladesNetworkError, parse_report, with_exams, words
 
@@ -816,24 +814,11 @@ def read_pieces(page, academy, label, report, records):
 
 
 def read_academy(academy, credentials, matched_records):
-    from playwright.sync_api import sync_playwright
-
-    # Render services with an existing pip-only build command install the pinned
-    # headless shell on first connection. The shared disk also survives deploys.
-    os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", str(Path(os.getenv("DATA_DIR", "/data")) / "cyclades-browser"))
-    with sync_playwright() as playwright:
-        executable = os.getenv("CYCLADES_CHROMIUM_EXECUTABLE") or shutil.which("chromium")
+    with persistent_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(executable_path=executable)
-        except Error as exc:
-            if executable or "Executable doesn't exist" not in str(exc):
-                raise CycladesError("Le navigateur de synchronisation ne peut pas démarrer sur le serveur.") from None
-            try:
-                subprocess.run([sys.executable, "-m", "playwright", "install", "--only-shell", "chromium"],
-                               check=True, timeout=180, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                browser = playwright.chromium.launch()
-            except (subprocess.SubprocessError, OSError, Error):
-                raise CycladesError("Le navigateur de synchronisation doit être installé sur le serveur.") from None
+            browser = launch_chromium(playwright)
+        except (Error, OSError, subprocess.SubprocessError):
+            raise CycladesError("Le navigateur de synchronisation ne peut pas démarrer sur le serveur.") from None
         try:
             with browser.new_context(accept_downloads=True, locale="fr-FR", service_workers="block") as context:
                 failures = set()

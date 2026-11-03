@@ -176,11 +176,11 @@ def tick(app, connect, directory, now=None):
                 message = f'{count} contrat(s) rattaché(s) aux fiches BTS.'
                 if failed:
                     message += f' {len(failed)} dossier(s) à vérifier.'
-                app.logger.info('OPCO %s : %s',provider,message)
                 conn.execute("""UPDATE opco_accounts SET state=?,message=?,succeeded=CASE WHEN ? THEN ? ELSE succeeded END,
                     roster=CASE WHEN ? THEN ? ELSE roster END WHERE provider='filiz'""",
                     (state,message,not failed,stamp,not failed,roster))
                 conn.commit()
+                app.logger.warning('FILIZ : lecture terminée (%s). %s',state,message)
         except Exception as exc:
             message = str(exc) if isinstance(exc, (ReadError, PortalError)) else 'Lecture interrompue. Vérifiez les accès puis relancez.'
             with closing(connect()) as conn:
@@ -193,6 +193,13 @@ def tick(app, connect, directory, now=None):
 def register_opcos(app, connect, require_admin, directory):
     with closing(connect()) as conn:
         schema(conn)
+        # Resume a read that failed with the obsolete temporary browser cache.
+        conn.execute("""UPDATE opco_accounts SET state='pending',requested=1,
+            message='Reprise de la lecture FILIZ après correction du navigateur.'
+            WHERE provider='filiz' AND credential IS NOT NULL AND state='error'
+            AND message IN ('Le serveur ne peut pas démarrer Chromium pour la lecture du portail.',
+                            'Installation de Chromium indisponible sur le serveur.')""")
+        conn.commit()
         account = account_status(conn)
         app.logger.warning('FILIZ : compte configuré=%s, état=%s, dernière lecture complète=%s.',
                            bool(account['configured']), account['state'], account['succeeded'] or 'aucune')

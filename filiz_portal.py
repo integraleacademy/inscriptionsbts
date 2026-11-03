@@ -3,10 +3,12 @@ from datetime import datetime
 from decimal import Decimal
 import re
 import logging
+import subprocess
 from urllib.parse import urlsplit
 
-from playwright.sync_api import Error as BrowserError, sync_playwright
-from akto_portal import START_DATE, launch_chromium, norm
+from playwright.sync_api import Error as BrowserError
+from portal_browser import persistent_playwright, launch_chromium
+from akto_portal import START_DATE, norm
 from opco_convergence import ReadError, identity
 from training_programs import BTS_LABELS
 from wedof_contract_data import FINANCERS, stamp
@@ -295,8 +297,14 @@ def read_item(page, ref, card, people):
 
 def read_filiz(config, people, stored_session, save_session):
     names = {norm(p['prenom']+' '+p['nom']) for p in people}
-    with sync_playwright() as pw:
-        browser = launch_chromium(pw)
+    with persistent_playwright() as pw:
+        try:
+            browser = launch_chromium(pw)
+        except (BrowserError, OSError, subprocess.SubprocessError) as exc:
+            # No school credentials have been supplied at this point.
+            logging.getLogger(__name__).warning('FILIZ : lancement Chromium : %.1200s', str(exc))
+            raise ReadError('Chromium n’a pas pu démarrer depuis le cache des portails.') from None
+        logging.getLogger(__name__).warning('FILIZ : Chromium démarré.')
         try:
             with browser.new_context(locale='fr-FR',storage_state=stored_session,service_workers='block') as ctx:
                 page = ctx.new_page()
@@ -310,9 +318,10 @@ def read_filiz(config, people, stored_session, save_session):
                     route.continue_()
                 ctx.route('**/*',guard)
                 login(page,config)
+                logging.getLogger(__name__).warning('FILIZ : espace école ouvert.')
                 save_session(ctx.storage_state())
                 cards = catalogue(page)
-                logging.getLogger(__name__).info('FILIZ : catalogue complet (%d dossiers).',len(cards))
+                logging.getLogger(__name__).warning('FILIZ : catalogue complet (%d dossiers).',len(cards))
                 results, failed = {}, set()
                 for ref,card in cards.items():
                     values=lines(card['text'])
