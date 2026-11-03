@@ -18,6 +18,7 @@ from opco_convergence import ReadError, identity
 from filiz_portal import HOME as FILIZ_HOME, read_filiz
 from training_programs import BTS_LABELS
 
+FILIZ_LOGIN_VERSION = 2
 BTS_MARKS = ','.join('?' for _ in BTS_LABELS)
 
 
@@ -36,6 +37,8 @@ def schema(conn):
         CREATE TABLE IF NOT EXISTS filiz_scan_progress (ref TEXT PRIMARY KEY, outcome TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS opco_student ON opco_contracts(candidate_id);
     ''')
+    if 'flow' not in {r[1] for r in conn.execute("PRAGMA table_info(filiz_retry_budget)")}:
+        conn.execute("ALTER TABLE filiz_retry_budget ADD COLUMN flow INTEGER DEFAULT 1")
     conn.execute("INSERT OR IGNORE INTO opco_accounts(provider) VALUES ('filiz')")
     conn.execute("DELETE FROM opco_accounts WHERE provider!='filiz'")
     if upgrading:
@@ -152,12 +155,13 @@ def tick(app, connect, directory, now=None):
             legacy_login_error = 'FILIZ n’a pas ouvert l’espace école. Vérifiez vos accès ou une validation demandée par FILIZ.'
             retryable = (account['state'] == 'error' and account['message'] in (retry_text, old_timeout, legacy_login_error)
                          and account['cursor'] and account['day'] == day)
-            used = conn.execute('SELECT used FROM filiz_retry_budget WHERE day=?', (day,)).fetchone()
+            used = conn.execute('SELECT used FROM filiz_retry_budget WHERE day=? AND flow=?', (day, FILIZ_LOGIN_VERSION)).fetchone()
             automatic_retry = retryable and (not used or used[0] < 2)
             if not account['credential'] or not (daily or account['requested'] or account['state'] == 'running' or automatic_retry):
                 return
             if automatic_retry and not account['requested']:
-                conn.execute('INSERT OR REPLACE INTO filiz_retry_budget VALUES(1,?,?)', (day, 1 + (used[0] if used else 0)))
+                conn.execute('INSERT OR REPLACE INTO filiz_retry_budget(id,day,used,flow) VALUES(1,?,?,?)',
+                             (day, 1 + (used[0] if used else 0), FILIZ_LOGIN_VERSION))
             people = bts_students(conn)
             roster = roster_key(people)
             resuming = account['state'] == 'running' or retryable
