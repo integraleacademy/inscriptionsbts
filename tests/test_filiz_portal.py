@@ -93,6 +93,20 @@ def test_filiz_account_all_bts_views_and_cache(tmp_path,monkeypatch):
         assert conn.execute("SELECT state FROM opco_accounts").fetchone()[0] == 'partial'
         previous = json.loads(conn.execute("SELECT payload FROM opco_contracts WHERE ref='abc'").fetchone()[0])
         assert previous['invoices'][0]['reference'] == 'F1' and previous['read_warning']
+    from playwright.sync_api import TimeoutError as BrowserTimeout
+    attempts = []
+    def unavailable(config, people, stored, save, completed, save_batch):
+        if not attempts:
+            save_batch(['empty'], {}, set(), 1, 2)
+        attempts.append(completed)
+        raise BrowserTimeout('test')
+    with closing(db()) as conn:
+        conn.execute("UPDATE opco_accounts SET requested=1")
+        conn.commit()
+    monkeypatch.setattr('opco_sync.read_filiz', unavailable)
+    for _ in range(5):
+        tick(app, db, tmp_path, datetime(2026,11,4,9,tzinfo=PARIS))
+    assert attempts == [set(), {'empty'}, {'empty'}]
     client.post('/admin/parametres/opco/filiz',data={'action':'disconnect','csrf_token':'csrf'})
     with closing(db()) as conn:
         assert conn.execute('SELECT count(*) FROM filiz_session').fetchone()[0]==0

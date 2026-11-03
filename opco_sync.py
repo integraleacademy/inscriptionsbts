@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import threading
 
+from playwright.sync_api import Error as BrowserError
 from flask import abort, flash, redirect, request, session, url_for
 
 from akto_portal import PortalError, START_DATE
@@ -31,6 +32,7 @@ def schema(conn):
           provider TEXT NOT NULL, ref TEXT NOT NULL, candidate_id TEXT NOT NULL,
           payload TEXT NOT NULL, PRIMARY KEY(provider,ref));
         CREATE TABLE IF NOT EXISTS filiz_session (id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL);
+        CREATE TABLE IF NOT EXISTS filiz_retry_budget (id INTEGER PRIMARY KEY CHECK(id=1), day TEXT NOT NULL, used INTEGER NOT NULL);
         CREATE TABLE IF NOT EXISTS filiz_scan_progress (ref TEXT PRIMARY KEY, outcome TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS opco_student ON opco_contracts(candidate_id);
     ''')
@@ -145,14 +147,24 @@ def tick(app, connect, directory, now=None):
             conn.execute('BEGIN IMMEDIATE')
             account = conn.execute('SELECT * FROM opco_accounts WHERE provider=?', (provider,)).fetchone()
             daily = clock.hour >= 5 and account['day'] != day
-            if not account['credential'] or not (daily or account['requested'] or account['state'] == 'running'):
+            retry_text = 'Navigation FILIZ interrompue. La progression est enregistrée.'
+            old_timeout = 'Lecture interrompue. Vérifiez les accès puis relancez.'
+            retryable = (account['state'] == 'error' and account['message'] in (retry_text, old_timeout)
+                         and account['cursor'] and account['day'] == day)
+            used = conn.execute('SELECT used FROM filiz_retry_budget WHERE day=?', (day,)).fetchone()
+            automatic_retry = retryable and (not used or used[0] < 2)
+            if not account['credential'] or not (daily or account['requested'] or account['state'] == 'running' or automatic_retry):
                 return
+            if automatic_retry and not account['requested']:
+                conn.execute('INSERT OR REPLACE INTO filiz_retry_budget VALUES(1,?,?)', (day, 1 + (used[0] if used else 0)))
             people = bts_students(conn)
             roster = roster_key(people)
-            if account['state'] != 'running' or account['cursor'] != roster:
+            resuming = account['state'] == 'running' or retryable
+            if not resuming or account['cursor'] != roster:
                 conn.execute('DELETE FROM filiz_scan_progress')
-            completed = {r[0] for r in conn.execute(
-                "SELECT ref FROM filiz_scan_progress WHERE outcome IN ('linked','ignored')")}
+            revisit_failures = retryable and account['message'] == old_timeout
+            completed = {ref for ref, outcome in conn.execute("SELECT ref,outcome FROM filiz_scan_progress")
+                         if not revisit_failures or outcome in ('linked','ignored')}
             conn.execute("""UPDATE opco_accounts SET state='running',message='Lecture en cours.',attempted=?,requested=0,
                 day=?,cursor=? WHERE provider=?""", (stamp, day if daily else account['day'], roster, provider))
             conn.commit()
@@ -227,7 +239,12 @@ def tick(app, connect, directory, now=None):
         except ScanSuperseded:
             return
         except Exception as exc:
-            message = str(exc) if isinstance(exc, (ReadError, PortalError)) else 'Lecture interrompue. Vérifiez les accès puis relancez.'
+            if isinstance(exc, BrowserError):
+                message = retry_text
+            elif isinstance(exc, (ReadError, PortalError)):
+                message = str(exc)
+            else:
+                message = 'Erreur de lecture FILIZ. Les dossiers enregistrés sont conservés.'
             with closing(connect()) as conn:
                 conn.execute("UPDATE opco_accounts SET state='error',message=? WHERE provider=? AND credential=?",
                              (message, provider, account['credential']))
@@ -311,6 +328,7 @@ def register_opcos(app, connect, require_admin, directory):
             if action in ('connect','disconnect'):
                 conn.execute('DELETE FROM filiz_session')
                 conn.execute('DELETE FROM filiz_scan_progress')
+                conn.execute('DELETE FROM filiz_retry_budget')
             conn.commit()
         start()
         wake.set()
