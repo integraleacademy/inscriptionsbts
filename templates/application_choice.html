@@ -16,16 +16,12 @@
     <button type="button" class="route-option route-bts" id="start-bts">
       {{ pathway('admissions/student-space-illustration.webp', 'Diplôme', 'BTS en alternance', 'Choisis ta spécialité et partage ton temps entre les cours et l’entreprise.', 'Choisir un BTS') }}
     </button>
-    <a class="route-option route-titles" id="toggle-titles" href="#titres-professionnels" aria-expanded="false" aria-controls="titres-professionnels">
-      {{ pathway('admissions/company-space-illustration.webp', 'Certification', 'Titres professionnels', 'Découvre les métiers proposés et les sessions ouvertes aux candidatures.', 'Voir les titres et les sessions', 'chevron-down') }}
+    <a class="route-option route-titles" id="choose-titles" href="{{ url_for('title_selection', preview=1) if preview else url_for('title_selection') }}">
+      {{ pathway('admissions/company-space-illustration.webp', 'Certification', 'Titres professionnels', 'Découvre les métiers proposés et les sessions ouvertes aux candidatures.', 'Choisir un titre professionnel') }}
     </a>
     <a class="route-option route-security" href="{{ url_for('security_application_preview' if preview else 'security_application') }}">
       {{ pathway('parcours-alternance/aps.webp', 'Terrain', 'Parcours sécurité en alternance', 'Forme-toi en un an à la surveillance de sites, à la protection rapprochée (garde du corps) et à la sécurité incendie.', 'Ouvrir ma candidature') }}
     </a>
   </div>
-  <section class="title-options" id="titres-professionnels" aria-labelledby="titles-heading">
-    <h3 id="titles-heading" tabindex="-1">Titres et sessions</h3>
-    {% include '_title_offers.html' %}
-  </section>
   <button type="button" class="text-link" id="choice-back">← Revoir les pièces à préparer</button>
 </section>

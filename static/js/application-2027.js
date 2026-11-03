@@ -214,26 +214,14 @@
     event.preventDefault();
     showChoice();
   });
-  const titleToggle = document.getElementById('toggle-titles');
-  if (titleToggle) {
-    const panel = document.getElementById('titres-professionnels');
-    const toggleTitles = open => {
-      panel.hidden = !open;
-      titleToggle.setAttribute('aria-expanded', String(open));
-    };
-    toggleTitles(location.hash === '#titres-professionnels');
-    titleToggle.addEventListener('click', event => {
-      event.preventDefault();
-      toggleTitles(panel.hidden);
-      if (!panel.hidden) focusHeading(document.getElementById('titles-heading'), panel);
-    });
-    window.addEventListener('hashchange', () => {
-      if (location.hash === '#choix-formation') showChoice();
-      if (location.hash === '#titres-professionnels') {
-        showChoice(); toggleTitles(true); focusHeading(document.getElementById('titles-heading'), panel);
-      }
-    });
+  function openLinkedSection() {
+    if (location.hash === '#titres-professionnels') {
+      location.replace(document.getElementById('choose-titles').href);
+    } else if (location.hash === '#choix-formation') {
+      showChoice();
+    }
   }
+  if (catalog) window.addEventListener('hashchange', openLinkedSection);
   document.querySelectorAll('[data-prepared]').forEach(input => input.addEventListener('change', () => {
     const count = document.querySelectorAll('[data-prepared]:checked').length;
     document.getElementById('preparation-count').textContent = `${count} / 5 pièces préparées`;
@@ -278,5 +266,5 @@
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
   normalizeNames();conditional();if(distanceInfo)distanceInfo.open=value('mode')==='distanciel';nirFeedback();
-  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else if (titleJourney) show(0,false); else if (['#choix-formation', '#titres-professionnels'].includes(location.hash)) showChoice(); else showGuide(false);
+  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else if (titleJourney) show(0,false); else { showGuide(false); openLinkedSection(); }
 })();

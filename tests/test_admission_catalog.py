@@ -22,19 +22,25 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     guide = preview.select_one('#application-guide')
     assert guide.select_one('#start-application') and not guide.select_one('.route-option')
     assert catalog.has_attr('hidden') and guide.find_next_sibling('section') == catalog
-    assert catalog.select_one('#start-bts') and catalog.select_one('[aria-controls="titres-professionnels"]')
+    assert catalog.select_one('#start-bts') and catalog.select_one('a#choose-titles')
     shared_fields = {field['name'] for field in preview.select('#application-form [name]')}
     shared_fields -= {'mos_parcours', 'aps_souhaitee', 'raison_aps'}
     public = page(guest, '/').select_one('#choix-formation')
     assert public.select_one('a[href="#inscriptions-bts"]')
-    for listing in (public, catalog):
+    assert not preview.select('.catalog-title-list') and not public.select('.catalog-title-list')
+    preview_link = catalog.select_one('#choose-titles')['href']
+    assert guest.get(preview_link).status_code == 302
+    title_page = page(client, preview_link)
+    public_titles = page(guest, public.select_one('#titres-professionnels')['href'])
+    for listing in (public_titles, title_page):
         assert {h.get_text(strip=True) for h in listing.select('li h3')} == set(ACADEMY_TITLES)
-    assert not public.select('.catalog-session a')
-    for li in catalog.select('.catalog-title-list li'):
+    assert not public_titles.select('.catalog-session a')
+    for li in title_page.select('.catalog-title-list li'):
         link = li.a['href']
         assert guest.get(link).status_code == 302
         form = page(client, link)
         assert form.select_one('.selected-title b').get_text() == li.h3.get_text()
+        assert form.select_one('.catalog-return')['href'] == preview_link
         assert shared_fields <= {field['name'] for field in form.select('#application-form [name]')}
         assert len(form.select('#step-navigation button')) == 7
         assert form.select_one('input[name=bts][checked]')['value'] == 'TP ' + li.h3.get_text().upper()
@@ -77,10 +83,12 @@ def test_catalog_tracks_promotions_in_public_and_admin_views(client, monkeypatch
         conn.execute('UPDATE promotions SET needs_setup=1 WHERE id=?', (incomplete,))
         conn.execute("UPDATE promotions SET date_fin='2020-01-01' WHERE id=?", (ended,))
     for path in ('/', '/candidature'):
-        listing = page(guest, path).select_one('#titres-professionnels')
+        choices = page(guest, path)
+        link = choices.select_one('#choose-titles, a#titres-professionnels')['href']
+        listing = page(guest, link).select_one('#titres-professionnels')
         assert 'Nouveau métier' in listing.get_text()
         assert {a['href'] for a in listing.select('a')} == {'/titres-professionnels/candidature/' + pid for pid in (first, second)}
-    for a in page(client, '/candidature?preview=1').select('#titres-professionnels a[href*="promotion="]'):
+    for a in page(client, '/titres-professionnels?preview=1').select('#titres-professionnels a[href*="promotion="]'):
         sample = page(client, a['href'])
         assert sample.select_one('.selected-title b').get_text() == 'Nouveau métier' and '2027' in sample.select_one('.selected-title').get_text()
         assert not sample.select('[name=submission_token]')
@@ -101,7 +109,7 @@ def test_existing_title_spelling_keeps_its_promotion_and_is_listed_once(client):
     with client.session_transaction() as session:
         csrf = session['_promotion_csrf']
     client.post('/admin/promotions/titres-professionnels', data={'csrf_token': csrf, 'name': name.replace("'", "’")})
-    listing = page(client, '/').select_one('#titres-professionnels')
+    listing = page(client, '/titres-professionnels').select_one('#titres-professionnels')
     assert len(listing.select('li')) == len(ACADEMY_TITLES)
     assert listing.find('h3', string=name).find_parent('li').a['href'].endswith('/' + pid)
 
@@ -114,7 +122,7 @@ def test_security_agent_title_is_unavailable_even_with_an_existing_promotion(cli
     with application.db() as conn:
         conn.execute('INSERT INTO professional_titles(code,name) VALUES(?,?)', (code, name))
         conn.execute('UPDATE promotions SET bts=? WHERE id=?', (code, pid))
-    for path in ('/', '/candidature?preview=1'):
+    for path in ('/titres-professionnels', '/titres-professionnels?preview=1'):
         listing = page(client, path).select_one('#titres-professionnels').get_text()
         assert name not in listing
         assert 'Opérateur en vidéoprotection et en télésurveillance' in listing
