@@ -20,7 +20,7 @@
     <div class="campus-inline-assign">
       <select class="{{ 'campus-unassigned' if not r.promotion_id else '' }}" aria-label="Promotion de {{ person_name(r.nom,r.prenom) }}">
         <option value="">{{ 'Changer de promotion…' if r.promotion_id else 'À affecter…' }}</option>
-        {% for p in promotions if p.bts==r.bts and p.rentree_annee==(r.rentree_annee or 2026) %}<option value="{{ p.id }}" {% if p.id==r.promotion_id %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
+        {% for p in promotions if p.bts==r.bts and p.placement_year==(r.rentree_annee or 2026) %}<option value="{{ p.id }}" {% if p.id==r.promotion_id %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}
       </select>
       <button class="btn" type="button" data-assign-one>Affecter</button>
     </div>
