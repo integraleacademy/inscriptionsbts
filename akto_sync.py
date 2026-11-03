@@ -13,7 +13,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from cryptography.fernet import Fernet
-from flask import abort, flash, jsonify, redirect, request, session, url_for
+from flask import abort, flash, redirect, request, session, url_for
 
 from akto_portal import START_DATE, PortalError, read_portal
 from akto_pilot import contract_for
@@ -132,7 +132,7 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
 def register_akto(app,connect,require_admin,directory):
     with closing(connect()) as conn:
         schema(conn)
-        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('catalogue-20250601-v3')").rowcount:
+        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('catalogue-20250601-v4')").rowcount:
             conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state='error'")
         conn.commit()
     wake,guard=threading.Event(),threading.Lock()
@@ -180,12 +180,7 @@ def register_akto(app,connect,require_admin,directory):
                     return redirect(url_for('admin_settings',_anchor='akto'),303)
                 conn.execute("UPDATE akto_connection SET credential=?,requested=1,state='pending',message='Connexion à vérifier.',succeeded='' WHERE id=1",(encrypted,))
             elif action=='sync':
-                queued = conn.execute("""UPDATE akto_connection SET requested=1,state='pending',message='Synchronisation demandée.'
-                    WHERE id=1 AND credential IS NOT NULL AND requested=0 AND state!='running'""").rowcount
-                configured = bool(conn.execute("SELECT credential IS NOT NULL FROM akto_connection WHERE id=1").fetchone()[0])
-                message = ("Synchronisation AKTO enregistrée. Vous pouvez quitter la page." if queued else
-                           "Une synchronisation AKTO est déjà en cours ou en attente." if configured else
-                           "Connectez le compte AKTO avant de lancer la synchronisation.")
+                conn.execute("UPDATE akto_connection SET requested=1 WHERE id=1 AND credential IS NOT NULL AND state!='running'")
             elif action=='disconnect':
                 conn.execute("UPDATE akto_connection SET credential=NULL,requested=0,state='unconfigured',message='',succeeded='' WHERE id=1")
             else:
@@ -193,8 +188,4 @@ def register_akto(app,connect,require_admin,directory):
             conn.commit()
         start()
         wake.set()
-        if action == 'sync':
-            if request.headers.get('Accept') == 'application/json':
-                return jsonify(message=message), 202 if configured else 409
-            flash(message, 'success' if configured else 'error')
         return redirect(url_for('admin_settings',_anchor='akto'),303)
