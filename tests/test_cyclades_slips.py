@@ -111,3 +111,21 @@ def test_existing_official_report_is_downloaded_without_creating_accounts(studen
         assert "/existing" in requests
     assert "/forbidden" not in requests
     assert cipher(application.app).decrypt(record["sealed_slip"].encode()).decode() == SAMPLE[-1]
+
+
+def test_shell_selects_session_again_after_the_account_page_opens():
+    from cyclades_slip_portal import select_account_context
+    binary = os.getenv("CYCLADES_CHROMIUM_EXECUTABLE")
+    if not binary:
+        pytest.skip("Requires test Chromium")
+    session = "BTS - 2027 - ACADEMIE DE PARIS"
+    html = f'<span><select id="selectContexte"><option value="">Choisir</option><option value="2027">{session}</option></select></span>'
+    with sync_playwright() as pw, pw.chromium.launch(executable_path=binary) as browser:
+        page = browser.new_page()
+        page.route("**/*", lambda route: route.fulfill(content_type="text/html; charset=utf-8",body=html))
+        attempted, observed = {}, set()
+        for path in ("lister_candidature", "creation_compte_candidat"):
+            page.goto("https://cyclades.education.gouv.fr/cycetablissement/portal/"+path)
+            assert page.locator("select").input_value() == ""
+            assert select_account_context(page.main_frame, session, "paris", attempted, observed)
+            assert page.locator("select").input_value() == "2027"

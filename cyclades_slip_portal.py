@@ -84,32 +84,41 @@ def select_account_context(frame, session, academy, attempted, observed):
         return False
     choice = choices[0]
     scoped_year = bool(exact or by_year)
-    if (frame, choice, "confirmed") in attempted:
+    # Playwright reuses the Frame object across navigations. A choice made
+    # in the list portlet is not a choice in the account portlet.
+    document = (frame, frame.url, frame.evaluate("performance.timeOrigin"), choice)
+    scoped_year = bool(exact or by_year)
+    selected = control.locator("option:checked").inner_text().strip()
+    previous, tries = attempted.get(document, (0, 0))
+    if previous and (selected == choice or time.monotonic()-previous < 2 or tries >= 3):
         return False
-    first = (frame, choice, "selected") not in attempted
-    if first:
-        header_switch = control.evaluate("e => !e.closest('form,.modal,[role=dialog]') && e.parentElement.tagName === 'SPAN'")
-        if header_switch:
-            checked = control.locator("option:checked").inner_text().strip()
-            if checked != choice:
-                control.select_option(index=options.index(choice))
-            attempted.add((frame,choice,"confirmed"))
-            return scoped_year
-        if select_report_context(frame, choice):
-            attempted.add((frame,choice,"confirmed"))
-            return scoped_year
+    attempted[document] = (time.monotonic(), tries+1)
+    header_switch = control.evaluate("e => !e.closest('form,.modal,[role=dialog]') && e.parentElement.tagName === 'SPAN'")
+    if header_switch:
+        if selected != choice:
+            index = options.index(choice)
+            if index == len(options)-1:
+                # The real shell listens to keyboard/mouse activation of the
+                # context switch. This also supplies a native user gesture.
+                control.press("End")
+            if control.count() and control.locator("option:checked").inner_text().strip() != choice:
+                control.select_option(index=index)
+            if control.count():
+                option = control.locator("option").nth(index)
+                if option.count():
+                    option.dispatch_event("click")
+        return scoped_year
+    if select_report_context(frame, choice):
+        return scoped_year
+    if selected != choice:
         control.select_option(index=options.index(choice))
-        attempted.add((frame,choice,"selected"))
-    # Some versions use a link or styled span instead of a submit button in
-    # the context dialog. Never submit an account-generation form.
     if control.is_visible():
         confirm = frame.get_by_role("button",name=CONFIRM_CONTEXT).or_(frame.get_by_role("link",name=CONFIRM_CONTEXT)).filter(visible=True)
         if not confirm.count():
             confirm = frame.get_by_text(CONFIRM_CONTEXT).filter(visible=True)
         if confirm.count() == 1 and confirm.is_enabled():
             confirm.click()
-            attempted.add((frame,choice,"confirmed"))
-    return scoped_year and first
+    return scoped_year
 
 
 def read_account_slips(page, academy, session, records, cipher):
@@ -169,8 +178,13 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     phase = "menu établissement"
     context_seen = False
     selected_session = False
-    attempted, observed = set(), set()
+    attempted, observed = {}, set()
     trace = []
+    traffic = set()
+    def observe_route(response):
+        if response.request.resource_type in ("document","xhr","fetch") and official(response.url):
+            traffic.add(str(response.status)+"-"+route_label(response.url))
+    context.on("response", observe_route)
     context.on("page", watch)
     context.on("response", pdf_response)
     watch(shell)
@@ -187,6 +201,8 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     selected_session = True
         phase = "activité comptes élèves"
         open_accounts_menu(shell, trace, activity)
+        attempted.clear()
+        selected_session = False
         logging.getLogger(__name__).warning("CYCLADES %s menu papillons : %s", academy, " | ".join(trace))
         phase = "compte rendu existant"
         start_wait = time.monotonic()
@@ -233,7 +249,8 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                         record["slip_sync"] = "not_listed"
                     logging.getLogger(__name__).warning("CYCLADES %s : activité initiale close, consultation du compte rendu des accès existants", academy)
                     return True
-                if selected_session and not switched and time.monotonic() - start_wait > 9:
+                if selected_session and not switched and time.monotonic() - start_wait > 12 and not any(
+                        "compte_candidat" in urlsplit(f.url).path for f in frames()):
                     # Changing the global session can return the shell to its
                     # start page. Re-enter via the other documented menu.
                     switched = True
@@ -298,6 +315,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
         return True
     except (Error, CycladesError, OSError, ValueError):
         # Keep navigation identifiers only, never page text or candidate data.
+        trace.append("lectures="+",".join(sorted(traffic))[:600])
         structure = []
         chooser_controls = []
         doc_routes = []
@@ -330,8 +348,16 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 if hints:
                     chooser_controls.append("avis-écran="+" / ".join(hints))
                 for chooser in frame.locator("#selectContexte:visible").all():
+                    chooser_controls.append(chooser.evaluate("""e => {
+                        const chain=[]; let n=e;
+                        for(let i=0;n && i<5;i++,n=n.parentElement)chain.push(n.tagName+'.'+String(n.className).replace(/[^a-zA-Z_ -]/g,'').slice(0,70));
+                        const opt=e.options[Math.max(0,e.options.length-1)];
+                        const handlers=n=>['onchange','onclick','oninput','onkeydown','onmousedown'].filter(a=>n && (n[a]||n.hasAttribute(a))).join('+');
+                        return 'zone='+chain.join('>')+' événements='+handlers(e)+'/'+handlers(opt)+' option='+
+                          (/^(https?:|\/)/.test(opt?.value||'')?'url':opt?.value?'code':'vide');
+                    }"""))
                     chooser_controls.extend(chooser.evaluate("""e => {
-                        const region=e.closest('.modal,dialog,[role=dialog],form') || e.parentElement.parentElement;
+                        const region=e.closest('.modal,dialog,[role=dialog],form') || e.closest('div') || e.parentElement.parentElement;
                         const words=/valider|sélectionner|selectionner|choisir|contexte|session|confirmer|continuer|appliquer|ouvrir|accéder|annuler|fermer|suivant|ok|lancer|activité|afficher|générer/gi;
                         const names=n=>[n.id,n.name,n.title,n.getAttribute('aria-label'),n.matches('input[type=button],input[type=submit]')?n.value:'',n.textContent].filter(Boolean).join(' ');
                         return [e.parentElement.tagName+'>'+region.tagName,...Array.from(region.querySelectorAll('button,input[type=submit],input[type=button],a,[role=button],img[title]'))
@@ -368,6 +394,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 record["slip_sync"] = "unavailable"
         return False
     finally:
+        context.remove_listener("response", observe_route)
         context.remove_listener("response", pdf_response)
         context.remove_listener("page", watch)
         page.remove_listener("download", downloaded)
