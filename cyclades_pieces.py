@@ -37,6 +37,10 @@ def parse_detail(text, record, uai):
     pieces = []
     due = None
     current = None
+    # The legacy layout separates the file indicator and actor into adjacent cells.
+    text = re.sub(r"aucun\s+fichier\s*par\s+le\s+(candidat|gestionnaire)",
+                  r"Aucun fichier par le \1", text, flags=re.I)
+    text = re.sub(r"(?m)^\s*([A-Z0-9]{3,15})\s*:\s*\n\s*(?=\S)", r"\1 : ", text)
     for line in text.splitlines():
         line = line.strip()
         if re.search(r"[àa] déposer en ligne entre", line, re.I):

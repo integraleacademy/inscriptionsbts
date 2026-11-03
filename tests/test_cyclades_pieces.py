@@ -50,6 +50,8 @@ def test_activity_reads_each_matched_registration_in_both_academies(monkeypatch)
                     body = '<a id="ETABLISSEMENT_INSCRIPTION">Inscription</a><a href="suivre_retours_pj/list">Suivre les retours de pièces justificatives</a>'
                 elif path.endswith("/list"):
                     rows = "".join(f'<tr><td><a href="{n}">{n}</a></td></tr>' for n in numbers)
+                    if key == "paris":
+                        rows = "".join(f'<tr><td ondblclick="location.href=this.innerText">{n}</td></tr>' for n in numbers)
                     body = f'<select id="selectContexte"><option>{label}</option></select><table>{rows}</table>'
                 else:
                     n = path.rsplit("/", 1)[-1]

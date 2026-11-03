@@ -490,6 +490,7 @@ def read_pieces(page, academy, label, report, records):
                     s.replaceWith(document.createTextNode('\\nPJ-CONTROLE ' + value + '\\n'));
                 });
                 copy.querySelectorAll('script,style,input,textarea,[hidden]').forEach(e => e.remove());
+                copy.querySelectorAll('td,th').forEach(e => { e.prepend(' '); e.append(' '); });
                 copy.querySelectorAll('br').forEach(e=>e.replaceWith('\\n'));
                 copy.querySelectorAll('div,p,tr,fieldset,legend,h1,h2,h3,h4,b,strong,label').forEach(e=>{
                     e.prepend('\\n'); e.append('\\n');
@@ -513,6 +514,7 @@ def read_pieces(page, academy, label, report, records):
         # Some selections lead directly to the detail navigator.
         detail = next((f for f in active() if f.get_by_text(counter).count()), None)
         if detail:
+            logging.getLogger(__name__).warning("CYCLADES %s PJ : navigation dossier par dossier", academy)
             previous = set()
             while detail:
                 header = detail.get_by_text(re.compile(r"N[°º]\s*candidat", re.I)).first
@@ -547,6 +549,8 @@ def read_pieces(page, academy, label, report, records):
                         logging.getLogger(__name__).warning("CYCLADES %s PJ écran de recherche | %s", academy, filter_structure(f))
                 break
             seen_pages.add(signature)
+            logging.getLogger(__name__).warning("CYCLADES %s PJ résultats : %d numéros, %d candidats attendus visibles",
+                academy, len(set(visible)), len(set(visible).intersection(expected)))
             for candidate in dict.fromkeys(visible):
                 records = expected.get(candidate)
                 if not records:
@@ -563,13 +567,27 @@ def read_pieces(page, academy, label, report, records):
                         if link.count() != 1:
                             link = all_links if all_links.count() == 1 else row.get_by_role(
                                 "link", name=re.compile(r"consulter|voir le détail|ouvrir le dossier", re.I))
-                        if not link.count() and row.evaluate("e => e.hasAttribute('onclick')"):
-                            link = row
+                        action = re.compile(r"consulter|voir le détail|ouvrir le dossier|accéder", re.I)
                         if link.count() != 1:
-                            continue
+                            link = row.get_by_role("button", name=action).or_(row.get_by_title(action)).filter(visible=True)
                         window = frame.page
                         pages_before = set(page.context.pages)
-                        link.click()
+                        if link.count() == 1:
+                            link.click()
+                        else:
+                            # Some worklists handle selection on the table cell and
+                            # expose a separate read-only 'Consulter' action.
+                            cell = row.locator("td,[role=cell]").filter(has_text=reference)
+                            if cell.count() != 1:
+                                continue
+                            cell.click()
+                            if not any(f.get_by_text(counter).count() for f in active()):
+                                consult = frame.get_by_role("button", name=re.compile(
+                                    r"^(consulter|accéder|voir le détail)( la candidature| le dossier)?$", re.I)).filter(visible=True)
+                                if consult.count() == 1 and consult.is_enabled():
+                                    consult.click()
+                                elif cell.count() and cell.is_visible():
+                                    cell.dblclick()
                         for _ in range(36):
                             detail = next((f for f in active() if f.get_by_text(counter).count()), None)
                             if detail:
