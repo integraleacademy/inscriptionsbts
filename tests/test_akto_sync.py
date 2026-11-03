@@ -32,7 +32,7 @@ def test_daily_manual_and_mos_isolation(tmp_path):
     calls=[]
     def read(email,password,students,save):
         calls.append([p['id'] for p in students])
-        save(students[0],[{'reference':'TEST123','status':'Accordé'}],'')
+        save(students[0],[{'reference':'TEST123','status':'Accordé','contract_start':'2025-06-01'}],'')
         return 0
     def run(hour):
         run_due(app,db,tmp_path,datetime(2026,11,4,hour,tzinfo=PARIS),read)
@@ -56,3 +56,24 @@ def test_daily_manual_and_mos_isolation(tmp_path):
         assert b'test-pwd' not in conn.execute('SELECT credential FROM akto_connection').fetchone()[0]
     action('disconnect');run(14)
     assert len(calls)==3
+
+
+def test_cutoff_uses_contract_date_before_reading_annexes(monkeypatch):
+    from contextlib import nullcontext
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from akto_portal import BeforeCutoff, notice
+    import pytest
+    for start,eligible in [('31/05/2025',False),('01/06/2025',True)]:
+        page=Mock()
+        page.extract_text.return_value=f"Numéro de dossier : AB123\nBénéficiaire : ALICE TEST né(e) le 05/03/2005\nDates de contrat : Du {start} au 01/07/2026\nDates de formation : Du 01/01/2025 au 01/07/2026"
+        page.extract_tables.return_value=[]
+        monkeypatch.setattr('akto_portal.pdfplumber.open',lambda _:nullcontext(SimpleNamespace(pages=[page])))
+        record={'reference':'AB123'}
+        if eligible:
+            notice('mock',record,{'prenom':'Alice','nom':'Test'})
+            assert record['contract_start']=='2025-06-01'
+        else:
+            with pytest.raises(BeforeCutoff):
+                notice('mock',record,{'prenom':'Alice','nom':'Test'})
+            page.extract_tables.assert_not_called()
