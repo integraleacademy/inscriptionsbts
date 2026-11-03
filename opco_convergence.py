@@ -24,6 +24,12 @@ class ReadError(ValueError):
     pass
 
 
+class ReadHttpError(ReadError):
+    def __init__(self, status_code, message):
+        super().__init__(message)
+        self.status_code = status_code
+
+
 def endpoint(provider, field, value):
     # An operator can pin the exact URL supplied at onboarding for a hosted gateway.
     pinned = os.environ.get(f'OPCO_{provider.upper()}_{field.upper()}_URL')
@@ -76,11 +82,11 @@ class Client:
         try:
             with requests.request(method, url, timeout=(5, 30), allow_redirects=False, stream=True, **kwargs) as response:
                 if response.status_code == 401:
-                    raise ReadError('Accès refusé. Vérifiez les identifiants techniques et leur validité.')
+                    raise ReadHttpError(401, 'Accès refusé. Vérifiez les identifiants techniques et leur validité.')
                 if response.status_code == 403:
-                    raise ReadError('Lecture refusée. Vérifiez la clé CFA et les habilitations Convergence.')
+                    raise ReadHttpError(403, 'Lecture refusée. Vérifiez la clé CFA et les habilitations Convergence.')
                 if response.status_code != 200:
-                    raise ReadError(f'Le service de lecture a répondu HTTP {response.status_code}.')
+                    raise ReadHttpError(response.status_code, f'Le service de lecture a répondu HTTP {response.status_code}.')
                 data = bytearray()
                 for chunk in response.iter_content(65536):
                     data.extend(chunk)

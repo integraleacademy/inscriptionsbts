@@ -18,6 +18,23 @@
         <p id="akto-cfa-help" class="settings-help">La clé est conservée chiffrée après validation par AKTO. Sa valeur ne sera plus affichée.</p>
         <button class="settings-button primary" name="action" value="save">Vérifier et enregistrer la clé</button>
       </form>
+      <section id="akto-dossier" aria-labelledby="akto-dossier-title">
+        <h4 id="akto-dossier-title">Tester un dossier en recette</h4>
+        {% if recette.dossier_feedback %}
+        <p class="settings-message{% if recette.dossier_feedback[0] == 'error' %} error{% endif %}" role="status">{{ recette.dossier_feedback[1] }}</p>
+        {% endif %}
+        {% if recette.configured %}
+        <form method="post" action="{{ url_for('akto_recette_settings') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <label for="akto-dossier-ref">Numéro de dossier AKTO</label>
+          <input id="akto-dossier-ref" name="reference" required maxlength="80" autocomplete="off">
+          <label for="akto-dossier-deca">Numéro d’enregistrement (DECA)</label>
+          <input id="akto-dossier-deca" name="deca" required maxlength="80" autocomplete="off">
+          <p class="settings-help">Recopiez les deux numéros de la facture ou de l’accord AKTO, en conservant les zéros au début. Ce test consulte un seul dossier.</p>
+          <button class="settings-button primary" name="action" value="lookup">Tester ce dossier en recette</button>
+        </form>
+        {% else %}<p class="settings-help">Enregistrez votre clé CFA ci-dessus pour activer la recherche.</p>{% endif %}
+      </section>
       {% if recette.configured %}
       <form method="post" class="settings-actions" action="{{ url_for('akto_recette_settings') }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

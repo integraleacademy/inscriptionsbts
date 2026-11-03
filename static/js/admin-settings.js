@@ -4,12 +4,22 @@
   if (!root) return;
   const $ = id => document.getElementById(id);
   function openLinkedSection() {
-    let section = $(window.location.hash.slice(1));
+    const [anchor, query] = window.location.hash.slice(1).split('?');
+    let section = $(anchor);
     if (!root.contains(section)) return;
+    if (anchor === 'akto-dossier' && query) {
+      const fields = new URLSearchParams(query);
+      for (const [name, id] of [['reference', 'akto-dossier-ref'], ['deca', 'akto-dossier-deca']]) {
+        const value = fields.get(name);
+        if ($(id) && value && /^[a-zA-Z0-9./_-]{1,80}$/.test(value)) $(id).value = value;
+      }
+    }
+    const target = section;
     while (section) {
       if (section.tagName === 'DETAILS') section.open = true;
       section = section.parentElement;
     }
+    if (anchor === 'akto-dossier' && query) target.scrollIntoView({block: 'center'});
   }
   openLinkedSection();
   window.addEventListener('hashchange', openLinkedSection);
