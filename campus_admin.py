@@ -125,12 +125,19 @@ def register_campus_admin(app, db_connect, require_admin):
                              request.accept_mimetypes['text/html'] > request.accept_mimetypes['application/json']):
             query = urlencode(list(request.args.items(multi=True)))
             return redirect(url_for('admin_enrollments') + ('?' + query if query else ''))
+        filters = {name:request.args.get(name,'').strip() for name in ENROLLMENT_FILTERS}
         with closing(db_connect()) as conn:
-            promotions = list_promotions(conn, active_only=True)
+            promotions = list_promotions(conn, bts=filters['bts'], active_only=True)
+            # Changing the formation can submit the promotion from the previous selection.
+            if filters['bts'] and filters['promotion'] not in ('', 'none') and conn.execute(
+                    'SELECT 1 FROM promotions WHERE id=? AND bts<>?',
+                    (filters['promotion'], filters['bts'])).fetchone():
+                filters['promotion'] = ''
+                if not data_request:
+                    return redirect(url_for('admin_enrollments', **{k: v for k, v in filters.items() if v}))
             rows = enrolled_rows(conn)
             configured = directory_contracts(current_app, conn, rows)
             exam_year = directory_indicators(conn, rows)
-        filters = {name:request.args.get(name,'').strip() for name in ENROLLMENT_FILTERS}
         for name, value in filters.items():
             if not value or name == 'contract': continue
             if name == 'q': rows = [r for r in rows if all(word in key(' '.join(str(r.get(k) or '') for k in ('nom','prenom','email','numero_dossier'))) for word in key(value).split())]

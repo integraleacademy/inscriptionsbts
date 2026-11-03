@@ -72,6 +72,25 @@ def test_discovery_scope_uses_other_filters_before_contract_filter(directory):
     assert directory.get('/admin/inscriptions/donnees?rentree=2026').json['discovery'] == []
 
 
+def test_formation_limits_promotion_choices_and_clears_incompatible_filter(directory):
+    def options(query):
+        html = directory.get('/admin/inscriptions' + query).text
+        select = re.search(r'<select name="promotion">(.*?)</select>', html, re.S)[1]
+        return set(re.findall(r'<option value="([^"]*)"', select))
+
+    assert options('') >= {'', 'none', 'p1', 'p2'}
+    assert 'p2' in options('?bts=MOS') and 'p1' not in options('?bts=MOS')
+    assert 'p1' in options('?bts=MCO') and 'p2' not in options('?bts=MCO')
+    assert options('?bts=MOS&promotion=none') >= {'', 'none', 'p2'}
+    query = '?bts=MOS&rentree=2026&promotion=p1'
+    response = directory.get('/admin/inscriptions' + query)
+    assert response.status_code == 302
+    assert parse_qs(urlsplit(response.location).query) == {'bts': ['MOS'], 'rentree': ['2026']}
+    assert kpis(directory.get(response.location).text)['total'] == 1
+    refresh = directory.get('/admin/inscriptions/donnees' + query)
+    assert kpis(refresh.json['stats_html'])['total'] == 1
+
+
 def test_a_link_appears_immediately_and_multiple_contracts_count_one_student(directory):
     assert kpis(directory.get('/admin/inscriptions').text)['with_contract'] == 2
     with application.db() as conn:
