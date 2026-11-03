@@ -44,7 +44,7 @@ def secret(app):
 def get_records(conn,cid):
     result=conn.execute('SELECT records,message FROM akto_students WHERE candidate_id=?',(cid,)).fetchone()
     if result and result['records'] is not None:
-        records=[r for r in json.loads(result['records']) if r.get('contract_start','') >= START_DATE]
+        records=[r for r in json.loads(result['records']) if (r.get('contract_start') or '') >= START_DATE]
         return records,result['message']
     pilot=contract_for(cid)
     return ([pilot] if pilot else []), (result['message'] if result else 'En attente de la première lecture AKTO.')
@@ -120,7 +120,7 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
 def register_akto(app,connect,require_admin,directory):
     with closing(connect()) as conn:
         schema(conn)
-        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('cutoff-20250601-v1')").rowcount:
+        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('catalogue-20250601-v2')").rowcount:
             conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state='error'")
         conn.commit()
     wake,guard=threading.Event(),threading.Lock()
