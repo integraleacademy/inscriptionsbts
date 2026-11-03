@@ -5,7 +5,7 @@ from datetime import datetime
 from cyclades_data import words
 
 MONTHS = "janvier février mars avril mai juin juillet août septembre octobre novembre décembre".split()
-PIECE = re.compile(r"(?m)^\s*([A-Z][A-Z0-9]{1,13}[0-9])\s*:\s*([^\n]{2,180})$")
+PIECE = re.compile(r"(?m)^\s*([A-Z][A-Z0-9_.-]{2,24})\s*:\s*([^\n]{2,180})$")
 REVIEWS = {"en attente de controle": "En attente de contrôle", "conforme": "Conforme",
            "non conforme": "Non conforme", "recue": "Reçue"}
 
@@ -50,7 +50,7 @@ def verified_counts(text, record, uai):
     return {"conforming": conforming, "requested": requested}
 
 
-def parse_detail(text, record, uai):
+def parse_detail(text, record, uai, *, allow_partial=False):
     """Return only item labels, explicit upload/control states and the deadline."""
     summary = verified_counts(text, record, uai)
     if summary is None:
@@ -62,7 +62,7 @@ def parse_detail(text, record, uai):
     # The legacy layout separates the file indicator and actor into adjacent cells.
     text = re.sub(r"aucun\s+fichier\s*par\s+le\s+(candidat|gestionnaire)",
                   r"Aucun fichier par le \1", text, flags=re.I)
-    text = re.sub(r"(?m)^\s*([A-Z][A-Z0-9]{1,13}[0-9])\s*:\s*\n\s*(?=\S)", r"\1 : ", text)
+    text = re.sub(r"(?m)^\s*([A-Z][A-Z0-9_.-]{2,24})\s*:\s*\n\s*(?=\S)", r"\1 : ", text)
     for line in text.splitlines():
         line = line.strip()
         if re.search(r"[àa] déposer en ligne entre", line, re.I):
@@ -84,7 +84,17 @@ def parse_detail(text, record, uai):
             if flat.startswith("traitement administratif statut ") and flat.removeprefix("traitement administratif statut ") in REVIEWS:
                 current["review"] = REVIEWS.get(flat.removeprefix("traitement administratif statut "))
             if line.startswith("PJ-CONTROLE "):
-                current["review"] = REVIEWS.get(words(line[12:]))
-    if len(pieces) != summary["requested"] or len({p["code"] for p in pieces}) != len(pieces):
+                review = REVIEWS.get(words(line[12:]))
+                if review:
+                    current["review"] = review
+                    # A review control closes this item. Later actors or controls
+                    # cannot update it if another title wasn't recognized.
+                    current = None
+    # Non-document uppercase labels can occur around the controls. Only keep
+    # headings with observed file or review information when reading a fragment.
+    if allow_partial:
+        pieces = [p for p in pieces if p["deposit"] or p["manager"] or p["review"]]
+    if ((len(pieces) != summary["requested"] and not (allow_partial and 0 < len(pieces) < summary["requested"]))
+            or len({p["code"] for p in pieces}) != len(pieces)):
         return None
     return {"documents": pieces, **summary}

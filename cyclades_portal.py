@@ -524,11 +524,25 @@ def read_pieces(page, academy, label, report, records):
             text = frame.locator("body").evaluate("""body => {
                 const copy = body.cloneNode(true);
                 const originals = [...body.querySelectorAll('select')];
+                // Preserve line boundaries and selected review values while dropping
+                // the invisible item templates that Cyclades keeps in every form.
+                const nodes = [...body.querySelectorAll('*')], copies = [...copy.querySelectorAll('*')];
+                nodes.forEach((e,i) => {
+                    if (getComputedStyle(e).display === 'none' || getComputedStyle(e).visibility === 'hidden') {
+                        copies[i].setAttribute('hidden','');
+                    }
+                });
                 [...copy.querySelectorAll('select')].forEach((s,i) => {
                     const value = originals[i].selectedOptions[0]?.textContent.trim() || '';
+                    if (s.closest('[hidden]')) { s.remove(); return; }
                     s.replaceWith(document.createTextNode('\\nPJ-CONTROLE ' + value + '\\n'));
                 });
                 copy.querySelectorAll('script,style,input,textarea,[hidden]').forEach(e => e.remove());
+                copy.querySelectorAll('b,strong,i,em,label').forEach(e => {
+                    if (/^[A-Z][A-Z0-9_.-]{2,24}\\s*:/.test(e.textContent.trim())) {
+                        e.textContent = e.textContent.trim().replace(/\\s+/g,' ');
+                    }
+                });
                 copy.querySelectorAll('td,th').forEach(e => { e.prepend(' '); e.append(' '); });
                 copy.querySelectorAll('br').forEach(e=>e.replaceWith('\\n'));
                 copy.querySelectorAll('div,p,tr,fieldset,legend,h1,h2,h3,h4,b,strong,label').forEach(e=>{
@@ -562,11 +576,17 @@ def read_pieces(page, academy, label, report, records):
                         for doc, control in zip(docs, controls):
                             doc["review"] = REVIEWS.get(words(control["selected"]))
                 else:
-                    result = parse_detail(annotated, record, ACADEMIES[academy][1])
+                    result = parse_detail(annotated, record, ACADEMIES[academy][1], allow_partial=True)
+                if result is not None and len(result["documents"]) < summary["requested"]:
+                    docs = result["documents"]
+                    record["piece_summary"]["items"] = docs
+                    logging.getLogger(__name__).warning("CYCLADES %s PJ détail partiel : %d/%d pièces, dépôts explicites %d, contrôles explicites %d",
+                        academy, len(docs), summary["requested"], sum(bool(d["deposit"]) for d in docs), sum(bool(d["review"]) for d in docs))
+                    return 0
                 if result is not None:
                     record.update(result, documents_checked=stamp)
                     docs = result["documents"]
-                    logging.getLogger(__name__).info("CYCLADES %s PJ pièces lues : %d, dépôts explicites %d, contrôles explicites %d",
+                    logging.getLogger(__name__).warning("CYCLADES %s PJ pièces lues : %d, dépôts explicites %d, contrôles explicites %d",
                         academy, len(docs), sum(bool(d["deposit"]) for d in docs), sum(bool(d["review"]) for d in docs))
                     return 1
             # Show structural reasons only; never emit a student's name or references.
@@ -610,16 +630,36 @@ def read_pieces(page, academy, label, report, records):
                 detail = next((f for f in active() if f.get_by_text(counter).count()), None)
             return
 
+        def list_signature():
+            return tuple(number(v) for f in active() for txt in f.locator(
+                "tr:visible,[role=row]:visible").filter(has_text=record_number).all_inner_texts()
+                for v in record_number.findall(txt))
+
+        def advance_list(page_no):
+            before = list_signature()
+            label = re.compile(r"^(?:page\s+)?0*" + str(page_no) + r"$", re.I)
+            for f in active():
+                controls = f.get_by_role("link", name=label).or_(f.get_by_role("button", name=label)).or_(
+                    f.get_by_title(label)).or_(next_control(f)).or_(f.get_by_title(
+                    re.compile(r"page suivante|suivant.{0,12}page", re.I))).filter(visible=True)
+                for control in controls.all():
+                    if control.is_enabled() and control.get_attribute("aria-disabled") != "true":
+                        try:
+                            control.click(timeout=1800)
+                        except Error:
+                            continue
+                        for _ in range(14):
+                            now = list_signature()
+                            if now and now != before:
+                                return True
+                            shell.wait_for_timeout(150)
+            return False
+
         seen_pages = set()
         logged_row = False
         while observed < len(targets):
             # Restrict navigation to rows containing a known candidate number.
-            visible = []
-            for f in active():
-                rows = f.locator("tr:visible,[role=row]:visible").filter(has_text=record_number)
-                for row_text in rows.all_inner_texts():
-                    visible.extend(number(v) for v in record_number.findall(row_text))
-            signature = tuple(visible)
+            visible = signature = list_signature()
             if not signature or signature in seen_pages:
                 if not signature:
                     for f in active():
@@ -715,26 +755,23 @@ def read_pieces(page, academy, label, report, records):
                                 if not searched_again and not any(f.get_by_text(counter).count() for f in active()):
                                     searched_again = lookup()
                                 shell.wait_for_timeout(250)
+                            # A GET may return page one even if the selected
+                            # registration was on a later page of the results.
+                            for page_no in range(2,len(seen_pages)+1):
+                                if list_signature() == signature or not advance_list(page_no):
+                                    break
                         phase = "dossiers"
                         if all("documents_checked" in r for r in records):
                             break
                     break
-            advanced = False
-            for frame in active():
-                nxt = next_control(frame)
-                if nxt.count() == 1 and nxt.is_enabled():
-                    nxt.click()
-                    shell.wait_for_timeout(250)
-                    advanced = True
-                    break
-            if not advanced:
+            if observed >= len(targets) or not advance_list(len(seen_pages)+1):
                 for frame in active():
-                    counts = frame.evaluate("""() => ({
+                    counts = frame.evaluate(r"""() => ({
                         rows: document.querySelectorAll('tr').length,
                         pages: [...document.querySelectorAll('a,button,input,select,img,[role=button]')].map(e =>
                            [e.title,e.getAttribute('alt'),e.getAttribute('aria-label'),e.textContent?.trim()].find(t =>
                               t && /^(?:page |suivant|précédent|.{0,15}page suivante|[1-9]$)/i.test(t) && t.length < 40))
-                           .filter(Boolean).map(t => t.replace(/[^0-9]/g,'').length > 0 ? 'numéroté' : 'navigation'),
+                           .filter(Boolean).map(t => t.match(/(?:suivant|précédent|page|[0-9]{1,2}\b)/ig)?.join(' ')),
                         scrollables: [...document.querySelectorAll('div')].filter(e => e.clientHeight > 0 &&
                             e.scrollHeight > e.clientHeight + 10 && /auto|scroll/.test(getComputedStyle(e).overflowY)).length
                     })""")
