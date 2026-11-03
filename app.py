@@ -11,7 +11,7 @@ from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
-from formation_intake import admission_titles, open_title_promotions, ensure_schema as ensure_formation_schema, register_formation_intake
+from formation_intake import open_title_promotions, ensure_schema as ensure_formation_schema, register_formation_intake
 from candidate_email_history import archived_body, history as candidate_email_history
 from candidate_csv_import import register_candidate_import
 from candidate_creation import register_candidate_creation
@@ -1062,10 +1062,7 @@ def title_selection():
     preview = request.args.get("preview") == "1"
     if preview and not require_admin():
         return redirect(url_for("login", next=request.full_path))
-    with closing(db()) as conn:
-        titles = admission_titles(conn)
-    return render_template("title_selection.html", title="Choisir un titre professionnel · Intégrale Academy",
-                           title_offers=titles, preview=preview)
+    return render_title_journey(preview=preview)
 
 
 @app.route("/candidature")

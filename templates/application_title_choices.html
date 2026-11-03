@@ -1,0 +1,17 @@
+<div class="training-choices" id="titres-professionnels">
+  {% for offer in title_offers %}
+    <label class="training-choice"><input type="radio" name="bts" value="{{ offer.code }}" required {% if offer.code == title_code %}checked{% endif %} {% if not preview and not offer.promotions %}data-unavailable disabled{% endif %}>
+      <span><b>{{ offer.name }}</b>{% if not offer.promotions and not preview %}<small>Aucune session ouverte</small>{% endif %}</span></label>
+  {% endfor %}
+</div>
+<label class="field" id="title-session-field" hidden><span>Ta session</span>
+  <select id="title-session"><option value="">Choisis une session</option>
+    {% for offer in title_offers %}{% for group in offer.promotions %}
+      <option value="{{ group.id }}" data-title="{{ offer.code }}" data-year="{{ group.rentree_annee }}"
+        {% if not preview %}data-submit="{{ url_for('title_application', promotion_id=group.id) }}" data-draft="{{ url_for('title_application_draft', promotion_id=group.id) }}" data-token="{{ session_tokens[group.id] }}"{% endif %}
+        {% if promotion and promotion.id == group.id %}selected{% endif %}>{{ group.nom }} · Du {{ group.date_debut|dmy }} au {{ group.date_fin|dmy }}</option>
+    {% endfor %}{% endfor %}
+  </select>
+</label>
+{% if not preview and not title_offers|selectattr('promotions')|list %}<p class="field-hint">Les candidatures ouvriront dès qu’une session sera programmée.</p>{% endif %}
+<a class="catalog-return" href="{{ url_for('candidature', preview=1, _anchor='choix-formation') if preview else url_for('candidature', _anchor='choix-formation') }}">← Revenir au choix de formation</a>

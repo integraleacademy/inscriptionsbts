@@ -24,7 +24,7 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     assert catalog.has_attr('hidden') and guide.find_next_sibling('section') == catalog
     assert catalog.select_one('#start-bts') and catalog.select_one('a#choose-titles')
     shared_fields = {field['name'] for field in preview.select('#application-form [name]')}
-    shared_fields -= {'mos_parcours', 'aps_souhaitee', 'raison_aps'}
+    shared_fields -= {'mos_parcours', 'aps_souhaitee', 'raison_aps', 'admin_preview'}
     public = page(guest, '/').select_one('#choix-formation')
     assert public.select_one('a[href="#inscriptions-bts"]')
     assert not preview.select('.catalog-title-list') and not public.select('.catalog-title-list')
@@ -32,21 +32,22 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     assert guest.get(preview_link).status_code == 302
     title_page = page(client, preview_link)
     public_titles = page(guest, public.select_one('#titres-professionnels')['href'])
-    for listing in (public_titles, title_page):
-        assert {h.get_text(strip=True) for h in listing.select('li h3')} == set(ACADEMY_TITLES)
-    assert not public_titles.select('.catalog-session a')
-    for li in title_page.select('.catalog-title-list li'):
-        link = li.a['href']
-        assert guest.get(link).status_code == 302
-        form = page(client, link)
-        assert form.select_one('.selected-title b').get_text() == li.h3.get_text()
-        assert form.select_one('.catalog-return')['href'] == preview_link
+    for form in (public_titles, title_page):
+        assert {h.get_text(strip=True) for h in form.select('#titres-professionnels label b')} == set(ACADEMY_TITLES)
         assert shared_fields <= {field['name'] for field in form.select('#application-form [name]')}
         assert len(form.select('#step-navigation button')) == 7
-        assert form.select_one('input[name=bts][checked]')['value'] == 'TP ' + li.h3.get_text().upper()
-        assert form.select_one('a[href^="/admin/promotions?bts="]')
-        assert form.select_one('button[type=submit][disabled]')
-        assert not form.select('[name=submission_token]')
+        assert form.select_one('#next-step') and form.select_one('#application-progress')
+        assert form.select_one('#application-form')['data-title-journey'] == 'true'
+    assert all(radio.has_attr('disabled') for radio in public_titles.select('#titres-professionnels input'))
+    assert not title_page.select('#titres-professionnels input[disabled]')
+    assert title_page.select_one('button[type=submit][disabled]')
+    assert not title_page.select('[name=submission_token]')
+    for name in ACADEMY_TITLES:
+        code = 'TP ' + name.upper()
+        link = '/titres-professionnels/apercu?' + urlencode({'formation': code})
+        assert guest.get(link).status_code == 302
+        form = page(client, link)
+        assert form.select_one('input[name=bts][checked]')['value'] == code
         assert client.post(link, data={'email': 'test@example.test'}).status_code == 405
     security = catalog.select_one('a[href*="parcoursalternance"]')['href']
     assert public.select_one('a[href="/parcoursalternance/candidature"]')
@@ -85,13 +86,12 @@ def test_catalog_tracks_promotions_in_public_and_admin_views(client, monkeypatch
     for path in ('/', '/candidature'):
         choices = page(guest, path)
         link = choices.select_one('#choose-titles, a#titres-professionnels')['href']
-        listing = page(guest, link).select_one('#titres-professionnels')
-        assert 'Nouveau métier' in listing.get_text()
-        assert {a['href'] for a in listing.select('a')} == {'/titres-professionnels/candidature/' + pid for pid in (first, second)}
-    for a in page(client, '/titres-professionnels?preview=1').select('#titres-professionnels a[href*="promotion="]'):
-        sample = page(client, a['href'])
-        assert sample.select_one('.selected-title b').get_text() == 'Nouveau métier' and '2027' in sample.select_one('.selected-title').get_text()
-        assert not sample.select('[name=submission_token]')
+        form = page(guest, link)
+        assert 'Nouveau métier' in form.select_one('#titres-professionnels').get_text()
+        assert {o['data-submit'] for o in form.select('#title-session option[data-title]')} == {'/titres-professionnels/candidature/' + pid for pid in (first, second)}
+    sample = page(client, '/titres-professionnels?preview=1')
+    assert {o['value'] for o in sample.select('#title-session option[data-title]')} == {first, second}
+    assert not sample.select('[name=submission_token], [data-token]')
     wrong = urlencode({'formation': 'TP GESTIONNAIRE DE PAIE', 'promotion': first})
     assert client.get('/titres-professionnels/apercu?' + wrong).status_code == 404
     for pid in (inactive, incomplete, ended):
@@ -109,9 +109,11 @@ def test_existing_title_spelling_keeps_its_promotion_and_is_listed_once(client):
     with client.session_transaction() as session:
         csrf = session['_promotion_csrf']
     client.post('/admin/promotions/titres-professionnels', data={'csrf_token': csrf, 'name': name.replace("'", "’")})
-    listing = page(client, '/titres-professionnels').select_one('#titres-professionnels')
-    assert len(listing.select('li')) == len(ACADEMY_TITLES)
-    assert listing.find('h3', string=name).find_parent('li').a['href'].endswith('/' + pid)
+    form = page(client, '/titres-professionnels')
+    assert len(form.select('#titres-professionnels label')) == len(ACADEMY_TITLES)
+    assert form.select_one('#title-session option[data-title]')['value'] == pid
+    assert form.select_one('#title-session option[data-title]')['data-title'] == code
+
 
 
 def test_security_agent_title_is_unavailable_even_with_an_existing_promotion(client):
