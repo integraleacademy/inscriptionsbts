@@ -17,7 +17,7 @@
   </td>
   <td class="enrollment-cyclades-col">{% if r.cyclades_indicator %}
     {% set tone, label = r.cyclades_indicator %}
-    <a class="enrollment-cyclades" href="{{ candidate_url }}#cyclades" title="{{ label }}" aria-label="Cyclades {{ exam_year }} · {{ person_name(r.nom,r.prenom) }} · {{ label }}"><span class="cyclades-dot cyclades-dot-{{ tone }}" aria-hidden="true"></span><span class="sr-only">{{ label }}</span></a>
+    <a class="enrollment-cyclades" href="{{ candidate_url }}#cyclades" title="{{ label }}" aria-label="Cyclades · session {{ exam_year }} · {{ person_name(r.nom,r.prenom) }} · {{ label }}"><span class="cyclades-dot cyclades-dot-{{ tone }}" aria-hidden="true"></span><span class="sr-only">{{ label }}</span></a>
     {% else %}<span title="Formation hors BTS" aria-label="Formation hors BTS">—</span>{% endif %}
   </td>
   <td>

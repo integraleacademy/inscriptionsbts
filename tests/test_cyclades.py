@@ -39,9 +39,11 @@ def student(client, monkeypatch):
     monkeypatch.setattr(application.app, "secret_key", "a-long-test-secret-for-cyclades")
     seed(2025, "student")
     from akto_sync import schema as akto_schema
+    from opco_sync import schema as opco_schema
     from wedof_daily_sync import schema as wedof_schema
     with application.db() as conn:
         akto_schema(conn)
+        opco_schema(conn)
         wedof_schema(conn)
         conn.execute("UPDATE candidats SET date_naissance='2005-02-03' WHERE id='student'")
     return client
@@ -518,8 +520,10 @@ def test_enrollment_indicator_requires_explicit_deposits_and_consistent_reviews(
     for override in [dict(status="Pré-inscrit"), dict(requested=3),
                      dict(piece_summary={"checked": "plus récent", "requested": 2, "conforming": 2})]:
         assert registration_indicator(dict(record, **override))[0] == "red"
-    for field, value in [("deposit", None), ("deposit", "Non déposée"), ("review", "Non conforme")]:
-        assert registration_indicator(dict(record, documents=[dict(docs[0], **{field:value}), docs[1]]))[0] == "red"
+    # A conforming piece is received even if the uploader was not reported.
+    assert registration_indicator(dict(record, documents=[dict(docs[0], deposit=None), docs[1]]))[0] == "green"
+    for change in [dict(deposit="Non déposée", manager="Non déposée"), dict(review="Non conforme")]:
+        assert registration_indicator(dict(record, documents=[dict(docs[0], **change), docs[1]]))[0] == "red"
     assert registration_indicator(dict(status="Inscrit"))[0] == "red"
     assert registration_indicator(dict(status="Inscrit", requested=0, conforming=0))[0] == "green"
 
@@ -540,3 +544,18 @@ def test_enrollments_list_and_filtered_refresh_show_same_cyclades_dot(student):
     with application.db() as conn:
         conn.execute("UPDATE cyclades_students SET outcome='missing' WHERE academy='nice'")
     assert 'cyclades-dot-red' in student.get("/admin/inscriptions/donnees?bts=MCO").json['rows_html']
+
+def test_four_conforming_pieces_with_unknown_uploader_in_sheet_and_directory(student):
+    auth(student)
+    now = datetime.now(PARIS)
+    year = now.year + (now.month >= 9)
+    report = parse_report(export("nice", status="Inscrit"), "nice")._replace(year=year)
+    docs = [dict(label=f"Justificatif {i}", review="Conforme", deposit=None, manager=None) for i in range(4)]
+    report.records[0][-1].update(requested=4, conforming=4, documents=docs, documents_checked="03/11/2026 à 12h38")
+    with application.db() as conn:
+        apply_report(conn, "nice", report, "auto")
+    html = student.get("/admin/candidat/student/cyclades").text
+    assert html.count("Auteur du dépôt non précisé") == 4 and html.count(">Reçue<") == 4
+    assert "4/4 conformes" in html and "Non communiqué" not in html
+    listing = student.get("/admin/inscriptions/donnees?bts=MCO").json["rows_html"]
+    assert "cyclades-dot-green" in listing

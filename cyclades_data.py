@@ -210,6 +210,27 @@ def schema(conn):
         conn.execute("ALTER TABLE cyclades_accounts ADD COLUMN network_retry REAL")
 
 
+class PieceReceipt(NamedTuple):
+    received: bool | None
+    label: str
+    note: str = ""
+
+
+def piece_receipt(piece):
+    candidate, manager = piece.get("deposit"), piece.get("manager")
+    if candidate == "Déposée":
+        return PieceReceipt(True, "Déposée", "Par le candidat et le gestionnaire" if manager == "Déposée" else "Par le candidat")
+    if manager == "Déposée":
+        return PieceReceipt(True, "Déposée", "Par le gestionnaire")
+    if candidate == manager == "Non déposée":
+        return PieceReceipt(False, "Non déposée", "Aucun fichier signalé")
+    if piece.get("review") == "Conforme":
+        return PieceReceipt(True, "Reçue", "Auteur du dépôt non précisé")
+    if candidate == "Non déposée":
+        return PieceReceipt(None, "Non déposée par le candidat", "Dépôt gestionnaire non renseigné")
+    return PieceReceipt(None, "Dépôt à vérifier")
+
+
 def registration_indicator(record):
     status = record.get("status")
     if words(status) != "inscrit":
@@ -231,8 +252,9 @@ def registration_indicator(record):
     if any(p.get("review") == "Non conforme" for p in docs):
         return "red", "Pièce non conforme"
     for piece in docs:
-        if "Déposée" not in (piece.get("deposit"), piece.get("manager")):
-            return "red", "Dépôt à vérifier" if not piece.get("deposit") else "Dépôt manquant"
+        receipt = piece_receipt(piece)
+        if receipt.received is not True:
+            return "red", "Dépôt manquant" if receipt.received is False else "Dépôt à vérifier"
     reviews = [p.get("review") for p in docs]
     if conforming != reviews.count("Conforme"):
         return "red", "Contrôle à vérifier"
