@@ -107,6 +107,20 @@ def test_filiz_account_all_bts_views_and_cache(tmp_path,monkeypatch):
     for _ in range(5):
         tick(app, db, tmp_path, datetime(2026,11,4,9,tzinfo=PARIS))
     assert attempts == [set(), {'empty'}, {'empty'}]
+    # After the school account is verified, a manual sync continues the interrupted run.
+    from opco_sync import account_status
+    with closing(db()) as conn:
+        conn.execute("UPDATE opco_accounts SET message='Vérification FILIZ demandée.'")
+        conn.commit()
+        assert 'Dossiers examinés : 1.' in account_status(conn)['message']
+    client.post('/admin/parametres/opco/filiz', data={'action':'sync','csrf_token':'csrf'})
+    def after_login(config, people, stored, save, completed, save_batch):
+        assert completed == {'empty'}
+        return completed
+    monkeypatch.setattr('opco_sync.read_filiz', after_login)
+    tick(app, db, tmp_path, datetime(2026,11,4,10,tzinfo=PARIS))
+    with closing(db()) as conn:
+        assert account_status(conn)['state'] == 'ok'
     client.post('/admin/parametres/opco/filiz',data={'action':'disconnect','csrf_token':'csrf'})
     with closing(db()) as conn:
         assert conn.execute('SELECT count(*) FROM filiz_session').fetchone()[0]==0
