@@ -1,0 +1,16 @@
+<article class="sheet-card">
+  <p class="wc-eyebrow">MON ESPACE AKTO · TEST INDIVIDUEL</p>
+  <h2>{{ pilot.employer }}</h2>
+  <p>Contrat d’apprentissage · Dossier {{ pilot.reference }} · <strong>{{ pilot.status }}</strong></p>
+  <dl class="wc-facts">
+    {% for label, value in [
+      ('Numéro DGEFP', pilot.dgefp), ('SIRET employeur', pilot.siret),
+      ('Formation', pilot.training), ('Période du module', pilot.period), ('Durée du module', pilot.hours),
+      ('Prise en charge accordée', pilot.funding), ('Réglé', pilot.paid), ('Solde', pilot.balance),
+      ('Pièce justificative', pilot.evidence), ('Document disponible sur AKTO', pilot.document)] %}
+      <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+    {% endfor %}
+  </dl>
+  <p>Relevé dans l’espace prestataire AKTO le {{ pilot.checked }}. Le portail ne présente pas de copie du contrat signé dans les documents de ce dossier à cette date.</p>
+  <a class="btn" href="https://monespace.akto.fr/prestataire/formations/dossiers/{{ pilot.reference }}" target="_blank" rel="noopener noreferrer">Consulter le dossier sur AKTO</a>
+</article>

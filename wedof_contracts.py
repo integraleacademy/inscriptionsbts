@@ -4,6 +4,7 @@ No remote writes or bulk imports. Daily scheduled discovery is bounded
 to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
+from akto_pilot import contract_for as akto_contract_for
 import base64
 from collections.abc import Mapping
 from contextlib import closing, contextmanager
@@ -212,6 +213,11 @@ def directory_contracts(app, conn, rows, *, include_linked_contracts=False):
                 f'SELECT * FROM student_wedof_discovery WHERE candidate_id IN ({marks})', batch)})
     for row in rows:
         row.update(contract='linked', contract_label='À vérifier', contract_detail='Recherche WEDOF à effectuer', contract_needs_check=bool(api_key))
+        pilot = akto_contract_for(row['id'])
+        if pilot:
+            row.update(contract='yes', contract_label='Contrat d’apprentissage',
+                       contract_detail=f"AKTO · {pilot['status']}", contract_needs_check=False)
+            continue
         linked = contracts.get(row['id'], [])
         if linked:
             row['contract_needs_check'] = False
@@ -444,7 +450,7 @@ def register_wedof_contracts(app, connect, require_admin):
             session['_wedof_csrf'] = secrets.token_urlsafe(32)
         return session['_wedof_csrf']
 
-    app.context_processor(lambda: {'wedof_csrf': csrf, 'wedof_financers': FINANCERS})
+    app.context_processor(lambda: {'akto_contract_for': akto_contract_for, 'wedof_csrf': csrf, 'wedof_financers': FINANCERS})
 
     def guarded(fn):
         @wraps(fn)
@@ -454,6 +460,8 @@ def register_wedof_contracts(app, connect, require_admin):
             if request.method != 'GET' and (not session.get('_wedof_csrf') or not hmac.compare_digest(
                     request.headers.get('X-CSRF-Token', ''), session['_wedof_csrf'])):
                 return jsonify(ok=False, message='La session a expiré. Rechargez la page.'), 400
+            if kwargs.get('cid') and akto_contract_for(kwargs['cid']) and request.method != 'GET':
+                return jsonify(ok=False, message='Ce dossier est suivi directement dans AKTO.'), 409
             try:
                 return fn(*args, **kwargs)
             except WedofError as error:
@@ -588,6 +596,10 @@ def register_wedof_contracts(app, connect, require_admin):
     @guarded
     def index(cid):
         row = candidate(cid)
+        pilot = akto_contract_for(cid)
+        if pilot:
+            return jsonify(ok=True, configured=False, has_contracts=True,
+                           html=render_template('_akto_pilot.html', pilot=pilot))
         with closing(connection()) as conn:
             try:
                 configured = bool(get_key(app, conn))
@@ -873,6 +885,8 @@ def register_wedof_contracts(app, connect, require_admin):
         return jsonify(refresh_contract(cid, key))
 
     def sync_item(cid, key, since):
+        if akto_contract_for(cid):
+            return {'skipped': True}
         if key:
             return refresh_contract(cid, key, since)
         state, _, _ = discover_step(cid, since=since)
