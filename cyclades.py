@@ -8,7 +8,7 @@ import os
 import re
 import threading
 from contextlib import closing
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -96,7 +96,9 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
             return
         for key in ACADEMIES:
             clock = (now or datetime.now(PARIS)).astimezone(PARIS)
-            today = clock.date().isoformat()
+            # The daily slot starts at 08:00 Paris time. An early manual check
+            # belongs to the previous slot, so today's scheduled check stays due.
+            slot = (clock.date() if clock.hour >= 8 else clock.date() - timedelta(days=1)).isoformat()
             with closing(connect()) as conn:
                 conn.execute("BEGIN IMMEDIATE")
                 row = conn.execute("SELECT * FROM cyclades_accounts WHERE academy=?", (key,)).fetchone()
@@ -105,11 +107,12 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 # First connection is checked immediately. Subsequent days start at 08:00.
                 recovering = row["status"] == "running" or (
                     (row["status"] == "error" or (key == "nice" and row["reader_version"] == 8)) and row["reader_version"] < READER_VERSION)
-                if not recovering and row["day"] is not None and (row["day"] == today or clock.hour < 8):
+                daily_due = clock.hour >= 8 and (row["day"] or "") < slot
+                if row["day"] is not None and row["status"] != "pending" and not (recovering or daily_due):
                     continue
                 revision = row["revision"]
                 conn.execute("UPDATE cyclades_accounts SET day=?,attempted=?,reader_version=?,status='running',message='' WHERE academy=?",
-                             (today, clock.timestamp(), READER_VERSION, key))
+                             (slot, clock.timestamp(), READER_VERSION, key))
                 conn.commit()
             errors = []
             counts = []
@@ -193,9 +196,9 @@ def register_cyclades(app, connect, require_admin, directory):
         if not expected or not hmac.compare_digest(request.form.get("csrf_token", ""), expected):
             abort(403)
 
-    def finish(message, error=False):
+    def finish(key, message, error=False):
         flash(message, "error" if error else "success")
-        return redirect(url_for("admin_settings") + "#cyclades", code=303)
+        return redirect(url_for("admin_settings", _anchor=f"cyclades-{key}"), code=303)
 
     @app.route("/admin/candidat/<cid>/cyclades", methods=["GET", "POST"])
     def cyclades_candidate_search(cid):
@@ -220,7 +223,7 @@ def register_cyclades(app, connect, require_admin, directory):
                 keys = result["unsearched"] if automatic else ACADEMIES
                 cutoff = datetime.now(PARIS).timestamp() - 300
                 for key in keys:
-                    queued += conn.execute("""UPDATE cyclades_accounts SET day=NULL,status='pending',message=''
+                    queued += conn.execute("""UPDATE cyclades_accounts SET status='pending',message=''
                         WHERE academy=? AND credential IS NOT NULL AND status IN ('ok','error')
                         AND (attempted IS NULL OR attempted < ? OR ?)""",
                         (key, cutoff, key in result["unsearched"])).rowcount
@@ -287,24 +290,30 @@ def register_cyclades(app, connect, require_admin, directory):
         action = request.form.get("action")
         if action == "retry":
             with closing(connect()) as conn:
-                queued = conn.execute("""UPDATE cyclades_accounts SET day=NULL,status='pending',message=''
-                    WHERE academy=? AND credential IS NOT NULL AND status='error'""", (key,)).rowcount
+                conn.execute("BEGIN IMMEDIATE")
+                queued = conn.execute("""UPDATE cyclades_accounts SET status='pending',message=''
+                    WHERE academy=? AND credential IS NOT NULL AND status IN ('ok','error')""", (key,)).rowcount
+                if not queued:
+                    connected = conn.execute("SELECT credential IS NOT NULL FROM cyclades_accounts WHERE academy=?",
+                                             (key,)).fetchone()[0]
+                    if not connected:
+                        return finish(key, "Enregistrez les accès de cette académie avant de lancer la vérification.", True)
+                    return finish(key, "Une vérification est déjà prévue ou en cours pour cette académie.")
                 conn.commit()
-            if queued:
-                start()
-                wake.set()
-            return finish("Nouvelle vérification demandée." if queued else "Aucune vérification en erreur à relancer.")
+            start()
+            wake.set()
+            return finish(key, f"{ACADEMIES[key][0]} · Nouvelle vérification demandée.")
         credential = None
         if action == "save":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
             birthdate = request.form.get("birthdate", "").strip() if key == "nice" else ""
             if not (0 < len(username) <= 200 and 0 < len(password) <= 512) or (birthdate and not re.fullmatch(r"[0-9]{8}", birthdate)):
-                return finish("Vérifiez l’identifiant, le mot de passe et le format de la date éventuelle.", True)
+                return finish(key, "Vérifiez l’identifiant, le mot de passe et le format de la date éventuelle.", True)
             try:
                 credential = cipher(app).encrypt(json.dumps(dict(username=username, password=password, birthdate=birthdate)).encode())
             except CycladesError as error:
-                return finish(str(error), True)
+                return finish(key, str(error), True)
         elif action != "remove":
             abort(400)
         with closing(connect()) as conn:
@@ -315,7 +324,7 @@ def register_cyclades(app, connect, require_admin, directory):
             start()
             wake.set()
         message = "Accès enregistré. La première vérification est demandée." if credential else "Connexion retirée."
-        return finish(f"{ACADEMIES[key][0]} · {message}")
+        return finish(key, f"{ACADEMIES[key][0]} · {message}")
 
     @app.post("/admin/parametres/cyclades/<key>/import")
     def cyclades_import(key):
@@ -324,7 +333,7 @@ def register_cyclades(app, connect, require_admin, directory):
         guard(key)
         upload = request.files.get("export")
         if not upload:
-            return finish("Sélectionnez une liste détaillée CYCLADES au format CSV.", True)
+            return finish(key, "Sélectionnez une liste détaillée CYCLADES au format CSV.", True)
         try:
             report = parse_report(upload.stream.read(MAX_BYTES + 1), key)
             extra = request.files.get("exams")
@@ -332,14 +341,14 @@ def register_cyclades(app, connect, require_admin, directory):
                 supplement = parse_report(extra.stream.read(MAX_BYTES + 1), key, expected_year=report.year)
                 with_exams(report, supplement)
         except CycladesError as error:
-            return finish(str(error), True)
+            return finish(key, str(error), True)
         try:
             with closing(connect()) as conn:
                 conn.execute("BEGIN IMMEDIATE")
                 accepted = apply_report(conn, key, report, "import")
                 conn.commit()
         except CycladesError as error:
-            return finish(str(error), True)
+            return finish(key, str(error), True)
         if not accepted:
-            return finish("Une édition identique ou plus récente est déjà disponible.")
-        return finish(f"{ACADEMIES[key][0]} · Liste de la session {report.year} importée.")
+            return finish(key, "Une édition identique ou plus récente est déjà disponible.")
+        return finish(key, f"{ACADEMIES[key][0]} · Liste de la session {report.year} importée.")
