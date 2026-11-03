@@ -5,9 +5,9 @@ import sqlite3
 import pytest
 from flask import Flask, session
 
-from akto_convergence import CLIENT_ID, CLIENT_SECRET, HOST, register_akto_convergence, verify_key
+from akto_convergence import CLIENT_ID, CLIENT_SECRET, HOST, lookup_dossier, register_akto_convergence, verify_key
 from akto_sync import register_akto, secret
-from opco_convergence import Client, ReadError
+from opco_convergence import Client, ReadError, ReadHttpError
 from planning import register_planning
 
 
@@ -105,3 +105,62 @@ def test_missing_software_access_and_unexpected_reply(monkeypatch):
     monkeypatch.setattr(Client, 'json_request', lambda method, *a, **kw: {'access_token': 'test'} if method == 'POST' else {'unexpected': True})
     with pytest.raises(ReadError, match='réponse inattendue'):
         verify_key('test')
+
+
+def test_lookup_from_settings_reads_one_dossier_without_import(settings, monkeypatch):
+    app, db = settings
+    client = app.test_client()
+    fields = {'action': 'lookup', 'csrf_token': 'csrf', 'reference': 'TEST-REF', 'deca': '00042'}
+    url = '/admin/parametres/akto/convergence'
+    assert client.post(url, data=fields).status_code == 403
+    with client.session_transaction() as state:
+        state.update(admin_ok=True, _planning_csrf='csrf')
+    assert client.post(url, data=dict(fields, csrf_token='wrong')).status_code == 403
+    assert 'Aucune clé CFA' in client.post(url, data=fields, follow_redirects=True).get_data(as_text=True)
+    monkeypatch.setenv(CLIENT_ID, 'test-software')
+    monkeypatch.setenv(CLIENT_SECRET, 'test-software-secret')
+    with closing(db()) as conn:
+        credential = secret(app).encrypt(b'test-cfa')
+        conn.execute('UPDATE akto_recette_key SET credential=?', (credential,))
+        conn.commit()
+    calls = []
+
+    def api(method, path, **kwargs):
+        calls.append((method, path))
+        if method == 'POST':
+            return {'access_token': 'test-bearer'}
+        assert kwargs['params'] == {'numeroExterne': 'TEST-REF', 'numeroDeca': '00042'}
+        assert kwargs['headers']['X-API-KEY'] == 'test-cfa'
+        return {'cerfa': {'numeroExterne': 'TEST-REF', 'etat': 'ENGAGE', 'contrat': {'noContrat': '00042'},
+                         'apprenti': {'nom': 'RAW-PRIVATE-TEST'}}, 'echeances': [{'numero': 1}, {'numero': 2}]}
+
+    monkeypatch.setattr(Client, 'json_request', api)
+    response = client.post(url, data=fields)
+    assert response.location.endswith('#akto-dossier') and response.status_code == 303
+    html = client.get('/admin/parametres').get_data(as_text=True)
+    assert 'Dossier retrouvé en recette' in html and '2 échéance(s)' in html and 'RAW-PRIVATE-TEST' not in html
+    assert calls == [('POST', HOST + '/SorApiIdentityServer/connect/token'), ('GET', HOST + '/SorApiEchangeCFA/v2/dossiers')]
+    with closing(db()) as conn:
+        assert tuple(conn.execute('SELECT credential,revision FROM akto_recette_key').fetchone()) == (credential, 0)
+        assert conn.execute('SELECT count(*) FROM akto_students').fetchone()[0] == 0
+
+
+@pytest.mark.parametrize(('code', 'message'), [(404, 'introuvable en recette'), (403, 'Accès refusé'), (503, '503')])
+def test_lookup_http_outcomes(monkeypatch, code, message):
+    monkeypatch.setattr('akto_convergence.recette_headers', lambda key: {})
+
+    def unavailable(*args, **kwargs):
+        raise ReadHttpError(code, f'HTTP {code}')
+
+    monkeypatch.setattr(Client, 'json_request', unavailable)
+    with pytest.raises(ReadError, match=message):
+        lookup_dossier('test', 'TEST-REF', '00042')
+
+
+@pytest.mark.parametrize('data', [None, {'cerfa': {'numeroExterne': 'DIFFERENT'}},
+                                  {'cerfa': {'numeroExterne': 'TEST-REF', 'contrat': {'noContrat': '00043'}}}])
+def test_lookup_rejects_mismatched_results(monkeypatch, data):
+    monkeypatch.setattr('akto_convergence.recette_headers', lambda key: {})
+    monkeypatch.setattr(Client, 'json_request', lambda *args, **kwargs: data)
+    with pytest.raises(ReadError):
+        lookup_dossier('test', 'TEST-REF', '00042')
