@@ -61,7 +61,7 @@ def sheet_status(conn, student):
         for record in json.loads(entry["records"]):
             tone = {"inscrit": "green", "pre inscrit": "blue", "anomalie": "amber",
                     "non inscrit": "amber"}.get(words(record["status"]), "slate")
-            item = dict(record, academy=ACADEMIES[entry["academy"]][0], year=entry["year"],
+            item = dict(record, candidate_id=student["id"], academy_key=entry["academy"], academy=ACADEMIES[entry["academy"]][0], year=entry["year"],
                         seen=display_time(entry["seen"]), origin=entry["origin"], tone=tone)
             (matches if entry["outcome"] == "matched" else history).append(item)
 
@@ -235,6 +235,51 @@ def register_cyclades(app, connect, require_admin, directory):
         if requested and request.headers.get("X-Cyclades-Fragment") != "1":
             return redirect(url_for("admin_candidate_sheet", cid=cid, return_to=request.form.get("return_to") or None) + "#cyclades", code=303)
         return render_template("_cyclades_result.html", cyclades=result, notice=notice), 200, {"Cache-Control": "no-store"}
+
+    @app.post("/admin/candidat/<cid>/cyclades/<key>/<int:year>/releve-pieces")
+    def cyclades_piece_statement(cid, key, year):
+        from cyclades_pieces import parse_detail
+
+        guard(key)
+        if request.content_length and request.content_length > 160_000:
+            abort(413)
+        back = redirect(url_for("admin_candidate_sheet", cid=cid, return_to=request.form.get("return_to") or None)
+                        + "#cyclades", code=303)
+        try:
+            observed = datetime.strptime(request.form.get("observed", ""), "%Y-%m-%dT%H:%M").replace(tzinfo=PARIS)
+        except ValueError:
+            abort(400)
+        raw = request.form.get("statement", "")
+        if (observed > datetime.now(PARIS) or not re.search(
+                rf"\bbts {year} academie de {words(ACADEMIES[key][0])}\b", words(raw))):
+            flash("Vérifiez la date du relevé et la ligne BTS indiquant la session et l’académie.", "error")
+            return back
+        with closing(connect()) as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute("""SELECT records FROM cyclades_students WHERE candidate_id=? AND academy=?
+                                  AND year=? AND outcome='matched'""", (cid, key, year)).fetchone()
+            if not row:
+                abort(409)
+            records = json.loads(row["records"])
+            matched = [(record, result) for record in records
+                       if (result := parse_detail(raw, record, ACADEMIES[key][1])) is not None]
+            if len(matched) != 1:
+                flash("Le relevé est incomplet ou ne correspond pas à cette inscription.", "error")
+                return back
+            record, result = matched[0]
+            stamp = record.get("documents_checked")
+            if stamp and datetime.strptime(stamp, "%d/%m/%Y à %Hh%M").replace(tzinfo=PARIS) >= observed:
+                flash("Un relevé aussi récent ou plus récent est déjà affiché.", "info")
+                return back
+            if record.get("documents") and not stamp:
+                flash("Un relevé Cyclades est déjà disponible pour cette inscription.", "info")
+                return back
+            record.update(result, documents_source="statement", documents_checked=display_time(observed.timestamp()))
+            conn.execute("UPDATE cyclades_students SET records=? WHERE candidate_id=? AND academy=? AND year=?",
+                         (json.dumps(records, ensure_ascii=False), cid, key, year))
+            conn.commit()
+        flash("Relevé des pièces justificatives enregistré.", "success")
+        return back
 
     @app.post("/admin/parametres/cyclades/<key>/connexion")
     def cyclades_settings(key):

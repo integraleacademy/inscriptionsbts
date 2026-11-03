@@ -55,8 +55,10 @@ def parse_detail(text, record, uai):
             # CYCLADES also prints the candidate's upload date without the actor.
             if re.fullmatch(r"d[eé]pos[eé] le \d{2}/\d{2}/\d{4}[^\n]*\(heure/Paris\)", line, re.I):
                 current["deposit"] = "Déposée"
+            if flat.startswith("traitement administratif statut "):
+                current["review"] = REVIEWS.get(flat.removeprefix("traitement administratif statut "))
             if line.startswith("PJ-CONTROLE "):
                 current["review"] = REVIEWS.get(words(line[12:]))
-    if len(pieces) != int(counts[2]) or len({p["code"] for p in pieces}) != len(pieces):
+    if int(counts[1]) > int(counts[2]) or len(pieces) != int(counts[2]) or len({p["code"] for p in pieces}) != len(pieces):
         return None
     return {"documents": pieces, "conforming": int(counts[1]), "requested": int(counts[2])}
