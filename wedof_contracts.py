@@ -4,7 +4,7 @@ No remote writes or bulk imports. Daily scheduled discovery is bounded
 to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
-from akto_pilot import contract_card as akto_contract_card, contract_for as akto_contract_for
+from akto_pilot import contract_card as akto_contract_card, contract_for as akto_contract_for, settings_summary as akto_settings_summary
 import base64
 from collections.abc import Mapping
 from contextlib import closing, contextmanager
@@ -450,7 +450,7 @@ def register_wedof_contracts(app, connect, require_admin):
             session['_wedof_csrf'] = secrets.token_urlsafe(32)
         return session['_wedof_csrf']
 
-    app.context_processor(lambda: {'akto_contract_for': akto_contract_for, 'wedof_csrf': csrf, 'wedof_financers': FINANCERS})
+    app.context_processor(lambda: {'akto_settings_summary': akto_settings_summary, 'akto_contract_for': akto_contract_for, 'wedof_csrf': csrf, 'wedof_financers': FINANCERS})
 
     def guarded(fn):
         @wraps(fn)

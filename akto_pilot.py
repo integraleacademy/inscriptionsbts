@@ -5,7 +5,7 @@ import os
 import re
 
 
-def contract_for(candidate_id):
+def pilot_record():
     raw = os.environ.get("AKTO_PILOT_CONTRACT", "")
     if not raw:
         return None
@@ -13,11 +13,23 @@ def contract_for(candidate_id):
         record = json.loads(raw)
     except ValueError:
         return None
-    if not isinstance(record, dict) or record.get("candidate_id") != candidate_id:
+    if not isinstance(record, dict) or not isinstance(record.get("candidate_id"), str) or not record["candidate_id"]:
         return None
     if not re.fullmatch(r"[A-Z0-9]{5,32}", str(record.get("reference", ""))):
         return None
     return record
+
+
+def contract_for(candidate_id):
+    record = pilot_record()
+    return record if record and record["candidate_id"] == candidate_id else None
+
+
+def settings_summary():
+    record = pilot_record()
+    if record:
+        return {key: record.get(key) for key in ('candidate_id', 'checked', 'reference')}
+    return None
 
 
 def amount(value):
