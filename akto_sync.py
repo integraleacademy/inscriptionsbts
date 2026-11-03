@@ -132,7 +132,7 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
 def register_akto(app,connect,require_admin,directory):
     with closing(connect()) as conn:
         schema(conn)
-        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('catalogue-20250601-v4')").rowcount:
+        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('catalogue-20250601-v5')").rowcount:
             conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state='error'")
         conn.commit()
     wake,guard=threading.Event(),threading.Lock()

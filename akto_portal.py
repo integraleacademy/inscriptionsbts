@@ -11,7 +11,7 @@ import unicodedata
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import quote, urlsplit
 from zoneinfo import ZoneInfo
 
 import pdfplumber
@@ -62,7 +62,7 @@ def iso(value):
 def notice(path, record, person):
     with pdfplumber.open(path) as doc:
         first = doc.pages[0].extract_text() or ''
-        ref = re.search(r'Numéro de dossier\s*:\s*(\w+)', first)
+        ref = re.search(r'Numéro de dossier\s*:\s*([A-Za-z0-9._-]+)', first)
         ident = re.search(r'Bénéficiaire\s*:\s*(.*?)\s+né\(e\) le (' + DATE + ')', first, re.I)
         if not ref or ref[1] != record['reference'] or not ident or norm(ident[1]) != norm(person['prenom']+' '+person['nom']):
             raise PortalError('Identité ou référence du courrier à vérifier.')
@@ -143,6 +143,12 @@ def catalogue(page):
     if not total:
         return []
     cards=page.locator('.mobileCardWrapper')
+    if total>20:
+        sizes=page.get_by_role('combobox',name='Nombre de résultats')
+        if '100' not in sizes.inner_text():
+            sizes.click()
+            page.get_by_role('option',name='100 résultats par page',exact=True).click()
+        page.wait_for_function("n => document.querySelectorAll('.mobileCardWrapper .headerSubtitle').length === n", arg=min(100,total))
     found={}
     first_cards=set()
     for number in range(1,total+1):
@@ -161,10 +167,11 @@ def catalogue(page):
             break
         first_cards.add(first)
         for card in batch:
-            ref=re.match(r'^([A-Z0-9][A-Z0-9-]{4,40})(?=\s|$)',card['subtitle'],re.I)
-            if not ref:
-                raise PortalError(f'Référence de dossier illisible sur la page {number} du catalogue AKTO.')
-            key=ref[1]
+            # Legacy references include dots (22.P.30748.1CAL); other training
+            # schemes count toward pagination but never trigger a contract read.
+            key=card['subtitle'].split(' (',1)[0].strip()
+            if not key:
+                raise PortalError(f'Référence de dossier absente sur la page {number} du catalogue AKTO.')
             found[key]=[card['title'],key,card['status'],card['text'],'Stagiaire(s)',card['name']]
         if len(found)==total:
             return list(found.values())
@@ -181,7 +188,9 @@ def catalogue(page):
 
 def dossier(page, lines, person):
     ref=lines[1]
-    page.goto(DOSSIERS+'/'+ref,wait_until='domcontentloaded')
+    if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9._-]{1,100}',ref):
+        raise PortalError('Référence de contrat AKTO non reconnue.')
+    page.goto(DOSSIERS+'/'+quote(ref,safe=''),wait_until='domcontentloaded')
     page.get_by_text("Contrat d'apprentissage N° "+ref, exact=True).wait_for()
     record={'reference':ref}
     docs=page.locator('.documentsMobileElemWrapper').filter(has_text=re.compile(r"Courrier d'accord de prise en charge \(prestataire\)",re.I))
