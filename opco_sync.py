@@ -18,7 +18,7 @@ from opco_convergence import ReadError, identity
 from filiz_portal import HOME as FILIZ_HOME, read_filiz
 from training_programs import BTS_LABELS
 
-FILIZ_LOGIN_VERSION = 2
+FILIZ_LOGIN_VERSION = 3
 BTS_MARKS = ','.join('?' for _ in BTS_LABELS)
 
 
@@ -272,6 +272,12 @@ def register_opcos(app, connect, require_admin, directory):
         account = account_status(conn)
         app.logger.warning('FILIZ : compte configuré=%s, état=%s, dernière lecture complète=%s.',
                            bool(account['configured']), account['state'], account['succeeded'] or 'aucune')
+        if account['configured'] and account['state'] in ('running','error'):
+            processed = conn.execute('SELECT count(*) FROM filiz_scan_progress').fetchone()[0]
+            saved = [json.loads(r[0]) for r in conn.execute("SELECT payload FROM opco_contracts WHERE provider='filiz'")]
+            financed = sum(bool(item.get('schedules')) and not item.get('raw_stale') for item in saved)
+            app.logger.warning('FILIZ : progression enregistrée : %d dossiers examinés, %d contrats, %d échéanciers lus.',
+                               processed, len(saved), financed)
     wake, guard = threading.Event(), threading.Lock()
     thread = None
 
