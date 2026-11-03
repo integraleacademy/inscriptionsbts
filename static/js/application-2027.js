@@ -31,6 +31,31 @@
   }
   function normalizeNames() { [...form.elements].forEach(formatName); }
   form.addEventListener('focusout', event => formatName(event.target));
+  const sessionChoice = document.getElementById('title-session');
+  function syncTitleSession() {
+    const radio = form.querySelector('[name="bts"]:checked');
+    const options = [...sessionChoice.options].slice(1);
+    const matches = options.filter(option => option.dataset.title === radio?.value);
+    options.forEach(option => { option.hidden = option.disabled = !matches.includes(option); });
+    if (!matches.includes(sessionChoice.selectedOptions[0])) sessionChoice.value = '';
+    if (matches.length === 1) sessionChoice.value = matches[0].value;
+    const session = sessionChoice.selectedOptions[0];
+    document.getElementById('title-session-field').hidden = !matches.length;
+    sessionChoice.required = matches.length > 0;
+    document.getElementById('recap-title-name').textContent = radio?.closest('label').querySelector('b').textContent || 'choisi';
+    if (!preview) {
+      form.action = session?.dataset.submit || location.pathname;
+      form.dataset.draftUrl = session?.dataset.draft || '';
+      form.elements.title_promotion_id.value = session?.value || '';
+      form.elements.submission_token.value = session?.dataset.token || '';
+      save.disabled = !session?.value;
+    }
+    const year = session?.dataset.year || form.elements.rentree_annee.dataset.defaultYear;
+    form.elements.rentree_annee.value = year;
+    const expectedBac = form.elements.baccalaureat.querySelector('[value^="Prévu en"]');
+    expectedBac.value = 'Prévu en ' + year;
+    expectedBac.textContent = 'Je le prépare en ' + year;
+  }
   function conditional() {
     const birth = value('date_naissance');
     const today = new Date();
@@ -49,7 +74,7 @@
     // Hide irrelevant questions from validation and payload, keeping their answers
     // in memory in case the applicant changes the earlier choice again.
     form.querySelectorAll('input,select,textarea').forEach(input => {
-      input.disabled = !!input.closest('[data-condition][hidden], [data-available="false"]');
+      input.disabled = input.hasAttribute('data-unavailable') || !!input.closest('[data-condition][hidden], [data-available="false"]');
     });
     if (previewSelect) {
       previewSelect.querySelectorAll('option[data-question]').forEach(option => {
@@ -62,6 +87,9 @@
   function validate(step) {
     normalizeNames();
     conditional();
+    if (titleJourney && step === 0 && !preview && !form.elements.title_promotion_id.value) {
+      showMessage('Choisis un titre et une session ouverte pour continuer.'); return false;
+    }
     if (!enforce() || steps[step].dataset.available === 'false') return true;
     const fields = [...steps[step].querySelectorAll('input,select,textarea')].filter(x => !x.disabled);
     for (const field of fields) {
@@ -115,6 +143,11 @@
         dd.textContent = input.name === 'num_secu' ? '•••••••••••' + content.slice(-4) : content;
         dl.append(dt,dd);
       });
+      if (sessionChoice?.value && step.dataset.stepId === 'formation') {
+        const dt = document.createElement('dt'), dd = document.createElement('dd');
+        dt.textContent = 'Session'; dd.textContent = sessionChoice.selectedOptions[0].textContent;
+        dl.append(dt, dd);
+      }
       if (!dl.childElementCount) return;
       const group = Number(step.dataset.group);
       if (!groups.has(group)) {
@@ -190,7 +223,7 @@
   }
   previous.addEventListener('click', () => {
     const active = activeSteps(), position = active.indexOf(steps[index]);
-    if (position > 0) show(steps.indexOf(active[position-1])); else if (catalog) showChoice(); else showGuide();
+    if (position > 0) show(steps.indexOf(active[position-1])); else if (titleJourney) location.assign(document.querySelector('.catalog-return').href); else if (catalog) showChoice(); else showGuide();
   });
   next.addEventListener('click', advance);
   nav.forEach(button => button.addEventListener('click', () => {
@@ -234,7 +267,7 @@
     previewSelect.addEventListener('change', () => { if (previewSelect.value === 'guide') showGuide(); else if (previewSelect.value === 'choice') showChoice(); else navigateTo(Number(previewSelect.value)); });
     document.getElementById('preview-validation').addEventListener('change', updateProgress);
   }
-  form.addEventListener('change', event=>{conditional();if(event.target.name==='mode' && distanceInfo)distanceInfo.open=value('mode')==='distanciel';if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
+  form.addEventListener('change', event=>{if (sessionChoice && (event.target.name === 'bts' || event.target === sessionChoice)) syncTitleSession(); conditional();if(event.target.name==='mode' && distanceInfo)distanceInfo.open=value('mode')==='distanciel';if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
   form.addEventListener('input', event => {
     const input = event.target; input.setCustomValidity?.(''); input.classList.remove('invalid'); input.removeAttribute('aria-invalid');
     if (input.type === 'tel') input.value = input.value.replace(/\D/g,'');
@@ -246,7 +279,7 @@
   }));
   form.addEventListener('keydown', event => { if(!event.defaultPrevented && event.key==='Enter' && event.target.tagName==='INPUT' && !['file','checkbox','radio','submit'].includes(event.target.type)) { event.preventDefault(); if(index<steps.length-1) advance(); } });
   save.addEventListener('click', async () => {
-    if(form.dataset.preview==='true') return;
+    if(preview || (titleJourney && !form.dataset.draftUrl)) return;
     const email = form.elements.email;
     if(!email.value || !email.checkValidity()) { show(positionOfField('email')); email.focus(); showMessage('Indique ton e-mail pour recevoir un lien de reprise.'); return; }
     normalizeNames();
@@ -265,6 +298,7 @@
   });
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
+  if (sessionChoice) syncTitleSession();
   normalizeNames();conditional();if(distanceInfo)distanceInfo.open=value('mode')==='distanciel';nirFeedback();
   if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else if (titleJourney) show(0,false); else { showGuide(false); openLinkedSection(); }
 })();

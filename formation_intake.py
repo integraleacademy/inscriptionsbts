@@ -243,15 +243,21 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
             abort(404)
         return rows[0]
 
-    def title_form(code, promotion=None, *, preview=False, saved_data=None):
+    def title_form(code=None, promotion=None, *, preview=False, saved_data=None):
         with closing(connect()) as conn:
-            label = professional_titles(conn).get(code)
-        if not accepts_title_applications(code) or (not label and not promotion):
+            offers = list(admission_titles(conn))
+        labels = {offer['code']: offer['name'] for offer in offers}
+        if code is not None and code not in labels:
             abort(404)
-        return render_template('index.html', title=(label or program_name(code)) + ' · Candidature',
-                               title_code=code, title_label=label or code[3:].capitalize(), promotion=promotion,
-                               preview=preview, saved_data=saved_data,
-                               **({} if preview else credentials(promotion['id'])))
+        session_tokens = {} if preview else {
+            group['id']: credentials(group['id'])['submission_token']
+            for offer in offers for group in offer['promotions']
+        }
+        return render_template('index.html', title='Choisir un titre professionnel · Intégrale Academy',
+                               title_offers=offers, title_code=code, title_label=labels.get(code), promotion=promotion,
+                               preview=preview, saved_data=saved_data, csrf=None if preview else csrf(),
+                               session_tokens=session_tokens,
+                               submission_token=session_tokens.get(promotion['id']) if promotion else None)
 
     @app.get('/titres-professionnels/apercu')
     def title_application_preview():
