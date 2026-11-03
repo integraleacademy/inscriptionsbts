@@ -13,7 +13,6 @@ BTS_LABELS = {
 SECURITY = 'PARCOURS-SECURITE'
 SECURITY_LABEL = 'Parcours sécurité en alternance'
 ACADEMY_TITLES = (
-    'Agent de sûreté et de sécurité privée',
     'Assistant ressources humaines',
     'Chargé d’accueil et de gestion administrative',
     'Gestionnaire de paie',

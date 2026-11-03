@@ -26,6 +26,10 @@ STATUS_NAMES = {'new': 'Nouvelle', 'contacted': 'À recontacter', 'interview': '
 TRANSFER_SCOPE = b'parcours-securite-import-v1'
 
 
+def accepts_title_applications(code):
+    return code.casefold() != 'tp agent de sûreté et de sécurité privée'
+
+
 def open_title_promotions(conn, promotion_id=None):
     # A fresh installation may not have opened the promotions module yet.
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='promotions'").fetchone():
@@ -37,11 +41,13 @@ def open_title_promotions(conn, promotion_id=None):
     if promotion_id is not None:
         sql += ' AND id=?'
         args.append(promotion_id)
-    return conn.execute(sql + ' ORDER BY date_debut, nom, id', args).fetchall()
+    rows = conn.execute(sql + ' ORDER BY date_debut, nom, id', args)
+    return [row for row in rows if accepts_title_applications(row['bts'])]
 
 
 def admission_titles(conn):
-    offers = {code: dict(code=code, name=name, promotions=[]) for code, name in professional_titles(conn).items()}
+    offers = {code: dict(code=code, name=name, promotions=[]) for code, name in professional_titles(conn).items()
+              if accepts_title_applications(code)}
     for row in open_title_promotions(conn):
         code = row['bts']
         if code not in offers:
@@ -240,7 +246,7 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
     def title_form(code, promotion=None, *, preview=False, saved_data=None):
         with closing(connect()) as conn:
             label = professional_titles(conn).get(code)
-        if not label and not promotion:
+        if not accepts_title_applications(code) or (not label and not promotion):
             abort(404)
         return render_template('index.html', title=(label or program_name(code)) + ' · Candidature',
                                title_code=code, title_label=label or code[3:].capitalize(), promotion=promotion,
