@@ -1,4 +1,6 @@
 """Read the school's FILIZ contract lists and dossier tabs. No changes to FILIZ."""
+from collections import Counter
+from contextlib import contextmanager
 from datetime import datetime
 from decimal import Decimal
 import re
@@ -295,49 +297,76 @@ def read_item(page, ref, card, people):
     return matched[0]['id'], item
 
 
-def read_filiz(config, people, stored_session, save_session):
-    names = {norm(p['prenom']+' '+p['nom']) for p in people}
+@contextmanager
+def school_browser(config, stored_session):
     with persistent_playwright() as pw:
         try:
             browser = launch_chromium(pw)
         except (BrowserError, OSError, subprocess.SubprocessError) as exc:
-            # No school credentials have been supplied at this point.
             logging.getLogger(__name__).warning('FILIZ : lancement Chromium : %.1200s', str(exc))
             raise ReadError('Chromium n’a pas pu démarrer depuis le cache des portails.') from None
-        logging.getLogger(__name__).warning('FILIZ : Chromium démarré.')
         try:
-            with browser.new_context(locale='fr-FR',storage_state=stored_session,service_workers='block') as ctx:
-                page = ctx.new_page()
-                page.set_default_timeout(20000)
-                # The login page and password form use different origins. Restrict credential submissions.
+            with browser.new_context(locale='fr-FR', storage_state=stored_session, service_workers='block') as ctx:
+                # The login page and password form use different origins.
                 def guard(route):
-                    u=urlsplit(route.request.url)
-                    if route.request.method=='POST' and not (u.scheme=='https' and (u.hostname==AUTH_HOST or
-                            u.hostname=='filiz.io' or (u.hostname or '').endswith('.filiz.io'))):
+                    url = urlsplit(route.request.url)
+                    if route.request.method == 'POST' and not (url.scheme == 'https' and
+                            (url.hostname in (AUTH_HOST, 'filiz.io') or (url.hostname or '').endswith('.filiz.io'))):
                         return route.abort()
                     route.continue_()
-                ctx.route('**/*',guard)
-                login(page,config)
-                logging.getLogger(__name__).warning('FILIZ : espace école ouvert.')
-                save_session(ctx.storage_state())
-                cards = catalogue(page)
-                logging.getLogger(__name__).warning('FILIZ : catalogue complet (%d dossiers).',len(cards))
-                results, failed = {}, set()
-                for ref,card in cards.items():
-                    values=lines(card['text'])
-                    if len(values)<4 or norm(values[0]) not in names or norm(values[2])!='apprentissage':
-                        continue
-                    period = re.search('('+DAY+')\\s*-\\s*('+DAY+')',card['text'])
-                    if period and iso(period[1]) and iso(period[1]) < START_DATE:
-                        continue
-                    try:
-                        entry=read_item(page, ref, card, people)
-                        if entry:
-                            results[ref]=entry
-                            if entry[1].get('raw_stale'):
-                                failed.add(ref)
-                    except (BrowserError,ReadError):
-                        failed.add(ref)
-                return results, failed, set(cards)
+                ctx.route('**/*', guard)
+                page = ctx.new_page()
+                page.set_default_timeout(20000)
+                login(page, config)
+                yield page, ctx
         finally:
             browser.close()
+
+
+def eligible_card(card, names):
+    values = lines(card['text'])
+    if len(values) < 4 or norm(values[0]) not in names or norm(values[2]) != 'apprentissage':
+        return False
+    period = re.search('('+DAY+r')\s*-\s*('+DAY+')', card['text'])
+    start = iso(period[1]) if period else ''
+    return not start or start >= START_DATE
+
+
+def read_filiz(config, people, stored_session, save_session, completed, save_batch):
+    logger = logging.getLogger(__name__)
+    with school_browser(config, stored_session) as (page, ctx):
+        logger.warning('FILIZ : Chromium démarré, espace école ouvert.')
+        cards = catalogue(page)
+        stored_session = ctx.storage_state()
+        save_session(stored_session)
+    names = {norm(p['prenom']+' '+p['nom']) for p in people}
+    eligible = [ref for ref, card in cards.items() if eligible_card(card, names)]
+    remaining = [ref for ref in eligible if ref not in completed]
+    done = len(eligible) - len(remaining)
+    logger.warning('FILIZ : catalogue complet (%d dossiers), %d à examiner, %d déjà traités.',
+                   len(cards), len(eligible), done)
+    # Retire Chromium and its driver regularly to release portal rendering memory.
+    size = 3
+    for offset in range(0, len(remaining), size):
+        group = remaining[offset:offset + size]
+        results, failed, reasons = {}, set(), Counter()
+        with school_browser(config, stored_session) as (page, ctx):
+            for ref in group:
+                try:
+                    entry = read_item(page, ref, cards[ref], people)
+                    if entry:
+                        results[ref] = entry
+                        if entry[1].get('raw_stale'):
+                            failed.add(ref)
+                            reasons['échéancier indisponible'] += 1
+                except (BrowserError, ReadError) as exc:
+                    failed.add(ref)
+                    # ReadError messages from read_item are fixed labels. Browser errors may contain private page data.
+                    reasons[str(exc) if isinstance(exc, ReadError) else 'navigation du dossier'] += 1
+            stored_session = ctx.storage_state()
+            save_session(stored_session)
+        done += len(group)
+        save_batch(group, results, failed, done, len(eligible))
+        logger.warning('FILIZ : %d/%d examinés. Groupe : %d rattachés, %d à vérifier. %s',
+                       done, len(eligible), len(results), len(failed), dict(reasons) if reasons else '')
+    return set(eligible)

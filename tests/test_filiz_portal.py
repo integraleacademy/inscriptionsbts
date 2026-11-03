@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 import sqlite3
 
+import pytest
+
 from flask import Flask, session
 from opco_sync import PARIS, same_contract
 from filiz_portal import due_row, iso
@@ -47,7 +49,7 @@ def test_filiz_account_all_bts_views_and_cache(tmp_path,monkeypatch):
         s.update(admin_ok=True,_planning_csrf='csrf')
     assert client.post('/admin/parametres/opco/filiz',data={'action':'connect','csrf_token':'csrf','email':'office@example.test','password':'fake-only'}).status_code==303
     calls=[]
-    def read(config,people,stored,save):
+    def read(config,people,stored,save,completed,save_batch):
         assert {p['bts'] for p in people}==set(BTS_LABELS)
         calls.append(stored)
         save({'cookies':[],'origins':[]})
@@ -58,7 +60,9 @@ def test_filiz_account_all_bts_views_and_cache(tmp_path,monkeypatch):
               'filiz_paid':80,'filiz_pending':0,'invoices':[{'reference':'F1','amount':80,'state':'','paid_on':''}],
               'schedules':[{'numero':'1','dateDebut':'2025-06-01','montantTotal':100,'montantRegle':80,
                             'filiz_label':'Partiellement payée','filiz_code':'unknown'}]}
-        return {'abc':('PI',item)},set(),{'abc'}
+        assert not completed
+        save_batch(['abc'], {'abc':('PI',item)}, set(), 1, 1)
+        return {'abc'}
     monkeypatch.setattr('opco_sync.read_filiz',read)
     for hour in [4,5,6]:
         tick(app,db,tmp_path,datetime(2026,11,4,hour,tzinfo=PARIS))
@@ -68,6 +72,27 @@ def test_filiz_account_all_bts_views_and_cache(tmp_path,monkeypatch):
     html=client.get('/admin/candidat/PI/contrats-apprentissage').json['html']
     assert 'FILIZ · OPCO EP' in html and 'F1' in html and 'filiz.io/school/folder/abc' in html
     assert 'ne propose pas le détail' not in html and 'FILIZ · OPCO EP' not in client.get('/admin/candidat/CI/contrats-apprentissage').json['html']
+    # A hard process stop between batches leaves committed contracts visible.
+    with closing(db()) as conn:
+        conn.execute("UPDATE opco_accounts SET requested=1")
+        conn.commit()
+    def interrupted(config, people, stored, save, completed, save_batch):
+        assert not completed
+        save_batch(['empty'], {}, set(), 1, 2)
+        raise SystemExit
+    monkeypatch.setattr('opco_sync.read_filiz', interrupted)
+    with pytest.raises(SystemExit):
+        tick(app, db, tmp_path, datetime(2026,11,4,7,tzinfo=PARIS))
+    def resumed(config, people, stored, save, completed, save_batch):
+        assert completed == {'empty'}
+        save_batch(['abc'], {}, {'abc'}, 2, 2)
+        return {'empty','abc'}
+    monkeypatch.setattr('opco_sync.read_filiz', resumed)
+    tick(app, db, tmp_path, datetime(2026,11,4,8,tzinfo=PARIS))
+    with closing(db()) as conn:
+        assert conn.execute("SELECT state FROM opco_accounts").fetchone()[0] == 'partial'
+        previous = json.loads(conn.execute("SELECT payload FROM opco_contracts WHERE ref='abc'").fetchone()[0])
+        assert previous['invoices'][0]['reference'] == 'F1' and previous['read_warning']
     client.post('/admin/parametres/opco/filiz',data={'action':'disconnect','csrf_token':'csrf'})
     with closing(db()) as conn:
         assert conn.execute('SELECT count(*) FROM filiz_session').fetchone()[0]==0
@@ -94,3 +119,33 @@ def test_filiz_rupture_precedes_older_wedof_status():
     annotate_candidate_statuses(conn,[student],date(2026,11,3))
     assert student['display_status']=='confirmee'
     conn.close()
+
+
+def test_catalogue_and_batches_release_their_browsers(monkeypatch):
+    from contextlib import contextmanager
+    import filiz_portal as portal
+    active, launches, groups = [], [], []
+    @contextmanager
+    def browser(config, stored):
+        assert not active
+        active.append(True)
+        launches.append(stored)
+        class Context:
+            def storage_state(self):
+                return len(launches)
+        try:
+            yield object(), Context()
+        finally:
+            active.pop()
+    card = {'text': 'Léa Test\nTitre\nApprentissage\nEngagé'}
+    cards = {str(n):card for n in range(9)}
+    cards['old'] = dict(text=card['text']+'\n01 mai 2025 - 01 mai 2027')
+    monkeypatch.setattr(portal, 'school_browser', browser)
+    monkeypatch.setattr(portal, 'catalogue', lambda page:cards)
+    monkeypatch.setattr(portal, 'read_item', lambda page, ref, card, people: ('1',{'source':'filiz'}))
+    def save(group, results, failed, done, total):
+        assert not active and not failed and set(group)==results.keys() and total==9
+        groups.append((len(group),done))
+    refs = portal.read_filiz({}, [{'prenom':'Léa','nom':'Test'}], None, lambda data:None, {'1'}, save)
+    assert refs == {str(n) for n in range(9)}
+    assert groups == [(3,4),(3,7),(2,9)] and launches == [None,1,2,3]
