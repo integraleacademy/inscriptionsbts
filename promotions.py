@@ -5,6 +5,7 @@ and first/second-year level of a promotion. No academic dates are inferred.
 """
 from contextlib import closing
 from datetime import date, datetime, timezone
+import re
 import hmac
 import secrets
 import sqlite3
@@ -79,10 +80,24 @@ def ensure_promotion_schema(conn):
 # Public plural alias retained for app initialization and maintenance callers.
 ensure_promotions_schema = ensure_promotion_schema
 
+def placement_year(promotion):
+    """Recognize a two-year BTS cohort explicitly named in an older promotion."""
+    year = int(promotion['rentree_annee'])
+    if promotion['bts'] not in BTS_LABELS:
+        return year
+    period = re.fullmatch(r'BTS\s+' + re.escape(promotion['bts']) +
+                          r'\s*[·-]?\s*2(?:e|ème|eme)\s+année\s*[·-]?\s*(20\d{2})\s*[-–—/]\s*(20\d{2})',
+                          promotion['nom'].strip(), flags=re.IGNORECASE)
+    if period and int(period[2]) == int(period[1]) + 2:
+        return int(period[1])
+    return year
+
+
 def _promotion_dict(row):
     if not row:
         return None
     result=dict(row)
+    result['placement_year']=placement_year(result)
     result['active']=bool(result['active'])
     result['needs_setup']=bool(result['needs_setup'])
     return result
@@ -97,12 +112,13 @@ def list_promotions(conn,bts=None,rentree_annee=None,active_only=False):
     args=[]
     if bts:
         sql+=' AND p.bts=?';args.append(str(bts).strip().upper())
-    if rentree_annee is not None:
-        sql+=' AND p.rentree_annee=?';args.append(int(rentree_annee))
     if active_only:
         sql+=' AND p.active=1'
     sql+=' ORDER BY p.active DESC,p.rentree_annee DESC,p.bts,COALESCE(p.niveau,0),p.nom'
-    return [_promotion_dict(row) for row in conn.execute(sql,args)]
+    promotions = [_promotion_dict(row) for row in conn.execute(sql,args)]
+    if rentree_annee is not None:
+        return [p for p in promotions if p['placement_year'] == int(rentree_annee)]
+    return promotions
 
 
 def get_candidate_promotion(conn,candidate_id):
@@ -151,7 +167,7 @@ def assign_candidate_promotion(conn,candidate_id,promotion_id):
         promotion=conn.execute('SELECT * FROM promotions WHERE id=?',(promotion_id,)).fetchone()
         if not promotion or (not promotion['active'] and old_id!=promotion_id):
             raise ValueError('Choisissez une promotion existante et active.')
-        if str(candidate['bts'] or '').strip().upper()!=promotion['bts'] or int(candidate['rentree_annee'] or 2026)!=promotion['rentree_annee']:
+        if str(candidate['bts'] or '').strip().upper()!=promotion['bts'] or (old_id!=promotion_id and int(candidate['rentree_annee'] or 2026)!=placement_year(promotion)):
             raise ValueError('La promotion doit correspondre à la formation et à la rentrée d’origine de cet étudiant.')
     if old_id!=promotion_id:
         now=datetime.now(timezone.utc).isoformat()
@@ -216,6 +232,9 @@ def register_promotions(app,db_connect,require_admin):
             programs = catalog(conn)
         if not nom or len(nom)>140 or any(ord(c)<32 for c in nom) or bts not in programs or level not in (1,2) or not 2000<=year<=datetime.now().year+5:
             raise ValueError('Vérifiez le nom, la formation, le niveau et la rentrée d’origine.')
+        expected = placement_year(dict(nom=nom, bts=bts, rentree_annee=year))
+        if expected != year:
+            raise ValueError(f'Le nom de cette promotion indique une rentrée {expected}. Vérifiez le nom ou la rentrée des étudiants.')
         if end<beginning:
             raise ValueError('La date de fin doit être postérieure ou égale à la date de début.')
         return nom,bts,level,year,beginning.isoformat(),end.isoformat()
@@ -247,7 +266,7 @@ def register_promotions(app,db_connect,require_admin):
             promotions=list_promotions(conn)
             from promotion_metrics import annotate_promotion_metrics
             annotate_promotion_metrics(app,conn,promotions)
-        years=sorted({2026,2027,*range(datetime.now().year,datetime.now().year+3),*[p['rentree_annee'] for p in promotions]})
+        years=sorted({2026,2027,*range(datetime.now().year-1,datetime.now().year+3),*[p['rentree_annee'] for p in promotions],*[p['placement_year'] for p in promotions]})
         selected_bts=request.args.get('bts','').upper()
         if selected_bts not in programs:selected_bts=''
         try:selected_year=int(request.args.get('rentree',datetime.now().year+1))
@@ -290,9 +309,11 @@ def register_promotions(app,db_connect,require_admin):
             planning_conflicts=validate_promotion_change(conn,promotion_id,dict(date_debut=beginning,date_fin=end))
             if planning_conflicts:
                 return response(False,'Ces dates rendraient le planning incohérent. Ajustez d’abord les cours et les périodes concernés.',409,conflicts=planning_conflicts)
-            mismatch=conn.execute('''SELECT 1 FROM student_promotions s JOIN candidats c ON c.id=s.candidate_id
-                WHERE s.promotion_id=? AND (upper(trim(COALESCE(c.bts,'')))<>? OR COALESCE(c.rentree_annee,2026)<>?) LIMIT 1''',(promotion_id,bts,year)).fetchone()
-            if mismatch:return response(False,'Cette promotion contient des étudiants d’une autre formation ou d’une autre rentrée. Réaffectez-les avant de modifier ces informations.',409)
+            target_year = placement_year(dict(nom=nom, bts=bts, rentree_annee=year))
+            if bts != previous['bts'] or target_year != placement_year(previous):
+                mismatch=conn.execute('''SELECT 1 FROM student_promotions s JOIN candidats c ON c.id=s.candidate_id
+                    WHERE s.promotion_id=? AND (upper(trim(COALESCE(c.bts,'')))<>? OR COALESCE(c.rentree_annee,2026)<>?) LIMIT 1''',(promotion_id,bts,target_year)).fetchone()
+                if mismatch:return response(False,'Cette promotion contient des étudiants d’une autre formation ou d’une autre rentrée. Réaffectez-les avant de modifier ces informations.',409)
             previous_fields=tuple(previous[key] for key in ('nom','bts','niveau','rentree_annee','date_debut','date_fin'))
             if values!=previous_fields or previous['needs_setup']:
                 conn.execute('UPDATE promotions SET nom=?,bts=?,niveau=?,rentree_annee=?,date_debut=?,date_fin=?,needs_setup=0,updated_at=? WHERE id=?',(*values,datetime.now(timezone.utc).isoformat(),promotion_id))

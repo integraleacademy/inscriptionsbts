@@ -35,7 +35,7 @@
     form.elements.bts.value = promotion?.bts || config.selected_bts || '';
     form.elements.niveau.value = promotion?.niveau ? String(promotion.niveau) : '';
     offerFirstYear();
-    const year = String(promotion?.rentree_annee || config.selected_year || '');
+    const year = String(promotion?.placement_year || config.selected_year || '');
     if (year && ![...form.elements.rentree_annee.options].some(option => option.value === year)) form.elements.rentree_annee.add(new Option('Rentrée ' + year, year));
     form.elements.rentree_annee.value = year;
     form.elements.date_debut.value = promotion?.date_debut || '';

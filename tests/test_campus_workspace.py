@@ -249,3 +249,23 @@ def test_student_pages_never_expose_onsite_zoom(campus):
         assert student.get('/espace/absences/guide').status_code==200
     anonymous=application.app.test_client()
     assert anonymous.get('/espace/absences/guide').status_code==302
+
+
+def test_assign_imported_second_year_class_to_named_bts_cohort(campus):
+    client, headers, sent = campus
+    members = [f'mos-{i}' for i in range(19)]
+    for cid in members:
+        seed(2025, cid)
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET bts='MOS' WHERE rentree_annee=2025")
+        conn.execute("""INSERT INTO promotions VALUES('second','BTS MOS 2ème année 2025-2027',
+            'MOS',2,2026,'2026-09-01','2027-06-30',1,0,'now','now')""")
+    page = client.get('/admin/inscriptions?bts=MOS&promotion=none').text
+    assert 'value="second" data-bts="MOS" data-year="2025"' in page
+    rows = client.get('/admin/inscriptions/donnees?bts=MOS&promotion=none').json['rows_html']
+    assert rows.count('<option value="second"') == 19
+    assert client.post('/admin/inscriptions/affecter', headers=headers,
+                       json=dict(ids=members,promotion_id='second')).json['count'] == 19
+    with application.db() as conn:
+        assert conn.execute("SELECT count(*) FROM student_promotions WHERE promotion_id='second'").fetchone()[0] == 19
+    assert not sent

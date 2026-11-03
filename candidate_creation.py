@@ -45,7 +45,7 @@ def register_candidate_creation(app, connect, require_admin, normalize_names, lo
         with closing(connect()) as conn:
             programs = catalog(conn)
             promotions = list_promotions(conn, active_only=True)
-        years = sorted({2026, ADMISSION_YEAR, *(p['rentree_annee'] for p in promotions)}, reverse=True)
+        years = sorted({2026, ADMISSION_YEAR, *(p['placement_year'] for p in promotions)}, reverse=True)
         values = dict(nom='', prenom='', email='', tel='', date_naissance='', bts='', mode='presentiel',
                       rentree_annee=request.args.get('rentree', str(ADMISSION_YEAR)),
                       statut='preinscription', promotion_id='', commentaires='')
