@@ -1,6 +1,6 @@
 <section id="application-guide" class="preparation-page" aria-labelledby="preparation-title">
   <header class="preparation-intro">
-    <div><p class="eyebrow">TA PRÉ-INSCRIPTION BTS · SEPTEMBRE 2027</p><h1 id="preparation-title" tabindex="-1">Quelques pièces,<br><em>et c’est parti.</em></h1><p>Prépare ces 5 documents. Tu les déposeras ensuite, une étape à la fois.</p></div>
+    <div><p class="eyebrow">TA PRÉ-INSCRIPTION · INTÉGRALE ACADEMY</p><h1 id="preparation-title" tabindex="-1">Quelques pièces,<br><em>et c’est parti.</em></h1><p>Tu souhaites rejoindre un BTS, préparer un titre professionnel (TP) ou intégrer le parcours sécurité en alternance ? Voici les pièces à avoir sous la main selon la formation choisie.</p></div>
     <div class="preparation-limits"><b>8 Mo maximum par fichier</b><span>Des documents entiers, nets et lisibles.</span><span id="preparation-count" role="status">0 / 5 pièces préparées</span></div>
   </header>
   <div class="preparation-document-list" aria-label="Les documents à préparer">
@@ -9,7 +9,7 @@
       ('photo','02','Ta photo d’identité','JPG ou PNG','Photo nette, de face, sur fond neutre. Sans filtre ni selfie.','Une candidate fait réaliser sa photo d’identité chez un photographe.'),
       ('vitale','03','Ta carte Vitale','PDF','Une copie lisible de ta carte Vitale.','Une candidate prépare une copie de sa carte Vitale.'),
       ('cv','04','Ton CV','PDF','Un CV qui présente ton parcours.','Un candidat vérifie son CV sur un ordinateur et sur papier.'),
-      ('letter','05','Ta lettre de motivation','PDF','Ta lettre pour expliquer ton envie de rejoindre ce BTS.','Une candidate rédige sa lettre de motivation.')
+      ('letter','05','Ta lettre de motivation','PDF','Explique ce qui te motive à suivre cette formation.','Une candidate rédige sa lettre de motivation.')
     ] %}
     <article class="preparation-document">
       <div class="preparation-document-art"><img src="{{ url_for('static',filename='admissions/preparation/' ~ code ~ '.webp') }}" width="960" height="640" alt="{{ alt }}" {% if loop.index > 3 %}loading="lazy"{% endif %}><span class="document-number" aria-hidden="true">{{ number }}</span></div>
@@ -18,14 +18,14 @@
     {% endfor %}
     <div class="preparation-start">
       <p class="eyebrow">À TON RYTHME</p><h2>Prêt à <em>te lancer ?</em></h2>
-      <ol class="preparation-route" aria-label="Les étapes de ta pré-inscription"><li><span>01</span>Tu complètes ton dossier.</li><li><span>02</span>Notre équipe étudie ta candidature.</li><li><span>03</span>Tu reçois une réponse par e-mail et SMS.</li></ol>
+      <ol class="preparation-route" aria-label="Les étapes de ta pré-inscription"><li><span>01</span>Tu complètes ton dossier.</li><li><span>02</span>Notre équipe étudie ta candidature.</li><li><span>03</span>Notre équipe te recontacte pour la suite.</li></ol>
       <button type="button" id="start-application" class="button preparation-cta" data-start-application><span data-start-label>Commencer ma pré-inscription</span> <span aria-hidden="true">→</span></button>
-      <p class="preparation-resume">Une pièce manque ? Tu peux commencer et enregistrer tes réponses pour revenir plus tard.</p>
+      <p class="preparation-resume">Tu choisiras ta formation à l’étape suivante.</p>
     </div>
   </div>
   <aside class="preparation-adviser" aria-labelledby="preparation-adviser-title">
     <div class="preparation-adviser-avatar"><img src="{{ url_for('static', filename='admissions/aurelie.webp') }}" width="384" height="384" alt="Memoji d’Aurélie BAYARD-CHAUSSEZ" loading="lazy"></div>
-    <div class="preparation-adviser-copy"><p class="adviser-kicker">TA RESPONSABLE BTS</p><h2 id="preparation-adviser-title">Aurélie <span>BAYARD-CHAUSSEZ</span></h2><p>Un doute sur ton dossier ou ton choix de BTS ?<br>Aurélie est là pour t’aider.</p></div>
+    <div class="preparation-adviser-copy"><p class="adviser-kicker">TON CONTACT ADMISSIONS</p><h2 id="preparation-adviser-title">Aurélie <span>BAYARD-CHAUSSEZ</span></h2><p>Une question sur ton dossier ou sur la formation qui te correspond ?<br>Aurélie est là pour t’aider.</p></div>
     <div class="preparation-adviser-links">
       <a href="tel:+33487830615"><span class="adviser-contact-icon">{{ icon('phone') }}</span><span><small>Ligne directe</small><strong>04 87 83 06 15</strong></span><span class="adviser-contact-arrow" aria-hidden="true">↗</span></a>
       <a href="mailto:aurelie@integraleacademy.com"><span class="adviser-contact-icon">{{ icon('mail') }}</span><span><small>Lui écrire</small><strong>aurelie@<wbr>integraleacademy.com</strong></span><span class="adviser-contact-arrow" aria-hidden="true">↗</span></a>
