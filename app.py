@@ -119,6 +119,7 @@ def run_startup_integrity_checks():
         "opco_convergence.py",
         "akto_portal.py",
         "akto_sync.py",
+        "akto_convergence.py",
         "templates/_akto_settings.html",
         "opco_sync.py",
         "contract_display.py",
@@ -1108,8 +1109,10 @@ register_planning_sync(app, db, require_admin)
 from cyclades import register_cyclades, sheet_status as cyclades_sheet_status
 register_cyclades(app, db, require_admin, DATA_DIR, lambda *args: send_mail(*args, copy_admin=False, private=True))
 from akto_sync import register_akto
+from akto_convergence import register_akto_convergence
 from opco_contracts import register_opco_contracts
 register_akto(app, db, require_admin, DATA_DIR)
+register_akto_convergence(app, db, require_admin)
 register_opco_contracts(app, db, require_admin)
 from opco_sync import register_opcos
 register_opcos(app, db, require_admin, DATA_DIR)
