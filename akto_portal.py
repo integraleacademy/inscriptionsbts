@@ -1,9 +1,10 @@
 """Read-only AKTO provider portal. Nothing is submitted except authentication."""
 import re
 import logging
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 import shutil
 import os
+import time
 import subprocess
 import sys
 import unicodedata
@@ -168,30 +169,7 @@ def dossier(page, lines, person):
     ref=lines[1]
     page.goto(DOSSIERS+'/'+ref,wait_until='domcontentloaded')
     page.get_by_text("Contrat d'apprentissage N° "+ref, exact=True).wait_for()
-    page.get_by_role('button',name='Voir le détail',exact=True).click()
-    body=page.locator('main').inner_text()
-    key=norm(person['prenom']+' '+person['nom'])
-    if not any(norm(l)==key for l in body.splitlines()):
-        raise PortalError('Identité du dossier AKTO non confirmée.')
-    totals=re.search(r'Demandé\s*\*?\s*\n([^\n]+)\nAccordé\s*\n([^\n]+)\nRéglé\s*\n([^\n]+)\nSolde\s*\n([^\n]+)',body)
-    if not totals:
-        raise PortalError('Totaux AKTO indisponibles.')
-    def euros(v):
-        return str(money(v.replace('.','') if ',' in v else v))
-    dates=re.search(r'Du ('+DATE+') au ('+DATE+')',body)
-    employer=re.search(r'^(.+?)\s+(\d{14})\s*$',body,re.M)
-    code=re.search(r'Numéro de contrat DGEFP\s*:\s*(\w+)',body)
-    module=re.search(r'Modules?\s*\(\d+\)\s*\n([^\n]+)\n([^\n]+)\n([^\n]+)',body)
-    record=dict(reference=ref,status=lines[2],checked=datetime.now(PARIS).strftime('%d/%m/%Y'),
-        employer=employer[1] if employer else None,siret=employer[2] if employer else None,
-        training=module[1] if module else '',provider=module[2] if module else '',hours=module[3] if module else '',
-        dgefp=code[1] if code else None,period=' au '.join(dates.groups()) if dates else '',
-        funding=euros(totals[2]),paid=euros(totals[3]),balance=euros(totals[4]))
-    if 'Eligible subrogation : Oui' in body:
-        record['subrogation']='Oui'
-    piece=re.search(r'Convention\s*\n(CONFORME|NON CONFORME)\s*\n(REÇU|ATTENDU)',body)
-    if piece:
-        record['evidence']='Convention · '+' · '.join(piece.groups())
+    record={'reference':ref}
     docs=page.locator('.documentsMobileElemWrapper').filter(has_text=re.compile(r"Courrier d'accord de prise en charge \(prestataire\)",re.I))
     if docs.count():
         def issued(row):
@@ -208,10 +186,34 @@ def dossier(page, lines, person):
             raise PortalError('Courrier AKTO indisponible.')
         notice(path,record,person)
         record['document']="Courrier d’accord de prise en charge (prestataire)"
-        if not record.get('schedules') and record['status']=='Accordé':
+        if not record.get('schedules') and lines[2]=='Accordé':
             raise PortalError('Échéancier non reconnu dans le courrier AKTO.')
     if not record.get('contract_start'):
         raise PortalError('Aucun courrier confirmant la date de début du contrat.')
+    page.get_by_role('button',name='Voir le détail',exact=True).click()
+    body=page.locator('main').inner_text()
+    key=norm(person['prenom']+' '+person['nom'])
+    if not any(norm(l)==key for l in body.splitlines()):
+        raise PortalError('Identité du dossier AKTO non confirmée.')
+    totals=re.search(r'Demandé\s*\*?\s*\n([^\n]+)\nAccordé\s*\n([^\n]+)\nRéglé\s*\n([^\n]+)\nSolde\s*\n([^\n]+)',body)
+    if not totals:
+        raise PortalError('Totaux AKTO indisponibles.')
+    def euros(v):
+        return str(money(v.replace('.','') if ',' in v else v))
+    dates=re.search(r'Du ('+DATE+') au ('+DATE+')',body)
+    employer=re.search(r'^(.+?)\s+(\d{14})\s*$',body,re.M)
+    code=re.search(r'Numéro de contrat DGEFP\s*:\s*(\w+)',body)
+    module=re.search(r'Modules?\s*\(\d+\)\s*\n([^\n]+)\n([^\n]+)\n([^\n]+)',body)
+    record.update(status=lines[2],checked=datetime.now(PARIS).strftime('%d/%m/%Y'),
+        employer=employer[1] if employer else None,siret=employer[2] if employer else None,
+        training=module[1] if module else '',provider=module[2] if module else '',hours=module[3] if module else '',
+        dgefp=code[1] if code else None,period=' au '.join(dates.groups()) if dates else '',
+        funding=euros(totals[2]),paid=euros(totals[3]),balance=euros(totals[4]))
+    if 'Eligible subrogation : Oui' in body:
+        record['subrogation']='Oui'
+    piece=re.search(r'Convention\s*\n(CONFORME|NON CONFORME)\s*\n(REÇU|ATTENDU)',body)
+    if piece:
+        record['evidence']='Convention · '+' · '.join(piece.groups())
     invoices=page.get_by_role('button',name='Voir la facture / DR',exact=True)
     if invoices.count()==1:
         invoices.click()
@@ -249,10 +251,20 @@ def read_portal(email,password,people,save,excluded=None,remember=None):
         try:
             browser=pw.chromium.launch(executable_path=exe)
         except Error as exc:
-            if exe or "Executable doesn't exist" not in str(exc):
-                raise PortalError('Le navigateur AKTO ne démarre pas.') from None
-            subprocess.run([sys.executable,'-m','playwright','install','--only-shell','chromium'],check=True,timeout=180,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            browser=pw.chromium.launch()
+            # No account data has been used during browser setup.
+            logging.getLogger(__name__).warning('AKTO initialisation Chromium : %.500s',str(exc))
+            if not exe and "Executable doesn't exist" in str(exc):
+                try:
+                    subprocess.run([sys.executable,'-m','playwright','install','--only-shell','chromium'],check=True,timeout=180,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+                except (OSError,subprocess.SubprocessError):
+                    raise PortalError('Installation de Chromium indisponible sur le serveur.') from None
+            # On Render the first launch can race browser installation at boot.
+            time.sleep(2)
+            try:
+                browser=pw.chromium.launch(executable_path=exe)
+            except Error as retry:
+                logging.getLogger(__name__).warning('AKTO lancement Chromium : %.600s',str(retry))
+                raise PortalError('Le serveur ne peut pas démarrer Chromium pour AKTO.') from None
         try:
             with browser.new_context(locale='fr-FR',accept_downloads=True,service_workers='block',viewport={'width':1280,'height':900}) as ctx:
                 # Never submit login form data to a host outside the portal / its IdP.
@@ -293,23 +305,26 @@ def read_portal(email,password,people,save,excluded=None,remember=None):
                         errors+=1
                         continue
                     person=persons[0]
-                    try:
-                        records=[]
-                        for lines in matches.get(name,[]):
-                            if excluded and lines[1] in excluded:
-                                continue
-                            try:
-                                records.append(dossier(page,lines,person))
-                            except BeforeCutoff:
-                                if remember:
-                                    remember(lines[1])
-
-                        save(person,records,'')
-                    except (PortalError,Error,ValueError,ArithmeticError,OSError) as exc:
-                        logging.getLogger(__name__).warning('AKTO MOS dossier : %s',str(exc) if isinstance(exc,PortalError) else type(exc).__name__)
+                    records, unavailable = [], []
+                    for lines in matches.get(name,[]):
+                        if excluded and lines[1] in excluded:
+                            continue
+                        try:
+                            records.append(dossier(page,lines,person))
+                        except BeforeCutoff:
+                            if remember:
+                                remember(lines[1])
+                        except (PortalError,Error,ValueError,ArithmeticError,OSError) as exc:
+                            logging.getLogger(__name__).warning('AKTO MOS dossier : %s',str(exc) if isinstance(exc,PortalError) else type(exc).__name__)
+                            unavailable.append(lines[1])
+                    if unavailable:
                         errors+=1
-                        save(person,None,'Lecture du dossier ou de son courrier incomplète. Relevé précédent conservé.')
+                        save(person,records,'Lecture incomplète : date ou courrier à vérifier. Les relevés vérifiés restent disponibles.',unavailable)
+                    else:
+                        save(person,records,'')
                 logging.getLogger(__name__).info('AKTO MOS : %d dossiers en catalogue, %d fiches examinées, %d à vérifier.',len(cards),len(people),errors)
                 return errors
         finally:
-            browser.close()
+            # A secondary close error must not mask the original failing step.
+            with suppress(Error):
+                browser.close()

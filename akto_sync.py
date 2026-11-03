@@ -5,6 +5,8 @@ import hashlib
 import hmac
 import json
 import threading
+import re
+from playwright.sync_api import Error as BrowserError
 from contextlib import closing
 from datetime import datetime
 from pathlib import Path
@@ -71,7 +73,7 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
                          (stamp,day if daily else row['day']))
             people=[dict(p) for p in conn.execute("SELECT id,prenom,nom,date_naissance FROM candidats WHERE upper(trim(bts))='MOS'")]
             conn.commit()
-        def save(person,records,message):
+        def save(person,records,message,unavailable=()):
             with closing(connect()) as conn:
                 conn.execute('BEGIN IMMEDIATE')
                 current=conn.execute("SELECT 1 FROM candidats WHERE id=? AND upper(trim(bts))='MOS' AND nom=? AND prenom=? AND COALESCE(date_naissance,'')=COALESCE(?,'')",
@@ -82,10 +84,12 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
                 if records is not None:
                     previous,_=get_records(conn,person['id'])
                     old={r['reference']:r for r in previous}
-                    for record in records:
+                    for record in list(records):
                         saved=old.get(record['reference'],{})
                         if saved.get('schedules') and not record.get('schedules'):
-                            raise PortalError('Courrier déjà connu indisponible.')
+                            records[records.index(record)]=saved
+                            message='Échéancier indisponible. Relevé précédent conservé.'
+                    records.extend(old[ref] for ref in unavailable if ref in old)
                 data=None if records is None else json.dumps(records,ensure_ascii=False)
                 conn.execute('''INSERT INTO akto_students VALUES(?,?,?,?) ON CONFLICT(candidate_id) DO UPDATE SET
                     records=COALESCE(excluded.records,akto_students.records),message=excluded.message,seen=excluded.seen''',
@@ -107,6 +111,14 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
             message=f'{len(people)} fiche(s) MOS examinée(s). {errors} lecture(s) à vérifier.'
         except PortalError as exc:
             state,message='error',str(exc)
+        except BrowserError as exc:
+            # Playwright may append URLs / call arguments. Expose the API name only.
+            match=re.match(r'([A-Za-z.]+):',str(exc))
+            action=match[1] if match else type(exc).__name__
+            clues=("Executable doesn't exist",'not found','Missing X server','browser has been closed','has been closed','Cannot find module','Connection closed','Timeout','net::ERR_','Host system is missing dependencies','Protocol error','object has been collected','Interrupted by another navigation','ENOENT')
+            reason=next((hint for hint in clues if hint.lower() in str(exc).lower()),'erreur du navigateur')
+            app.logger.warning('AKTO MOS : navigateur %s (%s)',action,reason)
+            state,message='error',f'Lecture interrompue à l’étape {action} ({reason}).'
         except Exception as exc:
             app.logger.warning('AKTO MOS : exception %s',type(exc).__name__)
             state,message='error','Lecture AKTO interrompue. Vérifiez le compte prestataire et relancez la synchronisation.'
@@ -120,7 +132,7 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
 def register_akto(app,connect,require_admin,directory):
     with closing(connect()) as conn:
         schema(conn)
-        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('catalogue-20250601-v2')").rowcount:
+        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('catalogue-20250601-v3')").rowcount:
             conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state='error'")
         conn.commit()
     wake,guard=threading.Event(),threading.Lock()
