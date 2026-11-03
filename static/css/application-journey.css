@@ -283,28 +283,35 @@ body.academy-ui.application-page {
   width: min(1160px, 100%); margin: 0 auto; padding: 30px clamp(18px,4vw,42px) 48px;
   box-sizing: border-box;
 }
-.application-page #choice-back { margin-top: 22px; }
-.application-page .section-overline { display: flex; align-items: center; font-weight: 800; letter-spacing: .1em; }
-.application-page .section-overline { gap: 10px; color: #50627b; font-size: 9px; }
-.section-overline > span { display: grid; place-items: center; width: 25px; height: 21px; border: 1px solid #c9d6e5; border-radius: 5px; color: #234d80; letter-spacing: 0; }
-.academy-ui.application-page .route-picker > h2 { font-size: clamp(25px,2.65vw,35px); line-height: 1.15; letter-spacing: -.045em; color: var(--guide-ink); margin: 10px 0 5px; }
-.application-page .section-description { color: var(--guide-muted); font-size: 14px; line-height: 1.55; margin: 0; }
-.route-options { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 13px; margin-top: 17px; }
+/* The illustrated catalogue is displayed only after the preparation guide. */
+.route-heading > p:first-child { display:flex; align-items:center; gap:10px; margin:0; font-size:10px; font-weight:750; letter-spacing:.15em; color:#4d5b70; }
+.route-heading > p:first-child::before { content:""; width:26px; height:2px; background:#b78a47; }
+.route-heading > p:first-child span { color:#ab854e; }
+.application-page .route-heading h2 { margin:12px 0 5px; color:#172c46; font-size:clamp(35px,4vw,54px); line-height:1.06; letter-spacing:-.045em; }
+.route-heading h2 em { font-family:Georgia,serif; font-weight:400; }
+.route-heading > p:last-child { margin:0; color:#4c5e72; line-height:1.55; }
+.route-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:clamp(12px,2vw,24px); margin-top:23px; }
 .application-page .route-option {
-  --route-tint: #eaf1ff; --route-accent: #234f99; --route-border: #ccd9f0;
-  display: flex; flex-direction: column; align-items: start; gap: 12px; min-width: 0; padding: 18px 20px;
-  color: #182f4d; background: #fff; border: 1px solid var(--route-border); border-radius: 14px; text-decoration: none;
-  text-align: left; white-space: normal; font: inherit; cursor: pointer; box-shadow: 0 2px 5px #18315106;
+  --route-accent:#264f82; --route-tint:#eaf2fc;
+  display:flex; flex-direction:column; align-items:stretch; min-width:0; padding:0; overflow:hidden;
+  background:#fff; color:#192f49; border:1px solid #d7dee5; border-radius:18px;
+  box-shadow:0 5px 16px #192f490d; cursor:pointer; text-decoration:none; text-align:left; font:inherit; white-space:normal;
 }
-.application-page .route-titles { --route-tint: #fff1d7; --route-accent: #805314; --route-border: #e6d6b7; }
-.application-page .route-security { --route-tint: #e3f1ec; --route-accent: #2a6655; --route-border: #c5ddd4; }
-.application-page .route-option:is(:hover,:focus-visible,[aria-expanded="true"]) { border-color: var(--route-accent); background: var(--route-tint); }
-.application-page .route-symbol { display: grid; place-items: center; width: 38px; height: 38px; flex: none; border-radius: 11px; background: var(--route-tint); color: var(--route-accent); }
-.route-symbol .ui-icon { width: 21px; height: 21px; }
-.application-page .route-option > strong { font-size: clamp(16px,1.55vw,20px); letter-spacing: -.025em; line-height: 1.2; color: inherit; }
-.route-action { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 5px; margin-top: auto; font-size: 12px; font-weight: 650; color: var(--route-accent); }
-.route-action .ui-icon { width: 16px; height: 16px; flex: none; }
-.route-titles[aria-expanded="true"] .route-action .ui-icon { transform: rotate(180deg); }
+.application-page .route-titles { --route-accent:#75511e; --route-tint:#fcf1dc; }
+.application-page .route-security { --route-accent:#255b50; --route-tint:#e5f2ec; }
+.application-page .route-option:is(:hover,:focus-visible,[aria-expanded="true"]) { border-color:var(--route-accent); box-shadow:0 6px 24px #15294716; }
+.route-option:focus-visible { outline:3px solid var(--route-accent); outline-offset:3px; }
+.route-art { display:block; position:relative; aspect-ratio:1.9; overflow:hidden; background:var(--route-tint); }
+.route-art img { width:100%; height:100%; display:block; object-fit:cover; object-position:center 36%; }
+.route-badge { position:absolute; bottom:10px; left:12px; color:#182c42; background:#fff; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; }
+.route-copy { display:grid; align-content:start; gap:8px; padding:18px 18px 15px; }
+.route-copy strong { color:#192f49; font-size:clamp(19px,1.7vw,24px); letter-spacing:-.03em; line-height:1.15; }
+.route-copy > span { color:#46586b; font-size:14px; line-height:1.5; }
+.route-action { display:flex; align-items:center; justify-content:space-between; gap:8px; margin:auto 18px 0; padding:12px 0; border-top:1px solid #e7eaed; color:var(--route-accent); font-size:13px; font-weight:700; }
+.route-action > span { display:grid; place-items:center; width:30px; height:30px; flex:none; background:var(--route-tint); border-radius:50%; }
+.route-action .ui-icon { width:16px; height:16px; }
+.route-titles[aria-expanded="true"] .route-action .ui-icon { transform:rotate(180deg); }
+.application-page #choice-back { margin-top:22px; color:#42556c; }
 .application-page .title-options { margin-top: 14px; padding: 22px; border: 1px solid #dfd5bf; border-radius: 15px; background: #fffdf7; scroll-margin-top: 16px; }
 .application-page .title-options > h3 { margin: 0 0 14px; font-size: 20px; color: #523e22; }
 .application-page .title-options .catalog-title-list h3 { font-size: 15px; color: var(--guide-ink); }
@@ -313,14 +320,8 @@ body.academy-ui.application-page {
 
 .selected-title .ui-icon { width: 17px; height: 17px; flex: none; }
 @media (max-width: 760px) {
-  .route-options { gap: 8px; }
-  .application-page .route-option { padding: 14px; }
   .academy-ui.application-page .application-layout { width: calc(100% - 24px); margin: 14px auto; border-radius: 15px; }
-}
-@media (max-width: 600px) {
-  .route-options { grid-template-columns: 1fr; gap: 8px; margin-top: 13px; }
-  .application-page .route-option { display: grid; grid-template-columns: 38px minmax(0,1fr); align-items: center; gap: 5px 12px; }
-  .route-option > .route-symbol { grid-row: span 2; }
-  .route-action { font-size: 11px; }
-  .application-page .title-options { padding: 15px; }
+  .route-options { grid-template-columns:1fr; max-width:520px; margin-inline:auto; }
+  .route-art { aspect-ratio:2.4; }
+  .application-page .title-options { padding:15px; }
 }
