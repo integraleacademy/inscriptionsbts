@@ -32,6 +32,9 @@ def schema(conn):
           day TEXT DEFAULT '', state TEXT DEFAULT 'unconfigured', message TEXT DEFAULT '',
           attempted TEXT DEFAULT '', succeeded TEXT DEFAULT '');
         INSERT OR IGNORE INTO akto_connection(id) VALUES(1);
+        CREATE TABLE IF NOT EXISTS akto_recette_key (
+          id INTEGER PRIMARY KEY CHECK(id=1), credential BLOB, verified TEXT, revision INTEGER NOT NULL DEFAULT 0);
+        INSERT OR IGNORE INTO akto_recette_key(id) VALUES(1);
         CREATE TABLE IF NOT EXISTS akto_before_cutoff (reference TEXT PRIMARY KEY, verified TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS akto_upgrades (id TEXT PRIMARY KEY);
         CREATE TABLE IF NOT EXISTS akto_students (

@@ -1,7 +1,33 @@
 {% set account = akto_status() %}
 <details class="settings-card" id="akto" aria-labelledby="akto-title">
-  {{ card_summary('akto','briefcase','AKTO · Tous les BTS','Synchronisation quotidienne à 5 h, heure de Paris, et à la demande.') }}
+  {{ card_summary('akto','briefcase','AKTO · Tous les BTS','Clé CFA Convergence en recette et synchronisation du compte prestataire.') }}
   <div class="settings-content">
+    {% if akto_recette_status is defined %}
+    {% set recette = akto_recette_status() %}
+    <section id="akto-convergence" aria-labelledby="akto-convergence-title">
+      <h3 id="akto-convergence-title">Clé CFA AKTO · Convergence</h3>
+      <p class="settings-help">Environnement de recette AKTO. La vérification teste l’accès de votre CFA en lecture seule. Aucun dossier de test n’est importé dans les fiches étudiantes.</p>
+      {% if recette.feedback %}
+      <p class="settings-message{% if recette.feedback[0] == 'error' %} error{% endif %}" role="status">{{ recette.feedback[1] }}</p>
+      {% endif %}
+      <p class="settings-message">{% if recette.configured %}<strong>Clé enregistrée.</strong> Dernière vérification réussie le {{ recette.verified }}.{% else %}Aucune clé CFA enregistrée.{% endif %}</p>
+      <form method="post" action="{{ url_for('akto_recette_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label for="akto-cfa-key">{{ 'Nouvelle clé CFA AKTO' if recette.configured else 'Clé CFA AKTO' }}</label>
+        <input id="akto-cfa-key" name="cfa_key" type="password" autocomplete="new-password" spellcheck="false" required maxlength="8192" aria-describedby="akto-cfa-help">
+        <p id="akto-cfa-help" class="settings-help">La clé est conservée chiffrée après validation par AKTO. Sa valeur ne sera plus affichée.</p>
+        <button class="settings-button primary" name="action" value="save">Vérifier et enregistrer la clé</button>
+      </form>
+      {% if recette.configured %}
+      <form method="post" class="settings-actions" action="{{ url_for('akto_recette_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="settings-button" name="action" value="test">Retester la clé enregistrée</button>
+        <button class="settings-button danger" name="action" value="remove">Supprimer la clé</button>
+      </form>
+      {% endif %}
+    </section>
+    <h3>Compte prestataire AKTO</h3>
+    {% endif %}
     <p class="settings-message" role="status"><strong>{{ {'unconfigured':'Compte AKTO à connecter','pending':'Vérification en attente','running':'Synchronisation en cours','error':'Échec de la dernière lecture','partial':'Lecture partielle','ok':'Synchronisation réussie'}.get(account.state) }}</strong> {{ account.message }}
       {% if account.attempted %} Dernière tentative le {{ account.attempted }}.{% endif %}{% if account.succeeded %} Dernier passage complet le {{ account.succeeded }}.{% endif %}{% if account.requested %} Une vérification est en attente.{% endif %}</p>
     <p>La plateforme lit les dossiers et les courriers d’accord du compte prestataire du CFA pour les étudiants des six BTS dont le contrat débute à compter du 1er juin 2025 inclus. Une synchronisation lancée continue si vous quittez cette page.</p>
