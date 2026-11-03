@@ -48,7 +48,7 @@
       form.dataset.draftUrl = session?.dataset.draft || '';
       form.elements.title_promotion_id.value = session?.value || '';
       form.elements.submission_token.value = session?.dataset.token || '';
-      save.disabled = !session?.value;
+      save.disabled = !session?.dataset.draft;
     }
     const year = session?.dataset.year || form.elements.rentree_annee.dataset.defaultYear;
     form.elements.rentree_annee.value = year;
@@ -87,8 +87,8 @@
   function validate(step) {
     normalizeNames();
     conditional();
-    if (titleJourney && step === 0 && !preview && !form.elements.title_promotion_id.value) {
-      showMessage('Choisis un titre et une session ouverte pour continuer.'); return false;
+    if (titleJourney && step === 0 && !preview && !form.dataset.draftUrl) {
+      showMessage(document.getElementById('title-intake-notice')?.textContent || 'Choisis un titre et une session ouverte pour continuer.'); return false;
     }
     if (!enforce() || steps[step].dataset.available === 'false') return true;
     const fields = [...steps[step].querySelectorAll('input,select,textarea')].filter(x => !x.disabled);
@@ -128,37 +128,47 @@
   window.verifierNumSecu=nirFeedback;
   function recap() {
     const container = document.getElementById('application-recap'); container.replaceChildren();
-    const groups = new Map();
+    const chapters = new Map();
+    const radioLabels = {bts:'Formation', mode:'Format des cours', mos_parcours:'Situation', aps_souhaitee:'Formation APS', permis_b:'Permis B', entreprise_trouvee:'Entreprise', recherches_commencees:'Recherche', cherche_idf:'Zone de recherche'};
+    function addAnswer(list, label, answer, missing = 'À compléter') {
+      const dt = document.createElement('dt'), dd = document.createElement('dd');
+      dt.textContent = label.replace(/\s*\*$/, ''); dd.textContent = answer || missing;
+      if (!answer) dd.className = 'recap-missing';
+      list.append(dt, dd);
+    }
     activeSteps().slice(0,-1).forEach(step => {
-      const i = steps.indexOf(step);
-      const dl = document.createElement('dl'); const used = new Set();
-      step.querySelectorAll('input,select,textarea').forEach(input => {
-        if (input.disabled || !input.name || used.has(input.name) || ((input.type === 'checkbox' || input.type === 'radio') && !input.checked)) return;
-        let content = input.type === 'file' ? input.files[0]?.name : input.value;
-        if (input.type === 'radio' || input.type === 'checkbox') content = [...step.querySelectorAll(`input[name="${input.name}"]:checked`)].map(x => x.closest('label').textContent.trim()).join(', ');
-        if (!content) return;
-        used.add(input.name);
-        const dt = document.createElement('dt'); const dd = document.createElement('dd');
-        dt.textContent = input.type === 'radio' ? ({bts:'Formation',mode:'Format',mos_parcours:'Situation MOS',aps_souhaitee:'Formation APS',permis_b:'Permis B',entreprise_trouvee:'Entreprise',recherches_commencees:'Recherches',cherche_idf:'Île-de-France',souhaite_accompagnement:'Accompagnement'}[input.name] || input.name) : (input.dataset.label || input.closest('label')?.querySelector('span')?.textContent || step.dataset.title);
-        dd.textContent = input.name === 'num_secu' ? '•••••••••••' + content.slice(-4) : content;
-        dl.append(dt,dd);
-      });
-      if (sessionChoice?.value && step.dataset.stepId === 'formation') {
-        const dt = document.createElement('dt'), dd = document.createElement('dd');
-        dt.textContent = 'Session'; dd.textContent = sessionChoice.selectedOptions[0].textContent;
-        dl.append(dt, dd);
-      }
-      if (!dl.childElementCount) return;
       const group = Number(step.dataset.group);
-      if (!groups.has(group)) {
-        const block = document.createElement('details'); block.className = 'recap-section';
-        const summary = document.createElement('summary'); summary.textContent = nav[group].querySelector('span:nth-child(2)').textContent;
-        block.append(summary); container.append(block); groups.set(group,block);
+      if (!chapters.has(group)) {
+        const card = document.createElement('section'); card.className = 'review-card';
+        const header = document.createElement('header'), title = document.createElement('h3');
+        title.textContent = nav[group].querySelector('span:nth-child(2)').textContent;
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'text-link'; edit.textContent = 'Modifier';
+        edit.setAttribute('aria-label','Modifier : '+title.textContent);
+        edit.addEventListener('click', () => show(steps.indexOf(step)));
+        const list = document.createElement('dl'); header.append(title,edit); card.append(header,list);
+        container.append(card); chapters.set(group,list);
       }
-      const question = document.createElement('section'); question.className = 'recap-question';
-      const header = document.createElement('div'); const title = document.createElement('h3'); title.textContent = step.dataset.title;
-      const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'text-link'; edit.textContent = 'Modifier'; edit.setAttribute('aria-label', 'Modifier : '+step.dataset.title); edit.addEventListener('click', () => show(i));
-      header.append(title,edit); question.append(header,dl); groups.get(group).append(question);
+      const list = chapters.get(group), seen = new Set();
+      step.querySelectorAll('input,select,textarea').forEach(field => {
+        if (!field.name || field.disabled || seen.has(field.name) || field.name === 'email_confirm') return;
+        seen.add(field.name);
+        const label = field.closest('label');
+        let name = field.dataset.label || label?.querySelector('span')?.textContent || step.dataset.title;
+        let answer = field.value;
+        if (field.type === 'radio' || field.type === 'checkbox') {
+          name = radioLabels[field.name] || step.dataset.title;
+          answer = [...step.querySelectorAll('input:checked')].filter(item => item.name === field.name)
+            .map(item => { const option = item.closest('label'); return (option.querySelector('b') || option).textContent.trim(); }).join(', ');
+        } else if (field.type === 'file') { answer = field.files[0]?.name; }
+        else if (field.name === 'num_secu' && answer) { answer = '•••••••••••' + answer.slice(-4); }
+        else if (field.type === 'date' && answer) { answer = answer.split('-').reverse().join('/'); }
+        else if (field.tagName === 'SELECT' && answer) { answer = field.selectedOptions[0].textContent; }
+        addAnswer(list,name,answer,field.type === 'file' ? (field.required ? 'Pièce à joindre' : 'Facultatif') : 'À compléter');
+      });
+      if (titleJourney && step.dataset.stepId === 'formation') {
+        addAnswer(list,'Lieu des cours','À l’école à Puget-sur-Argens, Côte d’Azur');
+        if (sessionChoice.value) addAnswer(list,'Session',sessionChoice.selectedOptions[0].textContent);
+      }
     });
   }
   function updateProgress() {

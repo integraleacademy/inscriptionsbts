@@ -17,6 +17,7 @@
     <h3>BTS {{ code }} · {{ title }}</h3>
     <p>{{ description }}</p>
     <dl class="training-facts">
+      <div><dt>Campus</dt><dd>Puget-sur-Argens, Côte d’Azur</dd></div>
       <div><dt>Durée</dt><dd>2 ans</dd></div>
       <div><dt>Diplôme officiel</dt><dd>BTS · Bac +2 · Niveau 5</dd></div>
       <div><dt>Certification</dt><dd><a href="https://www.francecompetences.fr/recherche/rncp/{{ rncp }}/" target="_blank" rel="noopener">RNCP n°{{ rncp }}</a></dd></div>
@@ -28,18 +29,18 @@
 </div>
 {% endmacro %}
 
-{% macro study_modes(for_title=false) %}
-{% if not for_title %}<h3>Et pour suivre les cours ?</h3>
-<p class="study-mode-intro">Le même diplôme, la même exigence, deux façons de suivre ton parcours.</p>{% endif %}
+{% macro study_modes() %}
+<h3>Et pour suivre les cours ?</h3>
+<p class="study-mode-intro">Le même diplôme, la même exigence, deux façons de suivre ton parcours.</p>
 <div class="mode-choices">
-  <label class="choice"><input type="radio" name="mode" value="presentiel" required><span><b>À l’école</b><small>{% if for_title %}Suivre les cours au centre de formation.{% else %}Dans les locaux d’Intégrale Academy à Puget-sur-Argens (Var · Côte d’Azur), avec un accompagnement sur mesure et une immersion connectée aux réalités du métier.{% endif %}</small></span></label>
-  <label class="choice"><input type="radio" name="mode" value="distanciel" required><span><b>100 % en ligne</b><small>{% if for_title %}Suivre les cours à distance, si la session le permet.{% else %}En visioconférence ZOOM en direct : même emploi du temps, mêmes enseignants, même accompagnement et même qualité pédagogique qu’en présentiel.{% endif %}</small></span></label>
+  <label class="choice"><input type="radio" name="mode" value="presentiel" required><span><b>À l’école à Puget-sur-Argens, Côte d’Azur</b><small>Tu suis les cours sur notre campus, dans le Var.</small></span></label>
+  <label class="choice"><input type="radio" name="mode" value="distanciel" required><span><b>100 % en ligne</b><small>En visioconférence ZOOM en direct : même emploi du temps, mêmes enseignants, même accompagnement et même qualité pédagogique qu’en présentiel.</small></span></label>
 </div>
-{% if not for_title %}<details id="infosDistanciel" class="application-information-details">
+<details id="infosDistanciel" class="application-information-details">
   <summary>Comment se déroule la formation à distance ?</summary>
   <div>
     <h4>L’école, 100 % en ligne et en direct</h4>
-    <p>Tu suis un emploi du temps fixe et tu te connectes aux horaires prévus, pendant les deux années de formation. Les cours se déroulent en visioconférence ZOOM avec des formateurs expérimentés, en même temps que ceux des étudiants présents à l’école.</p>
+    <p>Tu suis un emploi du temps fixe et tu te connectes aux horaires prévus, pendant les deux années de formation. Les cours se déroulent en visioconférence ZOOM avec des formateurs expérimentés, en même temps que les étudiants présents à l’école à Puget-sur-Argens, Côte d’Azur.</p>
     <p>Tu interagis en temps réel avec les formateurs et les autres étudiants. Il ne s’agit pas d’une plateforme e-learning : les cours ont lieu en direct, comme dans une classe.</p>
     <p>Tu n’as pas de déplacement à prévoir pour les cours. Les évaluations et devoirs sont déposés sur l’espace étudiant, puis corrigés par les enseignants.</p>
     <h4>L’entreprise, en présentiel</h4>
@@ -49,7 +50,6 @@
   </div>
 </details>
 <p class="information-note">Quel que soit le format choisi, <strong>l’examen final se déroule en présentiel en fin de deuxième année</strong>, au sein de l’académie de Nice ou de l’académie de Paris.</p>
-{% endif %}
 {% endmacro %}
 
 {% macro mos_guidance() %}
