@@ -31,6 +31,10 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     preview_link = catalog.select_one('#choose-titles')['href']
     assert guest.get(preview_link).status_code == 302
     title_page = page(client, preview_link)
+    closed_cards = public.select('a[href="#inscriptions-bts"]')
+    assert len(closed_cards) == 2
+    assert {card.select_one('.admission-status').get_text(strip=True) for card in closed_cards} == {'Ouverture le 1er décembre à 10 h'}
+    assert len({img['src'] for img in public.select('nav img')}) == 3
     assert public.select_one('#titres-professionnels')['href'] == '#inscriptions-bts'
     for visitor in (guest, client):
         res = visitor.get('/titres-professionnels')
