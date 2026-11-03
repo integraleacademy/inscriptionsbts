@@ -1,7 +1,7 @@
 <div class="training-choices" id="titres-professionnels">
   {% for offer in title_offers %}
     <label class="training-choice"><input type="radio" name="bts" value="{{ offer.code }}" required {% if offer.code == title_code %}checked{% endif %} >
-      <span><b>{{ offer.name }}</b>{% if not offer.promotions and not preview %}<small>Aucune session ouverte</small>{% endif %}</span></label>
+      <span><b>TP {{ offer.name }}</b>{% if not offer.promotions and not preview %}<small>Aucune session ouverte</small>{% endif %}</span></label>
   {% endfor %}
 </div>
 <label class="field" id="title-session-field" hidden><span>Ta session</span>
@@ -26,7 +26,7 @@
   {% for offer in title_offers %}
   {% set profile = profiles.get(offer.name.upper().replace("'", "’")) %}
   <article data-training-info="{{ offer.code }}" hidden>
-    <p class="eyebrow">TA FORMATION EN QUELQUES MOTS</p><h3>{{ offer.name }}</h3>
+    <p class="eyebrow">TA FORMATION EN QUELQUES MOTS</p><h3>TP {{ offer.name }}</h3>
     {% if profile %}<p>{{ profile[1] }}</p><p>{{ profile[2] }}</p>{% endif %}
     <dl class="training-facts">
       <div><dt>Lieu des cours</dt><dd>À l’école à Puget-sur-Argens, Côte d’Azur</dd></div>

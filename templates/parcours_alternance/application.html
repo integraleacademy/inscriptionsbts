@@ -5,7 +5,7 @@
 <header class="form-header"><a href="{{ public_url }}" aria-label="Revenir à la présentation">{% include 'parcours_alternance/logo.html' %}</a><a href="{{ public_url }}">Fermer et revenir au parcours ×</a></header>
 <div class="form-layout"><aside class="form-aside"><div><p class="eyebrow">TA CANDIDATURE · PROMOTION 2027</p><h2>Parcours sécurité<br><em>en alternance.</em></h2><ul class="security-qualifications">
 <li>Agent de prévention et de sécurité <strong>(APS)</strong></li>
-<li>Agent de protection physique des personnes <strong>(A3P)</strong> – garde du corps</li>
+<li>Agent de protection physique des personnes <strong>(A3P)</strong></li>
 <li>Agent de sécurité incendie et d’assistance à personnes <strong>(SSIAP 1)</strong></li>
 </ul></div><img src="{{ url_for('static',filename='parcours-alternance/aps.webp') }}" alt="Apprenants en formation sécurité" width="400" height="350"><p class="form-note">Une question à la fois.<br>Prends quelques minutes pour nous parler de toi.<br><br>Besoin d’aide ? Aurélie est là.<br><a href="tel:+33487830615">04 87 83 06 15</a></p></aside>
 <main class="form-main" id="main">{% if preview %}<aside class="information-box"><strong>Aperçu administrateur.</strong> Parcours les questions sans saisir de données. <a class="text-link" href="{{ url_for('candidature', preview=1, _anchor='choix-formation') }}">Revenir au choix de formation</a></aside>{% endif %}

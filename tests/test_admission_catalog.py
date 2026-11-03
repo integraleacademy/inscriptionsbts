@@ -35,11 +35,15 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     assert len(closed_cards) == 2
     bts, titles = closed_cards
     assert {tag.get_text(strip=True) for tag in bts.select('li strong')} == {'MOS','MCO','NDRC','PI','CI','CG'}
-    assert {tag.get_text(strip=True) for tag in titles.select('li')} == set(ACADEMY_TITLES)
+    assert {tag.get_text(strip=True) for tag in titles.select('li')} == {'TP ' + name for name in ACADEMY_TITLES}
     assert all(len(card.select('[role="timer"] [data-unit]')) == 4 for card in closed_cards)
     security_card = public.select_one('a[href="/parcoursalternance/candidature"]')
-    assert [tag.get_text(strip=True) for tag in security_card.select('li strong')] == ['Agent de sécurité','Garde du corps','Agent de sécurité incendie']
+    assert [tag.get_text(strip=True) for tag in security_card.select('li strong')] == ['Agent de sécurité','Agent de protection physique des personnes','Agent de sécurité incendie']
     assert not security_card.select('[role="timer"]')
+    assert public.select_one('h1').get_text() == 'Choisis ta formation en alternance'
+    assert titles.h2.get_text() == 'Titre professionnel en alternance'
+    assert [badge.get_text(strip=True) for badge in public.select('.admission-formats span')] == [
+        'Présentiel', '100 % en ligne · à distance en visioconférence', 'Présentiel', 'Présentiel']
     assert {card.select_one('.admission-status').get_text(strip=True) for card in closed_cards} == {'Ouverture le 1er décembre à 10 h'}
     assert len({img['src'] for img in public.select('nav img')}) == 3
     assert public.select_one('#titres-professionnels')['href'] == '#ouverture-tp'
@@ -47,7 +51,7 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
         res = visitor.get('/titres-professionnels')
         assert res.status_code == 302 and res.location.endswith('/#ouverture-tp')
         assert not BeautifulSoup(visitor.get(res.location).data, 'html.parser').select_one('#application-form')
-    assert {h.get_text(strip=True) for h in title_page.select('#titres-professionnels label b')} == set(ACADEMY_TITLES)
+    assert {h.get_text(strip=True) for h in title_page.select('#titres-professionnels label b')} == {'TP ' + name for name in ACADEMY_TITLES}
     assert shared_fields <= {field['name'] for field in title_page.select('#application-form [name]')}
     assert len(title_page.select('#step-navigation button')) == 7
     assert title_page.select_one('#next-step') and title_page.select_one('#application-progress')

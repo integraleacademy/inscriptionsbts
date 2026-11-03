@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block body_class %}waiting-page{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/admissions-home.css') }}?v=2">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/admissions-home.css') }}?v=3">{% endblock %}
 {% block content %}
 {% include 'admission_catalog.html' %}
 {% if scheduled %}<p class="admission-note">Rentrée de septembre 2027 · <a href="{{ url_for('opening_calendar') }}">Ajouter l’ouverture BTS et TP à mon calendrier</a></p>

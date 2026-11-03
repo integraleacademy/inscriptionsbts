@@ -13,6 +13,9 @@ body.academy-ui.waiting-page { background:#f7f6f2; color:#172d49; }
 .admission-card img { display:block; width:100%; height:auto; aspect-ratio:1.95; object-fit:cover; object-position:50% 35%; }
 .admission-card-copy { padding:clamp(16px,1.8vw,26px); }
 .admission-card-copy h2 { margin:0 0 8px; color:#182f4b; font-size:clamp(22px,2vw,32px); line-height:1.14; letter-spacing:-.025em; }
+.admission-formats { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:10px 0 12px; }
+.admission-formats span { display:inline-block; max-width:100%; padding:4px 9px; border-radius:14px; background:#eef2f7; color:#274567; font-size:12px; line-height:1.35; font-weight:650; }
+.admission-formats .format-online { background:#faf1de; color:#6c501b; }
 .admission-card-copy p { margin:0; font-size:15px; line-height:1.5; color:#46566a; }
 .admission-programs { display:grid; gap:0; padding:0; margin:16px 0 0; list-style:none; }
 .admission-programs li { display:flex; align-items:baseline; gap:10px; padding:8px 0; border-top:1px solid #e7ebef; font-size:15px; line-height:1.4; }
