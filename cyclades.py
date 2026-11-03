@@ -6,15 +6,19 @@ import hmac
 import json
 import os
 import re
+import secrets
 import threading
 from contextlib import closing
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 from cryptography.fernet import Fernet, InvalidToken
 from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
 
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, piece_receipt, with_exams, words
+from branded_email import render_branded_email
+from candidate_messages import _recipient
 from cyclades_portal import read_academy
 from cyclades_slips import read_slips, slip_key
 
@@ -173,7 +177,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 log("CYCLADES %s | %s | listes %s", key, " ".join(errors) or "lecture terminée", ", ".join(counts) or "—")
 
 
-def register_cyclades(app, connect, require_admin, directory):
+def register_cyclades(app, connect, require_admin, directory, send_access_mail):
     wake = threading.Event()
     mutex = threading.Lock()
     worker_thread = None
@@ -267,10 +271,17 @@ def register_cyclades(app, connect, require_admin, directory):
         guard(key)
         candidate = request.form.get("candidate")
         registration = request.form.get("registration")
-        importing = request.form.get("action") == "import"
+        action = request.form.get("action", "show")
+        if action not in ("show", "import", "prepare_email", "email"):
+            abort(400)
+        importing = action == "import"
         upload = request.files.get("slip") if importing else None
+        back = url_for("admin_candidate_sheet", cid=cid, return_to=request.form.get("return_to") or None, _anchor="cyclades")
+        ticket = recipient = None
         with closing(connect()) as conn:
-            student = conn.execute("SELECT id,bts,nom,prenom,date_naissance FROM candidats WHERE id=?", (cid,)).fetchone()
+            if action == "email":
+                conn.execute("BEGIN IMMEDIATE")
+            student = conn.execute("SELECT id,bts,nom,prenom,date_naissance,email FROM candidats WHERE id=?", (cid,)).fetchone()
             from training_programs import BTS_LABELS
             if not student or student["bts"] not in BTS_LABELS:
                 abort(404)
@@ -302,12 +313,55 @@ def register_cyclades(app, connect, require_admin, directory):
                 if not record.get("sealed_slip"):
                     raise CycladesError("Aucun papillon disponible pour cette inscription.")
                 password = cipher(app).decrypt(record["sealed_slip"].encode()).decode()
+                if action in ("prepare_email", "email"):
+                    try:
+                        recipient = _recipient(dict(student), "email")
+                        if any(c in recipient for c in ",;"):
+                            raise ValueError
+                    except ValueError:
+                        raise CycladesError("Renseignez une adresse e-mail valide dans la fiche étudiant avant l’envoi.") from None
+                    # The confirmation binds the displayed address and the exact
+                    # edition to this administrator's session, without exposing either credential.
+                    scope = json.dumps([cid, key, year, ref, recipient, record["sealed_slip"], session["_planning_csrf"]])
+                    signer = URLSafeTimedSerializer(app.secret_key, salt="cyclades-mail-" + hashlib.sha256(scope.encode()).hexdigest())
+                    if action == "prepare_email":
+                        ticket = signer.dumps(secrets.token_urlsafe(18))
+                    else:
+                        ticket = request.form.get("ticket", "")
+                        try:
+                            signer.loads(ticket, max_age=900)
+                        except BadSignature:
+                            raise CycladesError("La confirmation a expiré ou la fiche a changé. Vérifiez à nouveau le destinataire.") from None
+                        now = datetime.now(PARIS).timestamp()
+                        conn.execute("DELETE FROM cyclades_mail_attempts WHERE attempted < ?", (now - 86400,))
+                        claimed = conn.execute("INSERT OR IGNORE INTO cyclades_mail_attempts VALUES (?, ?, 'pending')", (ticket, now))
+                        if not claimed.rowcount:
+                            status = conn.execute("SELECT status FROM cyclades_mail_attempts WHERE ticket=?", (ticket,)).fetchone()[0]
+                            flash("Ces accès ont déjà été envoyés." if status == "sent" else "Cette demande a déjà été prise en compte. Aucun nouvel envoi.", "info")
+                            return redirect(back, code=303)
+                        conn.commit()
             except (CycladesError, InvalidToken) as exc:
-                message = str(exc) if isinstance(exc, CycladesError) else "Le papillon doit être relu ou importé."
+                message = str(exc) if isinstance(exc, CycladesError) else "Le papillon doit être relu."
                 flash(message, "error")
-                return redirect(url_for("admin_candidate_sheet", cid=cid, return_to=request.form.get("return_to") or None) + "#cyclades", code=303)
+                return redirect(back, code=303)
+        if action == "email":
+            subject = f"Vos accès Cyclades · BTS {year}"
+            html = render_branded_email(subject, render_template("emails/cyclades_access.html", student=student,
+                login=ref[2], password=password, year=year), eyebrow="INTÉGRALE ACADEMY · EXAMENS",
+                accent_title="Votre espace candidat", preview_text="Retrouvez vos accès à votre espace candidat Cyclades.",
+                action_url="https://candidat.examens-concours.gouv.fr/cyccandidat/", action_label="Ouvrir mon espace Cyclades")
+            try:
+                sent = bool(send_access_mail(recipient, subject, html))
+            except Exception:
+                sent = False
+            with closing(connect()) as conn:
+                conn.execute("UPDATE cyclades_mail_attempts SET status=? WHERE ticket=?", ("sent" if sent else "unconfirmed", ticket))
+                conn.commit()
+            flash(f"Le service d’envoi a accepté l’e-mail pour {recipient}." if sent else
+                  "Le service de messagerie n’a pas confirmé l’envoi des accès.", "success" if sent else "error")
+            return redirect(back, code=303)
         return render_template("cyclades_access.html", student=student, login=ref[2], password=password,
-                               year=year, academy=ACADEMIES[key][0]), 200, {
+                               year=year, academy=ACADEMIES[key][0], ticket=ticket, recipient=recipient, back=back), 200, {
             "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY"}
 
     @app.post("/admin/candidat/<cid>/cyclades/<key>/<int:year>/releve-pieces")

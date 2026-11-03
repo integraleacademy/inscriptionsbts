@@ -24,7 +24,7 @@ BREVO_KEY = os.getenv("BREVO_API_KEY")
 # ✉️ Envoi d’e-mail via Brevo API (avec suivi)
 # =====================================================
 def send_mail(to, subject, html, attachments=None, *, copy_admin=True,
-              sender_email=None, sender_name=None, reply_to=None):
+              sender_email=None, sender_name=None, reply_to=None, private=False):
     """
     Envoie un e-mail via l’API Brevo
     → + copie automatique à gestion@integraleacademy.com
@@ -78,19 +78,21 @@ def send_mail(to, subject, html, attachments=None, *, copy_admin=True,
 
     try:
         r = requests.post(url, headers=headers, json=data, timeout=15)
-        print("📦 Réponse Brevo mail:", r.text)
+        if not private:
+            print("📦 Réponse Brevo mail:", r.text)
 
         if not r.ok:
-            print(f"⚠️ Erreur envoi mail ({r.status_code}): {r.text}")
+            print(f"⚠️ Erreur envoi mail ({r.status_code})" if private else f"⚠️ Erreur envoi mail ({r.status_code}): {r.text}")
             return False
 
         resp = r.json()
         message_id = resp.get("messageId") or (resp.get("messageIds") or [None])[0]
-        print(f"✅ Mail envoyé via Brevo à {to_list} — ID: {message_id}")
+        if not private:
+            print(f"✅ Mail envoyé via Brevo à {to_list} — ID: {message_id}")
         return message_id
 
     except Exception as e:
-        print(f"❌ Erreur envoi mail via Brevo: {e}")
+        print("Échec de l’envoi privé." if private else f"❌ Erreur envoi mail via Brevo: {e}")
         return False
 
 

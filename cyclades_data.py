@@ -199,6 +199,8 @@ def schema(conn):
             candidate_id TEXT, academy TEXT, year INTEGER, identity TEXT NOT NULL,
             outcome TEXT NOT NULL, records TEXT NOT NULL, seen REAL,
             PRIMARY KEY (candidate_id, academy, year));
+        CREATE TABLE IF NOT EXISTS cyclades_mail_attempts (
+            ticket TEXT PRIMARY KEY, attempted REAL NOT NULL, status TEXT NOT NULL);
         CREATE TRIGGER IF NOT EXISTS cyclades_delete_student AFTER DELETE ON candidats
             BEGIN DELETE FROM cyclades_students WHERE candidate_id=OLD.id; END;
         CREATE TRIGGER IF NOT EXISTS cyclades_change_identity AFTER UPDATE OF nom,prenom,date_naissance ON candidats

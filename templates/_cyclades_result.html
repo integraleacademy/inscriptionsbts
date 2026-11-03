@@ -23,6 +23,7 @@
         <input type="hidden" name="return_to" value="{{ request.args.get('return_to', '') }}">
         {% if record.slip_ready %}
           <button class="cy-button" type="submit" formtarget="_blank">Afficher l’identifiant et le mot de passe provisoire</button>
+          <button class="cy-button" type="submit" name="action" value="prepare_email">Envoyer les accès par e-mail</button>
         {% else %}
           {% if record.slip_sync == 'unavailable' %}
           <p>La lecture automatique du papillon n’a pas abouti. La plateforme reprendra la recherche.</p>
