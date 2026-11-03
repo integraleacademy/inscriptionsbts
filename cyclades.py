@@ -17,7 +17,7 @@ from flask import abort, flash, jsonify, redirect, render_template, request, ses
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, with_exams, words
 from cyclades_portal import read_academy
 
-READER_VERSION = 16
+READER_VERSION = 17
 
 
 def cipher(app):
@@ -110,7 +110,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 reader_changed = row["reader_version"] < READER_VERSION and (
                     row["status"] == "error" or row["reader_version"] > 0)
                 recovering = row["status"] == "running" or (reader_changed and (row["network_retry"] is None or
-                    (key == "nice" and row["network_retry"] == -1 and row["reader_version"] < 16)))
+                    (key == "nice" and row["network_retry"] == -1 and row["reader_version"] < 17)))
                 daily_due = clock.hour >= 8 and (row["day"] or "") < slot
                 retry_at = row["network_retry"]
                 retry_due = retry_at is not None and retry_at > 0 and retry_at <= clock.timestamp() and row["status"] == "error"

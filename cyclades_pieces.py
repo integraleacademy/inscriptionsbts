@@ -24,16 +24,38 @@ def deadline(line):
     return None
 
 
+COUNT = re.compile(r"Pièces\s+justificatives\s+conformes\s*:\s*(\d+)\s*/\s*(\d+)", re.I)
+REF_FIELDS = (
+    (r"N[°º]\s*(?:de\s+)?candidat\s*:\s*(\d+)", "N° de candidat"),
+    (r"N[°º]\s*(?:d[’']\s*)?inscription\s*:\s*(\d+)", "N° d’inscription"),
+    (r"Version\s*:\s*(\d+)", "Version"),
+)
+
+
+def verified_counts(text, record, uai):
+    counts = COUNT.search(text)
+    if not counts:
+        return None
+    header = text[:counts.start()]
+    school = re.search(r"Code\s+[ÉE]tab\.?\s*:\s*(\d{7}[A-Z])", header, re.I)
+    if not school or school[1].upper() != uai:
+        return None
+    for pattern, key in REF_FIELDS:
+        values = {number(v) for v in re.findall(pattern, header, re.I)}
+        if not record["details"].get(key) or values != {number(record["details"][key])}:
+            return None
+    conforming, requested = map(int, counts.groups())
+    if conforming > requested:
+        return None
+    return {"conforming": conforming, "requested": requested}
+
+
 def parse_detail(text, record, uai):
     """Return only item labels, explicit upload/control states and the deadline."""
-    profile = re.search(r"N[°º]\s*candidat\s*:\s*(\d+)\s+N[°º]\s*inscription\s*:\s*(\d+)\s+Version\s*:\s*(\d+)", text, re.I)
-    establishment = re.search(r"Code\s+[ÉE]tab\s*:\s*(\w+)", text, re.I)
-    counts = re.search(r"Pièces justificatives conformes\s*:\s*(\d+)\s*/\s*(\d+)", text, re.I)
-    keys = ["N° de candidat", "N° d’inscription", "Version"]
-    if not (profile and establishment and counts and establishment[1] == uai and
-            all(number(a) == number(record["details"].get(k, "")) and record["details"].get(k)
-                for a, k in zip(profile.groups(), keys))):
+    summary = verified_counts(text, record, uai)
+    if summary is None:
         return None
+    text = text[COUNT.search(text).end():]
     pieces = []
     due = None
     current = None
@@ -63,6 +85,6 @@ def parse_detail(text, record, uai):
                 current["review"] = REVIEWS.get(flat.removeprefix("traitement administratif statut "))
             if line.startswith("PJ-CONTROLE "):
                 current["review"] = REVIEWS.get(words(line[12:]))
-    if int(counts[1]) > int(counts[2]) or len(pieces) != int(counts[2]) or len({p["code"] for p in pieces}) != len(pieces):
+    if len(pieces) != summary["requested"] or len({p["code"] for p in pieces}) != len(pieces):
         return None
-    return {"documents": pieces, "conforming": int(counts[1]), "requested": int(counts[2])}
+    return {"documents": pieces, **summary}
