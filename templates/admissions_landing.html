@@ -1,19 +1,9 @@
 {% extends "base.html" %}
 {% block body_class %}waiting-page{% endblock %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/admissions-home.css') }}">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/admissions-home.css') }}?v=2">{% endblock %}
 {% block content %}
 {% include 'admission_catalog.html' %}
-<section class="home-opening" id="inscriptions-bts" aria-labelledby="launch-title" data-opens="{{ opening_iso }}" data-server-now="{{ server_now }}" data-scheduled="{{ 'true' if scheduled else 'false' }}">
-  <div class="opening-copy">
-    <p class="home-kicker">BTS EN ALTERNANCE ET TITRES PROFESSIONNELS</p>
-    <h2 id="launch-title">{% if scheduled %}Ouverture le <em>1er décembre à 10 h</em>{% elif admission_open %}Les candidatures sont ouvertes{% else %}Les candidatures sont suspendues{% endif %}</h2>
-    <p>{% if scheduled %}Rentrée de septembre 2027. Tu pourras déposer ton dossier dès le 1er décembre 2026 à 10 h, heure de Paris.{% elif admission_open %}Prépare ton dossier pour la rentrée de septembre 2027.{% else %}{{ portal_message or 'Notre équipe reste disponible pour répondre à tes questions.' }}{% endif %}</p>
-    {% if scheduled %}<a class="home-calendar" href="{{ url_for('opening_calendar') }}">Ajouter la date à mon calendrier</a>{% elif admission_open %}<a class="home-calendar" href="{{ url_for('candidature', _anchor='application-guide') }}">Commencer ma candidature</a>{% endif %}
-  </div>
-  {% if scheduled %}<div class="home-countdown" role="timer" aria-label="Temps restant avant l’ouverture des inscriptions">
-    {% for key,label in [('days','jours'),('hours','heures'),('minutes','minutes'),('seconds','secondes')] %}<div><strong id="count-{{ key }}">--</strong><span>{{ label }}</span></div>{% endfor %}
-  </div>{% endif %}
-</section>
-<p class="security-access">Le parcours sécurité en alternance est déjà ouvert. <a href="{{ url_for('security_application') }}">Candidater au parcours sécurité</a></p>
-<script src="{{ url_for('static', filename='js/countdown.js') }}" defer></script>
+{% if scheduled %}<p class="admission-note">Rentrée de septembre 2027 · <a href="{{ url_for('opening_calendar') }}">Ajouter l’ouverture BTS et TP à mon calendrier</a></p>
+{% elif not admission_open and portal_message %}<p class="admission-note">{{ portal_message }}</p>{% endif %}
+<script src="{{ url_for('static', filename='js/countdown.js') }}?v=2" defer></script>
 {% endblock %}

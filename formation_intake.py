@@ -250,7 +250,7 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
 
     def title_form(code=None, promotion=None, *, preview=False, saved_data=None):
         if not preview and not admissions_available():
-            return redirect(url_for("index", _anchor="inscriptions-bts"))
+            return redirect(url_for("index", _anchor="ouverture-tp"))
         with closing(connect()) as conn:
             offers = list(admission_titles(conn))
         labels = {offer['code']: offer['name'] for offer in offers}

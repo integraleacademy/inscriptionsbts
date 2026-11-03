@@ -5,13 +5,13 @@ import os, sqlite3, json, uuid, shutil
 import fcntl
 import tempfile
 from datetime import datetime, timedelta
-from training_programs import SECURITY, catalog, is_professional_title, program_name
+from training_programs import BTS_LABELS as BTS_PROGRAMS, SECURITY, catalog, is_professional_title, program_name
 from admission_options import PROFILE_GROUPS, profile_answers
 from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
-from formation_intake import open_title_promotions, ensure_schema as ensure_formation_schema, register_formation_intake
+from formation_intake import admission_titles, open_title_promotions, ensure_schema as ensure_formation_schema, register_formation_intake
 from candidate_email_history import archived_body, history as candidate_email_history
 from candidate_csv_import import register_candidate_import
 from candidate_creation import register_candidate_creation
@@ -1049,7 +1049,9 @@ def admissions_available():
 
 def admission_landing():
     portal = get_portal_status()
-    return render_template("admissions_landing.html", title="Candidatures · Intégrale Academy", admission_open=admissions_available(), scheduled=not campaign_is_open(), portal_message=portal.get("message", "") if portal.get("campaign_year") == ADMISSION_YEAR else "")
+    with closing(db()) as conn:
+        titles = admission_titles(conn)
+    return render_template("admissions_landing.html", bts_programs=BTS_PROGRAMS, title_offers=titles, title="Candidatures · Intégrale Academy", admission_open=admissions_available(), scheduled=not campaign_is_open(), portal_message=portal.get("message", "") if portal.get("campaign_year") == ADMISSION_YEAR else "")
 
 
 @app.route("/")
@@ -1212,7 +1214,7 @@ def reprendre_formulaire(token):
     saved_full_form = (draft or {}).get("full_form", {})
     if saved_full_form.get("title_promotion_id"):
         if not admissions_available():
-            return redirect(url_for("index", _anchor="inscriptions-bts"))
+            return redirect(url_for("index", _anchor="ouverture-tp"))
         with closing(db()) as conn:
             rows = open_title_promotions(conn, saved_full_form["title_promotion_id"])
         if not rows or (rows[0]["bts"], rows[0]["rentree_annee"]) != (saved_full_form.get("bts"), saved_full_form.get("rentree_annee")):

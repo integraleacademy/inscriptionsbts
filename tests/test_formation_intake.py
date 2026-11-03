@@ -122,9 +122,9 @@ def test_before_opening_only_security_accepts_applications(client, monkeypatch):
     guest = application.app.test_client()
     path = '/titres-professionnels/candidature/' + pid
     response = guest.get(path)
-    assert response.status_code == 302 and response.location.endswith('/#inscriptions-bts')
+    assert response.status_code == 302 and response.location.endswith('/#ouverture-tp')
     waiting = BeautifulSoup(guest.get(response.location).data, 'html.parser')
-    assert '1er décembre' in waiting.select_one('#inscriptions-bts').get_text()
+    assert '1er décembre' in waiting.select_one('#ouverture-tp').get_text()
     assert not waiting.select('#application-form')
     assert guest.post(path, data={}).status_code == 403
     assert guest.post(path+'/brouillon', json={}).status_code == 403

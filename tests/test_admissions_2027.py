@@ -65,7 +65,7 @@ def test_exact_paris_opening_boundary():
 
 def test_closed_server_cannot_be_bypassed(client, monkeypatch):
     monkeypatch.setattr(application,'campaign_is_open',lambda:False)
-    assert b'count-days' in client.get('/').data
+    assert client.get('/').data.count(b'data-unit="days"') == 2
     assert b'application-form' not in client.get('/?admin_bypass=1').data
     assert client.get('/candidature?preview=1').status_code==302
     assert client.post('/submit',data=payload()).status_code==403

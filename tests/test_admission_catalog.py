@@ -31,14 +31,21 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     preview_link = catalog.select_one('#choose-titles')['href']
     assert guest.get(preview_link).status_code == 302
     title_page = page(client, preview_link)
-    closed_cards = public.select('a[href="#inscriptions-bts"]')
+    closed_cards = public.select('a[href="#inscriptions-bts"], a[href="#ouverture-tp"]')
     assert len(closed_cards) == 2
+    bts, titles = closed_cards
+    assert {tag.get_text(strip=True) for tag in bts.select('li strong')} == {'MOS','MCO','NDRC','PI','CI','CG'}
+    assert {tag.get_text(strip=True) for tag in titles.select('li')} == set(ACADEMY_TITLES)
+    assert all(len(card.select('[role="timer"] [data-unit]')) == 4 for card in closed_cards)
+    security_card = public.select_one('a[href="/parcoursalternance/candidature"]')
+    assert [tag.get_text(strip=True) for tag in security_card.select('li strong')] == ['Agent de sécurité','Garde du corps','Agent de sécurité incendie']
+    assert not security_card.select('[role="timer"]')
     assert {card.select_one('.admission-status').get_text(strip=True) for card in closed_cards} == {'Ouverture le 1er décembre à 10 h'}
     assert len({img['src'] for img in public.select('nav img')}) == 3
-    assert public.select_one('#titres-professionnels')['href'] == '#inscriptions-bts'
+    assert public.select_one('#titres-professionnels')['href'] == '#ouverture-tp'
     for visitor in (guest, client):
         res = visitor.get('/titres-professionnels')
-        assert res.status_code == 302 and res.location.endswith('/#inscriptions-bts')
+        assert res.status_code == 302 and res.location.endswith('/#ouverture-tp')
         assert not BeautifulSoup(visitor.get(res.location).data, 'html.parser').select_one('#application-form')
     assert {h.get_text(strip=True) for h in title_page.select('#titres-professionnels label b')} == set(ACADEMY_TITLES)
     assert shared_fields <= {field['name'] for field in title_page.select('#application-form [name]')}
@@ -150,7 +157,7 @@ def test_home_and_title_form_switch_at_the_campaign_opening(client, monkeypatch)
     for now, available in ((OPENS_AT - timedelta(seconds=1), False), (OPENS_AT, True)):
         monkeypatch.setattr(application, 'campaign_is_open', lambda: campaign_is_open(now))
         landing = page(guest, '/')
-        expected = '/titres-professionnels' if available else '#inscriptions-bts'
+        expected = '/titres-professionnels' if available else '#ouverture-tp'
         assert landing.select_one('#titres-professionnels')['href'] == expected
         assert guest.get('/titres-professionnels').status_code == (200 if available else 302)
         assert guest.get('/parcoursalternance/candidature').status_code == 200

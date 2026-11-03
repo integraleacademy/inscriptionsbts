@@ -1,20 +1,40 @@
-{% macro admission_card(title, image, description, status, href, id=none, available=false) %}
+{% macro admission_card(title, image, description, status, href, id=none, timer=none) %}
 <a class="admission-card" href="{{ href }}"{% if id %} id="{{ id }}"{% endif %}>
-  <img src="{{ url_for('static', filename=image) }}" width="480" height="255" alt="">
-  <div class="admission-card-copy"><h2>{{ title }}</h2><p>{{ description }}</p></div>
-  <span class="admission-status{% if available %} is-open{% endif %}">{{ status }}</span>
+  <img src="{{ url_for('static', filename=image) }}" width="640" height="340" alt="">
+  <div class="admission-card-copy">
+    <h2>{{ title }}</h2><p>{{ description }}</p>
+    <ul class="admission-programs">{{ caller() }}</ul>
+  </div>
+  <div class="admission-foot"{% if timer %} id="{{ timer }}"{% endif %}>
+    <span class="admission-status">{{ status }}</span>
+    {% if timer and scheduled %}
+    <div class="home-countdown" role="timer" aria-label="Temps restant avant l’ouverture des candidatures {{ title }}">
+      {% for key,label in [('days','jours'),('hours','heures'),('minutes','minutes'),('seconds','secondes')] %}
+      <div><strong data-unit="{{ key }}">--</strong><span>{{ label }}</span></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
 </a>
 {% endmacro %}
 {% set opening_status = 'Ouverture le 1er décembre à 10 h' if scheduled else 'Candidatures fermées' %}
-<section class="admission-home" id="choix-formation" aria-labelledby="catalog-title">
+<section class="admission-home" id="choix-formation" aria-labelledby="catalog-title" {% if scheduled %}data-opens="{{ opening_iso }}" data-server-now="{{ server_now }}"{% endif %}>
   <header class="home-intro">
     <p class="home-kicker">INTÉGRALE ACADEMY · ADMISSIONS 2027</p>
     <h1 id="catalog-title">Choisis ta <em>formation.</em></h1>
-    <p>Trois parcours en alternance. Découvre celui qui correspond à ton projet.</p>
+    <p>Découvre les formations proposées dans chaque parcours.</p>
   </header>
   <nav class="admission-grid" aria-label="Choix de la formation">
-    {{ admission_card('BTS en alternance', 'admissions/student-space-illustration.webp', 'Prépare ton diplôme en deux ans, à l’école à Puget-sur-Argens, Côte d’Azur, ou en ligne.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', available=admission_open) }}
-    {{ admission_card('Titres professionnels', 'admissions/company-space-illustration.webp', 'Forme-toi à un métier en présentiel à l’école à Puget-sur-Argens, Côte d’Azur.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#inscriptions-bts', id='titres-professionnels', available=admission_open) }}
-    {{ admission_card('Parcours sécurité en alternance', 'parcours-alternance/aps.webp', 'Prépare-toi à la surveillance de sites, à la protection rapprochée et à la sécurité incendie.', 'Candidatures ouvertes', url_for('security_application'), available=true) }}
+    {% call admission_card('BTS en alternance', 'admissions/student-space-illustration.webp', 'Deux ans pour préparer ton diplôme, à l’école à Puget-sur-Argens, Côte d’Azur, ou en ligne.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', timer='inscriptions-bts') %}
+      {% for code,label in bts_programs.items() %}<li><strong>{{ code }}</strong><span>{{ label.removeprefix('BTS ') }}</span></li>{% endfor %}
+    {% endcall %}
+    {% call admission_card('Titres professionnels', 'admissions/company-space-illustration.webp', 'Prépare un titre professionnel en présentiel à l’école à Puget-sur-Argens, Côte d’Azur.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#ouverture-tp', id='titres-professionnels', timer='ouverture-tp') %}
+      {% for offer in title_offers %}<li>{{ offer.name }}</li>{% endfor %}
+    {% endcall %}
+    {% call admission_card('Parcours sécurité en alternance', 'parcours-alternance/aps.webp', 'En un an, prépare trois qualifications complémentaires en alternant formation et missions en entreprise.', 'Candidatures ouvertes · Candidater', url_for('security_application')) %}
+      <li><strong>Agent de sécurité</strong><span>Surveiller les sites et prévenir les incidents (APS).</span></li>
+      <li><strong>Garde du corps</strong><span>Assurer la protection rapprochée d’une personne (A3P).</span></li>
+      <li><strong>Agent de sécurité incendie</strong><span>Prévenir les incendies et porter assistance aux occupants (SSIAP 1).</span></li>
+    {% endcall %}
   </nav>
 </section>

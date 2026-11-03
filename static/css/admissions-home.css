@@ -1,6 +1,6 @@
 body.academy-ui.waiting-page { background:#f7f6f2; color:#172d49; }
-.academy-ui.waiting-page #main-content { width:min(1150px,100%); margin:0 auto; padding:clamp(26px,4.6vw,60px) clamp(18px,3vw,38px) 38px; background:transparent; box-shadow:none; border:0; box-sizing:border-box; }
-.admission-home *, .home-opening * { box-sizing:border-box; }
+.academy-ui.waiting-page #main-content { width:min(1660px,100%); margin:0 auto; padding:clamp(24px,3vw,44px) clamp(16px,2.3vw,38px) 38px; background:transparent; box-shadow:none; border:0; box-sizing:border-box; }
+.admission-home * { box-sizing:border-box; }
 .home-intro { margin-bottom:24px; }
 .home-kicker { display:flex; align-items:center; gap:10px; margin:0; color:#6f552c; font-size:10px; font-weight:750; letter-spacing:.14em; }
 .home-kicker::before { content:""; width:28px; height:2px; background:#b38b4b; }
@@ -11,28 +11,26 @@ body.academy-ui.waiting-page { background:#f7f6f2; color:#172d49; }
 .admission-grid .admission-card { min-width:0; display:flex; flex-direction:column; overflow:hidden; background:white; color:#192e49; border:1px solid #d7dee6; border-radius:18px; box-shadow:0 5px 16px #172d490c; text-decoration:none; }
 .admission-card:hover, .admission-card:focus-visible { outline:2px solid #657c95; outline-offset:2px; }
 .admission-card img { display:block; width:100%; height:auto; aspect-ratio:1.95; object-fit:cover; object-position:50% 35%; }
-.admission-card-copy { padding:18px 18px 14px; }
-.admission-card-copy h2 { margin:0 0 8px; color:#182f4b; font-size:clamp(20px,1.75vw,25px); line-height:1.14; letter-spacing:-.025em; }
-.admission-card-copy p { margin:0; font-size:14px; line-height:1.5; color:#46566a; }
-.admission-status { display:block; margin:auto 18px 0; padding:13px 0; border-top:1px solid #e7e3db; color:#6c5128; line-height:1.4; font-size:13px; font-weight:700; }
-.admission-status.is-open { color:#214d80; }
-.home-opening { margin:28px 0 0; padding:clamp(20px,3vw,34px); display:flex; justify-content:space-between; align-items:center; gap:28px; background:#182f4c; border-radius:18px; color:white; scroll-margin-top:16px; }
-.home-opening .home-kicker { color:#e8c684; }
-.opening-copy { min-width:0; }
-.opening-copy h2 { color:white; margin:10px 0 8px; font-size:clamp(25px,2.8vw,37px); letter-spacing:-.035em; line-height:1.12; }
-.opening-copy h2 em { color:#f1d299; font-style:normal; }
-.opening-copy > p:not(.home-kicker) { color:#e1e8f1; font-size:14px; line-height:1.6; margin:0; max-width:55ch; }
-.home-opening .home-calendar { display:inline-block; margin-top:12px; color:#f1d299; font-size:13px; font-weight:650; text-underline-offset:3px; }
-.home-countdown { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; width:min(300px,100%); flex:none; }
-.home-countdown > div { display:grid; justify-items:center; gap:3px; padding:10px 2px; background:#253f60; border-radius:9px; }
-.home-countdown strong { font-variant-numeric:tabular-nums; color:white; font-size:clamp(20px,2vw,29px); }
-.home-countdown span { color:#d9e2ed; font-size:11px; }
-.security-access { margin:16px 0 0; text-align:center; color:#455770; font-size:13px; line-height:1.5; }
-.security-access a { color:#234d7a; text-underline-offset:3px; }
+.admission-card-copy { padding:clamp(16px,1.8vw,26px); }
+.admission-card-copy h2 { margin:0 0 8px; color:#182f4b; font-size:clamp(22px,2vw,32px); line-height:1.14; letter-spacing:-.025em; }
+.admission-card-copy p { margin:0; font-size:15px; line-height:1.5; color:#46566a; }
+.admission-programs { display:grid; gap:0; padding:0; margin:16px 0 0; list-style:none; }
+.admission-programs li { display:flex; align-items:baseline; gap:10px; padding:8px 0; border-top:1px solid #e7ebef; font-size:15px; line-height:1.4; }
+.admission-programs strong { color:#1f4169; }
+.admission-programs li span { color:#42566c; }
+.admission-card:last-child .admission-programs li { display:grid; gap:3px; }
+.admission-foot { margin:auto clamp(16px,1.8vw,26px) 0; padding:14px 0 18px; border-top:1px solid #dadfe6; scroll-margin-top:20px; }
+.admission-status { color:#634c27; line-height:1.4; font-size:15px; font-weight:700; }
+.admission-card:last-child .admission-status { color:#234d7a; }
+.home-countdown { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:6px; margin-top:9px; }
+.home-countdown > div { display:grid; justify-items:center; gap:2px; padding:8px 2px; background:#f1f4f8; border-radius:8px; }
+.home-countdown strong { font-variant-numeric:tabular-nums; color:#1b3556; font-size:clamp(19px,1.6vw,26px); }
+.home-countdown span { color:#4e6075; font-size:11px; }
+.admission-note { margin:18px 0 0; text-align:center; color:#495b6e; font-size:13px; }
+.admission-note a { color:#234d7a; text-underline-offset:3px; }
 .academy-ui.waiting-page .footer-signature { border-color:#d8dce1; color:#4f6075; background:#f7f6f2; }
 .academy-ui.waiting-page .footer-signature :is(a,small) { color:#4f6075; }
 @media(max-width:760px) {
   .admission-grid { grid-template-columns:1fr; }
   .admission-card img { aspect-ratio:2.65; }
-  .home-opening { flex-direction:column; align-items:start; gap:17px; }
 }
