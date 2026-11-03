@@ -38,7 +38,11 @@ def student(client, monkeypatch):
     monkeypatch.setenv("CYCLADES_SYNC_DISABLED", "1")
     monkeypatch.setattr(application.app, "secret_key", "a-long-test-secret-for-cyclades")
     seed(2025, "student")
+    from akto_sync import schema as akto_schema
+    from wedof_daily_sync import schema as wedof_schema
     with application.db() as conn:
+        akto_schema(conn)
+        wedof_schema(conn)
         conn.execute("UPDATE candidats SET date_naissance='2005-02-03' WHERE id='student'")
     return client
 

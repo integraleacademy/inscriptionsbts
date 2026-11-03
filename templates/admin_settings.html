@@ -38,12 +38,23 @@
       <p id="wedof-managed" hidden>La clé WEDOF est configurée sur le serveur.</p>
       <form id="wedof-form" hidden><label for="wedof-key">Clé API WEDOF</label><input id="wedof-key" type="password" autocomplete="new-password" maxlength="512" minlength="16" required aria-describedby="wedof-key-help"><p id="wedof-key-help" class="settings-help">Utilisez la clé de votre compte WEDOF, comme sur Gestion Stagiaires. Elle est chiffrée sur le serveur et n’est jamais réaffichée.</p><div class="settings-actions"><button id="wedof-save" class="settings-button primary" type="submit">Enregistrer la clé</button><button id="wedof-remove" class="settings-button danger" type="button" hidden>Retirer la clé</button></div></form>
       <button id="wedof-retry" class="settings-button" type="button" hidden>Réessayer</button>
+      {% if wedof_run_status is defined %}
+      {% set run = wedof_run_status() %}
+      <p role="status">{% if run %}Dernière synchronisation lancée le {{ run.started }} · {{ {'running':'En cours','completed':'Terminée','completed_with_errors':'Terminée avec des erreurs','blocked':'Interrompue'}.get(run.status, run.status) }}. {{ run.error }}{% else %}Aucune synchronisation effectuée.{% endif %}</p>
+      <form method="post" action="{{ url_for('wedof_contracts.sync_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ wedof_csrf() }}">
+        <div class="settings-actions">
+          <button type="submit" data-background-job class="settings-button primary"{% if run and run.status == 'running' %} disabled{% endif %}>Synchroniser les contrats hors BTS MOS</button>
+          <button type="button" class="settings-button" data-refresh-job>Actualiser le statut</button>
+        </div>
+      </form>
+      {% endif %}
       <div class="settings-info"><p>Dans une fiche étudiante, ouvrez « Contrat d’apprentissage », recherchez une référence précise puis vérifiez le dossier avant de le rattacher. Les informations sont conservées pour consultation et peuvent être actualisées toutes les 30 minutes.</p><a href="https://www.wedof.fr/" target="_blank" rel="noopener noreferrer">Ouvrir WEDOF ↗</a></div>
     </div>
-    <footer><span>Connexion partagée entre les administrateurs. Aucun import global automatique.</span><a href="/admin">Ouvrir les fiches étudiantes {{ icon('arrow') }}</a></footer>
+    <footer><span>Le serveur poursuit la synchronisation si vous quittez la page.</span><a href="/admin">Ouvrir les fiches étudiantes {{ icon('arrow') }}</a></footer>
   </details>{% endif %}
 </div>
-<script src="{{ url_for('static', filename='js/admin-settings.js') }}?v=2" defer></script>
+<script src="{{ url_for('static', filename='js/admin-settings.js') }}?v=3" defer></script>
 <script src="{{ url_for('static', filename='js/wedof-settings.js') }}?v=1" defer></script>
 {% endblock %}
 

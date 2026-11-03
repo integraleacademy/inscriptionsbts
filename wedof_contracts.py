@@ -27,7 +27,7 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from cryptography.fernet import Fernet, InvalidToken
-from flask import Blueprint, abort, jsonify, render_template, request, session
+from flask import Blueprint, abort, flash, redirect, url_for, jsonify, render_template, request, session
 import requests
 
 from wedof_contract_data import (FINANCERS, STATES, WedofError, date as source_date,
@@ -911,6 +911,21 @@ def register_wedof_contracts(app, connect, require_admin):
 
     from wedof_daily_sync import register_daily_sync
     register_daily_sync(app, connect, sync_item, lambda conn: bool(get_key(app, conn)))
+
+    @bp.post('/admin/parametres/wedof/synchroniser')
+    def sync_settings():
+        expected = session.get('_wedof_csrf', '')
+        if not require_admin() or not expected or not hmac.compare_digest(request.form.get('csrf_token', ''), expected):
+            abort(403)
+        try:
+            message = app.extensions['wedof_enqueue']()
+            code = 202
+        except WedofError as error:
+            message, code = str(error), error.status
+        if request.headers.get('Accept') == 'application/json':
+            return jsonify(message=message), code
+        flash(message, 'success' if code == 202 else 'error')
+        return redirect(url_for('admin_settings', _anchor='wedof'), 303)
 
     @bp.post('/admin/candidat/<cid>/contrats-apprentissage/<key>/detacher')
     @guarded

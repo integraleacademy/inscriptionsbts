@@ -50,6 +50,20 @@ def initialize(connect, now=None):
         conn.commit()
 
 
+def create_run(conn, run_id, ts):
+    conn.execute("INSERT INTO student_wedof_daily_runs(day,started_at,status) VALUES(?,?,'running')", (run_id, ts))
+    conn.execute("""INSERT INTO student_wedof_daily_items(day,candidate_id,contract_id)
+        SELECT ?,c.id,COALESCE(w.contract_id,'') FROM candidats c
+        LEFT JOIN student_wedof_contracts w ON w.candidate_id=c.id
+        WHERE upper(trim(COALESCE(c.bts,''))) != 'MOS'
+        AND (c.statut IN ('confirmee','reconfirmee') OR w.contract_id IS NOT NULL)""", (run_id,))
+
+
+def active_run(conn, day):
+    return conn.execute("""SELECT * FROM student_wedof_daily_runs WHERE status='running'
+        AND (day=? OR day LIKE 'manuel-%') ORDER BY started_at LIMIT 1""", (day,)).fetchone()
+
+
 def tick(connect, sync_item, configured, *, now=None):
     """Process at most one bounded phase; return seconds until more work is due."""
     fixed_clock = now is not None
@@ -59,22 +73,20 @@ def tick(connect, sync_item, configured, *, now=None):
     token = secrets.token_hex(16)
     with closing(connect()) as conn:
         conn.execute('BEGIN IMMEDIATE')
-        first = conn.execute('SELECT first_due FROM student_wedof_daily_clock WHERE id=1').fetchone()
-        if not first or ts < first['first_due']:
-            return max(1, first['first_due']-ts) if first else 30
-        if now.hour < 8:
-            return max(1, tomorrow-ts)
-        run = conn.execute('SELECT * FROM student_wedof_daily_runs WHERE day=?', (day,)).fetchone()
-        new_run = not run
+        run = active_run(conn, day)
+        new_run = False
         if not run:
-            # Snapshot the local students once. No global WEDOF catalogue import.
-            conn.execute('INSERT INTO student_wedof_daily_runs(day,started_at,status) VALUES(?,?,?)',
-                         (day, ts, 'running'))
-            conn.execute('''INSERT INTO student_wedof_daily_items(day,candidate_id,contract_id)
-                SELECT ?,c.id,COALESCE(w.contract_id,'') FROM candidats c
-                LEFT JOIN student_wedof_contracts w ON w.candidate_id=c.id
-                WHERE upper(trim(COALESCE(c.bts,''))) != 'MOS' AND (c.statut IN ('confirmee','reconfirmee') OR w.contract_id IS NOT NULL)''', (day,))
-            run = conn.execute('SELECT * FROM student_wedof_daily_runs WHERE day=?', (day,)).fetchone()
+            first = conn.execute('SELECT first_due FROM student_wedof_daily_clock WHERE id=1').fetchone()
+            if not first or ts < first['first_due']:
+                return max(1, first['first_due']-ts) if first else 30
+            if now.hour < 8:
+                return max(1, tomorrow-ts)
+            run = conn.execute("SELECT * FROM student_wedof_daily_runs WHERE day=?", (day,)).fetchone()
+            if not run:
+                create_run(conn, day, ts)
+                run = active_run(conn, day)
+                new_run = True
+        day = run['day']
         if run['status'] != 'running':
             return max(1, tomorrow-ts)
         if run['lease_until'] > ts or run['next_attempt'] > ts:
@@ -158,6 +170,7 @@ def register_daily_sync(app, connect, sync_item, configured):
                 app.logger.warning('Le contrôle du passage quotidien WEDOF sera repris.')
                 delay = 30
             wake.wait(max(1, min(delay, 60)))
+            wake.clear()
 
     def start():
         if app.config.get('TESTING') or os.getenv('WEDOF_DAILY_SYNC_DISABLED') == '1':
@@ -173,4 +186,32 @@ def register_daily_sync(app, connect, sync_item, configured):
     app.before_request(start)
     app.extensions['wedof_start_daily_sync'] = start
     app.extensions['wedof_sync_item'] = sync_item
+
+    def enqueue():
+        now = datetime.now(PARIS)
+        with closing(connect()) as conn:
+            conn.execute('BEGIN IMMEDIATE')
+            if not configured(conn):
+                raise WedofError("Configurez la connexion WEDOF avant de lancer la synchronisation.")
+            if active_run(conn, now.date().isoformat()):
+                return "Une synchronisation WEDOF est déjà en cours sur le serveur."
+            today = now.date().isoformat()
+            due = conn.execute("SELECT first_due FROM student_wedof_daily_clock WHERE id=1").fetchone()
+            scheduled = conn.execute("SELECT 1 FROM student_wedof_daily_runs WHERE day=?", (today,)).fetchone()
+            use_daily = now.hour >= 8 and due and due[0] <= now.timestamp() and not scheduled
+            create_run(conn, today if use_daily else 'manuel-' + secrets.token_hex(12), now.timestamp())
+            conn.commit()
+        start()
+        wake.set()
+        return "Synchronisation WEDOF enregistrée. Vous pouvez quitter la page."
+
+    def status():
+        with closing(connect()) as conn:
+            row = conn.execute("""SELECT started_at,finished_at,status,error FROM student_wedof_daily_runs
+                ORDER BY started_at DESC LIMIT 1""").fetchone()
+            if row:
+                return dict(row, started=datetime.fromtimestamp(row['started_at'], PARIS).strftime('%d/%m/%Y à %Hh%M'))
+
+    app.extensions['wedof_enqueue'] = enqueue
+    app.jinja_env.globals['wedof_run_status'] = status
 
