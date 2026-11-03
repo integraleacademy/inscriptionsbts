@@ -600,7 +600,7 @@ def register_wedof_contracts(app, connect, require_admin):
         if pilot:
             return jsonify(ok=True, configured=False, has_contracts=True,
                            html=render_template('_wedof_contracts_list.html', row=row, pilot=pilot,
-                                                contracts=[akto_contract_card(pilot, row)], configured=False))
+                                                contracts=[akto_contract_card(pilot, row, billing)], configured=False))
         with closing(connection()) as conn:
             try:
                 configured = bool(get_key(app, conn))
