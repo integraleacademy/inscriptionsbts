@@ -106,7 +106,13 @@ def consent(page):
 def login(page, config):
     visited = set()
     school = page.locator('a[href$="/school/folder"]').first
-    page.goto(HOME+'/school', wait_until='domcontentloaded')
+    logger = logging.getLogger(__name__)
+    def login_response(response):
+        host = urlsplit(response.url).hostname
+        if response.status >= 400 and host in ('app.filiz.io', AUTH_HOST):
+            logger.warning('FILIZ : accès école, HTTP %d (%s).', response.status, host)
+    page.on('response', login_response)
+    page.goto(HOME+'/school', wait_until='commit', timeout=45000)
     for _ in range(4):
         # FILIZ may restore SSO without ever presenting the Auth0 password form.
         page.wait_for_function(r"""() => [...document.querySelectorAll(
@@ -115,6 +121,7 @@ def login(page, config):
             /captcha|multi.factor|\/mfa|\/challenge/i.test(location.pathname)""", timeout=35000)
         host = urlsplit(page.url).hostname
         if host == 'app.filiz.io' and school.count() and school.is_visible():
+            page.remove_listener('response', login_response)
             return
         if host not in ('app.filiz.io', AUTH_HOST):
             raise ReadError('Mode de connexion FILIZ non reconnu.')
@@ -127,13 +134,15 @@ def login(page, config):
         address = page.locator('input[name=email]' if host == 'app.filiz.io' else 'input[name=username]').first
         has_password = host == AUTH_HOST and password.is_visible()
         step = (host, has_password)
+        logger.warning('FILIZ : identification, formulaire %s.', 'mot de passe' if has_password else 'adresse école')
         if step in visited or not (has_password or address.is_visible()):
             alert = page.locator('[role=alert]').filter(has_text=re.compile(r'\S')).first
             invalid = page.locator('input[aria-invalid=true]').first
-            if host == AUTH_HOST and (alert.is_visible() or invalid.is_visible()):
+            if alert.is_visible() or invalid.is_visible():
                 raise ReadError('FILIZ a refusé la connexion ou demande une vérification du compte école.')
             # A redirect may still be rendering after submitting the preceding form.
             school.wait_for(state='visible', timeout=20000)
+            page.remove_listener('response', login_response)
             return
         visited.add(step)
         if address.is_visible():
@@ -394,8 +403,18 @@ def school_browser(config, stored_session):
                     except BrowserError as exc:
                         host = urlsplit(page.url).hostname
                         stage = 'FILIZ' if host == 'app.filiz.io' else 'authentification' if host == AUTH_HOST else 'redirection'
-                        logging.getLogger(__name__).warning('FILIZ : délai à l’étape %s (%s), session restaurée=%s.',
-                                                            stage, type(exc).__name__, bool(state))
+                        route_name = urlsplit(page.url).path.split('/')[1:2]
+                        section = next((part for part in route_name if part in ('school','login','u','authorize')), 'autre')
+                        operation = re.match(r'[A-Za-z.]+', str(exc))
+                        controls = []
+                        if not page.is_closed():
+                            for field in ('email','username','password'):
+                                if page.locator('input[name='+field+']').first.is_visible():
+                                    controls.append(field)
+                        logging.getLogger(__name__).warning(
+                            'FILIZ : délai à l’étape %s/%s (%s), formulaire=%s, session restaurée=%s.',
+                            stage, section, operation[0] if operation else type(exc).__name__,
+                            ','.join(controls) or 'aucun', bool(state))
                         if state is None:
                             raise
                         # Expired browser storage must not prevent a new login with the configured account.
