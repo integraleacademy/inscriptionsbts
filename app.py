@@ -1103,6 +1103,8 @@ from cyclades import register_cyclades, sheet_status as cyclades_sheet_status
 register_cyclades(app, db, require_admin, DATA_DIR)
 from wedof_contracts import register_wedof_contracts
 register_wedof_contracts(app, db, require_admin)
+from akto_sync import register_akto
+register_akto(app, db, require_admin, DATA_DIR)
 from teaching import register_teaching
 register_teaching(app, db, lambda: UPLOAD_DIR, require_admin)
 from student_workspace import register_student_workspace, student_home_summary
@@ -3568,5 +3570,6 @@ if __name__ == "__main__":
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         app.extensions['teaching_start_reminders']()
         app.extensions['wedof_start_daily_sync']()
+        app.extensions['akto_start']()
         app.extensions['cyclades_start']()
     app.run(host="0.0.0.0", port=5000, debug=True)

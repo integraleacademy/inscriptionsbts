@@ -1,0 +1,19 @@
+{% set account = akto_status() %}
+<details class="settings-card" id="akto" aria-labelledby="akto-title">
+  {{ card_summary('akto','briefcase','AKTO · BTS MOS','Synchronisation quotidienne à 5 h, heure de Paris, et à la demande.') }}
+  <div class="settings-content">
+    <p class="settings-message" role="status"><strong>{{ {'unconfigured':'Compte AKTO à connecter','pending':'Vérification en attente','running':'Synchronisation en cours','error':'Échec de la dernière lecture','partial':'Lecture partielle','ok':'Synchronisation réussie'}.get(account.state) }}</strong> {{ account.message }}
+      {% if account.attempted %} Dernière tentative le {{ account.attempted }}.{% endif %}{% if account.succeeded %} Dernier passage complet le {{ account.succeeded }}.{% endif %}{% if account.requested %} Une vérification est en attente.{% endif %}</p>
+    <p>La plateforme lit les dossiers et les courriers d’accord du compte prestataire du CFA pour les étudiants en BTS MOS.</p>
+    {% if account.configured %}<form method="post" action="{{ url_for('akto_settings') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="settings-actions"><button class="settings-button primary" name="action" value="sync" {% if account.requested or account.state=='running' %}disabled{% endif %}>Synchroniser maintenant</button><button class="settings-button" name="action" value="disconnect">Déconnecter le compte</button></div></form>{% endif %}
+    <details class="settings-academy"{% if not account.configured %} open{% endif %}><summary>{{ 'Remplacer les accès' if account.configured else 'Connecter le compte prestataire' }}</summary>
+      <form method="post" class="settings-academy-body" action="{{ url_for('akto_settings') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}"><label for="akto-email">Adresse e-mail AKTO</label><input type="email" name="email" id="akto-email" autocomplete="off" required maxlength="254">
+        <label for="akto-password">Mot de passe AKTO</label><input type="password" name="password" id="akto-password" autocomplete="new-password" required maxlength="512">
+        <p class="settings-help">Ces accès sont conservés chiffrés sur la plateforme pour les lectures planifiées. Leur enregistrement lance une première synchronisation.</p>
+        <button class="settings-button primary" name="action" value="connect">Enregistrer et synchroniser</button>
+      </form></details>
+    <p><a href="{{ url_for('admin_settings', _anchor='akto') }}" onclick="window.location.reload();return false">Actualiser le statut</a> · <a href="https://monespace.akto.fr/" target="_blank" rel="noopener noreferrer">Mon Espace AKTO ↗</a></p>
+  </div>
+</details>
