@@ -132,7 +132,7 @@ def open_list_menu(page):
 
 
 def open_establishment(page, academy, credentials):
-    _, uai, portal, hub = ACADEMIES[academy]
+    _, _, portal, _ = ACADEMIES[academy]
     idp = f"login.ac-{academy}.fr"
     with portal_step(page, "Ouverture du portail académique impossible"):
         navigate(page, portal)
@@ -151,19 +151,12 @@ def open_establishment(page, academy, credentials):
                     raise CycladesError("Nice demande la date de vérification du titulaire du compte.")
                 submit_login(page, idp, {"j_password": credentials["birthdate"]})
         portal_url = re.compile(r"^https://" + re.escape(urlsplit(portal).hostname) + r"(?=[:/])")
-        try:
-            page.wait_for_url(portal_url, wait_until="domcontentloaded", timeout=45000)
-        except BrowserTimeout:
-            if academy != "nice" or official(page.url):
-                raise
-            # A dropped redirect can leave Chromium on its network-error document.
-            # Check the existing SSO session once, without resubmitting credentials.
-            navigate(page, portal)
-            page.wait_for_url(portal_url, wait_until="domcontentloaded", timeout=12000)
-            page.get_by_role("heading", name=re.compile("Je me connecte", re.I)).first.wait_for(
-                state="hidden", timeout=2500)
-            if urlsplit(page.url).hostname != urlsplit(portal).hostname:
-                raise CycladesError("Nice demande une nouvelle authentification après une interruption réseau.")
+        page.wait_for_url(portal_url, wait_until="domcontentloaded", timeout=45000)
+    open_bts_menu(page, academy)
+
+
+def open_bts_menu(page, academy):
+    _, uai, _, hub = ACADEMIES[academy]
     for _ in range(2):
         with portal_step(page, "L’espace établissement CYCLADES ne s’est pas ouvert"):
             navigate(page, hub)
@@ -175,6 +168,52 @@ def open_establishment(page, academy, credentials):
             if open_list_menu(page):
                 return
     raise CycladesError("Le menu d’édition des listes d’inscription ne s’est pas ouvert dans l’espace BTS.")
+
+
+def connect_portal(context, page, academy, credentials, failures):
+    idp = f"login.ac-{academy}.fr"
+
+    def dropped():
+        return any(host == idp and kind == "document" and reason in DROPPED
+                   for host, kind, reason in failures)
+
+    challenges = {"authentification refusée", "validation supplémentaire", "vérification interactive",
+                  "accès refusé", "confirmation de la date de naissance"}
+    try:
+        open_establishment(page, academy, credentials)
+        return page
+    except CycladesError:
+        if not dropped() or screen_hint(page) in challenges:
+            raise
+
+    # The identity provider may have created a valid session before its redirect
+    # was interrupted. Use the official BTS entry point with the same browser
+    # session, and verify the establishment heading before accepting it.
+    page.close()
+    page = context.new_page()
+    page.set_default_timeout(12000)
+    try:
+        open_bts_menu(page, academy)
+        page.set_default_timeout(45000)
+        logging.getLogger(__name__).info("CYCLADES %s : session établissement retrouvée après coupure", academy)
+        return page
+    except CycladesError:
+        if screen_hint(page) in challenges:
+            raise
+    failures.clear()
+    page.close()
+    page = context.new_page()
+    page.set_default_timeout(45000)
+    try:
+        open_establishment(page, academy, credentials)
+        return page
+    except CycladesError:
+        if not dropped() or screen_hint(page) in challenges:
+            raise
+        raise CycladesNetworkError(
+            f"La connexion au portail de {ACADEMIES[academy][0]} a été coupée pendant l’identification. "
+            "La vérification des dossiers n’a pas pu commencer."
+        ) from None
 
 
 def filter_structure(page):
@@ -671,28 +710,7 @@ def read_academy(academy, credentials, matched_records):
                         logging.getLogger(__name__).warning("CYCLADES %s HTTP %d sur %s",
                             academy, response.status, urlsplit(response.url).hostname)
                 page.on("response", inspect_document)
-                try:
-                    open_establishment(page, academy, credentials)
-                except CycladesError:
-                    # Restart the official SSO flow once after a dropped login document.
-                    # Never retry an explicit credential rejection or an interactive challenge.
-                    idp = f"login.ac-{academy}.fr"
-                    dropped = any(host == idp and kind == "document" and reason in DROPPED
-                        for host, kind, reason in failures)
-                    if not dropped or screen_hint(page) in ("authentification refusée", "validation supplémentaire",
-                                                            "vérification interactive", "accès refusé"):
-                        raise
-                    failures.clear()
-                    page.close()
-                    page = context.new_page()
-                    page.set_default_timeout(45000)
-                    try:
-                        open_establishment(page, academy, credentials)
-                    except CycladesError as error:
-                        if any(host == idp and kind == "document" and reason in DROPPED
-                               for host, kind, reason in failures) and screen_hint(page) in ("", "formulaire d’identification"):
-                            raise CycladesNetworkError(str(error)) from None
-                        raise
+                page = connect_portal(context, page, academy, credentials, failures)
                 select = page.locator("#selectContexte")
                 with portal_step(page, "La liste des sessions BTS ne s’est pas affichée"):
                     page.get_by_role("link", name=REPORT_LINK, exact=True).click()

@@ -470,3 +470,36 @@ def test_interrupted_connection_retries_once_in_the_same_slot(student, tmp_path)
     for minutes in (0, 12, 30, 31, 90):
         run_due(application.app, application.db, tmp_path, now=clock + timedelta(minutes=minutes), fetch=fetch)
     assert calls == ["nice", "nice"]
+
+
+def test_interrupted_nice_redirect_uses_verified_bts_session_before_another_login(monkeypatch):
+    from unittest.mock import Mock
+    import cyclades_portal as portal
+    page, context = Mock(), Mock()
+    failed = {("login.ac-nice.fr", "document", "ERR_CONNECTION_RESET")}
+    login = Mock(side_effect=CycladesError("Délai dépassé"))
+    resume = Mock()
+    monkeypatch.setattr(portal, "open_establishment", login)
+    monkeypatch.setattr(portal, "open_bts_menu", resume)
+    monkeypatch.setattr(portal, "screen_hint", lambda _: "formulaire d’identification")
+    assert portal.connect_portal(context, page, "nice", {}, failed) is context.new_page.return_value
+    assert login.call_count == resume.call_count == 1
+
+
+def test_interrupted_login_explains_network_error_but_does_not_retry_challenges(monkeypatch):
+    from unittest.mock import Mock
+    import cyclades_portal as portal
+    page, context, failed = Mock(), Mock(), set()
+    def login(*args):
+        failed.add(("login.ac-nice.fr", "document", "ERR_CONNECTION_RESET"))
+        raise CycladesError("Authentification interrompue")
+    monkeypatch.setattr(portal, "open_establishment", login)
+    monkeypatch.setattr(portal, "open_bts_menu", Mock(side_effect=CycladesError("Session indisponible")))
+    monkeypatch.setattr(portal, "screen_hint", lambda _: "formulaire d’identification")
+    with pytest.raises(portal.CycladesNetworkError, match="coupée pendant l’identification"):
+        portal.connect_portal(context, page, 'nice', {}, failed)
+    context.reset_mock()
+    monkeypatch.setattr(portal, "screen_hint", lambda _: "validation supplémentaire")
+    with pytest.raises(CycladesError, match="Authentification interrompue"):
+        portal.connect_portal(context, page, 'nice', {}, failed)
+    context.new_page.assert_not_called()
