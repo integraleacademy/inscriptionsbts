@@ -18,7 +18,7 @@ from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNe
 from cyclades_portal import read_academy
 from cyclades_slips import read_slips, slip_key
 
-READER_VERSION = 29
+READER_VERSION = 30
 
 
 def cipher(app):
@@ -113,6 +113,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 reader_changed = row["reader_version"] < READER_VERSION and (
                     row["status"] == "error" or row["reader_version"] > 0)
                 recovering = row["status"] == "running" or (reader_changed and (row["network_retry"] is None or
+                    "lecture des papillons provisoirement indisponible" in (row["message"] or "") or
                     (key == "nice" and row["network_retry"] == -1 and (row["reader_version"] < 20 or "justificatifs lus" in (row["message"] or "")))))
                 daily_due = clock.hour >= 8 and (row["day"] or "") < slot
                 retry_at = row["network_retry"]
