@@ -429,3 +429,24 @@ def test_piece_statement_provenance_and_replacement(student):
         apply_report(conn, "nice", latest, "auto")
     html = student.get(path).get_data(as_text=True)
     assert "Relevé manuel" not in html and "Justificatif test" not in html
+
+
+def test_new_students_eligible_in_both_academies_without_a_previous_sync(student, tmp_path, monkeypatch):
+    import cyclades
+    clock = datetime(2026, 11, 3, 8, tzinfo=PARIS)
+    captured = []
+    def read(academy, credentials, matched_records):
+        for year in (2026, 2027):
+            raw = export(academy).decode("utf-8-sig").replace("2027", str(year), 1)
+            report = parse_report(raw.encode(), academy)
+            matches = matched_records(report)
+            assert matches == [report.records[0][-1]]
+            captured.append((academy, year))
+            yield report
+    monkeypatch.setattr(cyclades, "read_academy", read)
+    credential = cipher(application.app).encrypt(b'{"username":"example","password":"unused"}')
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_accounts SET credential=?", (credential,))
+    run_due(application.app, application.db, tmp_path, now=clock)
+    run_due(application.app, application.db, tmp_path, now=clock + timedelta(minutes=1))
+    assert captured == [("paris", 2026), ("paris", 2027), ("nice", 2026), ("nice", 2027)]

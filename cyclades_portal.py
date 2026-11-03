@@ -388,7 +388,7 @@ def download_session(shell, label, academy, year, *, exam_details=False, already
 PJ_TITLE = "Suivre les retours de pièces justificatives"
 
 
-def read_pieces(page, academy, label, report, known):
+def read_pieces(page, academy, label, report, records):
     """Open the read-only worklist in its own tab so the CSV editions stay open."""
     from cyclades_pieces import number, parse_detail
     from datetime import datetime
@@ -396,14 +396,14 @@ def read_pieces(page, academy, label, report, known):
 
     # Return only non-confidential aggregate diagnostics to the service log.
     expected = {}
-    for entry in report.records:
-        record = entry[-1]
+    for record in records:
         details = record["details"]
-        if (report.year, details.get("N° de candidat")) in known and all(
+        if all(
                 details.get(k) for k in ("N° de candidat", "N° d’inscription", "Version")):
             expected.setdefault(number(details["N° de candidat"]), []).append(record)
     if not expected:
         return
+    existing = set(page.context.pages)
     shell = page.context.new_page()
     shell.set_default_timeout(7000)
     phase = "menu"
@@ -413,14 +413,17 @@ def read_pieces(page, academy, label, report, known):
         shell.get_by_role("heading", level=1).filter(has_text=ACADEMIES[academy][1]).wait_for()
         target = shell.get_by_text(PJ_TITLE, exact=True).filter(visible=True)
         group = shell.get_by_text("Gérer les pièces justificatives", exact=True).filter(visible=True)
+        phase = "menu inscription"
         if not target.count() and not group.count():
             shell.locator("#ETABLISSEMENT_INSCRIPTION").click()
+        phase = "menu gérer les pièces"
         if not target.count():
             group.first.click()
+        phase = "menu suivre les retours"
         target.first.click()
         phase = "session"
         def frames():
-            return [f for w in page.context.pages if w != page for f in w.frames
+            return [f for w in page.context.pages if w not in existing for f in w.frames
                     if urlsplit(f.url).hostname == CENTRAL]
         # Contexts of older print editions can coexist. Use the PJ activity only.
         end = time.monotonic() + 24
@@ -431,8 +434,10 @@ def read_pieces(page, academy, label, report, known):
                     continue
                 control = frame.locator("#selectContexte:visible")
                 if control.count() and label in [v.strip() for v in control.locator("option").all_text_contents()]:
-                    select_report_context(frame, label)
-                    if control.count() and words(control.locator("option:checked").inner_text()) == words(label):
+                    confirmed = select_report_context(frame, label)
+                    if confirmed:
+                        session_ok = True
+                    elif control.count() and words(control.locator("option:checked").inner_text()) == words(label):
                         session_ok = True
                 if session_ok and any("suivre_retours_pj" in f.url for f in frames()):
                     break
@@ -485,34 +490,89 @@ def read_pieces(page, academy, label, report, known):
                     record.update(result, documents_checked=stamp)
                     return 1
             return 0
-        for frame in active():
-            if frame.get_by_text(re.compile(r"Pièces justificatives conformes\s*:")).count():
-                observed += consume(frame, [r for items in expected.values() for r in items])
-                return
-        for candidate, records in expected.items():
+        counter = re.compile(r"Pièces justificatives conformes\s*:")
+        next_name = re.compile(r"^(?:page )?suivant(?:e)?$", re.I)
+        targets = [r for items in expected.values() for r in items]
+
+        def next_control(frame):
+            return frame.get_by_role("link", name=next_name).or_(
+                frame.get_by_role("button", name=next_name)).filter(visible=True)
+
+        # Some selections lead directly to the detail navigator.
+        detail = next((f for f in active() if f.get_by_text(counter).count()), None)
+        if detail:
+            previous = set()
+            while detail:
+                header = detail.get_by_text(re.compile(r"N[°º]\s*candidat", re.I)).first
+                signature = header.inner_text() if header.count() else ""
+                body = detail.locator("body")
+                identity_line = re.search(r"N[°º]\s*candidat\s*:\s*\d+\s+N[°º]\s*inscription\s*:\s*\d+", body.inner_text(), re.I)
+                signature = identity_line[0] if identity_line else signature
+                if not signature or signature in previous:
+                    break
+                previous.add(signature)
+                observed += consume(detail, targets)
+                nxt = next_control(detail)
+                if observed == len(targets) or nxt.count() != 1 or not nxt.is_enabled():
+                    break
+                nxt.click()
+                shell.wait_for_timeout(250)
+                detail = next((f for f in active() if f.get_by_text(counter).count()), None)
+            return
+
+        seen_pages = set()
+        while observed < len(targets):
+            # Restrict navigation to rows containing a known candidate number.
+            visible = []
+            for f in active():
+                cells = f.locator("tr:visible").get_by_text(re.compile(r"^\s*\d{8,12}\s*$"))
+                visible.extend(number(value) for value in cells.all_text_contents())
+            signature = tuple(visible)
+            if not signature or signature in seen_pages:
+                break
+            seen_pages.add(signature)
+            for candidate in dict.fromkeys(visible):
+                records = expected.get(candidate)
+                if not records:
+                    continue
+                for frame in active():
+                    cells = frame.locator("tr:visible").get_by_text(re.compile(r"^\s*0*" + re.escape(candidate) + r"\s*$"))
+                    row_count = cells.count()
+                    if not row_count:
+                        continue
+                    for index in range(row_count):
+                        ident = cells.nth(index)
+                        row = ident.locator("xpath=ancestor::tr[1]")
+                        links = row.get_by_role("link")
+                        link = ident if ident.evaluate("e=>e.matches('a')") else links
+                        if link.count() != 1:
+                            continue
+                        window = frame.page
+                        pages_before = set(page.context.pages)
+                        link.click()
+                        for _ in range(36):
+                            detail = next((f for f in active() if f.get_by_text(counter).count()), None)
+                            if detail:
+                                unread = [r for r in records if "documents_checked" not in r]
+                                observed += consume(detail, unread)
+                                break
+                            shell.wait_for_timeout(200)
+                        if detail and detail.page not in pages_before:
+                            detail.page.close()
+                        elif detail:
+                            window.go_back(wait_until="domcontentloaded", timeout=7000)
+                        if all("documents_checked" in r for r in records):
+                            break
+                    break
+            advanced = False
             for frame in active():
-                ident = frame.get_by_text(re.compile(r"^\s*0*" + re.escape(candidate) + r"\s*$")).filter(visible=True)
-                if ident.count() != 1:
-                    continue
-                row = ident.locator("xpath=ancestor::tr[1]")
-                links = row.get_by_role("link") if row.count() else ident.get_by_role("link")
-                if ident.evaluate("e=>e.matches('a')"):
-                    link = ident
-                elif links.count() == 1:
-                    link = links
-                else:
-                    continue
-                result_url = frame.page.url
-                link.click()
-                for _ in range(30):
-                    detail = next((f for f in active() if f.get_by_text(re.compile(r"Pièces justificatives conformes\s*:")).count()), None)
-                    if detail:
-                        observed += consume(detail, records)
-                        break
-                    shell.wait_for_timeout(200)
-                # Back only in the PJ tab, with no form changes.
-                if frame.page == shell and official(result_url):
-                    shell.go_back(wait_until="domcontentloaded", timeout=7000)
+                nxt = next_control(frame)
+                if nxt.count() == 1 and nxt.is_enabled():
+                    nxt.click()
+                    shell.wait_for_timeout(250)
+                    advanced = True
+                    break
+            if not advanced:
                 break
     except (Error, CycladesError) as exc:
         logging.getLogger(__name__).warning("CYCLADES %s PJ : %s (%s)", academy, phase, type(exc).__name__)
@@ -523,7 +583,7 @@ def read_pieces(page, academy, label, report, known):
             shell.close()
 
 
-def read_academy(academy, credentials, known=()):
+def read_academy(academy, credentials, matched_records):
     from playwright.sync_api import sync_playwright
 
     # Render services with an existing pip-only build command install the pinned
@@ -573,7 +633,22 @@ def read_academy(academy, credentials, known=()):
                         logging.getLogger(__name__).warning("CYCLADES %s HTTP %d sur %s",
                             academy, response.status, urlsplit(response.url).hostname)
                 page.on("response", inspect_document)
-                open_establishment(page, academy, credentials)
+                try:
+                    open_establishment(page, academy, credentials)
+                except CycladesError:
+                    # Restart the official SSO flow once after a dropped login document.
+                    # Never retry an explicit credential rejection or an interactive challenge.
+                    idp = f"login.ac-{academy}.fr"
+                    dropped = any(host == idp and kind == "document" and reason in (
+                        "ERR_CONNECTION_RESET", "ERR_CONNECTION_CLOSED", "ERR_TIMED_OUT")
+                        for host, kind, reason in failures)
+                    if not dropped or screen_hint(page) in ("authentification refusée", "validation supplémentaire",
+                                                            "vérification interactive", "accès refusé"):
+                        raise
+                    page.close()
+                    page = context.new_page()
+                    page.set_default_timeout(45000)
+                    open_establishment(page, academy, credentials)
                 select = page.locator("#selectContexte")
                 with portal_step(page, "La liste des sessions BTS ne s’est pas affichée"):
                     page.get_by_role("link", name=REPORT_LINK, exact=True).click()
@@ -598,9 +673,14 @@ def read_academy(academy, credentials, known=()):
                             with_exams(report, supplement)
                         except CycladesError as error:
                             yield error
-                    if academy == "nice" and year == max(y for _, y in sessions):
-                        read_pieces(page, academy, label, report, known)
+                    records = matched_records(report)
+                    read_pieces(page, academy, label, report, records)
+                    checked = sum("documents_checked" in record for record in records)
                     yield report
+                    logging.getLogger(__name__).warning("CYCLADES %s PJ %d : %d/%d inscriptions lues",
+                                                        academy, year, checked, len(records))
+                    if checked < len(records):
+                        yield CycladesError(f"Session {year} : justificatifs lus pour {checked}/{len(records)} inscriptions rattachées.")
         except Error:
             raise CycladesError("Le navigateur de synchronisation s’est interrompu.") from None
         finally:
