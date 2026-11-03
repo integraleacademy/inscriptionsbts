@@ -503,3 +503,40 @@ def test_interrupted_login_explains_network_error_but_does_not_retry_challenges(
     with pytest.raises(CycladesError, match="Authentification interrompue"):
         portal.connect_portal(context, page, 'nice', {}, failed)
     context.new_page.assert_not_called()
+
+
+def test_enrollment_indicator_requires_explicit_deposits_and_consistent_reviews():
+    from cyclades_data import registration_indicator
+    docs = [{"deposit": "Déposée", "review": "Conforme"},
+            {"manager": "Déposée", "review": "En attente de contrôle"}]
+    record = dict(status="Inscrit", requested=2, conforming=1, documents=docs)
+    assert registration_indicator(record)[0] == "orange"
+    docs[1]["review"] = "Conforme"
+    assert registration_indicator(record)[0] == "red"  # Counter still reports 1/2.
+    record["conforming"] = 2
+    assert registration_indicator(record)[0] == "green"
+    for override in [dict(status="Pré-inscrit"), dict(requested=3),
+                     dict(piece_summary={"checked": "plus récent", "requested": 2, "conforming": 2})]:
+        assert registration_indicator(dict(record, **override))[0] == "red"
+    for field, value in [("deposit", None), ("deposit", "Non déposée"), ("review", "Non conforme")]:
+        assert registration_indicator(dict(record, documents=[dict(docs[0], **{field:value}), docs[1]]))[0] == "red"
+    assert registration_indicator(dict(status="Inscrit"))[0] == "red"
+    assert registration_indicator(dict(status="Inscrit", requested=0, conforming=0))[0] == "green"
+
+
+def test_enrollments_list_and_filtered_refresh_show_same_cyclades_dot(student):
+    auth(student)
+    now = datetime.now(PARIS)
+    year = now.year + (now.month >= 9)
+    with application.db() as conn:
+        report = parse_report(export("nice", status="Inscrit"), "nice")._replace(year=year)
+        report.records[0][-1].update(requested=1, conforming=0,
+                                     documents=[dict(deposit="Déposée", review="En attente de contrôle")])
+        apply_report(conn, "nice", report, "auto")
+    page = student.get("/admin/inscriptions?bts=MCO").text
+    rows = student.get("/admin/inscriptions/donnees?bts=MCO").json["rows_html"]
+    for html in (page, rows):
+        assert 'class="cyclades-dot cyclades-dot-orange"' in html.split('data-enrollment-id=')[-1] and '#cyclades' in html
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_students SET outcome='missing' WHERE academy='nice'")
+    assert 'cyclades-dot-red' in student.get("/admin/inscriptions/donnees?bts=MCO").json['rows_html']

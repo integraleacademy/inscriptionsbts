@@ -176,8 +176,7 @@ def test_filtered_directory_survives_photo_change_and_sheet_reload(directory, so
     html = response.json['rows_html'] if response.is_json else response.text
     links = [unescape(link) for link in re.findall(r'href="([^"]+)"', html)
              if urlsplit(unescape(link)).path == '/admin/candidat/onsite']
-    assert len(links) == 3
-    assert [urlsplit(link).fragment for link in links] == ['', 'contrat-apprentissage', '']
+    assert [urlsplit(link).fragment for link in links] == ['', 'contrat-apprentissage', 'cyclades', '']
     for link in links:
         sheet = directory.get(link)
         back = unescape(re.search(r'class="sheet-back" href="([^"]+)"', sheet.text).group(1))
