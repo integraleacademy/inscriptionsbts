@@ -28,7 +28,7 @@ def amount(value):
     return result if result.is_finite() else None
 
 
-def contract_card(pilot, candidate):
+def contract_card(pilot, candidate, billing):
     total, paid, remaining = (amount(pilot.get(k)) for k in ('funding', 'paid', 'balance'))
     period = str(pilot.get('period') or '').split(' au ')
     item = {
@@ -39,10 +39,16 @@ def contract_card(pilot, candidate):
         'state': 'accepted' if pilot.get('status') == 'Accordé' else 'unknown',
         'state_label': pilot.get('status'), 'apprentice_first_name': candidate.get('prenom'),
         'apprentice_last_name': candidate.get('nom'),
+        'apprentice_birth_date': pilot.get('apprentice_birth_date'),
+        'contract_start': pilot.get('contract_start'), 'contract_end': pilot.get('contract_end'),
+        'employer_city': pilot.get('employer_city'), 'rncp': pilot.get('rncp'),
+        'remote_hours': pilot.get('remote_hours'), 'schedules': pilot.get('schedules', []),
+        'extra_costs_available': 'extra_costs' in pilot, 'extra_costs': pilot.get('extra_costs', []),
     }
-    account = {
+    # Keep the overall award (including extras) separate from the pedagogical schedule.
+    account = billing(item)
+    account.update({
         'total': total, 'paid': paid, 'pending': None, 'remaining': remaining,
         'paid_percent': round(100 * paid / total) if total and total > 0 and paid is not None else None,
-        'schedules': [], 'next_due': None,
-    }
+    })
     return {'item': item, 'billing': account, 'module_dates': period if len(period) == 2 else []}
