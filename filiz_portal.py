@@ -324,11 +324,18 @@ def read_item(page, ref, card, people):
     if heading.count():
         item['employer_name'] = heading.inner_text().strip()
     item.update(employer_address=company['address'],employer_postcode=company['postalCode'],employer_city=company['city'])
-    try:
-        finance(page,item)
-    except (ReadError, BrowserError) as exc:
-        message = str(exc) if isinstance(exc, ReadError) else 'L’onglet comptable FILIZ n’a pas pu être lu.'
-        item.update(raw_stale=True, raw_error=message)
+    for attempt in range(2):
+        try:
+            finance(page,item)
+            break
+        except ReadError as exc:
+            item.update(raw_stale=True, raw_error=str(exc))
+            break
+        except BrowserError:
+            if attempt:
+                item.update(raw_stale=True, raw_error='L’onglet comptable FILIZ n’a pas pu être lu.')
+            else:
+                consent(page)
     return matched[0]['id'], item
 
 
@@ -367,6 +374,29 @@ def eligible_card(card, names):
     return not start or start >= START_DATE
 
 
+def read_group(config, stored_session, group, cards, people):
+    results, failed, reasons = {}, set(), Counter()
+    with school_browser(config, stored_session) as (page, ctx):
+        for ref in group:
+            try:
+                try:
+                    entry = read_item(page, ref, cards[ref], people)
+                except BrowserError:
+                    entry = read_item(page, ref, cards[ref], people)
+                if entry:
+                    results[ref] = entry
+                    if entry[1].get('raw_stale'):
+                        failed.add(ref)
+                        reasons[entry[1]['raw_error']] += 1
+            except (BrowserError, ReadError) as exc:
+                failed.add(ref)
+                # ReadError messages from read_item are fixed labels. Browser errors may contain private page data.
+                reasons[str(exc) if isinstance(exc, ReadError) else 'navigation du dossier'] += 1
+        stored_session = ctx.storage_state()
+
+    return results, failed, reasons, stored_session
+
+
 def read_filiz(config, people, stored_session, save_session, completed, save_batch):
     logger = logging.getLogger(__name__)
     with school_browser(config, stored_session) as (page, ctx):
@@ -379,6 +409,8 @@ def read_filiz(config, people, stored_session, save_session, completed, save_bat
                 message = str(exc) if isinstance(exc, ReadError) else 'Chargement du catalogue incomplet.'
                 logger.warning('FILIZ : catalogue, essai %d : %s', attempt + 1, message)
                 if attempt == 2:
+                    if isinstance(exc, BrowserError):
+                        raise
                     raise ReadError(message) from None
         stored_session = ctx.storage_state()
         save_session(stored_session)
@@ -392,22 +424,15 @@ def read_filiz(config, people, stored_session, save_session, completed, save_bat
     size = 3
     for offset in range(0, len(remaining), size):
         group = remaining[offset:offset + size]
-        results, failed, reasons = {}, set(), Counter()
-        with school_browser(config, stored_session) as (page, ctx):
-            for ref in group:
-                try:
-                    entry = read_item(page, ref, cards[ref], people)
-                    if entry:
-                        results[ref] = entry
-                        if entry[1].get('raw_stale'):
-                            failed.add(ref)
-                            reasons[entry[1]['raw_error']] += 1
-                except (BrowserError, ReadError) as exc:
-                    failed.add(ref)
-                    # ReadError messages from read_item are fixed labels. Browser errors may contain private page data.
-                    reasons[str(exc) if isinstance(exc, ReadError) else 'navigation du dossier'] += 1
-            stored_session = ctx.storage_state()
-            save_session(stored_session)
+        for attempt in range(3):
+            try:
+                results, failed, reasons, stored_session = read_group(config, stored_session, group, cards, people)
+                save_session(stored_session)
+                break
+            except BrowserError:
+                logger.warning('FILIZ : ouverture du groupe interrompue, essai %d/3.', attempt + 1)
+                if attempt == 2:
+                    raise
         done += len(group)
         save_batch(group, results, failed, done, len(eligible))
         logger.warning('FILIZ : %d/%d examinés. Groupe : %d rattachés, %d à vérifier. %s',
