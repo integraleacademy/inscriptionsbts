@@ -30,6 +30,19 @@
     <footer><span>La connexion est partagée par les administrateurs de la plateforme.</span><a href="/admin/matieres">Aller aux matières {{ icon('arrow') }}</a></footer>
   </details>
   {% if cyclades_accounts is defined %}{% include '_cyclades_settings.html' %}{% endif %}
+  <details class="settings-card" id="akto" aria-labelledby="akto-title">
+    {{ card_summary('akto', 'briefcase', 'AKTO · Contrats d’apprentissage', 'Mon Espace AKTO · Synchronisation automatique inactive.') }}
+    {% set pilot = akto_settings_summary() if akto_settings_summary is defined else none %}
+    <div class="settings-content">
+      <p>Connectez-vous à Mon Espace AKTO avec le compte prestataire du CFA pour consulter les contrats, les échéanciers et les règlements.</p>
+      <div class="settings-actions"><a class="settings-button primary" href="https://monespace.akto.fr/" target="_blank" rel="noopener noreferrer">Accéder à Mon Espace AKTO ↗</a></div>
+      <div class="settings-info">
+        {% if pilot %}<p><strong>Dossier pilote {{ pilot.reference }}</strong>{% if pilot.checked %} · Dernier relevé du {{ pilot.checked }}{% endif %}.</p>{% else %}<p>Aucun relevé AKTO enregistré.</p>{% endif %}
+        <p>La connexion au portail s’effectue dans votre navigateur. La plateforme BTS affiche le dernier relevé enregistré. Elle ne consulte pas automatiquement AKTO à 8 h.</p>
+      </div>
+    </div>
+    {% if pilot %}<footer><span>Test individuel de récupération directe auprès de l’OPCO.</span><a href="{{ url_for('admin_candidate_sheet', cid=pilot.candidate_id, _anchor='contrat-apprentissage') }}">Voir la fiche pilote {{ icon('arrow') }}</a></footer>{% endif %}
+  </details>
   {% if wedof_csrf is defined %}<details class="settings-card" id="wedof" data-wedof-csrf="{{ wedof_csrf() }}" aria-labelledby="wedof-title">
     {{ card_summary('wedof', 'file', 'WEDOF · Contrats d’apprentissage', 'Informations des contrats BTS, financement OPCO et échéanciers.', true) }}
     <div class="settings-content">
