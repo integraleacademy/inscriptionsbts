@@ -15,12 +15,13 @@
     {% endfor %}</dl>
     {% endif %}
     <section class="cy-pieces" aria-label="Suivi des pièces justificatives">
-      <h4>Pièces justificatives</h4>
+      <h4>Pièces justificatives{% if record.requested is defined %} · {{ record.conforming }}/{{ record.requested }} conformes{% endif %}</h4>
+      {% if record.documents_checked %}<p>Vérifiées dans Cyclades le {{ record.documents_checked }}.</p>{% endif %}
       {% if record.documents %}
       <table class="cy-table"><thead><tr><th>Pièce demandée</th><th>Dépôt candidat</th><th>Contrôle administratif</th></tr></thead>
-        <tbody>{% for piece in record.documents %}<tr><th scope="row">{{ piece.label }}</th><td>{{ piece.deposit or 'Non communiqué' }}</td><td>{{ piece.review or 'Non communiqué' }}</td></tr>{% endfor %}</tbody>
+        <tbody>{% for piece in record.documents %}<tr><th scope="row">{{ piece.label }}{% if piece.deadline %}<small class="cy-pj-meta">Échéance : {{ piece.deadline }} (Paris)</small>{% endif %}</th><td>{{ piece.deposit or 'Non communiqué' }}{% if piece.manager == 'Déposée' %}<small class="cy-pj-meta">Fichier déposé par le gestionnaire</small>{% endif %}</td><td>{{ piece.review or 'Non communiqué' }}</td></tr>{% endfor %}</tbody>
       </table>
-      {% else %}<p>Le dépôt et le contrôle des pièces ne sont pas renseignés dans les données reçues.</p>{% endif %}
+      {% elif record.requested is defined and record.requested == 0 %}<p>Aucune pièce demandée.</p>{% else %}<p>Le dépôt et le contrôle des pièces ne sont pas renseignés dans les données reçues.</p>{% endif %}
     </section>
     {% if record.exams %}
     <details class="cy-disclosure"><summary>Épreuves et langues <span class="cy-count">{{ record.exams|length }}</span>{{ icon('chevron-down') }}</summary>

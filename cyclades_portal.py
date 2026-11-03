@@ -373,7 +373,145 @@ def download_session(shell, label, academy, year, *, exam_details=False, already
         raise
 
 
-def read_academy(academy, credentials):
+PJ_TITLE = "Suivre les retours de pièces justificatives"
+
+
+def read_pieces(page, academy, label, report, known):
+    """Open the read-only worklist in its own tab so the CSV editions stay open."""
+    from cyclades_pieces import number, parse_detail
+    from datetime import datetime
+    from cyclades_data import PARIS
+
+    # Return only non-confidential aggregate diagnostics to the service log.
+    expected = {}
+    for entry in report.records:
+        record = entry[-1]
+        details = record["details"]
+        if (report.year, details.get("N° de candidat")) in known and all(
+                details.get(k) for k in ("N° de candidat", "N° d’inscription", "Version")):
+            expected.setdefault(number(details["N° de candidat"]), []).append(record)
+    if not expected:
+        return
+    shell = page.context.new_page()
+    shell.set_default_timeout(7000)
+    phase = "menu"
+    observed = 0
+    try:
+        navigate(shell, ACADEMIES[academy][3])
+        shell.get_by_role("heading", level=1).filter(has_text=ACADEMIES[academy][1]).wait_for()
+        target = shell.get_by_text(PJ_TITLE, exact=True).filter(visible=True)
+        group = shell.get_by_text("Gérer les pièces justificatives", exact=True).filter(visible=True)
+        if not target.count() and not group.count():
+            shell.locator("#ETABLISSEMENT_INSCRIPTION").click()
+        if not target.count():
+            group.first.click()
+        target.first.click()
+        phase = "session"
+        def frames():
+            return [f for w in page.context.pages if w != page for f in w.frames
+                    if urlsplit(f.url).hostname == CENTRAL]
+        # Contexts of older print editions can coexist. Use the PJ activity only.
+        end = time.monotonic() + 24
+        session_ok = False
+        while time.monotonic() < end:
+            for frame in frames():
+                if frame.page != shell and "suivre_retours_pj" not in frame.url:
+                    continue
+                control = frame.locator("#selectContexte:visible")
+                if control.count() and label in [v.strip() for v in control.locator("option").all_text_contents()]:
+                    select_report_context(frame, label)
+                    if control.count() and words(control.locator("option:checked").inner_text()) == words(label):
+                        session_ok = True
+                if session_ok and any("suivre_retours_pj" in f.url for f in frames()):
+                    break
+            if session_ok and any("suivre_retours_pj" in f.url for f in frames()):
+                break
+            shell.wait_for_timeout(250)
+        if not session_ok:
+            return
+        phase = "recherche"
+        def active():
+            return [f for f in frames() if "suivre_retours_pj" in f.url or (
+                f.parent_frame and "suivre_retours_pj" in f.parent_frame.url)]
+        def lookup():
+            for frame in active():
+                button = frame.get_by_role("button", name=re.compile(r"^Rechercher$", re.I)).filter(visible=True)
+                if button.count() == 1:
+                    button.click()
+                    return True
+            return False
+        did_search = lookup()
+        for _ in range(30):
+            if any(f.get_by_role("link", name=re.compile(r"^\s*0*\d{8,12}\s*$")).count() for f in active()):
+                break
+            if any(f.get_by_text(re.compile(r"Pièces justificatives conformes\s*:")).count() for f in active()):
+                break
+            shell.wait_for_timeout(200)
+        logging.getLogger(__name__).info("CYCLADES %s PJ : %d cadres de suivi, %d tableaux, %d liens candidats, recherche %s",
+            academy, len(active()), sum(f.locator("table:visible").count() for f in active()),
+            sum(f.get_by_role("link", name=re.compile(r"^\s*0*\d{8,12}\s*$")).count() for f in active()), did_search)
+        phase = "dossiers"
+        stamp = datetime.now(PARIS).strftime("%d/%m/%Y à %Hh%M")
+        def consume(frame, records):
+            text = frame.locator("body").evaluate("""body => {
+                const copy = body.cloneNode(true);
+                const originals = [...body.querySelectorAll('select')];
+                [...copy.querySelectorAll('select')].forEach((s,i) => {
+                    const value = originals[i].selectedOptions[0]?.textContent.trim() || '';
+                    s.replaceWith(document.createTextNode('\\nPJ-CONTROLE ' + value + '\\n'));
+                });
+                copy.querySelectorAll('script,style,input,textarea,[hidden]').forEach(e => e.remove());
+                copy.querySelectorAll('br').forEach(e=>e.replaceWith('\\n'));
+                copy.querySelectorAll('div,p,tr,fieldset,legend,h1,h2,h3,h4,b,strong,label').forEach(e=>{
+                    e.prepend('\\n'); e.append('\\n');
+                });
+                return copy.textContent;
+            }""")
+            for record in records:
+                result = parse_detail(text, record, ACADEMIES[academy][1])
+                if result is not None:
+                    record.update(result, documents_checked=stamp)
+                    return 1
+            return 0
+        for frame in active():
+            if frame.get_by_text(re.compile(r"Pièces justificatives conformes\s*:")).count():
+                observed += consume(frame, [r for items in expected.values() for r in items])
+                return
+        for candidate, records in expected.items():
+            for frame in active():
+                ident = frame.get_by_text(re.compile(r"^\s*0*" + re.escape(candidate) + r"\s*$")).filter(visible=True)
+                if ident.count() != 1:
+                    continue
+                row = ident.locator("xpath=ancestor::tr[1]")
+                links = row.get_by_role("link") if row.count() else ident.get_by_role("link")
+                if ident.evaluate("e=>e.matches('a')"):
+                    link = ident
+                elif links.count() == 1:
+                    link = links
+                else:
+                    continue
+                result_url = frame.page.url
+                link.click()
+                for _ in range(30):
+                    detail = next((f for f in active() if f.get_by_text(re.compile(r"Pièces justificatives conformes\s*:")).count()), None)
+                    if detail:
+                        observed += consume(detail, records)
+                        break
+                    shell.wait_for_timeout(200)
+                # Back only in the PJ tab, with no form changes.
+                if frame.page == shell and official(result_url):
+                    shell.go_back(wait_until="domcontentloaded", timeout=7000)
+                break
+    except (Error, CycladesError) as exc:
+        logging.getLogger(__name__).warning("CYCLADES %s PJ : %s (%s)", academy, phase, type(exc).__name__)
+    finally:
+        logging.getLogger(__name__).warning("CYCLADES %s PJ %d : étape %s, %d dossiers vérifiés",
+                                           academy, report.year, phase, observed)
+        if not shell.is_closed():
+            shell.close()
+
+
+def read_academy(academy, credentials, known=()):
     from playwright.sync_api import sync_playwright
 
     # Render services with an existing pip-only build command install the pinned
@@ -445,6 +583,8 @@ def read_academy(academy, credentials):
                             with_exams(report, supplement)
                         except CycladesError as error:
                             yield error
+                    if academy == "nice" and year == max(y for _, y in sessions):
+                        read_pieces(page, academy, label, report, known)
                     yield report
         except Error:
             raise CycladesError("Le navigateur de synchronisation s’est interrompu.") from None
