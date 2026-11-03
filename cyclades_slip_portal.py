@@ -11,8 +11,9 @@ from cyclades_data import ACADEMIES, MAX_BYTES, CycladesError, words
 from cyclades_slips import read_slips, slip_key
 
 ACTIVITY = re.compile(r"^G[ée]n[ée]rer\s+les comptes\s+(?:CYCLADES\s+)?(?:de mes|des)\s+[ée]l[èe]ves$", re.I)
-SUMMARY = re.compile(r"^(?:Afficher|Consulter|Voir)\s+(?:le |les )?comptes?[\s-]*rendus?(?:\s+du traitement)?$", re.I)
-DOCUMENT = re.compile(r"papillons?\s*(?:d['’]\s*)?informations?\s*(?:de\s*)?connexion\s*(?:cyclades)?", re.I)
+EXISTING_ACCOUNTS = re.compile(r"^(?:[Rr][ée]g[ée]n[ée]rer|[Rr][ée]initialiser)\s+le mot de passe (?:d[’'](?:un |une ))?(?:compte |candidat )?(?:(?:d[’'])?un )?(?:[ée]l[èe]ve|candidat)(?: scolaire)?$", re.I)
+SUMMARY = re.compile(r"^\s*(?:(?:Afficher|Consulter|Voir|Télécharger)\s+(?:le |les |l[’'])?(?:dernier\s+)?)?(?:dernier\s+)?comptes?[\s-]*rendus?(?:\s+du (?:dernier )?traitement)?[ .]*$", re.I)
+DOCUMENT = re.compile(r"papillons?\s*(?:(?:d[’']\s*)?informations?\s*)?(?:de\s*)?connexion(?:\s*cyclades)?", re.I)
 
 
 def route_label(url):
@@ -21,13 +22,13 @@ def route_label(url):
                     re.fullmatch(r"[A-Za-z][A-Za-z_.-]{0,70}", x))[:140]
 
 
-def open_accounts_menu(shell, trace, *, alternate=False):
+def open_accounts_menu(shell, trace, activity, *, alternate=False):
     from cyclades_portal import CENTRAL, navigate, official
     entries = []
     for frame in shell.frames:
         if urlsplit(frame.url).hostname != CENTRAL:
             continue
-        for leaf in frame.get_by_text(ACTIVITY).all():
+        for leaf in frame.get_by_text(activity).all():
             info = leaf.evaluate("""e => {
                 const a=e.closest('a');
                 const groups=[]; for(let n=e;n;n=n.parentElement){
@@ -112,6 +113,25 @@ def select_account_context(frame, session, academy, attempted, observed):
 
 
 def read_account_slips(page, academy, session, records, cipher):
+    wanted = [r for r in records if slip_key(r)]
+    if not wanted:
+        return True
+    # Cyclades can close the initial account-creation activity once every
+    # student has an account. The password-management activity also exposes
+    # an existing report. Open only its report, never submit its generator.
+    pending = wanted
+    outcomes = []
+    for activity in (ACTIVITY, EXISTING_ACCOUNTS):
+        outcomes.append(read_slip_edition(page, academy, session, pending, cipher, activity))
+        pending = [r for r in pending if r.get("slip_sync") != "found"]
+        if not pending:
+            break
+    logging.getLogger(__name__).warning("CYCLADES %s accès automatiques : %d/%d inscriptions avec papillon",
+                                        academy, len(wanted)-len(pending), len(wanted))
+    return not pending or all(outcomes)
+
+
+def read_slip_edition(page, academy, session, records, cipher, activity):
     from cyclades_portal import CENTRAL, navigate, official
 
     wanted = {key for record in records if (key := slip_key(record))}
@@ -166,13 +186,14 @@ def read_account_slips(page, academy, session, records, cipher):
                 if select_account_context(frame, session, academy, attempted, observed):
                     selected_session = True
         phase = "activité comptes élèves"
-        open_accounts_menu(shell, trace)
+        open_accounts_menu(shell, trace, activity)
         logging.getLogger(__name__).warning("CYCLADES %s menu papillons : %s", academy, " | ".join(trace))
         phase = "compte rendu existant"
         start_wait = time.monotonic()
         switched = False
         deadline = start_wait + 32
         summary = None
+        messages = set()
         while time.monotonic() < deadline and summary is None:
             for frame in frames():
                 if frame.locator("#selectContexte:visible").count():
@@ -180,26 +201,47 @@ def read_account_slips(page, academy, session, records, cipher):
                 if select_account_context(frame, session, academy, attempted, observed):
                     selected_session = True
                     break
+                # These are explicit service messages; arbitrary portal text
+                # must not be logged or interpreted as a personal credential.
+                for key, pattern in (
+                    ("tous_comptes_existants", r"tous (?:vos|les) [ée]l[èe]ves (?:possèdent|ont) (?:déjà )?un compte"),
+                    ("activité_indisponible", r"(?:activité|édition) n[’']est pas disponible"),
+                    ("pas_de_traitement", r"aucun(?:e)? (?:traitement|compte.rendu|édition)"),
+                    ("choix_application", r"(?:sélectionnez|choisissez) (?:une? |votre |le )?(?:contexte|session|activité)"),
+                    ("erreur_application", r"erreur (?:technique|applicative)|activité (?:non autorisée|inaccessible)"),
+                ):
+                    if frame.get_by_text(re.compile(pattern,re.I)).filter(visible=True).count():
+                        messages.add(key)
                 button = visible_control(frame, SUMMARY)
                 if not button.count():
                     button = frame.get_by_text(SUMMARY).filter(visible=True)
-                if button.count() == 1 and button.is_enabled():
+                if not button.count():
+                    button = frame.locator("[title]").filter(visible=True)
+                    button = [e for e in button.all() if SUMMARY.fullmatch(e.get_attribute("title") or "")]
+                    button = button[0] if button else frame.locator(".__no_cyclades_control")
+                if button.count() and button.first.is_enabled():
                     # The activity displays the selected BTS context above its parameters.
                     text = frame.locator("body").inner_text(timeout=1500)
                     target_year = re.search(r"\b20\d{2}\b",session).group()
                     if selected_session or (target_year in words(text).split() and "bts" in words(text).split()
                             and academy in words(text).split()):
-                        summary = button
+                        summary = button.first
                         break
             if summary is None:
+                if selected_session and "tous_comptes_existants" in messages and time.monotonic() - start_wait > 2:
+                    for record in records:
+                        record["slip_sync"] = "not_listed"
+                    logging.getLogger(__name__).warning("CYCLADES %s : activité initiale close, consultation du compte rendu des accès existants", academy)
+                    return True
                 if selected_session and not switched and time.monotonic() - start_wait > 9:
                     # Changing the global session can return the shell to its
                     # start page. Re-enter via the other documented menu.
                     switched = True
                     attempted.clear()
-                    open_accounts_menu(shell, trace, alternate=True)
+                    open_accounts_menu(shell, trace, activity, alternate=True)
                 shell.wait_for_timeout(200)
         if summary is None:
+            trace.append("avis=" + (",".join(sorted(messages)) or "aucun"))
             raise CycladesError("Compte rendu indisponible.")
         summary.click()
         phase = "document du compte rendu"
@@ -275,6 +317,18 @@ def read_account_slips(page, academy, session, records, cipher):
                     const words=text.match(/compte|rendu|afficher|génér|édit|valider|contexte|session|télécharg|sélection|choisir|traitement|précédent|confirmation|suivant/gi);
                     return words ? [...new Set(words)].join('+') : '';
                 }).filter(Boolean)"""))
+                for select in frame.locator("select:visible").all():
+                    chooser_controls.append(select.evaluate("""e => {
+                      const selected=e.selectedOptions[0], value=selected?.textContent||'';
+                      return 'SELECT/'+e.id.replace(/[^A-Za-z_-]/g,'').slice(0,50)+'/'+e.options.length+
+                        '/'+(selected?.value?'choisi':'vide')+'/'+(value.match(/bts|paris|nice|20[0-9]{2}|choisir|sélect|contexte|établissement/gi)||[]).join('-');
+                    }"""))
+                hints = frame.locator("p:visible,h1:visible,h2:visible,h3:visible,.portlet-msg-info:visible,.alert:visible,main:visible").evaluate_all("""els => {
+                    const vocab=/aucun|compte|rendu|tous|pas de|disponible|activité|habilitation|droits|autorisé|autorisation|accès|accéder|choisir|choisissez|sélect|contexte|session|traitement|planifi|génér|existe|déjà|désactiv|ouvert|ferm|démarr|chargement|veuillez|papillon|défini|paramétr|édition|erreur|connexion|élève|examen|établissement/gi;
+                    return [...new Set(els.filter(e=>!e.closest('nav,header,footer')).map(e=>(e.innerText.match(vocab)||[]).slice(0,30).join(' ')).filter(Boolean))].slice(0,12);
+                }""")
+                if hints:
+                    chooser_controls.append("avis-écran="+" / ".join(hints))
                 for chooser in frame.locator("#selectContexte:visible").all():
                     chooser_controls.extend(chooser.evaluate("""e => {
                         const region=e.closest('.modal,dialog,[role=dialog],form') || e.parentElement.parentElement;
@@ -284,7 +338,7 @@ def read_account_slips(page, academy, session, records, cipher):
                             .filter(n=>n.getClientRects().length).slice(0,20).map(n=>n.tagName+'/'+(n.id||'').replace(/[^a-zA-Z_-]/g,'').slice(0,40)+'/'+[...new Set(names(n).match(words)||[])].join('+'))];
                     }"""))
                 # Log structural facts from the menu only. Never values, URLs or PDF text.
-                nodes = frame.get_by_text(ACTIVITY)
+                nodes = frame.get_by_text(activity)
                 if nodes.count():
                     structure.extend(nodes.evaluate_all("""els => els.slice(0,4).map(e => {
                         const tags=[]; for(let n=e; n && tags.length<5; n=n.parentElement) {
@@ -310,7 +364,7 @@ def read_account_slips(page, academy, session, records, cipher):
             academy, phase, ",".join(structure) or "—", context_seen, selected_session if phase not in
             ("menu établissement","chargement du menu","activité comptes élèves") else False, ",".join(sorted(observed)), ",".join(chooser_controls), ",".join(doc_routes), ",".join(sorted(controls)) or "—", " | ".join(trace), ",".join(sorted(buttons)) or "—", ",".join(sorted(ids)) or "—")
         for record in records:
-            if slip_key(record) in wanted:
+            if slip_key(record) in wanted and record.get("slip_sync") != "not_listed":
                 record["slip_sync"] = "unavailable"
         return False
     finally:

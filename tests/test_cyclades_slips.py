@@ -73,7 +73,8 @@ def test_only_an_admin_can_reveal_a_matched_slip_after_import(student):
     assert student.post(url, data=data).status_code == 404
 
 
-def test_existing_official_report_is_downloaded_without_creating_accounts(student):
+@pytest.mark.parametrize("archived", [False, True])
+def test_existing_official_report_is_downloaded_without_creating_accounts(student, archived):
     from cyclades_slip_portal import read_account_slips
     binary = os.getenv("CYCLADES_CHROMIUM_EXECUTABLE")
     if not binary:
@@ -86,6 +87,12 @@ def test_existing_official_report_is_downloaded_without_creating_accounts(studen
     accounts = '<select id="selectContexte"><option>Choisir</option><option>BTS – JUIN 2027 – Académie de Paris</option></select><a href="/confirmed">Valider</a>'
     confirmed = f'<h2>{session}</h2><button onclick="location.href=\'/forbidden\'">Générer</button><a href="/results">Afficher le compte rendu</a>'
     results = '<a href="/file">papillonsInformationsConnexionCyclades</a>'
+    existing = confirmed
+    if archived:
+        nav = '<a href="/existing">Regénérer le mot de passe d’un compte d’un élève</a>'
+        landing += nav
+        confirmed = f'<h2>{session}</h2><p>Tous vos élèves possèdent un compte Cyclades.</p>{nav}'
+        results = '<a href="/file">Papillon de connexion</a>'
     requests = []
     with sync_playwright() as pw, pw.chromium.launch(executable_path=binary) as browser:
         with browser.new_context(accept_downloads=True) as ctx:
@@ -95,10 +102,12 @@ def test_existing_official_report_is_downloaded_without_creating_accounts(studen
                 if path == "/file":
                     return route.fulfill(content_type="application/pdf", body=document(OTHER, SAMPLE),
                                          headers={"Content-Disposition": "attachment; filename=papillons.pdf"})
-                route.fulfill(content_type="text/html; charset=utf-8", body={"/cycetablissement/": landing, "/accounts":accounts, "/confirmed":confirmed, "/results":results}.get(path, ""))
+                route.fulfill(content_type="text/html; charset=utf-8", body={"/cycetablissement/": landing, "/accounts":accounts, "/confirmed":confirmed, "/existing":existing, "/results":results}.get(path, ""))
             ctx.route("**/*", serve)
             page = ctx.new_page()
             page.goto(origin+"/cycetablissement/")
             read_account_slips(page, "paris", session, [record], cipher(application.app))
+    if archived:
+        assert "/existing" in requests
     assert "/forbidden" not in requests
     assert cipher(application.app).decrypt(record["sealed_slip"].encode()).decode() == SAMPLE[-1]
