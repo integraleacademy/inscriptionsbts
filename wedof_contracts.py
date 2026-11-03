@@ -7,7 +7,6 @@ remain server-side. The API contract is documented in docs/wedof-contracts.md.
 from opco_sync import coverage as opco_coverage, same_contract, student_records
 from contract_display import billing, cents, display_date, display_stamp, euros
 from training_programs import BTS_LABELS
-from filiz_portal import CATALOG as FILIZ_CATALOG
 from opco_convergence import PROVIDERS
 from akto_sync import START_DATE as AKTO_START_DATE, get_records as akto_records
 from akto_pilot import contract_card as akto_contract_card, contract_for as akto_contract_for, settings_summary as akto_settings_summary
@@ -190,13 +189,12 @@ def discovery_fingerprint(candidate, config):
 
 def direct_cards(conn, row):
     records = student_records(conn, row)
-    records.sort(key=lambda r:(bool(r.get('raw_stale')), r.get('source')!='filiz'))
+    records.sort(key=lambda r:bool(r.get('raw_stale')))
     direct = []
     for item in records:
         if any(same_contract(item,c['item']) for c in direct):
             continue
-        portal = (FILIZ_CATALOG+'/'+item['filiz_id'] if item['source']=='filiz' else
-                  next(p[2] for p in PROVIDERS.values() if p[0] == item['financer']))
+        portal = next(p[2] for p in PROVIDERS.values() if p[0] == item['financer'])
         direct.append(dict(item=item,billing=billing(item),checked_at=item['checked_at'],
                            error=item.get('read_warning'),portal=portal))
     return direct

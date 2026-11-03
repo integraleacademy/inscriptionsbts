@@ -7,7 +7,7 @@ import pytest
 from candidate_statuses import annotate_candidate_statuses
 from test_admissions_2027 import application, auth, client, seed
 from contract_display import billing
-from filiz_fixtures import account, contract
+from opco_fixtures import account, contract
 
 TODAY = date(2026, 10, 26)
 
@@ -74,7 +74,7 @@ def test_real_company_assignment_works_without_wedof_or_portal_access(db):
 
 
 def test_self_declaration_and_invalid_payloads_are_not_company_assignments(db):
-    db.execute("INSERT INTO opco_contracts VALUES('filiz','bad','student','invalid-json')")
+    db.execute("INSERT INTO opco_contracts VALUES('ep','bad','student','invalid-json')")
     row = dict(id='student', statut='confirmee', entreprise_trouvee='oui')
     annotate_candidate_statuses(db, [row], TODAY)
     assert row['display_status'] == 'confirmee'

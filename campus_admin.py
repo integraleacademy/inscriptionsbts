@@ -13,7 +13,7 @@ from cyclades_data import directory_indicators
 from candidate_messages import _equal
 from promotions import assign_candidate_promotion, list_promotions
 from teaching import schema as teaching_schema
-from filiz_contracts import directory_contracts
+from opco_contracts import directory_contracts
 
 ENROLLED = ('confirmee', 'reconfirmee')
 ENROLLMENT_FILTERS = ('q', 'bts', 'mode', 'promotion', 'contract', 'rentree', 'carte_etudiante_manquante')
@@ -100,7 +100,7 @@ FUNCTIONS = [
     ('Assiduité', '/admin/assiduite', 'Absences, retards, présence'),
     ('Justificatifs', '/admin/assiduite/justificatifs', 'Demandes à traiter'),
     ('Voyage à Londres', '/admin/voyage-londres', 'Passeport, convention, transport, hébergement'),
-    ('Paramètres', '/admin/parametres', 'FILIZ, OpenAI, configuration'),
+    ('Paramètres', '/admin/parametres', 'Connexions OPCO, OpenAI, configuration'),
 ]
 
 
@@ -157,7 +157,7 @@ def register_campus_admin(app, db_connect, require_admin):
                      remote=sum(r['mode']=='distanciel' for r in rows))
         context = dict(rows=rows, promotions=promotions, filters=filters, stats=stats, exam_year=exam_year,
                        enrollments_return_url=url_for('admin_enrollments', **{name:value for name,value in filters.items() if value}),
-                       discovery=discovery, filiz_configured=configured, title='Inscriptions · Intégrale Academy')
+                       discovery=discovery, opco_configured=configured, title='Inscriptions · Intégrale Academy')
         if data_request:
             return jsonify(ok=True, stats_html=render_template('_enrollment_stats.html', **context),
                            rows_html=render_template('_enrollment_rows.html', **context), discovery=discovery)

@@ -417,7 +417,7 @@ passées sont grisées et leur restriction est explicitement expliquée.
   toutes rentrées par défaut, avec recherche, filtres BTS/modalité/promotion/
   contrat/rentrée et affectation individuelle ou groupée. Une affectation est
   atomique et vérifie le BTS et la rentrée d’origine pour chaque étudiant.
-  L’indicateur de contrat reflète les contrats FILIZ rattachés, sans déduire
+  L’indicateur de contrat reflète les contrats OPCO rattachés, sans déduire
   l’existence d’un contrat de la seule présence d’une entreprise.
 - La recherche en haut de chaque page d’administration retrouve les étudiants
   de toutes les rentrées et les fonctions de l’application (`Ctrl/⌘ K`). Elle
@@ -596,7 +596,7 @@ Validation complémentaire : `python -m pytest -q tests/test_candidate_photo_upl
 
 La fiche étudiant présente trois rubriques Londres : Convention, Le séjour et
 Documents. « Préparer et envoyer la convention » relit les fiches étudiant,
-entreprise rattachée et contrat FILIZ correspondant, produit les versions PDF et
+entreprise rattachée et contrat OPCO correspondant, produit les versions PDF et
 Word, puis autorise un envoi Yousign en arrière-plan. Les anciens champs manuels
 Londres ne servent pas de source pour l’identité ou l’entreprise. Les informations
 manquantes renvoient vers la fiche à compléter. Aucun destinataire n’est déduit

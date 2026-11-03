@@ -9,7 +9,7 @@ from akto_sync import PARIS, register_akto, run_due, get_records
 from wedof_daily_sync import initialize, tick
 
 
-def test_daily_manual_and_mos_isolation(tmp_path):
+def test_daily_manual_for_all_bts(tmp_path):
     app=Flask(__name__,template_folder=str(Path(__file__).resolve().parents[1]/'templates'))
     app.testing=True
     app.secret_key='long-test-secret-for-akto-only'
@@ -44,9 +44,9 @@ def test_daily_manual_and_mos_isolation(tmp_path):
         return client.post('/admin/parametres/akto',data={'csrf_token':'settings-test','action':a,**fields})
     assert action('connect',email='demo@example.test',password='test-pwd').status_code==303
     run(3);run(4);run(5);run(6)
-    assert calls==[['alice'],['alice']]
+    assert calls==[['alice','bob'],['alice','bob']]
     action('sync');run(12);run(13)
-    assert calls==[['alice']]*3
+    assert calls==[['alice','bob']]*3
     assert client.post('/admin/candidat/alice/contrats-apprentissage/detecter',headers=headers,json={}).status_code==409
     initialize(db,datetime(2026,11,4,7,tzinfo=PARIS))
     tick(db,lambda *_:{},lambda _:True,now=datetime(2026,11,4,8,tzinfo=PARIS))

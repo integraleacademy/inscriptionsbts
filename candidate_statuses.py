@@ -1,7 +1,7 @@
 """Display the current employment situation without changing admission workflows."""
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
-from opco_sync import records_by_student
+from opco_contracts import records_by_student
 
 EMPLOYMENT_ELIGIBLE = {'validee', 'confirmee', 'reconfirmee', 'reconf_en_cours', 'rentree'}
 EMPLOYMENT_STATUS = ('en_entreprise', 'En entreprise', 'green')
@@ -27,7 +27,7 @@ def annotate_candidate_statuses(conn, rows, today=None):
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     employed = set()
     for cid, items in records_by_student(conn,eligible.values()).items():
-        if any(i.get('state') == 'accepted' and (i.get('employer_name') or i.get('employer_siret'))
+        if any(i.get('state') == 'accepted' and not i.get('rupture_notice') and (i.get('employer_name') or i.get('employer_siret'))
                and (not i.get('contract_break_date') or i['contract_break_date'] > today.isoformat())
                and active_period(i.get('contract_start'),i.get('contract_end'),today) for i in items):
             employed.add(cid)

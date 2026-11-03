@@ -10,7 +10,7 @@ from pypdf import PdfReader
 from candidate_photos import load_candidate_portrait
 from test_admissions_2027 import application, auth, client, payload, seed
 from test_promotion_metrics import contract
-from filiz_fixtures import account
+from opco_fixtures import account
 
 
 def printed(client, cid):

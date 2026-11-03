@@ -7,7 +7,7 @@ import pytest
 from promotion_metrics import annotate_promotion_metrics
 from promotions import assign_candidate_promotion, list_promotions
 from test_promotions import db, web, group, student
-from filiz_fixtures import account, contract
+from opco_fixtures import account, contract
 
 @pytest.fixture
 def metrics_db(db, monkeypatch):
