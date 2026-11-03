@@ -4,7 +4,7 @@ No remote writes or bulk imports. Daily scheduled discovery is bounded
 to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
-from opco_sync import coverage as opco_coverage, student_records
+from opco_sync import coverage as opco_coverage, same_contract, student_records
 from training_programs import BTS_LABELS
 from filiz_portal import CATALOG as FILIZ_CATALOG
 from opco_convergence import PROVIDERS
@@ -185,13 +185,6 @@ def automatic_identity(candidate, item):
 def discovery_fingerprint(candidate, config):
     fields = {k: candidate.get(k) for k in ('id', 'nom', 'prenom', 'date_naissance', 'email')}
     return hashlib.sha256(json.dumps([fields, config], sort_keys=True).encode()).hexdigest()
-
-
-def same_contract(left, right):
-    if left.get('financer') != right.get('financer'):
-        return False
-    return any(left.get(key) and left[key] == right.get(key)
-               for key in ('deca_number','internal_number','external_number'))
 
 
 def direct_cards(conn, row):

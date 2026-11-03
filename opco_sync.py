@@ -37,6 +37,13 @@ def schema(conn):
     conn.commit()
 
 
+def same_contract(left, right):
+    if left.get('financer') != right.get('financer'):
+        return False
+    return any(left.get(key) and left[key] == right.get(key)
+               for key in ('deca_number','internal_number','external_number'))
+
+
 def student_records(conn, person):
     if not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='opco_contracts'").fetchone():
         return []

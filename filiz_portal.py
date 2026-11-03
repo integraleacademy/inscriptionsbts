@@ -20,7 +20,8 @@ MONTHS = {'jan':1,'fev':2,'mar':3,'avr':4,'mai':5,'juin':6,'juil':7,'aou':8,
 DAY = r'\d{1,2}\s+[A-Za-zÀ-ÿ.]+\s+\d{4}'
 AMOUNT = r'\d[\d\s]*(?:,\d{2})?\s*€'
 STATUS = {'engage':'accepted', 'dossier refuse':'refused', 'refuse':'refused', 'rompu':'broken',
-          'rupture':'broken', 'solde':'completed', 'annule':'cancelled', 'en instruction':'pendingAcceptation'}
+          'rupture':'broken', 'rupture validee':'broken', 'analyse opco':'pendingAcceptation',
+          'solde':'completed', 'annule':'cancelled', 'en instruction':'pendingAcceptation'}
 FINANCER_ALIASES = {norm(v).replace(' ',''): k for k,v in FINANCERS.items()}
 FINANCER_ALIASES.update({'opcommerce':'opcoCfaOpcommerce','opcodelaproximite':'opcoCfaEp',
                          'opcoep':'opcoCfaEp', 'opcodesentreprisesdeproximite':'opcoCfaEp'})
