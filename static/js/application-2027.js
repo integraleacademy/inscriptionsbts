@@ -15,6 +15,8 @@
   const error = document.getElementById('application-error');
   const notice = document.getElementById('application-notice');
   const preview = form.dataset.preview === 'true';
+  const titleJourney = form.dataset.titleJourney === 'true';
+  const distanceInfo = document.getElementById('infosDistanciel');
   const enforce = () => !preview || !!document.getElementById('preview-validation')?.checked;
   let index = 0, furthest = 0, submitting = false, started = false;
   // Read checked values even while a conditional field is disabled so returning
@@ -37,7 +39,7 @@
     const formationInfo = document.getElementById('formation-info');
     const trainingPanels = [...form.querySelectorAll('[data-training-info]')];
     trainingPanels.forEach(panel => { panel.hidden = panel.dataset.trainingInfo !== selectedBts; });
-    formationInfo.hidden = !trainingPanels.some(panel => !panel.hidden);
+    if (formationInfo) formationInfo.hidden = !trainingPanels.some(panel => !panel.hidden);
     const mos = selectedBts === 'MOS';
     const aps = mos && value('mos_parcours') === 'autre';
     const conditions = {mos, aps, 'aps-yes': aps && value('aps_souhaitee') === 'oui', 'aps-no': aps && value('aps_souhaitee') === 'non', minor: !!birth && age < 18, 'bac-other': value('bac_type') === 'Autre', idf: value('cherche_idf') === 'oui'};
@@ -151,8 +153,8 @@
     journey.hidden = true; guide.hidden = false;
     document.body.dataset.applicationView = 'guide';
     if (previewSelect) previewSelect.value = 'guide';
-    const start = document.getElementById('start-application');
-    start.firstChild.textContent = started ? 'Reprendre ma pré-inscription ' : 'Commencer ma pré-inscription ';
+    const label = document.querySelector('[data-start-label]');
+    label.textContent = started ? 'Reprendre ma pré-inscription ' : 'Commencer ma pré-inscription ';
     if (focus) focusHeading(document.getElementById('preparation-title'),guide);
   }
   function show(step, focus = true) {
@@ -195,13 +197,34 @@
   document.querySelectorAll('[data-start-application]').forEach(button => button.addEventListener('click', () => show(index)));
   document.getElementById('review-preparation').addEventListener('click', () => showGuide());
   const catalog = document.getElementById('choix-formation');
-  if (catalog) document.querySelector('[data-choose-formation]').addEventListener('click', event => {
+  document.querySelector('[data-choose-formation]')?.addEventListener('click', event => {
     event.preventDefault();
     showGuide(false);
     focusHeading(document.getElementById('catalog-title'), catalog);
   });
+  const titleToggle = document.getElementById('toggle-titles');
+  if (titleToggle) {
+    const panel = document.getElementById('titres-professionnels');
+    const toggleTitles = open => {
+      panel.hidden = !open;
+      titleToggle.setAttribute('aria-expanded', String(open));
+    };
+    toggleTitles(location.hash === '#titres-professionnels');
+    titleToggle.addEventListener('click', event => {
+      event.preventDefault();
+      toggleTitles(panel.hidden);
+      if (!panel.hidden) focusHeading(document.getElementById('titles-heading'), panel);
+    });
+    window.addEventListener('hashchange', () => {
+      if (location.hash === '#titres-professionnels') {
+        showGuide(false); toggleTitles(true); focusHeading(document.getElementById('titles-heading'), panel);
+      }
+    });
+  }
   document.querySelectorAll('[data-prepared]').forEach(input => input.addEventListener('change', () => {
-    document.getElementById('preparation-count').textContent = `${document.querySelectorAll('[data-prepared]:checked').length} / 5 pièces préparées`;
+    const count = document.querySelectorAll('[data-prepared]:checked').length;
+    document.getElementById('preparation-count').textContent = `${count} / 5 pièces préparées`;
+    document.getElementById('prepared-progress').value = count;
   }));
   if (previewSelect) {
     steps.forEach((step,i) => {
@@ -211,7 +234,7 @@
     previewSelect.addEventListener('change', () => { if (previewSelect.value === 'guide') showGuide(); else navigateTo(Number(previewSelect.value)); });
     document.getElementById('preview-validation').addEventListener('change', updateProgress);
   }
-  form.addEventListener('change', event=>{conditional();if(event.target.name==='mode')document.getElementById('infosDistanciel').open=value('mode')==='distanciel';if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
+  form.addEventListener('change', event=>{conditional();if(event.target.name==='mode' && distanceInfo)distanceInfo.open=value('mode')==='distanciel';if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
   form.addEventListener('input', event => {
     const input = event.target; input.setCustomValidity?.(''); input.classList.remove('invalid'); input.removeAttribute('aria-invalid');
     if (input.type === 'tel') input.value = input.value.replace(/\D/g,'');
@@ -229,7 +252,7 @@
     normalizeNames();
     save.disabled=true; save.textContent='Enregistrement…';
     const full_form={}; new FormData(form).forEach((val,key) => { if(val instanceof File) return; if(key.endsWith('[]')) (full_form[key] ||= []).push(val); else full_form[key]=val; });
-    try { const res=await fetch('/save_draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({full_form})}); const data=await res.json(); if(!res.ok || !data.success) throw new Error(data.error || 'Impossible d’enregistrer le dossier.'); showMessage('Ton brouillon est enregistré. Un lien de reprise a été envoyé à ton adresse e-mail. Pense à sélectionner à nouveau tes fichiers lors de la reprise.',false); }
+    try { const res=await fetch(form.dataset.draftUrl || '/save_draft',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({full_form})}); const data=await res.json(); if(!res.ok || !data.success) throw new Error(data.error || 'Impossible d’enregistrer le dossier.'); showMessage('Ton brouillon est enregistré. Un lien de reprise a été envoyé à ton adresse e-mail. Pense à sélectionner à nouveau tes fichiers lors de la reprise.',false); }
     catch(err){showMessage(err.message);} finally{save.disabled=false;save.textContent='Enregistrer et reprendre plus tard';}
   });
   form.addEventListener('submit', async event => {
@@ -242,6 +265,6 @@
   });
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
-  normalizeNames();conditional();document.getElementById('infosDistanciel').open=value('mode')==='distanciel';nirFeedback();
-  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else showGuide(false);
+  normalizeNames();conditional();if(distanceInfo)distanceInfo.open=value('mode')==='distanciel';nirFeedback();
+  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else if (titleJourney) show(0,false); else showGuide(false);
 })();

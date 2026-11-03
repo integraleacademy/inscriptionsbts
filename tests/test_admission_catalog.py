@@ -12,15 +12,17 @@ def page(client, path):
     return BeautifulSoup(response.data, 'html.parser')
 
 
-def test_preview_shows_each_title_before_bts_and_cannot_submit(client, monkeypatch):
+def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_submission(client, monkeypatch):
     monkeypatch.setattr(application, 'campaign_is_open', lambda: False)
     monkeypatch.setattr(application, 'send_mail', lambda *a, **k: (_ for _ in ()).throw(AssertionError('preview mail')))
     auth(client)
     guest = application.app.test_client()
     preview = page(client, '/candidature?preview=1')
     catalog = preview.select_one('#choix-formation')
-    assert catalog.find_next(id='application-guide')
-    assert catalog.select_one('a[href="#application-guide"]')
+    assert preview.select_one('h1#preparation-title').find_next('section') == catalog
+    assert catalog.select_one('[data-start-application]') and catalog.select_one('[aria-controls="titres-professionnels"]')
+    shared_fields = {field['name'] for field in preview.select('#application-form [name]')}
+    shared_fields -= {'mos_parcours', 'aps_souhaitee', 'raison_aps'}
     public = page(guest, '/').select_one('#choix-formation')
     assert public.select_one('a[href="#inscriptions-bts"]')
     for listing in (public, catalog):
@@ -30,7 +32,10 @@ def test_preview_shows_each_title_before_bts_and_cannot_submit(client, monkeypat
         link = li.a['href']
         assert guest.get(link).status_code == 302
         form = page(client, link)
-        assert form.h1.get_text() == li.h3.get_text()
+        assert form.select_one('.selected-title b').get_text() == li.h3.get_text()
+        assert shared_fields <= {field['name'] for field in form.select('#application-form [name]')}
+        assert len(form.select('#step-navigation button')) == 7
+        assert form.select_one('input[name=bts][checked]')['value'] == 'TP ' + li.h3.get_text().upper()
         assert form.select_one('a[href^="/admin/promotions?bts="]')
         assert form.select_one('button[type=submit][disabled]')
         assert not form.select('[name=submission_token]')
@@ -75,7 +80,7 @@ def test_catalog_tracks_promotions_in_public_and_admin_views(client, monkeypatch
         assert {a['href'] for a in listing.select('a')} == {'/titres-professionnels/candidature/' + pid for pid in (first, second)}
     for a in page(client, '/candidature?preview=1').select('#titres-professionnels a[href*="promotion="]'):
         sample = page(client, a['href'])
-        assert sample.h1.get_text() == 'Nouveau métier' and '2027' in sample.select_one('.create-heading').get_text()
+        assert sample.select_one('.selected-title b').get_text() == 'Nouveau métier' and '2027' in sample.select_one('.selected-title').get_text()
         assert not sample.select('[name=submission_token]')
     wrong = urlencode({'formation': 'TP GESTIONNAIRE DE PAIE', 'promotion': first})
     assert client.get('/titres-professionnels/apercu?' + wrong).status_code == 404

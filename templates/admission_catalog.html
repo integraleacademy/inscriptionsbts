@@ -12,20 +12,6 @@
   </nav>
   <section class="catalog-titles" id="titres-professionnels" aria-labelledby="titles-heading">
     <h2 id="titles-heading">Titres professionnels <span>(TP)</span></h2>
-    <ul class="catalog-title-list">
-      {% for offer in title_offers %}
-      <li>
-        <h3>{{ offer.name }}</h3>
-        {% for group in offer.promotions %}
-        <p class="catalog-session"><span><b>{{ group.nom }}</b><br>Du {{ group.date_debut|dmy }} au {{ group.date_fin|dmy }}</span>
-          <a href="{{ url_for('title_application_preview', formation=offer.code, promotion=group.id) if preview else url_for('title_application', promotion_id=group.id) }}" aria-label="{{ 'Voir l’aperçu' if preview else 'Candidater' }} · {{ offer.name }} · {{ group.nom }}">{{ 'Voir l’aperçu' if preview else 'Candidater' }} {{ icon('arrow') }}</a></p>
-        {% else %}
-        <p class="catalog-session"><span>Aucune session ouverte</span>{% if preview %}
-          <a href="{{ url_for('title_application_preview', formation=offer.code) }}" aria-label="Voir l’aperçu · {{ offer.name }}">Voir l’aperçu {{ icon('arrow') }}</a>{% endif %}</p>
-        {% endfor %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% if preview %}<p class="catalog-manage">Pour ouvrir les candidatures à un titre, crée une promotion avec ses dates dans <a href="{{ url_for('admin_promotions') }}">l’espace Promotions</a>.</p>{% endif %}
+    {% include '_title_offers.html' %}
   </section>
 </section>

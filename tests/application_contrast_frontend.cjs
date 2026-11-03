@@ -1,4 +1,4 @@
-// Regression: the preparation CTA inherited !important white text from button-dark.
+// Keep the admission choices legible after all global button and link themes.
 // Load every production stylesheet, in template order, to exercise that cascade.
 const fs = require('node:fs');
 const assert = require('node:assert/strict');
@@ -24,11 +24,13 @@ function contrast(first, second) {
   const values = [luminance(first), luminance(second)].sort((a, b) => b - a);
   return (values[0] + .05) / (values[1] + .05);
 }
-const start = dom.window.getComputedStyle(d.getElementById('start-application'));
-const panel = dom.window.getComputedStyle(d.querySelector('.preparation-start'));
+const cards = d.querySelectorAll('.route-options .route-option');
+assert.equal(cards.length, 3);
+for (const card of cards) {
+  const style = dom.window.getComputedStyle(card);
+  assert.ok(contrast(style.color, style.backgroundColor) >= 4.5, card.textContent + ' must remain readable');
+}
 const connexion = dom.window.getComputedStyle(d.querySelector('.academy-account-toggle'));
-assert.ok(contrast(start.color, start.backgroundColor) >= 4.5, 'The start/resume label stays readable after all shared styles');
-assert.ok(contrast(start.backgroundColor, panel.backgroundColor) >= 3, 'The start button stands out from its card');
 assert.ok(contrast(connexion.color, connexion.backgroundColor) >= 4.5, 'Connexion remains readable independently of the page theme');
-console.log(`3 contrast checks passed; start button text ${contrast(start.color, start.backgroundColor).toFixed(2)}:1`);
+console.log('All three training choices and the account button pass text contrast.');
 dom.window.close();

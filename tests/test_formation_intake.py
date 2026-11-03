@@ -3,9 +3,10 @@ import hashlib
 import hmac
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from bs4 import BeautifulSoup
-from test_admissions_2027 import application, auth, client
+from test_admissions_2027 import application, auth, client, payload
 
 from training_programs import SECURITY
 
@@ -72,28 +73,66 @@ def test_security_to_enrollment_and_promotion(client, monkeypatch):
         assert certificate_pdf(dict(conn.execute('SELECT * FROM candidats WHERE id=?',(cid,)).fetchone())).startswith(b'%PDF')
 
 
-def test_custom_title_link_matches_promotion_and_closes_when_archived(client):
+def test_title_uses_full_dossier_and_dated_promotion_independently_of_bts(client, monkeypatch):
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: False)
+    messages = []
+    monkeypatch.setattr(application, 'send_mail', lambda *a, **kw: messages.append(a) or True)
     auth(client)
-    client.get('/admin/promotions')
-    with client.session_transaction() as s:
-        csrf=s['_promotion_csrf']
-    assert client.post('/admin/promotions/titres-professionnels',data={'csrf_token':csrf,'name':'Gestionnaire de paie'}).status_code==303
-    code='TP GESTIONNAIRE DE PAIE'
-    pid=promotion(client,code)
-    path='/titres-professionnels/candidature/'+pid
+    code = 'TP GESTIONNAIRE DE PAIE'
+    pid = promotion(client, code)
+    path = '/titres-professionnels/candidature/' + pid
     assert path in client.get('/admin/promotions').text
-    guest=application.app.test_client()
-    html=BeautifulSoup(guest.get(path).data,'html.parser')
-    data={field['name']:field.get('value','') for field in html.select('input[name]')}
-    data.update(last_name='Exemple',first_name='Alex',email='alex@example.test',phone='0600000000',birth_date='1995-01-02',privacy_consent='yes')
-    assert guest.post(path,data=data).status_code==303
-    assert guest.post(path,data=data).status_code==303
+    guest = application.app.test_client()
+    form = BeautifulSoup(guest.get(path).data, 'html.parser').select_one('#application-form')
+    credentials = {key: form.select_one(f'[name={key}]')['value'] for key in ('csrf', 'submission_token')}
+    def dossier():
+        return dict(payload(), **credentials, bts=code, mode='distanciel')
+    assert guest.post(path, data=dict(dossier(), bts='MCO')).status_code == 400
+    incomplete = dossier()
+    del incomplete['lm']
+    assert guest.post(path, data=incomplete).status_code == 400
+    assert guest.post(path, data=dict(dossier(), csrf='wrong')).status_code == 400
+    assert guest.post(path, data=dict(dossier(), admin_preview='1')).status_code == 403
     with application.db() as conn:
-        row,=conn.execute('SELECT c.bts,c.statut,s.promotion_id FROM candidats c JOIN student_promotions s ON s.candidate_id=c.id').fetchall()
-        assert tuple(row)==(code,'preinscription',pid)
+        assert not conn.execute('SELECT 1 FROM candidats').fetchone()
+    assert not messages
+    assert guest.post(path, data=dossier(), headers={'Accept':'application/json'}).json == {'ok':True, 'redirect':'/espace/connexion'}
+    assert guest.post(path, data=dossier()).status_code == 303
+    with application.db() as conn:
+        row, = conn.execute('SELECT c.*,s.promotion_id FROM candidats c JOIN student_promotions s ON s.candidate_id=c.id').fetchall()
+        assert (row['bts'], row['statut'], row['promotion_id']) == (code, 'preinscription', pid)
+        assert row['numero_dossier'].startswith('2027TP') and row['mode'] == 'distanciel'
+        assert row['adresse'] == '1 rue Test' and row['projet_objectif'] == 'Devenir responsable' and row['projet_qualites']
+        for key, count in [('ci', 2), ('photo', 1), ('carte_vitale', 1), ('cv', 1), ('lm', 1)]:
+            paths = json.loads(row['fichiers_' + key])
+            assert len(paths) == count and all(Path(p).is_file() for p in paths)
+        assert len(messages) == 2
         conn.execute('UPDATE promotions SET active=0 WHERE id=?',(pid,))
-    assert guest.get(path).status_code==404
-    assert guest.post(path,data=data).status_code==404
+    assert guest.get(path).status_code == 404
+    assert guest.post(path,data=dossier()).status_code == 404
+
+
+def test_title_draft_resumes_correct_session_with_fresh_credentials(client, monkeypatch):
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: False)
+    auth(client)
+    code = 'TP GESTIONNAIRE DE PAIE'
+    pid = promotion(client, code)
+    guest = application.app.test_client()
+    path = '/titres-professionnels/candidature/' + pid
+    form = BeautifulSoup(guest.get(path).data, 'html.parser').select_one('#application-form')
+    fields = {key: form.select_one(f'[name={key}]')['value'] for key in ('csrf','submission_token')}
+    fields.update(email='camille@example.test', bts=code, prenom='camille', **{'qualites[]':['curieux','rigoureux']})
+    assert guest.post(path + '/brouillon', json={'full_form': dict(fields, bts='MCO')}).status_code == 400
+    link = guest.post(path + '/brouillon', json={'full_form': fields}).json['link']
+    resumed = BeautifulSoup(application.app.test_client().get(link).data, 'html.parser')
+    saved = json.loads(resumed.select_one('#saved-application').string)
+    assert saved['title_promotion_id'] == pid and saved['prenom'] == 'Camille'
+    assert saved['qualites[]'] == fields['qualites[]'] and 'csrf' not in saved and 'submission_token' not in saved
+    assert resumed.select_one('#application-form')['action'] == path
+    assert resumed.select_one('[name=submission_token]')['value'] != fields['submission_token']
+    with application.db() as conn:
+        conn.execute('UPDATE promotions SET active=0 WHERE id=?', (pid,))
+    assert guest.get(link).status_code == 302 and guest.post(path + '/brouillon', json={'full_form':fields}).status_code == 404
 
 
 def test_legacy_replay_preserves_notes_and_sends_nothing(client,monkeypatch):
