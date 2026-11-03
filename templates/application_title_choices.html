@@ -8,13 +8,12 @@
   <select id="title-session"><option value="">Choisis une session</option>
     {% for offer in title_offers %}{% for group in offer.promotions %}
       <option value="{{ group.id }}" data-title="{{ offer.code }}" data-year="{{ group.rentree_annee }}"
-        {% if not preview and intake_open %}data-submit="{{ url_for('title_application', promotion_id=group.id) }}" data-draft="{{ url_for('title_application_draft', promotion_id=group.id) }}" data-token="{{ session_tokens[group.id] }}"{% endif %}
+        {% if not preview %}data-submit="{{ url_for('title_application', promotion_id=group.id) }}" data-draft="{{ url_for('title_application_draft', promotion_id=group.id) }}" data-token="{{ session_tokens[group.id] }}"{% endif %}
         {% if promotion and promotion.id == group.id %}selected{% endif %}>{{ group.nom }} · Du {{ group.date_debut|dmy }} au {{ group.date_fin|dmy }}</option>
     {% endfor %}{% endfor %}
   </select>
 </label>
-{% if not preview and not intake_open %}<p class="field-hint" id="title-intake-notice">{{ intake_notice }} Tu peux déjà sélectionner un titre pour découvrir la formation.</p>
-{% elif not preview and not title_offers|selectattr('promotions')|list %}<p class="field-hint">Les candidatures ouvriront dès qu’une session sera programmée.</p>{% endif %}
+{% if not preview and not title_offers|selectattr('promotions')|list %}<p class="field-hint">Les candidatures ouvriront dès qu’une session sera programmée.</p>{% endif %}
 
 {% set profiles = {
   "ASSISTANT RESSOURCES HUMAINES": ("41366", "Tu apprends à suivre les dossiers du personnel, à préparer les éléments de paie et à participer aux recrutements.", "En service RH, tu peux par exemple préparer l’arrivée d’un salarié ou organiser des entretiens."),

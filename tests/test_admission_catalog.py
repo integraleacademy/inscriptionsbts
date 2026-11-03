@@ -31,17 +31,18 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     preview_link = catalog.select_one('#choose-titles')['href']
     assert guest.get(preview_link).status_code == 302
     title_page = page(client, preview_link)
-    public_titles = page(guest, public.select_one('#titres-professionnels')['href'])
-    for form in (public_titles, title_page):
-        assert {h.get_text(strip=True) for h in form.select('#titres-professionnels label b')} == set(ACADEMY_TITLES)
-        assert shared_fields <= {field['name'] for field in form.select('#application-form [name]')}
-        assert len(form.select('#step-navigation button')) == 7
-        assert form.select_one('#next-step') and form.select_one('#application-progress')
-        assert form.select_one('#application-form')['data-title-journey'] == 'true'
-    assert public_titles.select_one('#title-intake-notice')
-    assert not public_titles.select('[name=cherche_idf], [name=mode][value=distanciel]')
-    assert len(public_titles.select('[data-training-info]')) == len(ACADEMY_TITLES)
-    assert not public_titles.select('[data-token]')
+    assert public.select_one('#titres-professionnels')['href'] == '#inscriptions-bts'
+    for visitor in (guest, client):
+        res = visitor.get('/titres-professionnels')
+        assert res.status_code == 302 and res.location.endswith('/#inscriptions-bts')
+        assert not BeautifulSoup(visitor.get(res.location).data, 'html.parser').select_one('#application-form')
+    assert {h.get_text(strip=True) for h in title_page.select('#titres-professionnels label b')} == set(ACADEMY_TITLES)
+    assert shared_fields <= {field['name'] for field in title_page.select('#application-form [name]')}
+    assert len(title_page.select('#step-navigation button')) == 7
+    assert title_page.select_one('#next-step') and title_page.select_one('#application-progress')
+    assert title_page.select_one('#application-form')['data-title-journey'] == 'true'
+    assert not title_page.select('[name=cherche_idf], [name=mode][value=distanciel]')
+    assert len(title_page.select('[data-training-info]')) == len(ACADEMY_TITLES)
     assert not title_page.select('#titres-professionnels input[disabled]')
     assert title_page.select_one('button[type=submit][disabled]')
     assert not title_page.select('[name=submission_token]')
@@ -101,7 +102,8 @@ def test_catalog_tracks_promotions_in_public_and_admin_views(client, monkeypatch
         assert guest.get('/titres-professionnels/candidature/' + pid).status_code == 404
 
 
-def test_existing_title_spelling_keeps_its_promotion_and_is_listed_once(client):
+def test_existing_title_spelling_keeps_its_promotion_and_is_listed_once(client, monkeypatch):
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: True)
     auth(client)
     page(client, '/admin/promotions')
     name = "Chargé d'accueil et de gestion administrative"
@@ -119,7 +121,8 @@ def test_existing_title_spelling_keeps_its_promotion_and_is_listed_once(client):
 
 
 
-def test_security_agent_title_is_unavailable_even_with_an_existing_promotion(client):
+def test_security_agent_title_is_unavailable_even_with_an_existing_promotion(client, monkeypatch):
+    monkeypatch.setattr(application, 'campaign_is_open', lambda: True)
     auth(client)
     pid = promotion(client, 'TP GESTIONNAIRE DE PAIE')
     name = 'Agent de sûreté et de sécurité privée'
@@ -133,3 +136,17 @@ def test_security_agent_title_is_unavailable_even_with_an_existing_promotion(cli
         assert 'Opérateur en vidéoprotection et en télésurveillance' in listing
     assert client.get('/titres-professionnels/apercu?' + urlencode({'formation': code})).status_code == 404
     assert client.get('/titres-professionnels/candidature/' + pid).status_code == 404
+
+
+def test_home_and_title_form_switch_at_the_campaign_opening(client, monkeypatch):
+    from datetime import timedelta
+    from campaign import OPENS_AT, campaign_is_open
+
+    guest = application.app.test_client()
+    for now, available in ((OPENS_AT - timedelta(seconds=1), False), (OPENS_AT, True)):
+        monkeypatch.setattr(application, 'campaign_is_open', lambda: campaign_is_open(now))
+        landing = page(guest, '/')
+        expected = '/titres-professionnels' if available else '#inscriptions-bts'
+        assert landing.select_one('#titres-professionnels')['href'] == expected
+        assert guest.get('/titres-professionnels').status_code == (200 if available else 302)
+        assert guest.get('/parcoursalternance/candidature').status_code == 200

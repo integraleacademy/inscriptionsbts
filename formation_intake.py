@@ -249,23 +249,24 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
                 if not campaign_is_open() else 'Les candidatures pour les titres professionnels sont momentanément fermées.')
 
     def title_form(code=None, promotion=None, *, preview=False, saved_data=None):
+        if not preview and not admissions_available():
+            return redirect(url_for("index", _anchor="inscriptions-bts"))
         with closing(connect()) as conn:
             offers = list(admission_titles(conn))
         labels = {offer['code']: offer['name'] for offer in offers}
         if code is not None and code not in labels:
             abort(404)
-        intake_open = admissions_available()
         if saved_data is not None:
             saved_data = dict(saved_data, mode='presentiel')
             saved_data.pop('cherche_idf', None)
-        session_tokens = {} if preview or not intake_open else {
+        session_tokens = {} if preview else {
             group['id']: credentials(group['id'])['submission_token']
             for offer in offers for group in offer['promotions']
         }
         return render_template('index.html', title='Choisir un titre professionnel · Intégrale Academy',
                                title_offers=offers, title_code=code, title_label=labels.get(code), promotion=promotion,
                                preview=preview, saved_data=saved_data, csrf=None if preview else csrf(),
-                               session_tokens=session_tokens, intake_open=intake_open, intake_notice=title_intake_notice(),
+                               session_tokens=session_tokens,
                                submission_token=session_tokens.get(promotion['id']) if promotion else None)
 
     @app.get('/titres-professionnels/apercu')
