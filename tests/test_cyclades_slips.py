@@ -129,3 +129,41 @@ def test_shell_selects_session_again_after_the_account_page_opens():
             assert page.locator("select").input_value() == ""
             assert select_account_context(page.main_frame, session, "paris", attempted, observed)
             assert page.locator("select").input_value() == "2027"
+
+
+def test_validated_portlet_can_reset_the_context_switch_without_reloading(student):
+    from cyclades_slip_portal import read_account_slips
+    binary = os.getenv("CYCLADES_CHROMIUM_EXECUTABLE")
+    if not binary:
+        pytest.skip("Requires test Chromium")
+    origin = "https://cyclades.education.gouv.fr"
+    route = "/cycetablissement/portal/creation_compte_candidat"
+    session = "BTS - 2027 - ACADEMIE DE PARIS"
+    validated = route + "/validerContexte/true"
+    switch = f"""<span><select id="selectContexte" onchange="location.href='{validated}'">
+        <option value="">Session</option><option value="26">BTS 2026 PARIS</option><option value="27">{session}</option>
+        </select></span>"""
+    pages = {
+        "/cycetablissement/":f'<a href="{route}">Générer les comptes Cyclades de mes élèves</a>',
+        route:switch,
+        validated:switch+'''<button id="summary" hidden onclick="location.href='/edition'">Afficher le compte rendu</button>
+            <script>setTimeout(()=>document.querySelector('#summary').hidden=false,350)</script>''',
+        "/edition":'<a href="/fichier">Papillon de connexion</a>',
+    }
+    calls = []
+    record = parse_report(export(), "paris").records[0][-1]
+    with sync_playwright() as pw, pw.chromium.launch(executable_path=binary) as browser:
+        with browser.new_context(accept_downloads=True) as ctx:
+            def serve(req):
+                path = req.request.url.removeprefix(origin)
+                calls.append(path)
+                if path == "/fichier":
+                    return req.fulfill(content_type="application/pdf",body=document(SAMPLE),
+                                       headers={"Content-Disposition":"attachment; filename=papillons.pdf"})
+                req.fulfill(content_type="text/html; charset=utf-8",body=pages.get(path,""))
+            ctx.route("**/*",serve)
+            page = ctx.new_page()
+            page.goto(origin+"/cycetablissement/")
+            assert read_account_slips(page,"paris",session,[record],cipher(application.app))
+    assert calls.count(validated) == 1
+    assert record["slip_sync"] == "found"

@@ -181,9 +181,13 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     attempted, observed = {}, set()
     trace = []
     traffic = set()
+    validated = set()
     def observe_route(response):
         if response.request.resource_type in ("document","xhr","fetch") and official(response.url):
-            traffic.add(str(response.status)+"-"+route_label(response.url))
+            path = route_label(response.url)
+            traffic.add(str(response.status)+"-"+path)
+            if response.ok and "/validerContexte/true" in path:
+                validated.add(path.rsplit("/validerContexte",1)[0])
     context.on("response", observe_route)
     context.on("page", watch)
     context.on("response", pdf_response)
@@ -191,14 +195,6 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     try:
         if urlsplit(shell.url).hostname != CENTRAL:
             raise CycladesError("Espace établissement inaccessible.")
-        phase = "session de l’espace établissement"
-        # selectContexte can be the persistent switch in the shell header, not
-        # a modal. Select first, then enter the activity in that context.
-        for frame in shell.frames:
-            if official(frame.url) and frame.locator("#selectContexte:visible").count():
-                context_seen = True
-                if select_account_context(frame, session, academy, attempted, observed):
-                    selected_session = True
         phase = "activité comptes élèves"
         open_accounts_menu(shell, trace, activity)
         attempted.clear()
@@ -209,13 +205,23 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
         switched = False
         deadline = start_wait + 32
         summary = None
+        direct_document = False
         messages = set()
         while time.monotonic() < deadline and summary is None:
             for frame in frames():
                 if frame.locator("#selectContexte:visible").count():
                     context_seen = True
-                if select_account_context(frame, session, academy, attempted, observed):
+                # The header switch returns to its blank placeholder after
+                # the portal validates the context. Re-submitting it at that
+                # point reloads the portlet and discards the active form.
+                confirmed = any(path in route_label(frame.url) for path in validated)
+                if confirmed:
                     selected_session = True
+                elif select_account_context(frame, session, academy, attempted, observed):
+                    selected_session = True
+                    break
+                if selected_session and frame.get_by_text(DOCUMENT).filter(visible=True).count():
+                    direct_document = True
                     break
                 # These are explicit service messages; arbitrary portal text
                 # must not be logged or interpreted as a personal credential.
@@ -243,6 +249,8 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                             and academy in words(text).split()):
                         summary = button.first
                         break
+            if direct_document:
+                break
             if summary is None:
                 if selected_session and "tous_comptes_existants" in messages and time.monotonic() - start_wait > 2:
                     for record in records:
@@ -257,10 +265,11 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     attempted.clear()
                     open_accounts_menu(shell, trace, activity, alternate=True)
                 shell.wait_for_timeout(200)
-        if summary is None:
+        if summary is None and not direct_document:
             trace.append("avis=" + (",".join(sorted(messages)) or "aucun"))
             raise CycladesError("Compte rendu indisponible.")
-        summary.click()
+        if summary is not None:
+            summary.click()
         phase = "document du compte rendu"
         deadline = time.monotonic() + 12
         clicked = False
@@ -347,6 +356,17 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 }""")
                 if hints:
                     chooser_controls.append("avis-écran="+" / ".join(hints))
+                # Capture only ordered, allowlisted interface words. This
+                # includes legacy portlets built entirely from div/span nodes.
+                body = frame.locator("body").inner_text(timeout=2000)
+                ui_words = set("aucun aucune compte rendu tous pas disponible indisponible activité droits habilité autorisé autorisation accès accéder choisir choisissez sélectionner sélectionnez contexte session traitement générer génération générés existant comptes possèdent déjà ouverts chargement veuillez papillon papillons défini paramètres erreur anomalie problème validation élèves examen établissement examens candidats navigation navigateur fenêtre fenêtres document documents téléchargement édition éditions afficher choix valider service fermé initialisé doit devez enregistrée sélectionner".split())
+                rows = [" ".join(w for w in line.casefold().split() if w.strip(".:!,’()") in ui_words)
+                        for line in body.splitlines()]
+                chooser_controls.append("écran="+" / ".join(r for r in rows if r)[-700:])
+                chooser_controls.append("champs="+frame.locator("form,select,input:not([type=hidden]),iframe,object,embed").evaluate_all(
+                    """els=>els.slice(-30).map(e=>e.tagName+'#'+(e.id||e.name||'').replace(/[^A-Za-z_-]/g,'').slice(0,48)).join(',')"""))
+                chooser_controls.append("cadres="+",".join(route_label(f.url) or urlsplit(f.url).scheme
+                    for w in context.pages for f in w.frames)[:480])
                 for chooser in frame.locator("#selectContexte:visible").all():
                     chooser_controls.append(chooser.evaluate("""e => {
                         const chain=[]; let n=e;
@@ -354,7 +374,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                         const opt=e.options[Math.max(0,e.options.length-1)];
                         const handlers=n=>['onchange','onclick','oninput','onkeydown','onmousedown'].filter(a=>n && (n[a]||n.hasAttribute(a))).join('+');
                         return 'zone='+chain.join('>')+' événements='+handlers(e)+'/'+handlers(opt)+' option='+
-                          (/^(https?:|\/)/.test(opt?.value||'')?'url':opt?.value?'code':'vide');
+                          (String(opt?.value||'').startsWith('https:') || String(opt?.value||'').startsWith('/')?'url':opt?.value?'code':'vide');
                     }"""))
                     chooser_controls.extend(chooser.evaluate("""e => {
                         const region=e.closest('.modal,dialog,[role=dialog],form') || e.closest('div') || e.parentElement.parentElement;
@@ -405,7 +425,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
             # The next session still uses the existing reports menu.
             from cyclades_portal import open_list_menu
             try:
-                if not open_list_menu(page):
+                if not page.locator("#ETABLISSEMENT_INSCRIPTION").count() or not open_list_menu(page):
                     page.go_back(wait_until="domcontentloaded", timeout=10000)
             except Error:
                 pass
