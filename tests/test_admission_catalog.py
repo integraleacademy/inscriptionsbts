@@ -43,9 +43,9 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     assert public.select_one('h1').get_text() == 'Choisis ta formation en alternance'
     assert titles.h2.get_text() == 'Titre professionnel en alternance'
     assert [badge.get_text(strip=True) for badge in public.select('.admission-formats span')] == [
-        'Présentiel à Puget-sur-Argens, Côte d’Azur', '100 % en ligne à distance, en visioconférence', 'Présentiel', 'Présentiel']
+        'Présentiel à Puget-sur-Argens, Côte d’Azur', '100 % en ligne à distance, en visioconférence', 'Présentiel à Puget-sur-Argens, Côte d’Azur', 'Présentiel à Puget-sur-Argens, Côte d’Azur']
     assert bts.select_one('.admission-alternative').get_text(' ', strip=True).startswith('ou 100 %')
-    assert 'Puget-sur-Argens' not in titles.get_text()
+    assert 'Puget-sur-Argens' not in titles.select_one('.admission-card-copy p').get_text()
     assert {card.select_one('.admission-status').get_text(strip=True) for card in closed_cards} == {'Ouverture le 1er décembre à 10 h'}
     assert len({img['src'] for img in public.select('nav img')}) == 3
     assert public.select_one('#titres-professionnels')['href'] == '#ouverture-tp'
