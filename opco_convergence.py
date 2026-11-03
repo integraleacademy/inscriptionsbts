@@ -25,9 +25,10 @@ class ReadError(ValueError):
 
 
 class ReadHttpError(ReadError):
-    def __init__(self, status_code, message):
+    def __init__(self, status_code, message, detail=''):
         super().__init__(message)
         self.status_code = status_code
+        self.detail = detail
 
 
 def endpoint(provider, field, value):
@@ -78,7 +79,7 @@ class Client:
         self.config, self.bearer, self.expires = config, '', 0
 
     @staticmethod
-    def json_request(method, url, **kwargs):
+    def json_request(method, url, *, describe_bad_request=None, **kwargs):
         try:
             with requests.request(method, url, timeout=(5, 30), allow_redirects=False, stream=True, **kwargs) as response:
                 if response.status_code == 401:
@@ -86,7 +87,19 @@ class Client:
                 if response.status_code == 403:
                     raise ReadHttpError(403, 'Lecture refusée. Vérifiez la clé CFA et les habilitations Convergence.')
                 if response.status_code != 200:
-                    raise ReadHttpError(response.status_code, f'Le service de lecture a répondu HTTP {response.status_code}.')
+                    detail = ''
+                    if response.status_code == 400 and describe_bad_request:
+                        body = bytearray()
+                        for chunk in response.iter_content(4096):
+                            body.extend(chunk)
+                            if len(body) > 16_384:
+                                break
+                        if len(body) <= 16_384:
+                            try:
+                                detail = describe_bad_request(json.loads(body))
+                            except (ValueError, UnicodeError):
+                                pass
+                    raise ReadHttpError(response.status_code, f'Le service de lecture a répondu HTTP {response.status_code}.', detail)
                 data = bytearray()
                 for chunk in response.iter_content(65536):
                     data.extend(chunk)
@@ -94,6 +107,8 @@ class Client:
                         raise ReadError('Réponse trop volumineuse.')
                 result = json.loads(data)
                 if isinstance(result, dict) and result.get('status') == 'error':
+                    if describe_bad_request and result.get('code') == 400:
+                        raise ReadHttpError(400, 'AKTO a refusé la recherche (400).', describe_bad_request(result))
                     raise ReadError('La demande de lecture a été refusée par l’OPCO.')
                 return result
         except (requests.RequestException, UnicodeError, ValueError) as exc:

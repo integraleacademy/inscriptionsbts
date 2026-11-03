@@ -1,4 +1,5 @@
 from contextlib import closing
+import json
 from pathlib import Path
 import sqlite3
 
@@ -164,3 +165,58 @@ def test_lookup_rejects_mismatched_results(monkeypatch, data):
     monkeypatch.setattr(Client, 'json_request', lambda *args, **kwargs: data)
     with pytest.raises(ReadError):
         lookup_dossier('test', 'TEST-REF', '00042')
+
+
+def test_bad_request_preserves_safe_reason_including_chunked_json(monkeypatch):
+    from akto_convergence import bad_request_reason
+    from requests import Response
+    response = Response()
+    response.status_code = 400
+    payload = {'description': 'Vérifiez les références.', 'errors': [
+        {'code': 41, 'description': 'Numéro rejeté. test-secret-key test-token'}]}
+    body = json.dumps(payload).encode()
+    response.iter_content = lambda _: iter([body[:22], body[22:]])
+    response.close = lambda: None
+    monkeypatch.setattr('opco_convergence.requests.request', lambda *a, **kw: response)
+    headers = {'X-API-KEY': 'test-secret-key', 'Authorization': 'Bearer test-token'}
+    with pytest.raises(ReadHttpError) as err:
+        Client.json_request('GET', HOST, describe_bad_request=lambda p: bad_request_reason(p, headers))
+    assert err.value.status_code == 400
+    assert 'Numéro rejeté' in err.value.detail and 'Code 41' in err.value.detail and 'test-' not in err.value.detail
+
+
+def test_lookup_uses_internal_number_alone_and_checks_identity(monkeypatch):
+    monkeypatch.setattr('akto_convergence.recette_headers', lambda key: {})
+    def read(method, url, **kwargs):
+        assert method == 'GET' and kwargs['params'] == {'numeroInterne': '007'}
+        return {'cerfa': {'numeroExterne': 'CASE', 'numeroInterne': '007', 'contrat': {'noContrat': '00042'}}}
+    monkeypatch.setattr(Client, 'json_request', read)
+    assert 'Dossier retrouvé' in lookup_dossier('key', 'CASE', '00042', '007')
+    with pytest.raises(ReadError, match='enregistrement'):
+        lookup_dossier('key', 'CASE', '00043', '007')
+
+
+def test_two_refusals_keep_their_respective_causes(monkeypatch):
+    monkeypatch.setattr('akto_convergence.recette_headers', lambda key: {})
+    calls = []
+    def refused(method, url, **kwargs):
+        calls.append(kwargs['params'])
+        if 'numeroInterne' in kwargs['params']:
+            raise ReadHttpError(404, 'not found')
+        raise ReadHttpError(400, 'bad request', 'Numéro DECA invalide.')
+    monkeypatch.setattr(Client, 'json_request', refused)
+    with pytest.raises(ReadError) as err:
+        lookup_dossier('key', 'CASE', '00042', '007')
+    assert calls == [{'numeroInterne': '007'}, {'numeroExterne': 'CASE', 'numeroDeca': '00042'}]
+    assert 'introuvable en recette (404)' in str(err.value) and 'Numéro DECA invalide' in str(err.value)
+
+
+def test_technical_token_400_is_not_a_dossier_error(monkeypatch):
+    monkeypatch.setenv(CLIENT_ID, 'test-id')
+    monkeypatch.setenv(CLIENT_SECRET, 'test-secret')
+    def refused(method, url, **kwargs):
+        assert method == 'POST'
+        raise ReadHttpError(400, 'bad request')
+    monkeypatch.setattr(Client, 'json_request', refused)
+    with pytest.raises(ReadError, match='recherche du dossier n’a pas été envoyée'):
+        lookup_dossier('key', 'CASE', '00042', '007')

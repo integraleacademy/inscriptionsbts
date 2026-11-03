@@ -30,7 +30,9 @@
           <input id="akto-dossier-ref" name="reference" required maxlength="80" autocomplete="off">
           <label for="akto-dossier-deca">Numéro d’enregistrement (DECA)</label>
           <input id="akto-dossier-deca" name="deca" required maxlength="80" autocomplete="off">
-          <p class="settings-help">Recopiez les deux numéros de la facture ou de l’accord AKTO, en conservant les zéros au début. Ce test consulte un seul dossier.</p>
+          <label for="akto-dossier-interne">Numéro interne AKTO (facultatif)</label>
+          <input id="akto-dossier-interne" name="internal" maxlength="80" autocomplete="off">
+          <p class="settings-help">Conservez les zéros au début du numéro DECA. Si vous indiquez un numéro interne, la plateforme l’essaie en premier, puis vérifie que la réponse correspond au dossier demandé.</p>
           <button class="settings-button primary" name="action" value="lookup">Tester ce dossier en recette</button>
         </form>
         {% else %}<p class="settings-help">Enregistrez votre clé CFA ci-dessus pour activer la recherche.</p>{% endif %}

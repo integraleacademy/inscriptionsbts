@@ -22,10 +22,20 @@ def recette_headers(key):
     ident, password = os.environ.get(CLIENT_ID), os.environ.get(CLIENT_SECRET)
     if not ident or not password:
         raise ReadError('Les accès techniques de recette AKTO doivent être configurés sur le serveur.')
-    token = Client.json_request(
-        'POST', HOST + '/SorApiIdentityServer/connect/token', auth=(ident, password),
-        data={'grant_type': 'client_credentials', 'scope': 'api.read api.write'},
-    )
+    try:
+        token = Client.json_request(
+            'POST', HOST + '/SorApiIdentityServer/connect/token', auth=(ident, password),
+            data={'grant_type': 'client_credentials', 'scope': 'api.read api.write'},
+            describe_bad_request=lambda p: {
+                'invalid_client': 'Les identifiants techniques ont été refusés.',
+                'invalid_scope': 'Les droits API demandés ont été refusés.',
+                'unauthorized_client': 'Le logiciel n’est pas autorisé pour cette authentification.',
+            }.get(p.get('error'), '') if isinstance(p, dict) and isinstance(p.get('error'), str) else '',
+        )
+    except ReadHttpError as exc:
+        detail = f'{exc.detail} ' if exc.detail else ''
+        raise ReadError(f'Authentification technique refusée par AKTO (HTTP {exc.status_code}). {detail}'
+                        'La recherche du dossier n’a pas été envoyée.') from None
     bearer = token.get('access_token') if isinstance(token, dict) else None
     if not isinstance(bearer, str) or not bearer:
         raise ReadError('AKTO n’a pas délivré le jeton technique de recette.')
@@ -51,24 +61,70 @@ def verify_key(key):
         raise ReadError('AKTO a renvoyé une réponse inattendue. La clé n’a pas pu être vérifiée.')
 
 
-def lookup_dossier(key, reference, deca):
+def bad_request_reason(payload, headers):
+    if not isinstance(payload, dict):
+        return ''
+    errors = payload.get('errors')
+    entries = errors[:3] if isinstance(errors, list) else []
+    # ASP.NET validation errors use a field-to-messages map instead of ErrorResult.
+    if isinstance(errors, dict):
+        for field in ('numeroInterne', 'numeroExterne', 'numeroDeca'):
+            messages = errors.get(field)
+            if isinstance(messages, list) and messages and isinstance(messages[0], str):
+                entries.append({'description': field + ' : ' + messages[0]})
+    parts = []
+    for entry in [*entries, payload]:
+        if not isinstance(entry, dict):
+            continue
+        value = entry.get('description') or entry.get('title')
+        if isinstance(value, str):
+            value = ' '.join(value.split())
+            for sensitive in (headers.get('X-API-KEY'), headers.get('Authorization', '').removeprefix('Bearer ')):
+                if sensitive:
+                    value = value.replace(sensitive, '[masqué]')
+            if value and value not in parts:
+                parts.append(value[:240])
+        code = entry.get('code')
+        if type(code) is int and code != 400 and f'Code {code}' not in parts:
+            parts.append(f'Code {code}')
+    return ' · '.join(parts)[:500]
+
+
+def lookup_dossier(key, reference, deca, internal=''):
     if not all(re.fullmatch(r'[a-zA-Z0-9./_-]{1,80}', value) for value in (reference, deca)):
         raise ReadError('Saisissez le numéro de dossier AKTO et le numéro d’enregistrement DECA figurant sur le contrat.')
+    if internal and not re.fullmatch(r'[a-zA-Z0-9./_-]{1,80}', internal):
+        raise ReadError('Vérifiez le format du numéro interne AKTO.')
     headers = recette_headers(key)
-    try:
-        data = Client.json_request('GET', HOST + '/SorApiEchangeCFA/v2/dossiers', headers=headers,
-                                   params={'numeroExterne': reference, 'numeroDeca': deca})
-    except ReadHttpError as exc:
-        if exc.status_code == 404:
-            raise ReadError('Dossier introuvable en recette pour ces deux numéros. Vérifiez les références. '
-                            'Un dossier de production peut être absent de la recette.') from None
-        if exc.status_code == 403:
-            raise ReadError('Accès refusé en recette (403). AKTO ne rend pas ce dossier accessible à votre CFA '
-                            'avec ces références.') from None
-        raise
+    queries = [('numéro de dossier et DECA', {'numeroExterne': reference, 'numeroDeca': deca})]
+    if internal:
+        queries.insert(0, ('numéro interne', {'numeroInterne': internal}))
+    failures = []
+    for label, params in queries:
+        try:
+            data = Client.json_request('GET', HOST + '/SorApiEchangeCFA/v2/dossiers', headers=headers,
+                                       params=params, describe_bad_request=lambda body: bad_request_reason(body, headers))
+            break
+        except ReadHttpError as exc:
+            if exc.status_code == 403:
+                raise ReadError('Accès refusé en recette (403). AKTO ne rend pas ce dossier accessible à votre CFA '
+                                'avec ces références.') from None
+            if exc.status_code not in (400, 404):
+                raise
+            if exc.status_code == 404:
+                reason = 'Dossier introuvable en recette (404).'
+            elif not exc.detail:
+                reason = 'Requête refusée (400). AKTO n’a pas fourni de motif exploitable.'
+            else:
+                reason = f'Requête refusée (400). Motif AKTO : {exc.detail}'
+            failures.append(f'Recherche par {label} : {reason}')
+    else:
+        raise ReadError(' '.join(failures))
     cerfa = data.get('cerfa') if isinstance(data, dict) else None
     if not isinstance(cerfa, dict) or cerfa.get('numeroExterne') != reference:
         raise ReadError('AKTO n’a pas retourné de dossier correspondant au numéro demandé.')
+    if 'numeroInterne' in params and str(cerfa.get('numeroInterne') or '') != internal:
+        raise ReadError('Le dossier retourné par AKTO ne correspond pas au numéro interne demandé.')
     contract = cerfa.get('contrat') or {}
     if not isinstance(contract, dict) or (contract.get('noContrat') and contract['noContrat'] != deca):
         raise ReadError('Le numéro d’enregistrement reçu ne correspond pas à la demande.')
@@ -115,7 +171,8 @@ def register_akto_convergence(app, connect, require_admin):
                             raise ReadError('Aucune clé CFA n’est enregistrée.')
                         key = cipher.decrypt(credential).decode()
                     if action == 'lookup':
-                        message = lookup_dossier(key, request.form.get('reference', '').strip(), request.form.get('deca', '').strip())
+                        message = lookup_dossier(key, request.form.get('reference', '').strip(), request.form.get('deca', '').strip(),
+                                                 request.form.get('internal', '').strip())
                         if conn.execute('SELECT revision FROM akto_recette_key WHERE id=1').fetchone()[0] != row['revision']:
                             raise ReadError('La clé a été modifiée pendant la lecture. Relancez le test.')
                         session['akto_dossier_feedback'] = ('success', message)
