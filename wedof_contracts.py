@@ -4,6 +4,8 @@ No remote writes or bulk imports. Daily scheduled discovery is bounded
 to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
+from opco_sync import coverage as opco_coverage, student_records
+from opco_convergence import PROVIDERS
 from akto_sync import START_DATE as AKTO_START_DATE, get_records as akto_records
 from akto_pilot import contract_card as akto_contract_card, contract_for as akto_contract_for, settings_summary as akto_settings_summary
 import base64
@@ -212,21 +214,25 @@ def directory_contracts(app, conn, rows, *, include_linked_contracts=False):
         if 'student_wedof_discovery' in tables:
             discoveries.update({r['candidate_id']: dict(r) for r in conn.execute(
                 f'SELECT * FROM student_wedof_discovery WHERE candidate_id IN ({marks})', batch)})
+    coverage, incomplete_sources = opco_coverage(conn) if any((r.get('bts') or '').strip().upper() == 'MOS' for r in rows) else ('', False)
     for row in rows:
         row.update(contract='linked', contract_label='À vérifier', contract_detail='Recherche WEDOF à effectuer', contract_needs_check=bool(api_key))
         if (row.get('bts') or '').strip().upper() == 'MOS' and 'akto_students' in tables:
             records, message = akto_records(conn,row['id'])
             row['contract_needs_check'] = False
-            if records:
-                row.update(contract='yes', contract_label='Contrat d’apprentissage',
-                           contract_detail='AKTO · '+', '.join(dict.fromkeys(r['status'] for r in records)))
+            direct = student_records(conn, row)
+            if records or direct:
+                labels = (['AKTO · '+', '.join(dict.fromkeys(r['status'] for r in records))] if records else [])
+                labels.extend(dict.fromkeys(FINANCERS[i['financer']]+' · '+i['state_label'] for i in direct))
+                row.update(contract='yes', contract_label='Contrat d’apprentissage', contract_detail=' / '.join(labels))
                 if include_linked_contracts:
-                    row['linked_contracts'] = [akto_contract_card(r,row,billing)['item'] for r in records]
+                    row['linked_contracts'] = [akto_contract_card(r,row,billing)['item'] for r in records] + direct
             elif message and any(isinstance(r,dict) and (r.get('contract_start') or '') >= AKTO_START_DATE for r in contracts.get(row['id'],[])):
                 row.update(contract='yes',contract_label='Contrat archivé',contract_detail='Dernier relevé WEDOF · '+message)
             else:
-                row.update(contract='linked' if message else 'no',contract_label='À vérifier' if message else 'Aucun contrat identifié',
-                           contract_detail=message or 'Aucun contrat MOS trouvé dans AKTO.')
+                incomplete = bool(message) or incomplete_sources
+                row.update(contract='linked' if incomplete else 'no',contract_label='À vérifier' if incomplete else 'Aucun contrat identifié',
+                           contract_detail=' '.join(filter(None,(message or 'Aucun contrat MOS trouvé dans AKTO.', coverage))))
             continue
         linked = contracts.get(row['id'], [])
         if linked:
@@ -613,14 +619,27 @@ def register_wedof_contracts(app, connect, require_admin):
         if (row.get('bts') or '').strip().upper() == 'MOS':
             with closing(connection()) as conn:
                 records,message = akto_records(conn,cid)
+                direct = student_records(conn,row)
+                coverage, _ = opco_coverage(conn)
             panels = [render_template('_wedof_contracts_list.html',row=row,pilot=r,configured=False,
                                       contracts=[akto_contract_card(r,row,billing)]) for r in records]
+            for item in direct:
+                portal = next(p[2] for p in PROVIDERS.values() if p[0] == item['financer'])
+                panels.append(render_template('_wedof_contracts_list.html', row=row, direct=True, configured=False,
+                    contracts=[{'item':item,'billing':billing(item),'checked_at':item['checked_at'],
+                                'error':item.get('read_warning'),'portal':portal}]))
             archive = [c for c in cards(cid) if (c['item'].get('contract_start') or '') >= AKTO_START_DATE] if not records and message else []
-            if message or not records:
-                panels.insert(0,render_template('_akto_read_status.html',message=message,archive=bool(archive)))
+            if direct and archive:
+                def already_linked(saved):
+                    return any(saved.get('financer') == item['financer'] and any(
+                        saved.get(k) and saved.get(k) == item.get(k)
+                        for k in ('deca_number', 'internal_number', 'external_number')) for item in direct)
+                archive = [c for c in archive if not already_linked(c['item'])]
+            if message or not (records or direct):
+                panels.insert(0,render_template('_akto_read_status.html',message=message,archive=bool(archive),coverage=coverage if not records and not direct else ''))
             if archive:
                 panels.append(render_template('_wedof_contracts_list.html',row=row,configured=False,contracts=archive,archived=True))
-            return jsonify(ok=True,configured=False,has_contracts=bool(records or archive),html=''.join(panels))
+            return jsonify(ok=True,configured=False,has_contracts=bool(records or direct or archive),html=''.join(panels))
         with closing(connection()) as conn:
             try:
                 configured = bool(get_key(app, conn))
