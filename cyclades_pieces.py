@@ -63,6 +63,9 @@ def parse_detail(text, record, uai, *, allow_partial=False):
     text = re.sub(r"aucun\s+fichier\s*par\s+le\s+(candidat|gestionnaire)",
                   r"Aucun fichier par le \1", text, flags=re.I)
     text = re.sub(r"(?m)^\s*([A-Z][A-Z0-9_.-]{2,24})\s*:\s*\n\s*(?=\S)", r"\1 : ", text)
+    # Join an explicit upload date/filename and its adjacent uploader cell.
+    text = re.sub(r"(?i)((?:déposé(?:e)? le [^\n]{1,130}|[^\n]{1,180}\.(?:pdf|png|jpe?g)))\s*\n\s*(par le (?:candidat|gestionnaire))\b",
+                  r"\1 \2", text)
     for line in text.splitlines():
         line = line.strip()
         if re.search(r"[àa] déposer en ligne entre", line, re.I):
@@ -76,7 +79,9 @@ def parse_detail(text, record, uai, *, allow_partial=False):
             for actor, field in [("candidat", "deposit"), ("gestionnaire", "manager")]:
                 if re.search(r"aucun fichier par le " + actor + r"\b", flat):
                     current[field] = "Non déposée"
-                elif re.search(r"depose le .* par le " + actor + r"\b", flat):
+                elif (re.search(r"depose(?:e)? le .* par le " + actor + r"\b", flat)
+                      or flat == "pj fichier par le " + actor
+                      or re.search(r"\.(?:pdf|png|jpe?g)\s+par le " + actor + r"\b", line, re.I)):
                     current[field] = "Déposée"
             # CYCLADES also prints the candidate's upload date without the actor.
             if re.fullmatch(r"d[eé]pos[eé] le \d{2}/\d{2}/\d{4}[^\n]*\(heure/Paris\)", line, re.I):
