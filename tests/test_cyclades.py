@@ -338,3 +338,23 @@ def test_state_filter_in_detached_listbox_and_native_select():
             assert report_frame(page, REPORT_LINK, "paris", "BTS 2027", already_open=True) == page.main_frame
             assert page.locator("option:checked").inner_text() == "BTS 2027"
             assert page.locator("body").get_attribute("data-invalid") is None
+
+
+def test_document_fields_are_independent_from_enrolment_and_candidate_validation(student):
+    auth(student)
+    source = list(csv.reader(io.StringIO(export().decode('utf-8-sig')), delimiter=';'))
+    source[-2].extend(["Pièce justificative demandée", "PJ déposée par candidat ON",
+                       "PJ validée par candidat ON", "Statut PJ"])
+    source[-1].extend(["Confirmation signée", "Oui", "Oui", "Non conforme"])
+    source.append([*source[-1][:-4], "Document d’identité", "Non", "Non", "En attente de contrôle"])
+    content = io.StringIO()
+    csv.writer(content, delimiter=';').writerows(source)
+    with application.db() as conn:
+        apply_report(conn, "paris", parse_report(content.getvalue().encode(), "paris"), "import")
+    html = student.get("/admin/candidat/student/cyclades").get_data(as_text=True)
+    assert html.count('class="cy-record"') == 1
+    assert all(v in html for v in ("Confirmation signée", "Déposée", "Non conforme", "Non déposée", "En attente de contrôle"))
+    from cyclades_data import document_status
+    piece = document_status({"Pièce justificative demandée": "Attestation", "Etat": "Inscrit",
+                             "PJ validée par candidat ON": "Oui"})
+    assert piece["review"] is None and piece["deposit"] is None
