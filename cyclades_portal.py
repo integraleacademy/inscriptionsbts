@@ -878,9 +878,11 @@ def read_academy(academy, credentials, matched_records, slip_cipher):
                             yield error
                     records = matched_records(report)
                     read_pieces(page, academy, label, report, records)
-                    read_account_slips(page, academy, label, records, slip_cipher)
+                    slips_read = read_account_slips(page, academy, label, records, slip_cipher)
                     checked = sum("documents_checked" in record for record in records)
                     yield report
+                    if not slips_read:
+                        yield CycladesNetworkError(f"Session {year} : lecture des papillons provisoirement indisponible.")
                     logging.getLogger(__name__).warning("CYCLADES %s PJ %d : %d/%d inscriptions lues",
                                                         academy, year, checked, len(records))
                     if checked < len(records):

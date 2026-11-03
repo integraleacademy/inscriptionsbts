@@ -1,4 +1,4 @@
-"""Open the existing account-edition report; never submit a generation form."""
+"""Read the account edition from the already authenticated BTS establishment workspace."""
 import logging
 import re
 import time
@@ -87,6 +87,13 @@ def select_account_context(frame, session, academy, attempted, observed):
         return False
     first = (frame, choice, "selected") not in attempted
     if first:
+        header_switch = control.evaluate("e => !e.closest('form,.modal,[role=dialog]') && e.parentElement.tagName === 'SPAN'")
+        if header_switch:
+            checked = control.locator("option:checked").inner_text().strip()
+            if checked != choice:
+                control.select_option(index=options.index(choice))
+            attempted.add((frame,choice,"confirmed"))
+            return scoped_year
         if select_report_context(frame, choice):
             attempted.add((frame,choice,"confirmed"))
             return scoped_year
@@ -109,16 +116,21 @@ def read_account_slips(page, academy, session, records, cipher):
 
     wanted = {key for record in records if (key := slip_key(record))}
     if not wanted:
-        return
+        return True
     context = page.context
     existing = set(context.pages)
-    previous = {frame: frame.url for tab in existing for frame in tab.frames}
-    shell = context.new_page()
-    shell.set_default_timeout(6000)
+    previous = {frame: frame.url for tab in existing if tab != page for frame in tab.frames}
+    # Reopening the current CSV/edition URL in a fresh window replays its
+    # portlet action. The established shell already contains the active menu.
+    shell = page
+    original_url = page.url
     downloads, responses = [], []
 
+    def downloaded(item):
+        downloads.append(item)
+
     def watch(window):
-        window.on("download", lambda item: downloads.append(item))
+        window.on("download", downloaded)
 
     def pdf_response(response):
         if (official(response.url) and response.ok
@@ -143,17 +155,19 @@ def read_account_slips(page, academy, session, records, cipher):
     context.on("response", pdf_response)
     watch(shell)
     try:
-        entry = page.url if urlsplit(page.url).hostname == CENTRAL else ACADEMIES[academy][3]
-        navigate(shell, entry)
         if urlsplit(shell.url).hostname != CENTRAL:
             raise CycladesError("Espace établissement inaccessible.")
-        # The connected tab was already verified for the academy's UAI. The
-        # new tab uses that same session, as does the official PJ worklist.
-        phase = "chargement du menu"
-        shell.locator("#ETABLISSEMENT_INSCRIPTION").or_(shell.get_by_role("heading", level=1).filter(
-            has_text=ACADEMIES[academy][1])).first.wait_for(state="attached", timeout=20000)
+        phase = "session de l’espace établissement"
+        # selectContexte can be the persistent switch in the shell header, not
+        # a modal. Select first, then enter the activity in that context.
+        for frame in shell.frames:
+            if official(frame.url) and frame.locator("#selectContexte:visible").count():
+                context_seen = True
+                if select_account_context(frame, session, academy, attempted, observed):
+                    selected_session = True
         phase = "activité comptes élèves"
         open_accounts_menu(shell, trace)
+        logging.getLogger(__name__).warning("CYCLADES %s menu papillons : %s", academy, " | ".join(trace))
         phase = "compte rendu existant"
         start_wait = time.monotonic()
         switched = False
@@ -232,10 +246,14 @@ def read_account_slips(page, academy, session, records, cipher):
             raise CycladesError("PDF indisponible.")
         found = read_slips(raw, wanted)
         for record in records:
+            if slip_key(record) not in wanted:
+                continue
             password = found.get(slip_key(record))
+            record["slip_sync"] = "found" if password else "not_listed"
             if password:
                 record["sealed_slip"] = cipher.encrypt(password.encode()).decode()
         logging.getLogger(__name__).warning("CYCLADES %s papillons : %d/%d accès rattachés", academy, len(found), len(wanted))
+        return True
     except (Error, CycladesError, OSError, ValueError):
         # Keep navigation identifiers only, never page text or candidate data.
         structure = []
@@ -291,9 +309,22 @@ def read_account_slips(page, academy, session, records, cipher):
         logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), structure %s, contexte %s/%s [%s], commande %s, pages %s, contrôles %s, liens %s, boutons %s, menu %s",
             academy, phase, ",".join(structure) or "—", context_seen, selected_session if phase not in
             ("menu établissement","chargement du menu","activité comptes élèves") else False, ",".join(sorted(observed)), ",".join(chooser_controls), ",".join(doc_routes), ",".join(sorted(controls)) or "—", " | ".join(trace), ",".join(sorted(buttons)) or "—", ",".join(sorted(ids)) or "—")
+        for record in records:
+            if slip_key(record) in wanted:
+                record["slip_sync"] = "unavailable"
+        return False
     finally:
         context.remove_listener("response", pdf_response)
         context.remove_listener("page", watch)
+        page.remove_listener("download", downloaded)
         for window in context.pages:
             if window not in existing:
                 window.close()
+        if not page.is_closed() and page.url != original_url:
+            # The next session still uses the existing reports menu.
+            from cyclades_portal import open_list_menu
+            try:
+                if not open_list_menu(page):
+                    page.go_back(wait_until="domcontentloaded", timeout=10000)
+            except Error:
+                pass

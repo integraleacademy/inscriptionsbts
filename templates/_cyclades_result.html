@@ -24,10 +24,16 @@
         {% if record.slip_ready %}
           <button class="cy-button" type="submit" formtarget="_blank">Afficher l’identifiant et le mot de passe provisoire</button>
         {% else %}
-          <p>Le mot de passe provisoire est disponible dès que le papillon de connexion est retrouvé sur Cyclades.</p>
+          {% if record.slip_sync == 'unavailable' %}
+          <p>La lecture automatique du papillon n’a pas abouti. La plateforme reprendra la recherche.</p>
+          {% elif record.slip_sync == 'not_listed' %}
+          <p>L’édition lue sur Cyclades ne contient pas de papillon correspondant à cette inscription. La plateforme vérifiera à nouveau lors du prochain passage.</p>
+          {% else %}
+          <p>La plateforme récupère automatiquement le papillon de connexion pendant la synchronisation Cyclades.</p>
+          {% endif %}
         {% endif %}
         <details class="cy-disclosure"><summary>Importer un papillon Cyclades {{ icon('chevron-down') }}</summary>
-          <p>Dans Cyclades, ouvre « Mon établissement », puis « Générer les comptes Cyclades de mes élèves » et « Afficher le compte rendu ». Télécharge le PDF des papillons existants.</p>
+          <p>Si tu disposes déjà du PDF de l’établissement, tu peux aussi y retrouver les accès de cet étudiant.</p>
           <label>PDF Cyclades <input type="file" name="slip" accept=".pdf,application/pdf"></label>
           <button class="cy-button" name="action" value="import" type="submit" formtarget="_blank">Lire les accès de cet étudiant</button>
         </details>
