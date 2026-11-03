@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 from playwright.sync_api import Error
 
@@ -51,6 +51,48 @@ def route_label(url):
                     re.fullmatch(r"[A-Za-z][A-Za-z_.-]{0,70}", x))[:140]
 
 
+def public_switch_bindings(frame):
+    """Summarise the official static switch handler; never read credentials or page records."""
+    from cyclades_portal import CENTRAL
+    urls = frame.locator("script[src]").evaluate_all(
+        "(els)=>els.map(e=>e.src).filter(u=>new URL(u).origin===location.origin && /\\.js$/i.test(new URL(u).pathname))")
+    hits = []
+    checked = 0
+    for url in dict.fromkeys(urls):
+        parsed = urlsplit(url)
+        name = parsed.path.rsplit("/",1)[-1]
+        if (parsed.hostname != CENTRAL or not re.fullmatch(r"[A-Za-z_.-]+\.js",name,re.I)
+                or re.search(r"jquery|bootstrap|modernizr|jqueryui|chart|ckeditor|polyfill|moment",name,re.I)):
+            continue
+        if checked >= 8:
+            break
+        checked += 1
+        resp = None
+        try:
+            resp = frame.page.context.request.get(url,timeout=2500,max_redirects=0)
+            if not resp.ok or not re.search(r"javascript|ecmascript",resp.headers.get("content-type",""),re.I):
+                continue
+            raw = resp.body()
+            if len(raw)>2500000:
+                continue
+            code = raw.decode("utf-8","ignore")
+            # Keep event/parameter names around the selector, not raw code or
+            # string values. This is static application JS, not inline data.
+            for match in re.finditer(r"(?:selectContexte|validerContexte)",code,re.I):
+                snippet = code[max(0,match.start()-160):match.end()+450]
+                words_found = re.findall(r"[A-Za-z_$][A-Za-z_$0-9]{1,55}",snippet)
+                terms = [w for w in words_found if re.search(r"select|option|contex|valid|session|examen|attr|change|click|val$|data|locat|href|url|form|ajax|on$|submit|action|param|choix|event|id$|code|resource|replace|concat|encod|get|post|render|affich|open",w,re.I)]
+                hits.append(name+" "+" ".join(terms[:38]))
+                if len(hits)>=6:
+                    return hits
+        except Error:
+            continue
+        finally:
+            if resp is not None:
+                resp.dispose()
+    return hits
+
+
 def open_accounts_menu(shell, trace, activity, *, alternate=False):
     from cyclades_portal import CENTRAL, navigate, official
     entries = []
@@ -79,16 +121,23 @@ def open_accounts_menu(shell, trace, activity, *, alternate=False):
     trace.append("groupe=" + ",".join(info["groups"]) + " lien=" + (
         route_label(dest) if official(dest) and info["href"] and not info["href"].startswith("#") else
         "action-js" if info["href"].startswith("javascript:") else "ancre") + " handler=" + str(info["handler"]))
-    # This is the verified menu's navigation link (never the account form).
-    # JS-decorated links must activate their native handler. For a plain link
-    # navigate directly to its official destination even in a collapsed menu.
-    if (not info["handler"] and info["href"] and not info["href"].startswith("#") and official(dest)
-            and urlsplit(dest).hostname == CENTRAL and dest != shell.url and "/cycetablissement/" in urlsplit(dest).path):
-        navigate(shell, dest)
-        return
+    # Use the portal's link event, including delegated menu listeners that
+    # are not present as an inline onclick attribute.
     link = leaf.locator("xpath=ancestor-or-self::a[1]")
     action = link if link.count() == 1 else leaf
-    action.evaluate("e => e.click()")
+    if not action.is_visible():
+        for parent in leaf.locator("xpath=ancestor::li").all()[:-1]:
+            try:
+                if action.is_visible():
+                    break
+                if parent.is_visible():
+                    parent.hover(timeout=800)
+            except Error:
+                continue
+    if action.is_visible():
+        action.click(timeout=3500)
+    else:
+        action.evaluate("e=>e.click()")
 
 
 CONFIRM_CONTEXT = re.compile(r"^\s*(?:valider|confirmer|continuer|sélectionner|appliquer|ok|accéder|choisir|suivant|ouvrir)(?:\s+(?:(?:la|le|ce|cette|mon|ma)\s+)?(?:session|contexte|choix|sélection)(?: de travail)?)?[!.]?\s*$", re.I)
@@ -220,10 +269,23 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     trace = []
     traffic = set()
     validated = set()
+    context_codes = set()
+    transactions = []
     def observe_route(response):
         if response.request.resource_type in ("document","xhr","fetch") and official(response.url):
             path = route_label(response.url)
             traffic.add(str(response.status)+"-"+path)
+            if "compte_candidat" in path and len(transactions) < 20:
+                req = response.request
+                query = urlsplit(req.url).query
+                # The portal encodes some render parameters into path elements
+                # and others into a query. Keep names and matching evidence,
+                # never print parameter values or the session code.
+                sent = unquote(req.url + " " + (req.post_data or ""))
+                keys = [k for k,v in parse_qsl(query) if re.fullmatch(r"[A-Za-z_]{1,65}", k)]
+                keys += re.findall(r"__(?:rp|ac|op)[a-zA-Z_]{1,60}",urlsplit(req.url).path)
+                transactions.append(req.method+" "+str(response.status)+" "+path+" params="+",".join(keys)[:120]+
+                    " choix="+str(any(v in sent for v in context_codes))+" type="+response.headers.get("content-type","").split(";")[0])
             if response.ok and "/validerContexte/true" in path:
                 validated.add(path.rsplit("/validerContexte",1)[0])
     context.on("response", observe_route)
@@ -247,8 +309,13 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
         messages = set()
         while time.monotonic() < deadline and summary is None:
             for frame in frames():
-                if frame.locator("#selectContexte:visible").count():
+                switch = frame.locator("#selectContexte:visible")
+                if switch.count() == 1:
                     context_seen = True
+                    for option in switch.locator("option").all():
+                        if words(option.inner_text()) == words(session):
+                            if value := option.get_attribute("value"):
+                                context_codes.add(value)
                 # The header switch returns to its blank placeholder after
                 # the portal validates the context. Re-submitting it at that
                 # point reloads the portlet and discards the active form.
@@ -362,6 +429,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
         return True
     except (Error, CycladesError, OSError, ValueError):
         # Keep navigation identifiers only, never page text or candidate data.
+        trace.append("transactions="+";".join(transactions)[:2100])
         trace.append("lectures="+",".join(sorted(traffic))[:600])
         structure = []
         chooser_controls = []
@@ -397,6 +465,30 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 # Capture only ordered, allowlisted interface words. This
                 # includes legacy portlets built entirely from div/span nodes.
                 body = frame.locator("body").inner_text(timeout=2000)
+                # Only the fixed application prerequisite, no values, names,
+                # identifiers, PDF contents or other body text.
+                fixed_notice = re.search(r"Vous devez ([a-zà-ÿ-]{2,30}) un Examen[- ]session pour accéder à cette activité", body, re.I)
+                if fixed_notice and fixed_notice[1].islower():
+                    chooser_controls.insert(0,"prérequis examen-session="+fixed_notice[1])
+                # Public widget hooks used by this portlet; keep JS operation
+                # names only. No script content, literals or portal data.
+                widget = frame.evaluate(r"""() => {
+                    const scripts=[...document.scripts], inline=scripts.filter(s=>!s.src && /selectContexte|validerContexte/i.test(s.textContent||''));
+                    const hooks = [];
+                    for(const s of inline) {
+                        for(const m of s.textContent.matchAll(/selectContexte|validerContexte/gi)) {
+                            const t = s.textContent.slice(Math.max(0,m.index-180),m.index+320);
+                            const ops=t.match(/selectContexte|validerContexte|sousactivite|change|click|onchange|val\(|option:selected|attr\(|contexte|examen|session|form|submit|href|location|reload|reset|ajax|post|html|param|resourceUrl|actionUrl/gi)||[];
+                            hooks.push(ops.slice(0,30).join('.'));
+                        }
+                    }
+                    const assets=scripts.filter(s=>s.src && new URL(s.src).origin===location.origin)
+                        .map(s=>new URL(s.src).pathname.split('/').pop()).filter(n=>/^[A-Za-z_.-]{1,65}\.js$/.test(n));
+                    return [...new Set(hooks)].slice(0,5).join('|')+' assets='+assets.slice(-12).join(',');
+                }""")
+                chooser_controls.append("widget="+widget)
+                if "compte_candidat" in urlsplit(frame.url).path:
+                    chooser_controls.append("liaisons="+" | ".join(public_switch_bindings(frame))[:1900])
                 notice = access_notice(body)
                 if notice:
                     chooser_controls.insert(0, "condition="+notice)
