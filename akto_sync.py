@@ -95,6 +95,19 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
                     records=COALESCE(excluded.records,akto_students.records),message=excluded.message,seen=excluded.seen''',
                              (person['id'],data,message,stamp))
                 conn.commit()
+                if records:
+                    token=hashlib.sha256(person['id'].encode()).hexdigest()[:10]
+                    for rec in records:
+                        dues=rec.get('schedules',[])
+                        if not dues:
+                            continue
+                        bills=rec.get('invoices',[])
+                        app.logger.info('AKTO échéancier %s : lignes=%d factures=%d complètes=%d individuelles=%d sans_avoir=%d datées=%d soldées=%d ventilées=%d',
+                            token,len(dues),len(bills),bool(rec.get('invoices_complete')),
+                            sum(bool(i.get('single_dossier')) for i in bills),sum(bool(i.get('no_credit')) for i in bills),
+                            sum(bool(i.get('payment_date')) for i in bills),
+                            sum(d.get('montantRegle')==d.get('montantTotal') for d in dues),
+                            sum(d.get('montantRegle') is not None for d in dues))
         try:
             email,password=json.loads(secret(app).decrypt(row['credential']))
             if reader is read_portal:
@@ -133,7 +146,7 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
 def register_akto(app,connect,require_admin,directory):
     with closing(connect()) as conn:
         schema(conn)
-        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('invoices-multi-v1')").rowcount:
+        if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('invoices-detail-v2')").rowcount:
             conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state IN ('error','partial','ok')")
         conn.commit()
     wake,guard=threading.Event(),threading.Lock()
@@ -190,4 +203,5 @@ def register_akto(app,connect,require_admin,directory):
         start()
         wake.set()
         return redirect(url_for('admin_settings',_anchor='akto'),303)
+
 

@@ -23,3 +23,13 @@ def test_ambiguous_or_shared_invoices_are_not_allocated():
         if condition=='missing': r['invoices_complete']=False
         reconcile(r)
         assert all('montantRegle' not in d for d in r['schedules'])
+
+
+
+def test_detail_uses_visible_reference_amount_and_single_dossier():
+    from akto_portal import invoice_detail
+    text='Facture n°\nTEST42\nPayé le : 07/11/2025\nMontant HT : 1.525,20 €\nMontant Avoir HT\n0,00 €\nListe des dossiers\n  AB123  \nContrat d’apprentissage\nConsulter\nPièces justificatives (2)'
+    inv={'ref':'TEST42','amount':1525.20}
+    assert invoice_detail(text,inv,'AB123')=={'single_dossier':True,'no_credit':True,'payment_date':'07/11/2025'}
+    assert not invoice_detail(text.replace('Consulter','Consulter\nAB124\nConsulter'),inv,'AB123')['single_dossier']
+    assert not invoice_detail(text.replace('1.525,20','1.525,21'),inv,'AB123')['single_dossier']

@@ -187,13 +187,37 @@ def catalogue(page):
     raise PortalError(f'Catalogue AKTO incomplet ({len(found)}/{total} dossiers). Relevés précédents conservés.')
 
 
+def invoice_detail(text, inv, ref):
+    # Use labeled lines, without relying on the number of buttons in the
+    # responsive layout or on one exact whitespace layout in the title.
+    data='\n'.join(re.sub(r'[^\S\n]+',' ',line).strip() for line in text.splitlines())
+    title=re.search(r'(?m)^Facture\s+n[°º]\s*:?\s*([^\n]+)',data,re.I)
+    valid=bool(title and title[1].strip()==inv['ref'])
+    currency=r'([-+]?\d[\d., \u00a0\u202f]*\d|\d)\s*€'
+    amount=re.search(r'(?m)^Montant HT\s*:?\s*'+currency,data)
+    credit=re.search(r'(?m)^Montant Avoir HT\s*:?\s*'+currency,data)
+    pay=re.search(r'Payé le\s*:\s*('+DATE+')',data)
+    section=data.partition('Liste des dossiers')[2].partition('Pièces justificatives')[0]
+    # AKTO lists a reference and one "Consulter" action for each dossier.
+    single=(section.splitlines().count(ref)==1 and section.splitlines().count('Consulter')==1)
+    result=dict(single_dossier=bool(valid and single and amount and number(amount[1])==number(str(inv['amount']))),
+                no_credit=bool(valid and credit and number(credit[1])==0))
+    if not result['single_dossier'] or not result['no_credit'] or not pay:
+        logging.getLogger(__name__).info('AKTO détail facture : titre=%s montant=%s dossier=%s consulter=%d avoir=%s paiement=%s',
+            valid,bool(amount and number(amount[1])==number(str(inv['amount']))),ref in section.splitlines(),
+            section.splitlines().count('Consulter'),bool(result['no_credit']),bool(pay))
+    if valid and pay:
+        result['payment_date']=pay[1]
+    return result
+
+
 def read_invoices(page,ref,previous):
     buttons=page.get_by_role('button',name='Voir la facture / DR',exact=True)
     cards=page.locator('.mobileCardWrapper').filter(has=buttons)
     snapshots=cards.all_inner_texts()
     invoices=[]
-    cached={i['ref']:i for i in previous.get('invoices',[]) if i.get('payment_date') and i.get('no_credit')}
-    for raw in snapshots:
+    cached={i['ref']:i for i in previous.get('invoices',[]) if i.get('payment_date') and i.get('no_credit') and i.get('single_dossier') and i.get('detail_version')==2}
+    for index,raw in enumerate(snapshots):
         lines=raw.splitlines()
         code=re.search(r'(?m)^Référence\s*:\s*(.+)$',raw)
         when=re.search(r'Date facturation\s*:\s*('+DATE+')',raw)
@@ -208,21 +232,22 @@ def read_invoices(page,ref,previous):
         invoices.append(inv)
         if inv['kind']!='Facture' or inv['status'].casefold() not in ('payé','payée'):
             continue
-        btn=cards.filter(has_text=re.compile(r'Référence\s*:\s*'+re.escape(inv['ref'])+r'(?![\w-])')).get_by_role('button',name='Voir la facture / DR',exact=True)
-        if btn.count()!=1:
-            continue
-        btn.click()
+        # Filter by the reference in the rendered lines. DOM textContent can join
+        # the last character of the reference directly to the next field's label.
+        card=cards.nth(index)
+        def ref_line(card):
+            return any(line.strip() == 'Référence : '+inv['ref'] for line in card.inner_text().splitlines())
+        if not ref_line(card):
+            matches=[node for node in cards.all() if ref_line(node)]
+            if len(matches)!=1:
+                continue
+            card=matches[0]
+        card.get_by_role('button',name='Voir la facture / DR',exact=True).click()
         page.get_by_role('heading',name='Détail de la facture').wait_for()
+        page.get_by_text('Liste des dossiers',exact=True).first.wait_for()
         data=page.locator('main').inner_text()
-        pay=re.search(r'Payé le\s*:\s*('+DATE+')',data)
-        credit=re.search(r'Montant Avoir HT\s*\n([^\n]+)',data)
-        invoice_amount=re.search(r'(?m)^Montant HT\s*\n([^\n]+)',data)
-        valid_title='Facture n° '+inv['ref'] in data.splitlines()
-        listing=data.partition('Liste des dossiers')[2].split('Pièces justificatives')[0]
-        inv['single_dossier']=bool(valid_title and invoice_amount and float(number(invoice_amount[1]))==inv['amount'] and ref in listing.splitlines() and page.get_by_role('button',name='Consulter',exact=True).count()==1)
-        inv['no_credit']=bool(credit and number(credit[1])==0)
-        if pay and valid_title:
-            inv['payment_date']=pay[1]
+        evidence=invoice_detail(data,inv,ref)
+        inv.update(evidence,detail_version=2)
         page.go_back(wait_until='domcontentloaded')
         page.get_by_text("Contrat d'apprentissage N° "+ref, exact=True).wait_for()
     return invoices
@@ -376,4 +401,5 @@ def read_portal(email,password,people,save,excluded=None,remember=None,previous=
             # A secondary close error must not mask the original failing step.
             with suppress(Error):
                 browser.close()
+
 
