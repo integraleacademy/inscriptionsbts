@@ -14,10 +14,10 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 from flask import abort, flash, redirect, render_template, request, session, url_for
 
-from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, apply_report, identity, parse_report, with_exams, words
+from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, apply_report, identity, match_report, parse_report, with_exams, words
 from cyclades_portal import read_academy
 
-READER_VERSION = 10
+READER_VERSION = 11
 
 
 def cipher(app):
@@ -106,7 +106,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                     continue
                 # First connection is checked immediately. Subsequent days start at 08:00.
                 recovering = row["status"] == "running" or (
-                    (row["status"] == "error" or (key == "nice" and row["reader_version"] == 8)) and row["reader_version"] < READER_VERSION)
+                    (row["status"] == "error" or 0 < row["reader_version"] < READER_VERSION) and row["reader_version"] < READER_VERSION)
                 daily_due = clock.hour >= 8 and (row["day"] or "") < slot
                 if row["day"] is not None and row["status"] != "pending" and not (recovering or daily_due):
                     continue
@@ -119,12 +119,11 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
             try:
                 credentials = json.loads(cipher(app).decrypt(row["credential"]))
                 if fetch is None:
-                    with closing(connect()) as conn:
-                        known = set()
-                        for item in conn.execute("SELECT year, records FROM cyclades_students WHERE academy=? AND outcome='matched'", (key,)):
-                            for known_record in json.loads(item["records"]):
-                                known.add((item["year"], known_record["details"].get("N° de candidat")))
-                    source = read_academy(key, credentials, known)
+                    def matched_records(report):
+                        with closing(connect()) as conn:
+                            _, found, ambiguous = match_report(conn, report)
+                        return [r for cid, records in found.items() if cid not in ambiguous for r in records]
+                    source = read_academy(key, credentials, matched_records)
                 else:
                     source = fetch(key, credentials)
                 with closing(source) as reports:

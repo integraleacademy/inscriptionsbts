@@ -203,16 +203,7 @@ def schema(conn):
         conn.execute("ALTER TABLE cyclades_accounts ADD COLUMN reader_version INTEGER NOT NULL DEFAULT 0")
 
 
-def apply_report(conn, academy, report, origin):
-    """Replace one complete academy/session observation inside a single transaction."""
-    year, issued, records, complete = report
-    if not complete:
-        raise CycladesError("Sélectionnez tous les états et retirez les autres critères de la liste détaillée.")
-    previous = conn.execute("SELECT issued,origin FROM cyclades_sessions WHERE academy=? AND year=?",
-                            (academy, year)).fetchone()
-    if previous and (previous["issued"] > issued or
-                     (previous["issued"] == issued and previous["origin"] == "auto" and origin == "import")):
-        return False
+def match_report(conn, report):
     students = {}
     by_name_birth = defaultdict(list)
     from training_programs import BTS_LABELS
@@ -224,7 +215,7 @@ def apply_report(conn, academy, report, origin):
             by_name_birth[family, dob].append((row["id"], given))
     found = defaultdict(list)
     ambiguous = set()
-    for family, use_name, given, dob, record in records:
+    for family, use_name, given, dob, record in report.records:
         given = words(given)
         matches = {cid for name in (family, use_name)
                    for cid, firstname in by_name_birth.get((words(name).replace(" ", ""), dob), ())
@@ -233,6 +224,20 @@ def apply_report(conn, academy, report, origin):
             found[matches.pop()].append(record)
         elif matches:
             ambiguous.update(matches)
+    return students, found, ambiguous
+
+
+def apply_report(conn, academy, report, origin):
+    """Replace one complete academy/session observation inside a single transaction."""
+    year, issued, records, complete = report
+    if not complete:
+        raise CycladesError("Sélectionnez tous les états et retirez les autres critères de la liste détaillée.")
+    previous = conn.execute("SELECT issued,origin FROM cyclades_sessions WHERE academy=? AND year=?",
+                            (academy, year)).fetchone()
+    if previous and (previous["issued"] > issued or
+                     (previous["issued"] == issued and previous["origin"] == "auto" and origin == "import")):
+        return False
+    students, found, ambiguous = match_report(conn, report)
     for cid, ident in students.items():
         outcome = ("ambiguous" if cid in ambiguous else "matched" if found[cid] else
                    "incomplete" if not all(ident) else "missing")
