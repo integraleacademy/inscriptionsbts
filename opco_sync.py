@@ -21,6 +21,7 @@ BTS_MARKS = ','.join('?' for _ in BTS_LABELS)
 
 
 def schema(conn):
+    upgrading = not conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='filiz_scan_progress'").fetchone()
     conn.executescript('''
         CREATE TABLE IF NOT EXISTS opco_accounts (
           provider TEXT PRIMARY KEY, credential BLOB, requested INTEGER NOT NULL DEFAULT 0,
@@ -30,10 +31,14 @@ def schema(conn):
           provider TEXT NOT NULL, ref TEXT NOT NULL, candidate_id TEXT NOT NULL,
           payload TEXT NOT NULL, PRIMARY KEY(provider,ref));
         CREATE TABLE IF NOT EXISTS filiz_session (id INTEGER PRIMARY KEY CHECK(id=1), payload BLOB NOT NULL);
+        CREATE TABLE IF NOT EXISTS filiz_scan_progress (ref TEXT PRIMARY KEY, outcome TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS opco_student ON opco_contracts(candidate_id);
     ''')
     conn.execute("INSERT OR IGNORE INTO opco_accounts(provider) VALUES ('filiz')")
     conn.execute("DELETE FROM opco_accounts WHERE provider!='filiz'")
+    if upgrading:
+        conn.execute("""UPDATE opco_accounts SET requested=1 WHERE provider='filiz' AND credential IS NOT NULL
+            AND state IN ('error','partial')""")
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     if 'akto_connection' in tables:
         conn.execute("UPDATE akto_connection SET credential=NULL,requested=0,state='unconfigured' WHERE id=1")
@@ -104,6 +109,26 @@ def bts_students(conn):
         f"SELECT id,nom,prenom,date_naissance,bts FROM candidats WHERE upper(trim(bts)) IN ({BTS_MARKS}) ORDER BY id", tuple(BTS_LABELS))]
 
 
+def store_contract(conn, ref, cid, item):
+    old_row = conn.execute("SELECT payload FROM opco_contracts WHERE provider='filiz' AND ref=? AND candidate_id=?",
+                           (ref, cid)).fetchone()
+    if old_row:
+        old = json.loads(old_row[0])
+        if item.get('raw_stale') and 'schedules' in old:
+            for field in ('schedules','raw_checked_at','invoices','filiz_paid','filiz_pending','engagement',
+                          'filiz_updated','extra_costs_available','extra_costs'):
+                if field in old:
+                    item[field] = old[field]
+        if item.get('invoice_error') and 'invoices' in old:
+            item['invoices'] = old['invoices']
+    conn.execute("INSERT OR REPLACE INTO opco_contracts VALUES ('filiz',?,?,?)",
+                 (ref, cid, json.dumps(item, ensure_ascii=False)))
+
+
+class ScanSuperseded(Exception):
+    pass
+
+
 def tick(app, connect, directory, now=None):
     provider = 'filiz'
     clock = now or datetime.now(PARIS)
@@ -122,10 +147,12 @@ def tick(app, connect, directory, now=None):
                 return
             people = bts_students(conn)
             roster = roster_key(people)
-            previous = {r['ref']: (r['candidate_id'], json.loads(r['payload'])) for r in conn.execute(
-                'SELECT * FROM opco_contracts WHERE provider=?', (provider,))}
-            conn.execute("""UPDATE opco_accounts SET state='running',message='Lecture en cours.',attempted=?,requested=0,day=?
-                WHERE provider=?""", (stamp, day if daily else account['day'], provider))
+            if account['state'] != 'running' or account['cursor'] != roster:
+                conn.execute('DELETE FROM filiz_scan_progress')
+            completed = {r[0] for r in conn.execute(
+                "SELECT ref FROM filiz_scan_progress WHERE outcome IN ('linked','ignored')")}
+            conn.execute("""UPDATE opco_accounts SET state='running',message='Lecture en cours.',attempted=?,requested=0,
+                day=?,cursor=? WHERE provider=?""", (stamp, day if daily else account['day'], roster, provider))
             conn.commit()
         try:
             config = json.loads(secret(app).decrypt(account['credential']))
@@ -140,36 +167,47 @@ def tick(app, connect, directory, now=None):
                         (SELECT 1 FROM opco_accounts WHERE provider='filiz' AND credential=?)""",
                         (encrypted,account['credential']))
                     conn.commit()
-            results, failed, _ = read_filiz(config, people, session_data, save_session)
-            with closing(connect()) as conn:
-                conn.execute('BEGIN IMMEDIATE')
+            def validate_run(conn):
                 if conn.execute('SELECT credential FROM opco_accounts WHERE provider=?', (provider,)).fetchone()[0] != account['credential']:
-                    return
+                    raise ScanSuperseded
                 if bts_students(conn) != people:
                     conn.execute("UPDATE opco_accounts SET requested=1,state='pending' WHERE provider=?", (provider,))
                     conn.commit()
-                    return
-                for ref, (cid, item) in results.items():
-                    old_cid, old = previous.get(ref, (None, {}))
-                    if cid == old_cid:
-                        if item.get('raw_stale') and 'schedules' in old:
-                            item['schedules'] = old['schedules']
-                            item['raw_checked_at'] = old.get('raw_checked_at')
-                            for field in ('invoices','filiz_paid','filiz_pending','engagement','filiz_updated',
-                                              'extra_costs_available','extra_costs'):
-                                if field in old:
-                                    item[field]=old[field]
-                        if item.get('invoice_error') and 'invoices' in old:
-                            item['invoices'] = old['invoices']
-                    conn.execute('INSERT OR REPLACE INTO opco_contracts VALUES (?,?,?,?)',
-                                 (provider, ref, cid, json.dumps(item, ensure_ascii=False)))
-                for ref in previous.keys() - results.keys():
-                    if ref in failed:
-                        cid, item = previous[ref]
+                    raise ScanSuperseded
+
+            def save_batch(group, results, failed, done, total):
+                with closing(connect()) as conn:
+                    conn.execute('BEGIN IMMEDIATE')
+                    validate_run(conn)
+                    for ref in group:
+                        if ref in results:
+                            store_contract(conn, ref, *results[ref])
+                            outcome = 'partial' if ref in failed else 'linked'
+                        else:
+                            outcome = 'error' if ref in failed else 'ignored'
+                        conn.execute('INSERT OR REPLACE INTO filiz_scan_progress VALUES (?,?)', (ref, outcome))
+                    linked = conn.execute("SELECT count(*) FROM filiz_scan_progress WHERE outcome IN ('linked','partial')").fetchone()[0]
+                    message = f'{done}/{total} dossiers examinés. {linked} contrat(s) rattaché(s).'
+                    conn.execute("UPDATE opco_accounts SET message=? WHERE provider=?", (message, provider))
+                    conn.commit()
+
+            eligible = read_filiz(config, people, session_data, save_session, completed, save_batch)
+            with closing(connect()) as conn:
+                conn.execute('BEGIN IMMEDIATE')
+                validate_run(conn)
+                progress = dict(conn.execute('SELECT ref,outcome FROM filiz_scan_progress'))
+                if eligible - progress.keys():
+                    raise ReadError('Lecture FILIZ incomplète. Les dossiers déjà lus sont conservés.')
+                failed = {ref for ref in eligible if progress[ref] in ('error','partial')}
+                previous = conn.execute("SELECT ref,payload FROM opco_contracts WHERE provider=?", (provider,)).fetchall()
+                for ref, payload in previous:
+                    outcome = progress.get(ref) if ref in eligible else None
+                    if outcome == 'error':
+                        item = json.loads(payload)
                         item['read_warning'] = 'Dossier non revérifié lors de la dernière lecture. Relevé précédent conservé.'
                         conn.execute('UPDATE opco_contracts SET payload=? WHERE provider=? AND ref=?',
                                      (json.dumps(item, ensure_ascii=False), provider, ref))
-                    else:
+                    elif outcome not in ('linked','partial'):
                         conn.execute('DELETE FROM opco_contracts WHERE provider=? AND ref=?', (provider, ref))
                 count = conn.execute('SELECT count(*) FROM opco_contracts WHERE provider=?', (provider,)).fetchone()[0]
                 state = 'partial' if failed else 'ok'
@@ -181,6 +219,8 @@ def tick(app, connect, directory, now=None):
                     (state,message,not failed,stamp,not failed,roster))
                 conn.commit()
                 app.logger.warning('FILIZ : lecture terminée (%s). %s',state,message)
+        except ScanSuperseded:
+            return
         except Exception as exc:
             message = str(exc) if isinstance(exc, (ReadError, PortalError)) else 'Lecture interrompue. Vérifiez les accès puis relancez.'
             with closing(connect()) as conn:
@@ -263,6 +303,7 @@ def register_opcos(app, connect, require_admin, directory):
                 abort(400)
             if action in ('connect','disconnect'):
                 conn.execute('DELETE FROM filiz_session')
+                conn.execute('DELETE FROM filiz_scan_progress')
             conn.commit()
         start()
         wake.set()
