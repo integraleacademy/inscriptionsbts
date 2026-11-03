@@ -6,7 +6,8 @@ import sqlite3
 import pytest
 from candidate_statuses import annotate_candidate_statuses
 from test_admissions_2027 import application, auth, client, seed
-from wedof_contracts import ensure_schema as ensure_wedof, billing
+from contract_display import billing
+from filiz_fixtures import account, contract
 
 TODAY = date(2026, 10, 26)
 
@@ -15,7 +16,9 @@ TODAY = date(2026, 10, 26)
 def db():
     conn = sqlite3.connect(':memory:')
     conn.row_factory = sqlite3.Row
-    conn.execute('CREATE TABLE student_wedof_contracts(candidate_id TEXT,payload TEXT)')
+    conn.execute('CREATE TABLE candidats(id TEXT,nom TEXT,prenom TEXT,date_naissance TEXT)')
+    conn.execute("INSERT INTO candidats VALUES('student','TEST','Camille','2000-01-01')")
+    account(conn)
     conn.execute('CREATE TABLE companies(id TEXT PRIMARY KEY,active INTEGER)')
     conn.execute('CREATE TABLE company_students(candidate_id TEXT,company_id TEXT,start_date TEXT,end_date TEXT)')
     yield conn
@@ -23,18 +26,20 @@ def db():
 
 
 def add_contract(conn, cid='student', **changes):
-    item = dict(state='accepted', employer_name='Entreprise Exemple', contract_start='2026-09-01', contract_end='2028-08-31')
-    item.update(changes)
-    conn.execute('INSERT INTO student_wedof_contracts VALUES(?,?)', (cid, json.dumps(item)))
+    contract(conn,cid,**changes)
+
+
+def person(status):
+    return dict(id='student',statut=status,bts='MCO',nom='TEST',prenom='Camille',date_naissance='2000-01-01')
 
 
 def test_active_contract_changes_only_display_status(db):
-    row = dict(id='student', statut='confirmee')
+    row = person('confirmee')
     add_contract(db)
     annotate_candidate_statuses(db, [row], TODAY)
     assert row['display_status'] == 'en_entreprise' and row['display_status_label'] == 'En entreprise'
     assert row['statut'] == 'confirmee'
-    db.execute('DELETE FROM student_wedof_contracts')
+    db.execute('DELETE FROM opco_contracts')
     annotate_candidate_statuses(db, [row], TODAY)
     assert row['display_status'] == 'confirmee' and row['display_status_label'] == ''
 
@@ -44,7 +49,7 @@ def test_active_contract_changes_only_display_status(db):
     dict(contract_start=''), dict(contract_start='invalid'), dict(contract_break_date='2026-10-26'),
     dict(employer_name='',employer_siret='')])
 def test_unconfirmed_ended_future_and_invalid_contracts_do_not_claim_employment(db, changes):
-    row = dict(id='student', statut='confirmee')
+    row = person('confirmee')
     add_contract(db, **changes)
     annotate_candidate_statuses(db, [row], TODAY)
     assert row['display_status'] == 'confirmee'
@@ -53,7 +58,7 @@ def test_unconfirmed_ended_future_and_invalid_contracts_do_not_claim_employment(
 @pytest.mark.parametrize('status', ['annulee', 'docs_non_conformes', 'preinscription'])
 def test_admission_alerts_and_unreviewed_applications_keep_their_status(db, status):
     add_contract(db)
-    row = dict(id='student', statut=status)
+    row = person(status)
     annotate_candidate_statuses(db, [row], TODAY)
     assert row['display_status'] == status
 
@@ -61,7 +66,7 @@ def test_admission_alerts_and_unreviewed_applications_keep_their_status(db, stat
 def test_real_company_assignment_works_without_wedof_or_portal_access(db):
     db.execute("INSERT INTO companies VALUES('company',0)")
     db.execute("INSERT INTO company_students VALUES('student','company','2026-10-01','2026-10-26')")
-    row = dict(id='student', statut='reconfirmee')
+    row = person('reconfirmee')
     annotate_candidate_statuses(db, [row], TODAY)
     assert row['display_status'] == 'en_entreprise'
     annotate_candidate_statuses(db, [row], date(2026,10,27))
@@ -69,7 +74,7 @@ def test_real_company_assignment_works_without_wedof_or_portal_access(db):
 
 
 def test_self_declaration_and_invalid_payloads_are_not_company_assignments(db):
-    db.execute("INSERT INTO student_wedof_contracts VALUES('student','invalid-json')")
+    db.execute("INSERT INTO opco_contracts VALUES('filiz','bad','student','invalid-json')")
     row = dict(id='student', statut='confirmee', entreprise_trouvee='oui')
     annotate_candidate_statuses(db, [row], TODAY)
     assert row['display_status'] == 'confirmee'
@@ -81,10 +86,9 @@ def test_directory_kpi_and_api_use_display_status_while_campaign_keeps_admission
     monkeypatch.setattr(application, 'annotate_candidate_statuses', lambda conn, rows: original(conn, rows, TODAY))
     seed(2026,'employed'); seed(2026,'confirmed'); seed(2026,'employed-applicant','validee'); auth(client)
     with application.db() as conn:
-        ensure_wedof(conn)
-        payload = dict(state='accepted',employer_name='Entreprise Exemple',contract_start='2026-09-01',contract_end='2028-08-31')
-        conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)', ('101','employed',json.dumps(payload),0,'now'))
-        conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)', ('102','employed-applicant',json.dumps(payload),0,'now'))
+        account(conn)
+        for cid in ('employed','employed-applicant'):
+            contract(conn,cid)
         conn.commit()
     employed = client.get('/admin?rentree=2026&statut=en_entreprise')
     assert employed.status_code == 200

@@ -42,8 +42,7 @@
       <section class="sheet-card"><h2>Projet motivé</h2>{% for label,key in [('Motivations pour la formation','projet_pourquoi'),('Objectifs après la formation','projet_objectif'),('Personnalité et passions','projet_passions')] %}<h3>{{ label }}</h3><p class="candidate-answer">{{ row.get(key) or 'Non renseigné' }}</p>{% endfor %}</section>
       <section class="sheet-card"><h2>Le profil en quelques mots</h2>{% for group in profile_groups %}<h3>{{ group.title }}</h3><div class="profile-pills">{% for value in profile_display[group.name] %}<span>{{ value }}</span>{% else %}<small>Non renseigné</small>{% endfor %}</div>{% endfor %}</section>
     </section>
-    <section id="panel-contrat-apprentissage" role="tabpanel" aria-labelledby="tab-contrat-apprentissage" class="sheet-panel wc-panel" data-csrf="{{ wedof_csrf() }}" hidden>
-      {% set mos = row.bts|trim|upper == 'MOS' %}
+    <section id="panel-contrat-apprentissage" role="tabpanel" aria-labelledby="tab-contrat-apprentissage" class="sheet-panel wc-panel" hidden>
       {% include '_wedof_contracts_panel.html' %}
     </section>
     {% include '_candidate_school_tabs.html' %}

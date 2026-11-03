@@ -9,7 +9,7 @@ from teaching import schema as teaching_schema
 from trainer_access import _schema as trainer_schema
 from candidate_access import _schema as account_schema
 from student_course_details import student_details, zoom_url
-from wedof_contracts import ensure_schema as wedof_schema
+from filiz_fixtures import account, contract
 
 
 @pytest.fixture
@@ -33,8 +33,8 @@ def campus(client,monkeypatch):
         conn.execute("INSERT INTO planning_courses(id,promotion_id,subject_id,trainer_id,date,start_min,end_min,title,created_at,updated_at,zoom_url) VALUES('course','p1','s1','t1','2026-10-26',540,660,'Cours','now','now','https://school.zoom.us/j/123?pwd=example')")
         conn.execute("INSERT INTO planning_course_groups VALUES('course','p1','s1')")
         conn.commit()
-        wedof_schema(conn)
-        conn.execute("INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES('contract','remote',?,1,'now')",(json.dumps({'state':'accepted','contract_end':'2030-01-01'}),))
+        account(conn)
+        contract(conn,'remote',contract_end='2030-01-01')
     application.migrate_voyage_londres()
     auth(client)
     assert client.get('/admin/inscriptions').status_code==200

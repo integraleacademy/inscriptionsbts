@@ -2,7 +2,7 @@
 
 La fiche `/admin/candidat/<id>#londres` permet de préparer la convention des candidats en présentiel, de générer le PDF et le Word, puis d’envoyer explicitement le PDF en signature électronique Yousign à l’entreprise, à l’apprenti et au représentant légal pour un mineur. Une copie signée peut aussi être déposée manuellement. La génération seule ne déclenche aucun e-mail.
 
-Le préremplissage utilise uniquement l’entreprise et les contrats WEDOF rattachés au candidat. En présence de plusieurs contrats, l’administrateur choisit le contrat. Les données restent modifiables avant génération. Le budget est enregistré pour le suivi, sans ajouter de clause financière au modèle.
+Le préremplissage utilise uniquement l’entreprise et les contrats FILIZ rattachés au candidat. En présence de plusieurs contrats, l’administrateur choisit le contrat. Les données restent modifiables avant génération. Le budget est enregistré pour le suivi, sans ajouter de clause financière au modèle.
 
 Chaque génération conserve un instantané des informations, les empreintes SHA-256 et des fichiers distincts dans `DATA_DIR/voyage_londres`. Les tables `london_mobility_settings` et `london_mobility_versions` sont créées de manière additive. Les anciennes versions ne sont jamais écrasées ; les suppressions depuis le tableau voyage sont bloquées pour ces archives. Un voyage peut toujours être annulé. Les conventions déjà produites dans Gestion Stagiaires restent dans ses archives.
 
