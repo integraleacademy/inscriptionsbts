@@ -6,7 +6,7 @@
     <p>{% if preview %}Choisis une formation pour parcourir son formulaire en mode aperçu.{% else %}Choisis ta formation pour accéder à sa candidature et aux dates des sessions.{% endif %}</p>
   </header>
   <nav class="catalog-families" aria-label="Choix de la formation">
-    <a id="titres-professionnels" href="{{ url_for('title_selection', preview=1) if preview else url_for('title_selection') }}">{{ icon('briefcase') }}<span>Titres professionnels <small>Voir les titres et les sessions</small></span>{{ icon('arrow') }}</a>
+    <a id="titres-professionnels" href="{{ url_for('title_selection', preview=1) if preview else (url_for('title_selection') if admission_open else '#inscriptions-bts') }}">{{ icon('briefcase') }}<span>Titres professionnels <small>{{ 'Voir les titres et les sessions' if preview or admission_open else ('Ouverture le 1er décembre à 10 h' if scheduled else 'Candidatures fermées') }}</small></span>{{ icon('arrow') }}</a>
     <a href="{{ url_for('security_application_preview' if preview else 'security_application') }}">{{ icon('shield') }}<span>Parcours sécurité en alternance <small>{{ 'Voir le formulaire' if preview else 'Candidatures ouvertes' }}</small></span>{{ icon('arrow') }}</a>
     <a href="{{ '#application-guide' if request.endpoint == 'candidature' else (url_for('candidature', _anchor='application-guide') if admission_open else '#inscriptions-bts') }}">{{ icon('book') }}<span>BTS en alternance <small>{{ 'Voir les modalités d’ouverture' if request.endpoint == 'index' and not admission_open else 'Préparer mon dossier BTS' }}</small></span>{{ icon('arrow') }}</a>
   </nav>

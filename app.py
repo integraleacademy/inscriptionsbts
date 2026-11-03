@@ -1212,7 +1212,7 @@ def reprendre_formulaire(token):
     saved_full_form = (draft or {}).get("full_form", {})
     if saved_full_form.get("title_promotion_id"):
         if not admissions_available():
-            return redirect(url_for("title_selection"))
+            return redirect(url_for("index", _anchor="inscriptions-bts"))
         with closing(db()) as conn:
             rows = open_title_promotions(conn, saved_full_form["title_promotion_id"])
         if not rows or (rows[0]["bts"], rows[0]["rentree_annee"]) != (saved_full_form.get("bts"), saved_full_form.get("rentree_annee")):
