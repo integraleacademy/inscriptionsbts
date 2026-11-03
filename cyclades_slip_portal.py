@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from urllib.parse import parse_qsl, unquote, urljoin, urlsplit
+from urllib.parse import parse_qsl, unquote, urlencode, urljoin, urlsplit, urlunsplit
 
 from playwright.sync_api import Error
 
@@ -49,6 +49,21 @@ def route_label(url):
     # Static portlet names only, never a query, token or candidate identifier.
     return "/".join(x for x in urlsplit(url).path.split("/") if
                     re.fullmatch(r"[A-Za-z][A-Za-z_.-]{0,70}", x))[:140]
+
+
+def tabbed_activity_url(url, tabs):
+    """Carry the tab issued with this activity's verified context selection."""
+    from cyclades_portal import CENTRAL, official
+    parts = urlsplit(url)
+    if not official(url) or parts.hostname != CENTRAL:
+        return url
+    prefix = next((path for path in tabs if parts.path == path or parts.path.startswith(path+"/")), None)
+    params = parse_qsl(parts.query, keep_blank_values=True)
+    if not prefix or any(k.casefold() == "ongletid" for k,v in params):
+        return url
+    suffix = urlencode({"OngletID":tabs[prefix]})
+    query = parts.query + ("&" if parts.query else "") + suffix
+    return urlunsplit((parts.scheme,parts.netloc,parts.path,query,parts.fragment))
 
 
 def public_switch_bindings(frame):
@@ -285,8 +300,21 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     validated = set()
     render_responses = []
     render_opened = False
+    tab_opened = False
     context_codes = set()
+    tab_ids = {}
+    # Only the two account portlets in this authentication context.
+    account_url = re.compile(r"^https://cyclades\.education\.gouv\.fr/cycetablissement/portal/(?:creation_compte_candidat|regenerer_mdp_compte_candidat)(?:/|\?|$)")
     transactions = []
+    def keep_activity_tab(route):
+        req = route.request
+        if req.method == "GET" and req.resource_type in ("document","xhr","fetch"):
+            target = tabbed_activity_url(req.url,tab_ids)
+            if target != req.url:
+                route.fallback(url=target)
+                return
+        route.fallback()
+
     def observe_route(response):
         if response.request.resource_type in ("document","xhr","fetch") and official(response.url):
             path = route_label(response.url)
@@ -299,6 +327,12 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 # never print parameter values or the session code.
                 sent = unquote(req.url + " " + (req.post_data or ""))
                 fields = parse_qsl(req.post_data or "", keep_blank_values=True) if req.method == "POST" else []
+                data = dict(fields)
+                tab_id = data.get("OngletID", "")
+                if (data.get("cleSelected") in context_codes and tab_id not in ("0","null","undefined") and re.fullmatch(r"[a-zA-Z0-9_-]{1,90}",tab_id)):
+                    root = re.match(r"^(/cycetablissement/portal/(?:creation_compte_candidat|regenerer_mdp_compte_candidat))(?:/|$)",urlsplit(req.url).path)
+                    if root:
+                        tab_ids[root[1]] = tab_id
                 posted = ",".join(k+("=selection" if v in context_codes else "=vide" if not v else "=présent") for k,v in fields if re.fullmatch(r"[A-Za-z_]{1,70}",k))
                 keys = [k for k,v in parse_qsl(query) if re.fullmatch(r"[A-Za-z_]{1,65}", k)]
                 keys += re.findall(r"__(?:rp|ac|op)[a-zA-Z_]{1,60}",urlsplit(req.url).path)
@@ -309,6 +343,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 if (response.request.method == "GET" and response.request.resource_type in ("xhr","fetch")
                         and "text/html" in response.headers.get("content-type","").lower()):
                     render_responses.append(response)
+    shell.route(account_url, keep_activity_tab)
     context.on("response", observe_route)
     context.on("page", watch)
     context.on("response", pdf_response)
@@ -378,17 +413,28 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
             if direct_document:
                 break
             if summary is None:
+                # Keep the tab identity in the address itself, as well as on
+                # its requests. The shell consults location.search on reload.
+                tab_view = tabbed_activity_url(shell.url,tab_ids)
+                if not tab_opened and tab_view != shell.url and time.monotonic()-start_wait > 1:
+                    tab_opened = True
+                    navigate(shell,tab_view)
+                    continue
                 if render_responses and not render_opened and time.monotonic()-start_wait > 2:
                     render_opened = True
                     response = render_responses[-1]
                     from lxml import html, etree
-                    raw_view = response.body()
+                    try:
+                        raw_view = response.body()
+                    except Error:
+                        raw_view = b""
                     try:
                         rendered = html.fromstring(raw_view,base_url=response.url) if len(raw_view) <= MAX_BYTES else None
                     except (etree.ParserError, ValueError):
                         rendered = None
                     if rendered is None:
                         trace.append("vue de validation sans HTML lisible")
+                        navigate(shell,tabbed_activity_url(response.url,tab_ids))
                         continue
                     # The selector action is AJAX: its returned portlet view
                     # can differ from the default view that the shell reloads.
@@ -405,9 +451,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     trace.append("rendu officiel: comptes-rendus="+str(len(targets))+
                                  ", commande="+str(any(SUMMARY.fullmatch(v.strip()) for v in form_controls))+
                                  ", condition="+access_notice(" ".join(rendered.xpath("//body//text()[not(ancestor::script or ancestor::style)]"))[:40000]))
-                    result_page = context.new_page()
-                    result_page.set_default_timeout(7500)
-                    navigate(result_page,targets[0] if len(set(targets))==1 else response.url)
+                    navigate(shell,tabbed_activity_url(targets[0] if len(set(targets))==1 else response.url,tab_ids))
                     if len(set(targets))==1:
                         direct_document = True
                         break
@@ -482,7 +526,9 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 record["sealed_slip"] = cipher.encrypt(password.encode()).decode()
         logging.getLogger(__name__).warning("CYCLADES %s papillons : %d/%d accès rattachés", academy, len(found), len(wanted))
         return True
-    except (Error, CycladesError, OSError, ValueError):
+    except (Error, CycladesError, OSError, ValueError) as exc:
+        trace.append("cause="+type(exc).__name__)
+        trace.append("onglet officiel="+str(bool(tab_ids)))
         # Keep navigation identifiers only, never page text or candidate data.
         trace.append("transactions="+";".join(transactions)[:2100])
         trace.append("lectures="+",".join(sorted(traffic))[:600])
@@ -547,11 +593,11 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     const keep=/^(?:#?selectContexte|change|click|POST|GET|json|html|option:selected|selected|validerContexte|[A-Za-z_]{0,20}(?:contexte|context|session|examen|sousactivite)[A-Za-z_]{0,22})$/i;
                     for (const script of document.scripts) {
                         if (script.src || !/selectContexte/.test(script.textContent)) continue;
-                        const binding=script.textContent.match(/selectContexte[^;\n]{0,55}?\.change\s*\((?:function)?/i);
+                        const binding=script.textContent.match(/selectContexte[^;]{0,80}?(?:\.change\s*\(|\.on\s*\(\s*["']change["']\s*,)(?:function)?/i);
                         if(!binding)continue;
                         const scoped=script.textContent.slice(binding.index+binding[0].length);
-                        if(scoped.slice(0,1500).includes(String.fromCharCode(96)))continue;
-                        const safe=scoped.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gs,v=>{
+                        const stripped=scoped.replace(new RegExp(String.fromCharCode(96)+'(?:\\\\.|[^'+String.fromCharCode(96)+'\\\\])*'+String.fromCharCode(96),'gs'),"'…'");
+                        const safe=stripped.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gs,v=>{
                             const t=v.slice(1,-1); return keep.test(t) ? "'"+t+"'" : "'…'";
                         }).replace(/\/\*[\s\S]*?\*\//g,' ').replace(/\/\/[^\n]*/g,' ').replace(/\b\d{3,}\b/g,'N').replace(/\s+/g,' ');
                         return safe.slice(0,960);
@@ -630,6 +676,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 record["slip_sync"] = "unavailable"
         return False
     finally:
+        shell.unroute(account_url,keep_activity_tab)
         context.remove_listener("response", observe_route)
         context.remove_listener("response", pdf_response)
         context.remove_listener("page", watch)
