@@ -537,6 +537,23 @@ def read_pieces(page, academy, label, report, records):
                     if (s.closest('[hidden]')) { s.remove(); return; }
                     s.replaceWith(document.createTextNode('\\nPJ-CONTROLE ' + value + '\\n'));
                 });
+                // Keep the uploader from the same visible table row as the file
+                // action. File names and download addresses are never persisted.
+                const rowList = [...body.querySelectorAll('tr')];
+                [...copy.querySelectorAll('tr')].forEach((row, i) => {
+                    const live = rowList[i];
+                    if (!live.getClientRects().length) return;
+                    const cells = [...live.cells].map(c => c.innerText.trim());
+                    const actors = cells.filter(c => /^par le (candidat|gestionnaire)$/i.test(c));
+                    if (actors.length !== 1 || cells.some(c => /aucun fichier/i.test(c))) return;
+                    const hasFile = [...live.querySelectorAll('a,button,img,input[type=image]')].some(e =>
+                        e.getClientRects().length && /télécharger|visualiser le fichier|consulter le fichier|\\.(?:pdf|png|jpe?g)\\b/i.test([
+                            e.title,e.getAttribute('aria-label'),e.getAttribute('alt'),e.innerText
+                        ].filter(Boolean).join(' ')));
+                    if (hasFile || cells.some(c => /\\.(?:pdf|png|jpe?g)\\s*$/i.test(c))) {
+                        row.append('\\nPJ-FICHIER ' + actors[0].toLowerCase() + '\\n');
+                    }
+                });
                 copy.querySelectorAll('script,style,input,textarea,[hidden]').forEach(e => e.remove());
                 copy.querySelectorAll('b,strong,i,em,label').forEach(e => {
                     if (/^[A-Z][A-Z0-9_.-]{2,24}\\s*:/.test(e.textContent.trim())) {
@@ -572,6 +589,14 @@ def read_pieces(page, academy, label, report, records):
                 if result is not None:
                     controls = [s for s in text["reviews"] if any(words(opt) in REVIEWS for opt in s["options"])]
                     docs = result["documents"]
+                    structured = parse_detail(annotated, record, ACADEMIES[academy][1], allow_partial=True)
+                    if structured:
+                        by_code = {d["code"]: d for d in structured["documents"]}
+                        for doc in docs:
+                            source = by_code.get(doc["code"], {})
+                            for field in ("deposit", "manager"):
+                                if not doc[field] and source.get(field):
+                                    doc[field] = source[field]
                     if len(controls) == len(docs):
                         for doc, control in zip(docs, controls):
                             doc["review"] = REVIEWS.get(words(control["selected"]))

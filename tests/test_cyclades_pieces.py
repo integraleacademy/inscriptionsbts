@@ -93,3 +93,16 @@ def test_partial_observation_keeps_explicit_rows_without_claiming_a_complete_rea
     read = parse_detail(screen, record, "1234567A", allow_partial=True)
     assert [doc["review"] for doc in read["documents"]] == ["En attente de contrôle", "Non conforme"]
     assert read["documents"][1]["deposit"] is None and read["requested"] == 3
+
+
+def test_file_evidence_belongs_to_the_uploader_in_the_same_row():
+    record = {"details": {"N° de candidat": "12", "N° d’inscription": "1", "Version": "3"}}
+    screen = ("N° candidat : 12 N° inscription : 1 Version : 3\nCode Etab : 1234567A\n"
+              "Pièces justificatives conformes : 0 / 2\nNATIDE06 : Identité\n"
+              "scan.pdf\npar le candidat\nAucun fichier par le gestionnaire\n"
+              "PJ-CONTROLE En attente de contrôle\nCINSIG03 : Confirmation\n"
+              "Aucun fichier par le candidat\nPJ-FICHIER par le gestionnaire\nPJ-CONTROLE Conforme")
+    a, b = parse_detail(screen, record, "1234567A")["documents"]
+    assert (a["deposit"], a["manager"]) == ("Déposée", "Non déposée")
+    assert (b["deposit"], b["manager"]) == ("Non déposée", "Déposée")
+    assert "scan.pdf" not in str(a)
