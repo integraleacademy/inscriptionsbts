@@ -14,8 +14,12 @@
       <div><dt>{{ label }}</dt><dd>{{ record.details[label] }}</dd></div>
     {% endfor %}</dl>
     {% endif %}
-    <section class="cy-pieces" aria-label="Suivi des pièces justificatives">
-      <h4>Pièces justificatives{% if record.piece_summary %} · {{ record.piece_summary.conforming }}/{{ record.piece_summary.requested }} conformes{% elif record.requested is defined %} · {{ record.conforming }}/{{ record.requested }} conformes{% endif %}</h4>
+    <details class="cy-disclosure cy-pieces">
+      <summary>Pièces justificatives
+        {% if record.piece_summary %}<span class="cy-count">{{ record.piece_summary.conforming }}/{{ record.piece_summary.requested }} conformes</span>
+        {% elif record.requested is defined %}<span class="cy-count">{{ record.conforming }}/{{ record.requested }} conformes</span>{% endif %}
+        {{ icon('chevron-down') }}
+      </summary>
       {% if record.piece_summary and record.piece_summary.checked != record.documents_checked %}<p>Total lu dans Cyclades le {{ record.piece_summary.checked }}. {% if not record.piece_summary.get('items') %}Le détail par pièce n’a pas été actualisé à cette heure.{% endif %}</p>{% endif %}
       {% if record.documents_checked %}<p>{% if record.documents_source == 'statement' %}Relevé manuel de l’écran Cyclades du {{ record.documents_checked }}.{% else %}Vérifiées dans Cyclades le {{ record.documents_checked }}.{% endif %}</p>{% endif %}
       {% set partial_items = record.piece_summary.get('items') if record.piece_summary else none %}
@@ -39,7 +43,7 @@
           <button type="submit" class="cy-button">Enregistrer le relevé</button>
         </form>
       </details>{% endif %}
-    </section>
+    </details>
     {% if record.exams %}
     <details class="cy-disclosure"><summary>Épreuves et langues <span class="cy-count">{{ record.exams|length }}</span>{{ icon('chevron-down') }}</summary>
       <table class="cy-table"><thead><tr><th>Épreuve</th><th>Inscription</th></tr></thead><tbody>
