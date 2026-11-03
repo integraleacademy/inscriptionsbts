@@ -13,8 +13,9 @@ from urllib.parse import urljoin, urlsplit
 
 from playwright.sync_api import Error, TimeoutError as BrowserTimeout
 
-from cyclades_data import ACADEMIES, ALL_STATES, MAX_BYTES, CycladesError, parse_report, with_exams, words
+from cyclades_data import ACADEMIES, ALL_STATES, MAX_BYTES, CycladesError, CycladesNetworkError, parse_report, with_exams, words
 
+DROPPED = {"ERR_CONNECTION_RESET", "ERR_CONNECTION_CLOSED", "ERR_TIMED_OUT"}
 CENTRAL = "cyclades.education.gouv.fr"
 REPORT_LINK = "Liste détaillée de mes élèves"
 
@@ -66,7 +67,8 @@ def portal_step(page, label):
             reason = "navigation interrompue"
         hint = screen_hint(page)
         detail = ", ".join(filter(None, (site, reason, hint)))
-        raise CycladesError(f"{label} ({detail}).") from None
+        error_type = CycladesNetworkError if network and network[1] in DROPPED else CycladesError
+        raise error_type(f"{label} ({detail}).") from None
 
 
 def navigate(page, url):
@@ -406,11 +408,17 @@ def read_pieces(page, academy, label, report, records):
     existing = set(page.context.pages)
     shell = page.context.new_page()
     shell.set_default_timeout(7000)
-    phase = "menu"
+    phase = "ouverture du menu établissement"
     observed = 0
     try:
-        navigate(shell, ACADEMIES[academy][3])
-        shell.get_by_role("heading", level=1).filter(has_text=ACADEMIES[academy][1]).wait_for()
+        # Reuse the verified establishment session, without replaying the hub's
+        # one-time SSO redirect. Detailed screens are checked independently by UAI.
+        current = urlsplit(page.url)
+        entry = page.url if current.hostname == CENTRAL and current.path.startswith("/cycetablissement/") else ACADEMIES[academy][3]
+        navigate(shell, entry)
+        shell.locator("#ETABLISSEMENT_INSCRIPTION").wait_for(state="attached", timeout=30000)
+        if urlsplit(shell.url).hostname != CENTRAL:
+            raise CycladesError("Le menu de l’établissement n’est pas accessible.")
         target = shell.get_by_text(PJ_TITLE, exact=True).filter(visible=True)
         group = shell.get_by_text("Gérer les pièces justificatives", exact=True).filter(visible=True)
         phase = "menu inscription"
@@ -418,6 +426,7 @@ def read_pieces(page, academy, label, report, records):
             shell.locator("#ETABLISSEMENT_INSCRIPTION").click()
         phase = "menu gérer les pièces"
         if not target.count():
+            group.first.wait_for(state="visible", timeout=6000)
             group.first.click()
         phase = "menu suivre les retours"
         target.first.click()
@@ -639,16 +648,22 @@ def read_academy(academy, credentials, matched_records):
                     # Restart the official SSO flow once after a dropped login document.
                     # Never retry an explicit credential rejection or an interactive challenge.
                     idp = f"login.ac-{academy}.fr"
-                    dropped = any(host == idp and kind == "document" and reason in (
-                        "ERR_CONNECTION_RESET", "ERR_CONNECTION_CLOSED", "ERR_TIMED_OUT")
+                    dropped = any(host == idp and kind == "document" and reason in DROPPED
                         for host, kind, reason in failures)
                     if not dropped or screen_hint(page) in ("authentification refusée", "validation supplémentaire",
                                                             "vérification interactive", "accès refusé"):
                         raise
+                    failures.clear()
                     page.close()
                     page = context.new_page()
                     page.set_default_timeout(45000)
-                    open_establishment(page, academy, credentials)
+                    try:
+                        open_establishment(page, academy, credentials)
+                    except CycladesError as error:
+                        if any(host == idp and kind == "document" and reason in DROPPED
+                               for host, kind, reason in failures) and screen_hint(page) in ("", "formulaire d’identification"):
+                            raise CycladesNetworkError(str(error)) from None
+                        raise
                 select = page.locator("#selectContexte")
                 with portal_step(page, "La liste des sessions BTS ne s’est pas affichée"):
                     page.get_by_role("link", name=REPORT_LINK, exact=True).click()

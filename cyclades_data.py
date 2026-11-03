@@ -40,6 +40,10 @@ class CycladesError(Exception):
     """Only static, user-facing diagnostics. Never include portal responses or credentials."""
 
 
+class CycladesNetworkError(CycladesError):
+    """The official portal connection was interrupted during a read."""
+
+
 class Report(NamedTuple):
     year: int
     issued: float
@@ -199,8 +203,11 @@ def schema(conn):
     """)
     conn.executemany("INSERT OR IGNORE INTO cyclades_accounts(academy) VALUES(?)", [(key,) for key in ACADEMIES])
     # The INSERT above holds the SQLite write lock, including during migration on existing disks.
-    if "reader_version" not in {r[1] for r in conn.execute("PRAGMA table_info(cyclades_accounts)")}:
+    columns = {r[1] for r in conn.execute("PRAGMA table_info(cyclades_accounts)")}
+    if "reader_version" not in columns:
         conn.execute("ALTER TABLE cyclades_accounts ADD COLUMN reader_version INTEGER NOT NULL DEFAULT 0")
+    if "network_retry" not in columns:
+        conn.execute("ALTER TABLE cyclades_accounts ADD COLUMN network_retry REAL")
 
 
 def match_report(conn, report):
