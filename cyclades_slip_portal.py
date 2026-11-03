@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from urllib.parse import parse_qsl, unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urljoin, urlsplit
 
 from playwright.sync_api import Error
 
@@ -283,6 +283,8 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     trace = []
     traffic = set()
     validated = set()
+    render_responses = []
+    render_opened = False
     context_codes = set()
     transactions = []
     def observe_route(response):
@@ -296,12 +298,17 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 # and others into a query. Keep names and matching evidence,
                 # never print parameter values or the session code.
                 sent = unquote(req.url + " " + (req.post_data or ""))
+                fields = parse_qsl(req.post_data or "", keep_blank_values=True) if req.method == "POST" else []
+                posted = ",".join(k+("=selection" if v in context_codes else "=vide" if not v else "=présent") for k,v in fields if re.fullmatch(r"[A-Za-z_]{1,70}",k))
                 keys = [k for k,v in parse_qsl(query) if re.fullmatch(r"[A-Za-z_]{1,65}", k)]
                 keys += re.findall(r"__(?:rp|ac|op)[a-zA-Z_]{1,60}",urlsplit(req.url).path)
-                transactions.append(req.method+" "+str(response.status)+" "+path+" params="+",".join(keys)[:120]+
+                transactions.append(req.method+" "+req.resource_type+" "+str(response.status)+" "+path+" POST="+posted+" params="+",".join(keys)[:120]+
                     " choix="+str(any(v in sent for v in context_codes))+" type="+response.headers.get("content-type","").split(";")[0])
             if response.ok and "/validerContexte/true" in path:
                 validated.add(path.rsplit("/validerContexte",1)[0])
+                if (response.request.method == "GET" and response.request.resource_type in ("xhr","fetch")
+                        and "text/html" in response.headers.get("content-type","").lower()):
+                    render_responses.append(response)
     context.on("response", observe_route)
     context.on("page", watch)
     context.on("response", pdf_response)
@@ -371,6 +378,40 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
             if direct_document:
                 break
             if summary is None:
+                if render_responses and not render_opened and time.monotonic()-start_wait > 2:
+                    render_opened = True
+                    response = render_responses[-1]
+                    from lxml import html, etree
+                    raw_view = response.body()
+                    try:
+                        rendered = html.fromstring(raw_view,base_url=response.url) if len(raw_view) <= MAX_BYTES else None
+                    except (etree.ParserError, ValueError):
+                        rendered = None
+                    if rendered is None:
+                        trace.append("vue de validation sans HTML lisible")
+                        continue
+                    # The selector action is AJAX: its returned portlet view
+                    # can differ from the default view that the shell reloads.
+                    # Use only a GET view actually returned to this session.
+                    targets = []
+                    for anchor in rendered.xpath("//a[@href]"):
+                        name = " ".join(anchor.itertext()).strip() or anchor.get("title", "")
+                        if SUMMARY.fullmatch(name):
+                            href = urljoin(response.url,anchor.get("href"))
+                            if official(href) and urlsplit(href).hostname == CENTRAL and not anchor.get("href").startswith("#"):
+                                targets.append(href)
+                    form_controls = [e.get("value","") or e.get("title","") or " ".join(e.itertext()) for e in
+                                     rendered.xpath("//button|//input[@type='submit' or @type='button' or @type='image']")]
+                    trace.append("rendu officiel: comptes-rendus="+str(len(targets))+
+                                 ", commande="+str(any(SUMMARY.fullmatch(v.strip()) for v in form_controls))+
+                                 ", condition="+access_notice(" ".join(rendered.xpath("//body//text()[not(ancestor::script or ancestor::style)]"))[:40000]))
+                    result_page = context.new_page()
+                    result_page.set_default_timeout(7500)
+                    navigate(result_page,targets[0] if len(set(targets))==1 else response.url)
+                    if len(set(targets))==1:
+                        direct_document = True
+                        break
+                    continue
                 if selected_session and "tous_comptes_existants" in messages and time.monotonic() - start_wait > 2:
                     for record in records:
                         record["slip_sync"] = "not_listed"
@@ -506,12 +547,14 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     const keep=/^(?:#?selectContexte|change|click|POST|GET|json|html|option:selected|selected|validerContexte|[A-Za-z_]{0,20}(?:contexte|context|session|examen|sousactivite)[A-Za-z_]{0,22})$/i;
                     for (const script of document.scripts) {
                         if (script.src || !/selectContexte/.test(script.textContent)) continue;
-                        if(script.textContent.includes(String.fromCharCode(96))) continue;
-                        const safe=script.textContent.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gs,v=>{
+                        const binding=script.textContent.match(/selectContexte[^;\n]{0,55}?\.change\s*\((?:function)?/i);
+                        if(!binding)continue;
+                        const scoped=script.textContent.slice(binding.index+binding[0].length);
+                        if(scoped.slice(0,1500).includes(String.fromCharCode(96)))continue;
+                        const safe=scoped.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gs,v=>{
                             const t=v.slice(1,-1); return keep.test(t) ? "'"+t+"'" : "'…'";
                         }).replace(/\/\*[\s\S]*?\*\//g,' ').replace(/\/\/[^\n]*/g,' ').replace(/\b\d{3,}\b/g,'N').replace(/\s+/g,' ');
-                        const m=safe.match(/.{0,50}selectContexte.{0,50}\.change\s*\(/i);
-                        if(m) return safe.slice(Math.max(0,m.index),m.index+1250);
+                        return safe.slice(0,960);
                     } return '';
                 }""")
                 if wiring:
