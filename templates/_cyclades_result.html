@@ -14,17 +14,32 @@
       <div><dt>{{ label }}</dt><dd>{{ record.details[label] }}</dd></div>
     {% endfor %}</dl>
     {% endif %}
-    <details class="cy-disclosure">
-      <summary>Voir le détail du dossier {{ icon('chevron-down') }}</summary>
+    <section class="cy-pieces" aria-label="Suivi des pièces justificatives">
+      <h4>Pièces justificatives</h4>
+      {% if record.documents %}
+      <table class="cy-table"><thead><tr><th>Pièce demandée</th><th>Dépôt candidat</th><th>Contrôle administratif</th></tr></thead>
+        <tbody>{% for piece in record.documents %}<tr><th scope="row">{{ piece.label }}</th><td>{{ piece.deposit or 'Non communiqué' }}</td><td>{{ piece.review or 'Non communiqué' }}</td></tr>{% endfor %}</tbody>
+      </table>
+      {% else %}<p>Le dépôt et le contrôle des pièces ne sont pas renseignés dans les données reçues.</p>{% endif %}
+    </section>
+    {% if record.exams %}
+    <details class="cy-disclosure"><summary>Épreuves et langues <span class="cy-count">{{ record.exams|length }}</span>{{ icon('chevron-down') }}</summary>
+      <table class="cy-table"><thead><tr><th>Épreuve</th><th>Inscription</th></tr></thead><tbody>
+        {% for label, value in record.exams.items() %}<tr><th scope="row">{{ label }}</th><td>{{ value }}</td></tr>{% endfor %}
+      </tbody></table>
+    </details>{% endif %}
+    <details class="cy-disclosure"><summary>Informations administratives {{ icon('chevron-down') }}</summary>
       <div class="cy-detail-body">
-        {% set other = record.details.items()|rejectattr('0', 'in', main_fields + ['Spécialité'])|list %}
-        {% if other %}<dl class="cy-facts">{% for label, value in other %}
-          <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
-        {% endfor %}</dl>{% endif %}
-        {% if record.exams %}<h4>Épreuves et langues</h4><dl class="cy-facts cy-exams">{% for label, value in record.exams.items() %}
-          <div><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
-        {% endfor %}</dl>{% endif %}
-        <p class="cy-source">{% if historical %}Dernière présence dans une liste{% elif record.origin == 'import' %}Import manuel{% else %}Liste officielle CYCLADES{% endif %}{% if record.seen %} · {{ record.seen }}{% endif %}</p>
+      {% set groups = [
+        ('Candidat', ['Nom de famille', 'Prénoms', 'Nom déclaré', 'Date de naissance', 'INE', 'E-mail déclaré']),
+        ('Inscription', ['Classe', 'Catégorie', 'Code spécialité', 'Forme de passage', 'VAE', 'Étalement de session autorisé', 'Situation à l’inscription', 'Version', 'Création dans CYCLADES', 'Modification dans CYCLADES']),
+        ('Établissement', ['Établissement d’inscription', 'UAI', 'Commune de l’établissement', 'Nature de l’établissement', 'Statut de l’établissement'])
+      ] %}
+      {% for title, fields in groups %}{% set available = fields|select('in', record.details)|list %}
+      {% if available %}<h4>{{ title }}</h4><dl class="cy-facts">{% for label in available %}
+        <div><dt>{{ label }}</dt><dd>{{ record.details[label] }}</dd></div>
+      {% endfor %}</dl>{% endif %}{% endfor %}
+      <p class="cy-source">{% if historical %}Dernière présence dans une liste{% elif record.origin == 'import' %}Import manuel{% else %}Liste officielle CYCLADES{% endif %}{% if record.seen %} · {{ record.seen }}{% endif %}</p>
       </div>
     </details>
   </article>

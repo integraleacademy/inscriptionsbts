@@ -95,3 +95,22 @@
   .cy-refs { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .cy-frequency { flex-basis: 100%; margin-left: 21px; }
 }
+.cy-record { padding-bottom: 3px; }
+.cy-refs { display: flex; flex-wrap: wrap; gap: 10px 30px; }
+.cy-pieces { margin: 16px 0 8px; padding: 12px 15px; border-radius: 8px; background: #f3f6fb; }
+.cy-pieces h4 { margin: 0; font-size: .92rem; }
+.cy-pieces p { margin: 5px 0 0; color: var(--cy-muted); font-size: .84rem; }
+.cy-disclosure { margin: 0; }
+.cy-disclosure summary { padding: 12px 0; justify-content: flex-start; }
+.cy-disclosure summary .ui-icon { margin-left: auto; }
+.cy-count { background: #edf2fa; padding: 1px 7px; border-radius: 12px; font-size: .75rem; }
+.cy-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: .83rem; text-align: left; }
+.cy-table th, .cy-table td { padding: 8px 4px; border-bottom: 1px solid var(--cy-line); vertical-align: top; }
+.cy-table th { font-weight: 550; }
+.cy-table thead th { color: var(--cy-muted); font-size: .76rem; }
+.cy-disclosure .cy-table th:first-child { width: 66%; }
+.cy-facts { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 20px; }
+@media(max-width:600px) {
+  .cy-facts { grid-template-columns: 1fr; }
+  .cy-pieces { padding: 10px; }
+}
