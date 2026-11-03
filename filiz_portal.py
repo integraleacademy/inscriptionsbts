@@ -140,8 +140,17 @@ def login(page, config):
             invalid = page.locator('input[aria-invalid=true]').first
             if alert.is_visible() or invalid.is_visible():
                 raise ReadError('FILIZ a refusé la connexion ou demande une vérification du compte école.')
-            # A redirect may still be rendering after submitting the preceding form.
-            school.wait_for(state='visible', timeout=20000)
+            if host == 'app.filiz.io' and (AUTH_HOST, True) in visited:
+                # The OAuth callback may leave the school login screen mounted.
+                page.goto(HOME+'/school', wait_until='commit', timeout=45000)
+                try:
+                    school.wait_for(state='visible', timeout=15000)
+                except BrowserError:
+                    if page.locator('input[name=email]').first.is_visible():
+                        raise ReadError('Après identification, FILIZ renvoie à la page de connexion sans ouvrir l’espace école.') from None
+                    raise
+            else:
+                school.wait_for(state='visible', timeout=20000)
             page.remove_listener('response', login_response)
             return
         visited.add(step)
@@ -152,7 +161,18 @@ def login(page, config):
                 raise ReadError('FILIZ présente un autre compte que le compte école configuré.')
         if has_password:
             password.fill(config['password'])
-        page.get_by_role('button', name='Continuer', exact=True).click()
+        submit = page.get_by_role('button', name='Continuer', exact=True)
+        try:
+            submit.click(timeout=12000)
+        except BrowserError as exc:
+            if 'intercepts pointer events' in str(exc):
+                # Consent is rendered asynchronously on a new session.
+                consent(page)
+                submit.click(timeout=6000)
+            elif submit.count() and submit.is_disabled():
+                raise ReadError('FILIZ laisse le bouton « Continuer » désactivé sur son formulaire de connexion.') from None
+            else:
+                raise
         # Do not confuse the already submitted form with the next screen.
         page.wait_for_function(r"""([host, pwd]) => location.hostname !== host ||
             [...document.querySelectorAll('a[href$="/school/folder"]')].some(e=>e.offsetWidth) ||
@@ -411,9 +431,12 @@ def school_browser(config, stored_session):
                             for field in ('email','username','password'):
                                 if page.locator('input[name='+field+']').first.is_visible():
                                     controls.append(field)
+                        reason = next((label for token, label in (
+                            ('intercepts pointer events','fenêtre devant le bouton'),('element is not enabled','bouton désactivé'),
+                            ('element is not visible','élément masqué')) if token in str(exc)), 'chargement')
                         logging.getLogger(__name__).warning(
-                            'FILIZ : délai à l’étape %s/%s (%s), formulaire=%s, session restaurée=%s.',
-                            stage, section, operation[0] if operation else type(exc).__name__,
+                            'FILIZ : délai à l’étape %s/%s (%s, %s), formulaire=%s, session restaurée=%s.',
+                            stage, section, operation[0] if operation else type(exc).__name__, reason,
                             ','.join(controls) or 'aucun', bool(state))
                         if state is None:
                             raise
