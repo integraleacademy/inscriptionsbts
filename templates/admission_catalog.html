@@ -1,13 +1,20 @@
-{% from 'ui_icons.html' import icon %}
-<section class="admission-catalog" id="choix-formation" aria-labelledby="catalog-title">
-  <header class="catalog-intro">
-    <p class="catalog-kicker">INTÉGRALE ACADEMY · {% if preview %}APERÇU ADMINISTRATEUR{% else %}CANDIDATURES{% endif %}</p>
-    <h1 id="catalog-title" tabindex="-1">Quelle formation souhaites-tu rejoindre&nbsp;?</h1>
-    <p>{% if preview %}Choisis une formation pour parcourir son formulaire en mode aperçu.{% else %}Choisis ta formation pour accéder à sa candidature et aux dates des sessions.{% endif %}</p>
+{% macro admission_card(title, image, description, status, href, id=none, available=false) %}
+<a class="admission-card" href="{{ href }}"{% if id %} id="{{ id }}"{% endif %}>
+  <img src="{{ url_for('static', filename=image) }}" width="480" height="255" alt="">
+  <div class="admission-card-copy"><h2>{{ title }}</h2><p>{{ description }}</p></div>
+  <span class="admission-status{% if available %} is-open{% endif %}">{{ status }}</span>
+</a>
+{% endmacro %}
+{% set opening_status = 'Ouverture le 1er décembre à 10 h' if scheduled else 'Candidatures fermées' %}
+<section class="admission-home" id="choix-formation" aria-labelledby="catalog-title">
+  <header class="home-intro">
+    <p class="home-kicker">INTÉGRALE ACADEMY · ADMISSIONS 2027</p>
+    <h1 id="catalog-title">Choisis ta <em>formation.</em></h1>
+    <p>Trois parcours en alternance. Découvre celui qui correspond à ton projet.</p>
   </header>
-  <nav class="catalog-families" aria-label="Choix de la formation">
-    <a id="titres-professionnels" href="{{ url_for('title_selection', preview=1) if preview else (url_for('title_selection') if admission_open else '#inscriptions-bts') }}">{{ icon('briefcase') }}<span>Titres professionnels <small>{{ 'Voir les titres et les sessions' if preview or admission_open else ('Ouverture le 1er décembre à 10 h' if scheduled else 'Candidatures fermées') }}</small></span>{{ icon('arrow') }}</a>
-    <a href="{{ url_for('security_application_preview' if preview else 'security_application') }}">{{ icon('shield') }}<span>Parcours sécurité en alternance <small>{{ 'Voir le formulaire' if preview else 'Candidatures ouvertes' }}</small></span>{{ icon('arrow') }}</a>
-    <a href="{{ '#application-guide' if request.endpoint == 'candidature' else (url_for('candidature', _anchor='application-guide') if admission_open else '#inscriptions-bts') }}">{{ icon('book') }}<span>BTS en alternance <small>{{ 'Voir les modalités d’ouverture' if request.endpoint == 'index' and not admission_open else 'Préparer mon dossier BTS' }}</small></span>{{ icon('arrow') }}</a>
+  <nav class="admission-grid" aria-label="Choix de la formation">
+    {{ admission_card('BTS en alternance', 'admissions/student-space-illustration.webp', 'Prépare ton diplôme en deux ans, à l’école à Puget-sur-Argens, Côte d’Azur, ou en ligne.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', available=admission_open) }}
+    {{ admission_card('Titres professionnels', 'admissions/company-space-illustration.webp', 'Forme-toi à un métier en présentiel à l’école à Puget-sur-Argens, Côte d’Azur.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#inscriptions-bts', id='titres-professionnels', available=admission_open) }}
+    {{ admission_card('Parcours sécurité en alternance', 'parcours-alternance/aps.webp', 'Prépare-toi à la surveillance de sites, à la protection rapprochée et à la sécurité incendie.', 'Candidatures ouvertes', url_for('security_application'), available=true) }}
   </nav>
 </section>
