@@ -131,7 +131,8 @@ def test_shell_selects_session_again_after_the_account_page_opens():
             assert page.locator("select").input_value() == "2027"
 
 
-def test_validated_portlet_can_reset_the_context_switch_without_reloading(student):
+@pytest.mark.parametrize("ajax", [False, True])
+def test_validated_portlet_can_reset_the_context_switch_without_reloading(student, ajax):
     from cyclades_slip_portal import read_account_slips
     binary = os.getenv("CYCLADES_CHROMIUM_EXECUTABLE")
     if not binary:
@@ -150,6 +151,10 @@ def test_validated_portlet_can_reset_the_context_switch_without_reloading(studen
             <script>setTimeout(()=>document.querySelector('#summary').hidden=false,350)</script>''',
         "/edition":'<a href="/fichier">Papillon de connexion</a>',
     }
+    if ajax:
+        pages[route] = f"""<span><select id="selectContexte" onchange="fetch('{validated}')">
+            <option value="">Choisir</option><option value="27">{session}</option></select></span>"""
+        pages[validated] = '<a href="/edition">Afficher le compte rendu</a>'
     calls = []
     record = parse_report(export(), "paris").records[0][-1]
     with sync_playwright() as pw, pw.chromium.launch(executable_path=binary) as browser:
