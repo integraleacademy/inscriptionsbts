@@ -1,24 +1,31 @@
+{% macro pathway(image, badge, title, description, action, glyph='arrow') %}
+  <span class="route-art">
+    <img src="{{ url_for('static', filename=image) }}" alt="" width="480" height="270" loading="lazy">
+    <span class="route-badge">{{ badge }}</span>
+  </span>
+  <span class="route-copy"><strong>{{ title }}</strong><span>{{ description }}</span></span>
+  <span class="route-action">{{ action }} <span>{{ icon(glyph) }}</span></span>
+{% endmacro %}
 <section class="route-picker" id="choix-formation" hidden aria-labelledby="catalog-title">
-  <div class="section-overline"><span>01</span> ORIENTATION</div>
-  <h2 id="catalog-title" tabindex="-1">Choisis ta formation</h2>
-    <p class="section-description">Sélectionne le parcours que tu souhaites rejoindre.</p>
-    <div class="route-options">
-      <button type="button" class="route-option route-bts" id="start-bts">
-        <span class="route-symbol">{{ icon('book') }}</span>
-        <strong>BTS en alternance</strong><span class="route-action">Choisir un BTS {{ icon('arrow') }}</span>
-      </button>
-      <a class="route-option route-titles" id="toggle-titles" href="#titres-professionnels" aria-expanded="false" aria-controls="titres-professionnels">
-        <span class="route-symbol">{{ icon('briefcase') }}</span>
-        <strong>Titres professionnels</strong><span class="route-action">Voir les titres et les sessions {{ icon('chevron-down') }}</span>
-      </a>
-      <a class="route-option route-security" href="{{ url_for('security_application_preview' if preview else 'security_application') }}">
-        <span class="route-symbol">{{ icon('shield') }}</span>
-        <strong>Parcours sécurité en alternance</strong><span class="route-action">Découvrir le parcours {{ icon('arrow') }}</span>
-      </a>
-    </div>
-    <section class="title-options" id="titres-professionnels" aria-labelledby="titles-heading">
-      <h3 id="titles-heading" tabindex="-1">Titres et sessions</h3>
-      {% include '_title_offers.html' %}
-    </section>
+  <header class="route-heading">
+    <p>INTÉGRALE ACADEMY <span>/</span> ORIENTATION</p>
+    <h2 id="catalog-title" tabindex="-1">Choisis ta <em>formation.</em></h2>
+    <p>Quel parcours souhaites-tu rejoindre ?</p>
+  </header>
+  <div class="route-options">
+    <button type="button" class="route-option route-bts" id="start-bts">
+      {{ pathway('admissions/student-space-illustration.webp', 'Diplôme', 'BTS en alternance', 'Choisis ta spécialité et partage ton temps entre les cours et l’entreprise.', 'Choisir un BTS') }}
+    </button>
+    <a class="route-option route-titles" id="toggle-titles" href="#titres-professionnels" aria-expanded="false" aria-controls="titres-professionnels">
+      {{ pathway('admissions/company-space-illustration.webp', 'Certification', 'Titres professionnels', 'Découvre les métiers proposés et les sessions ouvertes aux candidatures.', 'Voir les titres et les sessions', 'chevron-down') }}
+    </a>
+    <a class="route-option route-security" href="{{ url_for('security_application_preview' if preview else 'security_application') }}">
+      {{ pathway('parcours-alternance/aps.webp', 'Terrain', 'Parcours sécurité en alternance', 'Prépare l’APS, l’A3P et le SSIAP 1 en un an, entre le centre de formation et l’entreprise.', 'Ouvrir ma candidature') }}
+    </a>
+  </div>
+  <section class="title-options" id="titres-professionnels" aria-labelledby="titles-heading">
+    <h3 id="titles-heading" tabindex="-1">Titres et sessions</h3>
+    {% include '_title_offers.html' %}
+  </section>
   <button type="button" class="text-link" id="choice-back">← Revoir les pièces à préparer</button>
 </section>

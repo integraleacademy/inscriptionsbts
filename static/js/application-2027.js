@@ -228,6 +228,7 @@
       if (!panel.hidden) focusHeading(document.getElementById('titles-heading'), panel);
     });
     window.addEventListener('hashchange', () => {
+      if (location.hash === '#choix-formation') showChoice();
       if (location.hash === '#titres-professionnels') {
         showChoice(); toggleTitles(true); focusHeading(document.getElementById('titles-heading'), panel);
       }
@@ -277,5 +278,5 @@
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
   normalizeNames();conditional();if(distanceInfo)distanceInfo.open=value('mode')==='distanciel';nirFeedback();
-  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else if (titleJourney) show(0,false); else if (location.hash === '#titres-professionnels') showChoice(); else showGuide(false);
+  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else if (titleJourney) show(0,false); else if (['#choix-formation', '#titres-professionnels'].includes(location.hash)) showChoice(); else showGuide(false);
 })();
