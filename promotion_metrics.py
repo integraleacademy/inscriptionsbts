@@ -1,6 +1,6 @@
 """Read-only attached-contract indicator for confirmed students."""
 
-from wedof_contracts import directory_contracts
+from filiz_contracts import directory_contracts
 
 
 def annotate_promotion_metrics(app, conn, promotions):
@@ -12,7 +12,7 @@ def annotate_promotion_metrics(app, conn, promotions):
         return
     columns = {r[1] for r in conn.execute('PRAGMA table_info(candidats)')}
     optional = 'c.date_naissance' if 'date_naissance' in columns else 'NULL AS date_naissance'
-    rows = [dict(r) for r in conn.execute(f'''SELECT c.id,c.nom,c.prenom,c.email,{optional},s.promotion_id
+    rows = [dict(r) for r in conn.execute(f'''SELECT c.id,c.nom,c.prenom,c.bts,c.email,{optional},s.promotion_id
         FROM student_promotions s JOIN candidats c ON c.id=s.candidate_id
         WHERE c.statut IN (?,?)''', ENROLLED) if r['promotion_id'] in groups]
     directory_contracts(app, conn, rows)

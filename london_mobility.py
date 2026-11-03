@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 
 from flask import abort, flash, jsonify, redirect, request, send_file, session, url_for
 from candidate_messages import _equal
+from opco_sync import student_records
 from london_mobility_documents import VERSION, minor_at_signing, pdf_document, word_document
 from london_mobility_signatures import active_signature, register_signatures, signature_context, signature_schema
 
@@ -74,18 +75,14 @@ def schema(conn):
         conn.execute(sql)
 
 
-def contracts(conn, cid):
-    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name='student_wedof_contracts'").fetchone(): return []
-    result = []
-    for row in conn.execute('SELECT contract_id,payload FROM student_wedof_contracts WHERE candidate_id=? ORDER BY linked_at DESC', (cid,)):
-        item = json.loads(row['payload'])
-        if item.get('state') not in {'cancelled', 'broken', 'refused'}:
-            result.append({'id': row['contract_id'], **{k: v for k, v in item.items() if k != 'id'}})
-    return result
+def contracts(conn, row):
+    return [{'id':i['working_contract_id'],**{k:i.get(k) for k in (*EMPLOYER_FIELDS,'training_start','training_end',
+              'contract_start','contract_end','external_number','deca_number','state','state_label')}}
+            for i in student_records(conn,row) if i.get('state') not in {'cancelled','broken','refused'}]
 
 
 def source_values(conn, row, contract_id=''):
-    linked = contracts(conn, row['id'])
+    linked = contracts(conn, row)
     selected = next((c for c in linked if c['id'] == contract_id), None)
     if contract_id and selected is None:
         raise ValueError('Ce contrat n’est pas rattaché à ce candidat ou n’est plus actif.')
@@ -105,7 +102,7 @@ def source_values(conn, row, contract_id=''):
 def current_settings(conn, row):
     stored = conn.execute('SELECT * FROM london_mobility_settings WHERE candidate_id=?', (row['id'],)).fetchone()
     saved = json.loads(stored['payload']) if stored else {}
-    linked = contracts(conn, row['id'])
+    linked = contracts(conn, row)
     chosen = saved.get('contract_id', linked[0]['id'] if len(linked) == 1 else '')
     warning = ''
     try:
@@ -132,7 +129,7 @@ def snapshot(row, values, selected):
 def source_fingerprint(conn, row):
     values, _ = source_values(conn, row)
     identity = {k: row.get(k) for k in ('id','prenom','nom','mode','date_naissance','sexe','resp_nom','resp_prenom','email','resp_email')}
-    return digest({'candidate': identity, 'contracts': contracts(conn, row['id']), 'company': values})
+    return digest({'candidate': identity, 'contracts': contracts(conn, row), 'company': values})
 
 
 def validate(raw, row, selected, complete=False):

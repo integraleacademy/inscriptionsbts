@@ -16,7 +16,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   const w = dom.window, calls = [];
   w.fetch = async (url, options) => {
     calls.push({url, options});
-    return {ok: true, json: async () => options.method === 'GET'
+    return {ok: true, json: async () => (options.method || 'GET') === 'GET'
       ? {ok: true, configured: true, has_contracts: false, html: '<button data-wc-detect>Rechercher maintenant</button>'}
       : {ok: true, pending: false, items: [], message: 'Recherche manuelle terminée.'}};
   };
@@ -27,7 +27,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   panel.hidden = false;
   await tick(); await tick();
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].options.method, 'GET');
+  assert.equal(calls[0].options.method || 'GET', 'GET');
   assert.equal(calls[0].url, '/admin/candidat/alice/contrats-apprentissage');
   panel.hidden = true;
   await tick();
@@ -36,11 +36,7 @@ const tick = () => new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.length, 1, 'Reopening the tab must not start WEDOF discovery');
   panel.querySelector('[data-wc-detect]').click();
   await tick();
-  assert.equal(calls.length, 2);
-  assert.equal(calls[1].url, '/admin/candidat/alice/contrats-apprentissage/detecter');
-  assert.equal(calls[1].options.method, 'POST');
-  assert.equal(calls[1].options.headers['X-CSRF-Token'], 'test-csrf');
-  assert.deepEqual(JSON.parse(calls[1].options.body), {manual: true, origin: 'interactive'});
+  assert.equal(calls.length, 1, 'An old discovery button must never call another provider.');
   dom.window.close();
-  console.log('Candidate WEDOF UI: saved-data-only tab opening and explicit manual discovery passed.');
+  console.log('FILIZ contract tab reads saved data and ignores retired discovery actions.');
 })().catch(error => {console.error(error); process.exitCode = 1;});

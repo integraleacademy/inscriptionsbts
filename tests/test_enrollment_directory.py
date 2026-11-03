@@ -1,4 +1,4 @@
-"""The filtered directory and its KPIs use verified WEDOF links and portraits."""
+"""The filtered directory and its KPIs use verified FILIZ contracts and portraits."""
 import hashlib
 from html import unescape
 import io
@@ -14,7 +14,7 @@ import pytest
 
 from test_admissions_2027 import application, auth, client, seed
 from test_campus_workspace import campus
-from wedof_contracts import discovery_fingerprint
+from filiz_fixtures import complete, contract
 
 
 def kpis(html):
@@ -32,12 +32,8 @@ def directory(campus, monkeypatch):
         conn.execute("UPDATE candidats SET bts='MOS' WHERE id IN ('unknown','pending-contract')")
         conn.execute("UPDATE candidats SET label_carte_etudiante=1 WHERE id='remote'")
         for contract_id, state in [('new', 'pendingAcceptation'), ('old', 'broken')]:
-            conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)',
-                         (contract_id, 'pending-contract', json.dumps({'state': state}), 1, 'now'))
-        row = dict(conn.execute("SELECT * FROM candidats WHERE id='onsite'").fetchone())
-        fingerprint = discovery_fingerprint(row, hashlib.sha256(b'synthetic-key-never-sent').hexdigest())
-        conn.execute('INSERT INTO student_wedof_discovery VALUES(?,?,?,?)',
-                     ('onsite', fingerprint, json.dumps({'step': 'done', 'items': [], 'not_found': True, 'incomplete': False}), time.time()))
+            contract(conn,'pending-contract',contract_id,state=state)
+        complete(conn)
     return client
 
 
@@ -79,8 +75,7 @@ def test_discovery_scope_uses_other_filters_before_contract_filter(directory):
 def test_a_link_appears_immediately_and_multiple_contracts_count_one_student(directory):
     assert kpis(directory.get('/admin/inscriptions').text)['with_contract'] == 2
     with application.db() as conn:
-        conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)',
-                     ('found', 'unknown', json.dumps({'state': 'accepted'}), time.time(), 'now'))
+        contract(conn,'unknown','found')
     data = directory.get('/admin/inscriptions/donnees?contract=yes').json
     assert kpis(data['stats_html'])['with_contract'] == 3
     assert 'data-enrollment-id="unknown"' in data['rows_html']

@@ -9,7 +9,7 @@ from docx import Document
 
 from test_admissions_2027 import application, auth, client, seed
 from london_mobility import london_context, schema
-from wedof_contracts import ensure_schema as wedof_schema
+from filiz_fixtures import account, contract
 
 
 @pytest.fixture
@@ -141,16 +141,15 @@ def test_generation_failure_rolls_back_and_concurrent_save_is_rejected(london, m
 
 def test_prepopulation_selects_only_attached_contract_and_dates_are_checked(london):
     with application.db() as conn:
-        wedof_schema(conn)
+        account(conn)
         payload = {'state':'accepted','employer_name':'Employeur OPCO','employer_siret':'12345678901234',
                    'employer_address':'1 rue du Contrat','employer_postcode':'69001','employer_city':'Lyon',
                    'training_start':'2026-09-01','training_end':'2028-08-31'}
-        values = {'contract_id':'123','candidate_id':'london','payload':json.dumps(payload),'checked_at':1,'linked_at':1,'error':''}
-        conn.execute('INSERT INTO student_wedof_contracts (' + ','.join(values) + ') VALUES(' + ','.join('?' for _ in values) + ')', tuple(values.values()))
+        contract(conn,'london','123',**payload)
     page = london.get('/admin/candidat/london').text
     assert 'Employeur OPCO' in page and '1 rue du Contrat' in page
     assert post(london, data(london, contract_id='foreign')).status_code == 400
-    assert post(london, data(london, contract_id='123',mobility_start='2029-11-08',mobility_end='2029-11-12')).status_code == 400
+    assert post(london, data(london, contract_id='filiz-123',mobility_start='2029-11-08',mobility_end='2029-11-12')).status_code == 400
     assert not versions()
 
 

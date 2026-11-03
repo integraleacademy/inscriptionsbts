@@ -1,3 +1,5 @@
+> Archive technique. La plateforme utilise désormais uniquement FILIZ pour les contrats d’apprentissage. La configuration active se trouve dans les paramètres, rubrique FILIZ.
+
 # Contrats d’apprentissage dans les fiches étudiantes
 
 Une seule vérification automatique démarre chaque jour à **8 h, heure de Paris**,

@@ -70,56 +70,38 @@ def test_pages_and_credential_destinations():
             endpoint('ep','api',url)
 
 
-def test_monitor_manual_daily_cache_and_contract_view(tmp_path):
-    app = Flask(__name__, template_folder=str(Path(__file__).resolve().parents[1]/'templates'))
+def test_only_filiz_survives_upgrade_and_obsolete_routes_are_closed(tmp_path):
+    from filiz_contracts import register_filiz_contracts
+    from opco_sync import schema
+    app = Flask(__name__)
     app.testing = True
-    app.secret_key = 'a-long-test-secret-not-a-real-account'
+    app.secret_key = 'a-long-test-secret-for-upgrade'
     def db():
         conn = sqlite3.connect(tmp_path/'test.sqlite')
         conn.row_factory = sqlite3.Row
         return conn
     with db() as conn:
-        conn.executescript("""CREATE TABLE candidats(id TEXT, nom TEXT, prenom TEXT, date_naissance TEXT, bts TEXT);
-          INSERT INTO candidats VALUES('A','Exemple','Eve','2005-05-01','MOS'),('B','Autre','Eve','2005-05-01','MCO'),('C','Exemple','Eve','2005-05-01','TP TEST');""")
-    auth = lambda:session.get('admin_ok')
-    app.add_url_rule('/admin/parametres', endpoint='admin_settings', view_func=lambda:'')
-    register_wedof_contracts(app,db,auth)
-    register_akto(app,db,auth,tmp_path)
-    register_opcos(app,db,auth,tmp_path)
-    client = app.test_client()
-    url = '/admin/parametres/opco/opcommerce'
-    assert client.post(url, data={'action':'sync'}).status_code == 403
-    with client.session_transaction() as s:
-        s.update(admin_ok=True,_planning_csrf='csrf')
-    def action(name, **fields):
-        return client.post(url, data={'action':name,'csrf_token':'csrf',**fields})
-    assert action('connect',key='secret-cfa',client_id='test',client_secret='secret-client',api='https://api.lopcommerce.com',token='https://auth.lopcommerce.com/token').status_code == 303
-    calls = []
-    api = FixtureAPI({'1':raw('1')})
-    def reader(provider,config,people,since,prior):
-        calls.append((since,[p['id'] for p in people]))
-        if len(calls)==3:
-            raise ReadError('Portail indisponible.')
-        return read_contracts(provider,config,people,since,prior,lambda *_:api)
-    def run(hour):
-        tick(app,db,tmp_path,'opcommerce',datetime(2026,11,4,hour,tzinfo=PARIS),reader)
-    run(3); run(4); run(5); run(8)
-    assert calls == [('', ['A','B']), ('2026-11-03',['A','B'])]
-    action('sync'); run(11)
+        schema(conn)
+        conn.executescript("""INSERT INTO opco_accounts(provider,credential) VALUES('ep','old-key');
+            CREATE TABLE student_wedof_settings(name TEXT,value TEXT);
+            INSERT INTO student_wedof_settings VALUES('api_key','old-key');
+            CREATE TABLE akto_connection(id INTEGER,credential BLOB,requested INTEGER,state TEXT);
+            INSERT INTO akto_connection VALUES(1,'old-key',1,'pending');
+            UPDATE opco_accounts SET credential=x'31',succeeded='hier' WHERE provider='filiz';
+            INSERT INTO filiz_session VALUES(1,x'32');""")
+    register_filiz_contracts(app,db,lambda: True)
+    register_opcos(app,db,lambda:True,tmp_path)
     with db() as conn:
-        assert conn.execute("SELECT state FROM opco_accounts WHERE provider='opcommerce'").fetchone()[0] == 'error'
-        assert b'secret-cfa' not in conn.execute("SELECT credential FROM opco_accounts WHERE provider='opcommerce'").fetchone()[0]
-        item = student_records(conn,dict(conn.execute("SELECT * FROM candidats WHERE id='A'").fetchone()))[0]
-        assert item['read_warning']
-    html = client.get('/admin/candidat/A/contrats-apprentissage').json['html']
-    assert 'Données L’Opcommerce' in html and 'data-wc-panel="schedule"' in html and 'F1' in html
-    assert 'Données WEDOF' not in html and 'data-wc-unlink' not in html
-    with db() as conn:
-        conn.execute("UPDATE candidats SET date_naissance='2000-01-01' WHERE id='A'")
-    assert 'Données L’Opcommerce' not in client.get('/admin/candidat/A/contrats-apprentissage').json['html']
-    action('disconnect')
-    with db() as conn:
-        assert conn.execute('SELECT count(*) FROM opco_contracts').fetchone()[0] == 0
+        assert [tuple(r) for r in conn.execute('SELECT provider,credential,succeeded FROM opco_accounts')]==[('filiz',b'1','hier')]
+        assert conn.execute('SELECT payload FROM filiz_session').fetchone()[0]==b'2'
+        assert conn.execute("SELECT count(*) FROM student_wedof_settings WHERE name='api_key'").fetchone()[0]==0
+        assert tuple(conn.execute('SELECT credential,requested FROM akto_connection').fetchone())==(None,0)
+    client=app.test_client()
+    for path in ['/admin/parametres/akto','/admin/api/wedof/settings','/admin/parametres/wedof/synchroniser',
+                 '/admin/candidat/demo/contrats-apprentissage/detecter','/admin/parametres/opco/opcommerce',
+                 '/admin/parametres/opco/mobilites','/admin/parametres/opco/ep']:
+        assert client.post(path).status_code==404
+    assert client.post('/admin/parametres/opco/filiz').status_code==403
 
 
 def test_read_only_api_headers_and_token_destination(monkeypatch):

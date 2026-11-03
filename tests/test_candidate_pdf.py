@@ -10,7 +10,7 @@ from pypdf import PdfReader
 from candidate_photos import load_candidate_portrait
 from test_admissions_2027 import application, auth, client, payload, seed
 from test_promotion_metrics import contract
-from wedof_contracts import ensure_schema as ensure_wedof_schema
+from filiz_fixtures import account
 
 
 def printed(client, cid):
@@ -43,7 +43,7 @@ def test_submitted_answers_photo_crop_and_linked_contract_reach_pdf(client, monk
         cv_name = Path(json.loads(row['fichiers_cv'])[0]).name
         conn.execute('UPDATE candidats SET verif_docs=?,label_carte_etudiante=1 WHERE id=?',
                      (json.dumps({cv_name: {'etat': 'conforme'}}), cid))
-        ensure_wedof_schema(conn)
+        account(conn)
         contract(conn, cid, employer_name='Entreprise témoin', deca_number='DECA123')
         conn.commit()
     auth(client)

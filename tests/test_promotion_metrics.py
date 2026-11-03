@@ -7,7 +7,7 @@ import pytest
 from promotion_metrics import annotate_promotion_metrics
 from promotions import assign_candidate_promotion, list_promotions
 from test_promotions import db, web, group, student
-from wedof_contracts import discovery_fingerprint, ensure_schema
+from filiz_fixtures import account, contract
 
 @pytest.fixture
 def metrics_db(db, monkeypatch):
@@ -18,7 +18,7 @@ def metrics_db(db, monkeypatch):
         conn.execute('ALTER TABLE candidats ADD COLUMN date_naissance TEXT')
         conn.execute('CREATE TABLE companies(id TEXT PRIMARY KEY,active INTEGER)')
         conn.execute('CREATE TABLE company_students(candidate_id TEXT,company_id TEXT,start_date TEXT,end_date TEXT)')
-        ensure_schema(conn)
+        account(conn)
         group(conn)
         group(conn, 'other')
         group(conn, 'empty', active=0)
@@ -30,15 +30,6 @@ def member(conn, cid, declared=None, status='confirmee', pid='group-one'):
     conn.execute('UPDATE candidats SET entreprise_trouvee=? WHERE id=?', (declared, cid))
     if pid:
         assign_candidate_promotion(conn, cid, pid)
-
-
-def contract(conn, cid, **changes):
-    item = dict(state='accepted', employer_name='Entreprise exemple',
-                contract_start='2026-09-01', contract_end='2028-08-31')
-    item.update(changes)
-    index = conn.execute('SELECT COUNT(*) FROM student_wedof_contracts').fetchone()[0]
-    conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at) VALUES(?,?,?,?,?)',
-                 (str(index + 1), cid, json.dumps(item), 1, 'now'))
 
 
 def metrics(conn, app):
@@ -54,10 +45,6 @@ def test_counts_deduplicate_contracts_and_exclude_non_enrolled_or_other_groups(m
         contract(conn, 'declared', state='broken')
         member(conn, 'searching', 'non')
         member(conn, 'not-found')
-        row = dict(conn.execute("SELECT * FROM candidats WHERE id='not-found'").fetchone())
-        fingerprint = discovery_fingerprint(row, hashlib.sha256(b'').hexdigest())
-        conn.execute('INSERT INTO student_wedof_discovery VALUES(?,?,?,?)',
-                     ('not-found', fingerprint, json.dumps(dict(step='done', not_found=True, items=[], incomplete=False)), 1))
         member(conn, 'future-company')
         conn.execute("INSERT INTO companies VALUES('company',0)")
         conn.execute("INSERT INTO company_students VALUES('future-company','company','2026-11-01','2028-08-31')")
@@ -65,7 +52,7 @@ def test_counts_deduplicate_contracts_and_exclude_non_enrolled_or_other_groups(m
         contract(conn, 'draft', state='draft')
         member(conn, 'invalid')
         contract(conn, 'invalid')
-        conn.execute("UPDATE student_wedof_contracts SET payload='not-json' WHERE candidate_id='invalid'")
+        conn.execute("UPDATE opco_contracts SET payload='not-json' WHERE candidate_id='invalid'")
         member(conn, 'expired', status='reconfirmee')
         contract(conn, 'expired', contract_end='2026-10-29')
         member(conn, 'cancelled', 'oui', status='annulee')

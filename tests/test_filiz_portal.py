@@ -5,11 +5,11 @@ from pathlib import Path
 import sqlite3
 
 from flask import Flask, session
-from akto_sync import PARIS, register_akto
+from opco_sync import PARIS, same_contract
 from filiz_portal import due_row, iso
 from opco_sync import register_opcos, tick
 from training_programs import BTS_LABELS
-from wedof_contracts import billing, register_wedof_contracts, same_contract
+from filiz_contracts import billing, register_filiz_contracts
 
 
 def test_period_and_invoice_amounts():
@@ -40,8 +40,7 @@ def test_filiz_account_all_bts_views_and_cache(tmp_path,monkeypatch):
         conn.commit()
     auth=lambda:session.get('admin_ok')
     app.add_url_rule('/admin/parametres',endpoint='admin_settings',view_func=lambda:'')
-    register_wedof_contracts(app,db,auth)
-    register_akto(app,db,auth,tmp_path)
+    register_filiz_contracts(app,db,auth)
     register_opcos(app,db,auth,tmp_path)
     client=app.test_client()
     with client.session_transaction() as s:
@@ -62,7 +61,7 @@ def test_filiz_account_all_bts_views_and_cache(tmp_path,monkeypatch):
         return {'abc':('PI',item)},set(),{'abc'}
     monkeypatch.setattr('opco_sync.read_filiz',read)
     for hour in [4,5,6]:
-        tick(app,db,tmp_path,'filiz',datetime(2026,11,4,hour,tzinfo=PARIS))
+        tick(app,db,tmp_path,datetime(2026,11,4,hour,tzinfo=PARIS))
     assert calls==[None,{'cookies':[],'origins':[]}]
     with closing(db()) as conn:
         assert b'cookies' not in conn.execute('SELECT payload FROM filiz_session').fetchone()[0]

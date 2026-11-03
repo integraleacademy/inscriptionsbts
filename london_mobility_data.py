@@ -59,7 +59,7 @@ def automatic_data(conn, row, *, convention_date=None):
                 issue('L’entreprise rattachée est désactivée.', company_url, 'Ouvrir l’entreprise')
             if (company.get('link_start') or '') > values['mobility_start'] or (company.get('link_end') and company['link_end'] < values['mobility_end']):
                 issue('Le rattachement à l’entreprise ne couvre pas les dates du séjour.', company_url, 'Vérifier le rattachement')
-    linked = contracts(conn, cid)
+    linked = contracts(conn, row)
     eligible = [c for c in linked if (not c.get('contract_start') or c['contract_start'] <= values['mobility_start'])
                 and (not c.get('contract_end') or c['contract_end'] >= values['mobility_end'])]
     if company.get('siret'):

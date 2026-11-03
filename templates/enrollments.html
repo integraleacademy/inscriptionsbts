@@ -3,12 +3,12 @@
 {% block body_class %}enrollments-page{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/enrollments.css') }}?v=3">{% endblock %}
 {% block content %}
-<div class="campus-page" data-enrollments data-wedof-csrf="{{ wedof_csrf() }}" data-csrf="{{ campus_csrf() }}">
+<div class="campus-page" data-enrollments data-csrf="{{ campus_csrf() }}">
 <header class="campus-heading"><div><p class="eyebrow">LA VIE DE L’ÉCOLE</p><h1>Les inscriptions<span>.</span></h1><p>Tous les étudiants confirmés et re-confirmés, toutes rentrées confondues.</p></div><a class="btn" href="/admin">Voir les candidatures →</a></header>
 <div data-enrollment-stats>{% include '_enrollment_stats.html' %}</div>
 <p class="campus-muted campus-stats-caption">Tous les indicateurs correspondent aux filtres appliqués.</p>
 <div class="campus-contract-sync">
-  <div><strong>Contrats d’apprentissage</strong><p data-contract-feedback role="status" aria-live="polite">{% if not wedof_configured %}Connectez WEDOF dans les paramètres pour vérifier les contrats manquants.{% else %}Vérification automatique chaque jour à 8 h, heure de Paris. Cette liste affiche les dernières informations enregistrées.{% endif %}</p></div>
+  <div><strong>Contrats d’apprentissage</strong><p data-contract-feedback role="status" aria-live="polite">{% if not filiz_configured %}Connectez le <a href="/admin/parametres#opco-filiz">compte école FILIZ</a> pour vérifier les contrats.{% else %}Lecture FILIZ chaque jour à 5 h, heure de Paris. Cette liste affiche les dernières informations enregistrées.{% endif %}</p></div>
   <button class="btn" type="button" data-check-contracts>Actualiser l’affichage</button>
 </div>
 <form class="campus-filters" method="get"><label class="campus-search">Rechercher un étudiant<input name="q" type="search" value="{{ filters.q }}" placeholder="Nom, prénom, e-mail ou dossier…"></label><label>Formation<select name="bts"><option value="">Toutes les formations</option>{% for b in training_choices() %}<option value="{{ b }}" {% if filters.bts==b %}selected{% endif %}>{{ program_name(b) }}</option>{% endfor %}</select></label><label>Modalité<select name="mode"><option value="">Toutes</option>{% for k,v in [('presentiel','En présentiel'),('distanciel','En distanciel')] %}<option value="{{ k }}" {% if filters.mode==k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label><label>Promotion<select name="promotion"><option value="">Toutes les promotions</option><option value="none" {% if filters.promotion=='none' %}selected{% endif %}>Sans promotion</option>{% for p in promotions %}<option value="{{ p.id }}" {% if filters.promotion==p.id %}selected{% endif %}>{{ p.nom }}</option>{% endfor %}</select></label><label>Apprentissage<select name="contract"><option value="">Tous</option>{% for k,v in [('yes','Avec contrat'),('no','Sans contrat identifié'),('linked','À vérifier')] %}<option value="{{ k }}" {% if filters.contract==k %}selected{% endif %}>{{ v }}</option>{% endfor %}</select></label><label>Rentrée<input type="number" name="rentree" min="2000" max="2100" placeholder="Toutes" value="{{ filters.rentree }}"></label><label>Carte étudiante<select name="carte_etudiante_manquante"><option value="">Toutes</option><option value="1" {% if filters.carte_etudiante_manquante %}selected{% endif %}>Carte manquante</option></select></label><button class="btn primary">Filtrer</button><a class="btn" href="/admin/inscriptions">Réinitialiser</a></form>
@@ -19,7 +19,7 @@
   <span><i class="cyclades-dot cyclades-dot-red" aria-hidden="true"></i>À vérifier</span>
 </div>
 <div class="campus-table-wrap"><table class="campus-table"><thead><tr><th><input type="checkbox" data-select-all aria-label="Sélectionner tous les étudiants affichés"></th><th>Étudiant</th><th>Formation & modalité</th><th>Apprentissage</th><th class="enrollment-cyclades-col">Cyclades</th><th>Promotion</th><th></th></tr></thead><tbody data-enrollment-rows>{% include '_enrollment_rows.html' %}</tbody></table></div>
-<p class="campus-muted">« Avec contrat » compte les étudiants ayant un contrat WEDOF rattaché, quel que soit son état ; cet état reste précisé dans la liste. « Sans contrat identifié » correspond à une recherche terminée sans résultat. Les recherches incomplètes ou indisponibles restent « À vérifier ».</p>
+<p class="campus-muted">« Avec contrat » compte les étudiants ayant un contrat FILIZ rattaché, quel que soit son état. « Sans contrat identifié » correspond à une recherche terminée sans résultat. Les recherches incomplètes ou indisponibles restent « À vérifier ».</p>
 <script type="application/json" data-contract-discovery>{{ discovery|tojson }}</script>
-</div><script src="{{ url_for('static',filename='js/campus.js') }}?v=3" defer></script>
+</div><script src="{{ url_for('static',filename='js/campus.js') }}?v=4" defer></script>
 {% endblock %}

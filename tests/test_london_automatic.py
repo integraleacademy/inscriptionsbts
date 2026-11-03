@@ -10,7 +10,7 @@ from test_london_mobility import data, versions, post
 from company_portal import ensure_company_schema
 from london_mobility_data import automatic_data, mobile
 from london_mobility_signatures import SignatureError
-from wedof_contracts import ensure_schema as wedof_schema
+from filiz_fixtures import account, contract
 
 
 @pytest.fixture
@@ -162,11 +162,10 @@ def test_tampered_sms_authentication_or_phone_blocks_archiving(automatic,signing
 
 def test_contracts_are_scoped_and_match_company(automatic,signing):
     with application.db() as conn:
-        wedof_schema(conn)
+        account(conn)
         payload={'state':'accepted','employer_name':'Unrelated','employer_siret':'99999999999999','employer_address':'Ailleurs'}
-        conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at,error) VALUES(?,?,?,?,?,?)',('other','other',json.dumps(payload),1,1,''))
         assert resolve()['ready']
-        conn.execute('INSERT INTO student_wedof_contracts(contract_id,candidate_id,payload,checked_at,linked_at,error) VALUES(?,?,?,?,?,?)',('conflict','london',json.dumps(payload),1,1,''))
+        contract(conn,'london','conflict',**payload)
     assert send_auto(automatic).status_code==422 and not signing.calls
 
 

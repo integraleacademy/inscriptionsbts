@@ -16,7 +16,7 @@ from candidate_email_history import archived_body, history as candidate_email_hi
 from candidate_csv_import import register_candidate_import
 from candidate_creation import register_candidate_creation
 from candidate_pdf import application_pdf
-from wedof_contracts import directory_contracts
+from filiz_contracts import directory_contracts
 from candidate_statuses import annotate_candidate_statuses, EMPLOYMENT_STATUS
 from candidate_workflows import register_candidate_workflows
 from candidate_documents import DOC_FIELDS, load_verif_docs, register_candidate_documents, document_preview_response
@@ -115,13 +115,16 @@ def run_startup_integrity_checks():
         "static/js/candidate-photo.js",
         "static/css/candidate-editor.css",
         "candidate_workflows.py",
-        "wedof_contracts.py",
+        "filiz_contracts.py",
+        "filiz_portal.py",
+        "opco_sync.py",
+        "contract_display.py",
         "wedof_contract_data.py",
         "templates/_wedof_contracts_panel.html",
         "templates/_wedof_contracts_list.html",
-        "templates/_wedof_contract_preview.html",
+        "templates/_filiz_empty.html",
         "static/js/wedof-contracts.js",
-        "static/js/wedof-settings.js",
+        "templates/_opco_settings.html",
         "static/css/wedof-contracts.css",
         "trainer_access.py",
         "teaching.py",
@@ -1101,10 +1104,8 @@ register_admin_trainer_planning(app, db, require_admin)
 register_planning_sync(app, db, require_admin)
 from cyclades import register_cyclades, sheet_status as cyclades_sheet_status
 register_cyclades(app, db, require_admin, DATA_DIR)
-from wedof_contracts import register_wedof_contracts
-register_wedof_contracts(app, db, require_admin)
-from akto_sync import register_akto
-register_akto(app, db, require_admin, DATA_DIR)
+from filiz_contracts import register_filiz_contracts
+register_filiz_contracts(app, db, require_admin)
 from opco_sync import register_opcos
 register_opcos(app, db, require_admin, DATA_DIR)
 from teaching import register_teaching
@@ -3571,8 +3572,6 @@ if __name__ == "__main__":
     # child as soon as it boots, so reminders do not depend on website visits.
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
         app.extensions['teaching_start_reminders']()
-        app.extensions['wedof_start_daily_sync']()
-        app.extensions['akto_start']()
         app.extensions['opco_start']()
         app.extensions['cyclades_start']()
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -32,7 +32,7 @@ function setup({queue = ['alpha'], failure = false} = {}) {
   assert.equal(c.calls.length, 1);
   assert.equal(c.calls[0].url, '/admin/inscriptions/donnees?mode=distanciel&contract=yes');
   assert.equal(c.calls[0].options.method, undefined);
-  assert.match(c.w.document.querySelector('[data-contract-feedback]').textContent, /chaque jour à 8 h/);
+  assert.match(c.w.document.querySelector('[data-contract-feedback]').textContent, /chaque jour à 5 h/);
   assert.equal(c.w.document.querySelector('[data-kpi="with_contract"]').textContent, '1');
   assert.equal(c.w.document.querySelector('[data-select-student]').checked, true);
   assert.equal(c.w.document.querySelector('[data-enrollment-id="alpha"] select').value, 'p2');
