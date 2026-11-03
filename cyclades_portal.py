@@ -148,8 +148,20 @@ def open_establishment(page, academy, credentials):
                 if not credentials.get("birthdate"):
                     raise CycladesError("Nice demande la date de vérification du titulaire du compte.")
                 submit_login(page, idp, {"j_password": credentials["birthdate"]})
-        page.wait_for_url(re.compile(r"^https://" + re.escape(urlsplit(portal).hostname) + r"(?=[:/])"),
-                          wait_until="domcontentloaded", timeout=45000)
+        portal_url = re.compile(r"^https://" + re.escape(urlsplit(portal).hostname) + r"(?=[:/])")
+        try:
+            page.wait_for_url(portal_url, wait_until="domcontentloaded", timeout=45000)
+        except BrowserTimeout:
+            if academy != "nice" or official(page.url):
+                raise
+            # A dropped redirect can leave Chromium on its network-error document.
+            # Check the existing SSO session once, without resubmitting credentials.
+            navigate(page, portal)
+            page.wait_for_url(portal_url, wait_until="domcontentloaded", timeout=12000)
+            page.get_by_role("heading", name=re.compile("Je me connecte", re.I)).first.wait_for(
+                state="hidden", timeout=2500)
+            if urlsplit(page.url).hostname != urlsplit(portal).hostname:
+                raise CycladesError("Nice demande une nouvelle authentification après une interruption réseau.")
     for _ in range(2):
         with portal_step(page, "L’espace établissement CYCLADES ne s’est pas ouvert"):
             navigate(page, hub)
@@ -548,7 +560,10 @@ def read_academy(academy, credentials, known=()):
                         route.abort()
                 context.route("**/*", route_official)
                 context.on("response", lambda r: resource_failure(r.request, "HTTP " + str(r.status)) if r.status >= 400 else None)
-                context.on("requestfailed", lambda r: resource_failure(r, "requête interrompue"))
+                def request_failed(req):
+                    reason = re.search(r"\bERR_[A-Z_]+\b", req.failure or "")
+                    resource_failure(req, reason.group(0) if reason else "requête interrompue")
+                context.on("requestfailed", request_failed)
                 page = context.new_page()
                 page.set_default_timeout(45000)
                 # Refusals on a redirected main document otherwise look like a missing HTML field.
