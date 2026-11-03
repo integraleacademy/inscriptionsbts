@@ -15,47 +15,50 @@ SUMMARY = re.compile(r"^(?:Afficher|Consulter|Voir)\s+(?:le |les )?comptes?[\s-]
 DOCUMENT = re.compile(r"papillons?\s*(?:d['’]\s*)?informations?\s*(?:de\s*)?connexion\s*(?:cyclades)?", re.I)
 
 
-def open_accounts_menu(shell, *, alternate=False):
-    # The same activity is offered under Inscription and Mon établissement.
-    # Open its actual branch before activating the leaf (a hidden shell link
-    # can open only the context selector instead of the activity).
+def route_label(url):
+    # Static portlet names only, never a query, token or candidate identifier.
+    return "/".join(x for x in urlsplit(url).path.split("/") if
+                    re.fullmatch(r"[A-Za-z][A-Za-z_.-]{0,70}", x))[:140]
+
+
+def open_accounts_menu(shell, trace, *, alternate=False):
+    from cyclades_portal import CENTRAL, navigate, official
+    entries = []
     for frame in shell.frames:
-        if urlsplit(frame.url).hostname != urlsplit(shell.url).hostname:
+        if urlsplit(frame.url).hostname != CENTRAL:
             continue
-        labels = frame.get_by_text(ACTIVITY)
-        eligible = []
-        for leaf in labels.all():
-            info = leaf.evaluate("""e => ({
-                nav: !e.closest('button,input[type=submit]') && (!e.closest('form') ||
-                     !!e.closest('nav,aside,a,li,[role=menuitem]')),
-                inscription: !!e.closest('#ETABLISSEMENT_INSCRIPTION') ||
-                  !!e.closest('li:has(> #ETABLISSEMENT_INSCRIPTION)'),
-            })""")
-            if info["nav"]:
-                eligible.append((not info["inscription"], leaf))
-        if not eligible:
-            continue
-        eligible.sort(key=lambda item: item[0], reverse=alternate)
-        leaf = eligible[0][1]
-        if alternate and len(eligible)>1 and eligible[0][0] == eligible[-1][0]:
-            leaf = eligible[-1][1]
-        if not leaf.is_visible():
-            # Walk menu groups only, never the generation form.
-            parents = leaf.locator("xpath=ancestor::li[ul]/*[self::a or self::button][1]").all()
-            for toggle in parents:
-                if leaf.is_visible():
-                    break
-                if toggle.is_visible() and toggle.get_attribute("aria-expanded") != "true":
-                    toggle.click(timeout=2000)
-        link = leaf.locator("xpath=ancestor-or-self::a[1]")
-        action = link if link.count() == 1 else leaf
-        if action.is_visible():
-            action.click()
-        else:
-            action.evaluate("e => e.click()")
+        for leaf in frame.get_by_text(ACTIVITY).all():
+            info = leaf.evaluate("""e => {
+                const a=e.closest('a');
+                const groups=[]; for(let n=e;n;n=n.parentElement){
+                  if(n.tagName==='LI')groups.push(n.id || n.firstElementChild?.id || '');
+                }
+                return { href:a?.getAttribute('href')||'', dest:a?.href||'',
+                         handler:!!(a?.onclick || e.onclick), groups:groups.filter(x=>/^[A-Za-z_]{2,85}$/.test(x)),
+                         nav: !e.closest('button,input[type=submit]') && (!e.closest('form') || !!e.closest('nav,aside,a,li,[role=menuitem]')) };
+            }""")
+            if not info["nav"]:
+                continue
+            group = " ".join(info["groups"]).lower()
+            entries.append(("inscription" not in group, leaf, info))
+    if not entries:
+        raise CycladesError("L’activité des comptes est indisponible.")
+    entries.sort(key=lambda item:item[0])
+    _, leaf, info = entries[-1 if alternate else 0]
+    dest = info["dest"]
+    trace.append("groupe=" + ",".join(info["groups"]) + " lien=" + (
+        route_label(dest) if official(dest) and info["href"] and not info["href"].startswith("#") else
+        "action-js" if info["href"].startswith("javascript:") else "ancre") + " handler=" + str(info["handler"]))
+    # This is the verified menu's navigation link (never the account form).
+    # JS-decorated links must activate their native handler. For a plain link
+    # navigate directly to its official destination even in a collapsed menu.
+    if (not info["handler"] and info["href"] and not info["href"].startswith("#") and official(dest)
+            and urlsplit(dest).hostname == CENTRAL and dest != shell.url and "/cycetablissement/" in urlsplit(dest).path):
+        navigate(shell, dest)
         return
-    shell.get_by_text(re.compile(r"^Mon [ée]tablissement$", re.I)).filter(visible=True).first.click()
-    shell.get_by_text(ACTIVITY).filter(visible=True).first.click()
+    link = leaf.locator("xpath=ancestor-or-self::a[1]")
+    action = link if link.count() == 1 else leaf
+    action.evaluate("e => e.click()")
 
 
 CONFIRM_CONTEXT = re.compile(r"^\s*(?:valider|confirmer|continuer|sélectionner|appliquer|ok|accéder|choisir|suivant|ouvrir)(?:\s+(?:(?:la|le|ce|cette|mon|ma)\s+)?(?:session|contexte|choix|sélection)(?: de travail)?)?[!.]?\s*$", re.I)
@@ -135,6 +138,7 @@ def read_account_slips(page, academy, session, records, cipher):
     context_seen = False
     selected_session = False
     attempted, observed = set(), set()
+    trace = []
     context.on("page", watch)
     context.on("response", pdf_response)
     watch(shell)
@@ -149,7 +153,7 @@ def read_account_slips(page, academy, session, records, cipher):
         shell.locator("#ETABLISSEMENT_INSCRIPTION").or_(shell.get_by_role("heading", level=1).filter(
             has_text=ACADEMIES[academy][1])).first.wait_for(state="attached", timeout=20000)
         phase = "activité comptes élèves"
-        open_accounts_menu(shell)
+        open_accounts_menu(shell, trace)
         phase = "compte rendu existant"
         start_wait = time.monotonic()
         switched = False
@@ -179,7 +183,7 @@ def read_account_slips(page, academy, session, records, cipher):
                     # start page. Re-enter via the other documented menu.
                     switched = True
                     attempted.clear()
-                    open_accounts_menu(shell, alternate=True)
+                    open_accounts_menu(shell, trace, alternate=True)
                 shell.wait_for_timeout(200)
         if summary is None:
             raise CycladesError("Compte rendu indisponible.")
@@ -237,6 +241,7 @@ def read_account_slips(page, academy, session, records, cipher):
         structure = []
         chooser_controls = []
         doc_routes = []
+        buttons = set()
         ids = set()
         controls = set()
         for frame in frames():
@@ -247,6 +252,11 @@ def read_account_slips(page, academy, session, records, cipher):
                 route = urlsplit(frame.url).path
                 doc_routes.append("/".join(w for w in route.split("/") if
                     re.fullmatch(r"[a-zA-Z_][a-zA-Z_.-]{0,80}",w))[:180])
+                buttons.update(frame.locator("input[type=button]:visible,input[type=submit]:visible,button:visible,a[role=button]:visible").evaluate_all("""els => els.map(e=>{
+                    const text=[e.innerText,e.title,e.getAttribute('aria-label'),e.matches('input')?e.value:''].join(' ');
+                    const words=text.match(/compte|rendu|afficher|génér|édit|valider|contexte|session|télécharg|sélection|choisir|traitement|précédent|confirmation|suivant/gi);
+                    return words ? [...new Set(words)].join('+') : '';
+                }).filter(Boolean)"""))
                 for chooser in frame.locator("#selectContexte:visible").all():
                     chooser_controls.extend(chooser.evaluate("""e => {
                         const region=e.closest('.modal,dialog,[role=dialog],form') || e.parentElement.parentElement;
@@ -278,9 +288,9 @@ def read_account_slips(page, academy, session, records, cipher):
                         controls.add(name)
             except Error:
                 continue
-        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), structure %s, contexte %s/%s [%s], commande %s, pages %s, contrôles %s, menu %s",
+        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), structure %s, contexte %s/%s [%s], commande %s, pages %s, contrôles %s, liens %s, boutons %s, menu %s",
             academy, phase, ",".join(structure) or "—", context_seen, selected_session if phase not in
-            ("menu établissement","chargement du menu","activité comptes élèves") else False, ",".join(sorted(observed)), ",".join(chooser_controls), ",".join(doc_routes), ",".join(sorted(controls)) or "—", ",".join(sorted(ids)) or "—")
+            ("menu établissement","chargement du menu","activité comptes élèves") else False, ",".join(sorted(observed)), ",".join(chooser_controls), ",".join(doc_routes), ",".join(sorted(controls)) or "—", " | ".join(trace), ",".join(sorted(buttons)) or "—", ",".join(sorted(ids)) or "—")
     finally:
         context.remove_listener("response", pdf_response)
         context.remove_listener("page", watch)
