@@ -1,15 +1,17 @@
 from person_names import person_name
-from contextlib import closing
+from contextlib import closing, contextmanager
 
 import os, sqlite3, json, uuid, shutil
+import fcntl
+import tempfile
 from datetime import datetime, timedelta
-from training_programs import SECURITY, catalog, program_name
+from training_programs import SECURITY, catalog, is_professional_title, program_name
 from admission_options import PROFILE_GROUPS, profile_answers
 from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
-from formation_intake import admission_titles, ensure_schema as ensure_formation_schema, register_formation_intake
+from formation_intake import admission_titles, open_title_promotions, ensure_schema as ensure_formation_schema, register_formation_intake
 from candidate_email_history import archived_body, history as candidate_email_history
 from candidate_csv_import import register_candidate_import
 from candidate_creation import register_candidate_creation
@@ -938,6 +940,26 @@ def retired_partner_portal():
     return "Cet espace partenaire n’est plus disponible.", 410
 
 
+@contextmanager
+def edit_application_drafts():
+    path = os.path.join(DATA_DIR, "drafts.json")
+    with open(path + ".lock", "a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        drafts = []
+        if os.path.exists(path):
+            with open(path, encoding="utf-8") as source:
+                drafts = json.load(source)
+        yield drafts
+        with tempfile.NamedTemporaryFile("w", dir=DATA_DIR, delete=False, encoding="utf-8") as target:
+            try:
+                json.dump(drafts, target, indent=2, ensure_ascii=False)
+                target.close()
+                os.replace(target.name, path)
+            finally:
+                if os.path.exists(target.name):
+                    os.unlink(target.name)
+
+
 @app.route("/admin/reprendre-plus-tard")
 def admin_reprendre_plus_tard():
     # 🔐 Même protection que l’admin
@@ -994,29 +1016,8 @@ def admin_delete_draft(token):
     if not require_admin():
         abort(403)
 
-    DATA_DIR = os.getenv("DATA_DIR", "/data")
-    DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
-
-    drafts = []
-    if os.path.exists(DRAFT_PATH):
-        try:
-            with open(DRAFT_PATH, "r", encoding="utf-8") as f:
-                drafts = json.load(f)
-        except:
-            drafts = []
-
-    # supprimer le bon token
-    new_drafts = [d for d in drafts if d.get("id") != token]
-
-    # écrire le fichier
-    try:
-        with open(DRAFT_PATH, "w", encoding="utf-8") as f:
-            json.dump(new_drafts, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-        print("❌ Erreur écriture drafts.json :", e)
-        return jsonify({"ok": False, "error": str(e)}), 500
-
-    print(f"🗑️ Brouillon supprimé : {token}")
+    with edit_application_drafts() as drafts:
+        drafts[:] = [d for d in drafts if d.get("id") != token]
     return jsonify({"ok": True})
 
 
@@ -1119,7 +1120,7 @@ def opening_calendar():
     return content, 200, {"Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": "attachment; filename=ouverture-bts-2027.ics"}
 
 
-def save_files(field_key: str, cand_id: str):
+def save_files(field_key: str, cand_id: str, *, written=None):
     """
     Sauvegarde les fichiers du champ `field_key` pour le candidat `cand_id`
     dans un dossier dédié : /uploads/<cand_id>/
@@ -1139,7 +1140,12 @@ def save_files(field_key: str, cand_id: str):
             continue
         _, ext = os.path.splitext(secure_filename(f.filename))
         base = f"{prefix}_{cand_id}{'' if idx == 1 else f'_{idx}'}{ext.lower()}"
+        if written is not None:
+            # Keep existing uploads intact while the title submission is being committed.
+            base = f"{prefix}_{cand_id}_{uuid.uuid4().hex}{ext.lower()}"
         dest = os.path.join(cand_dir, base)
+        if written is not None:
+            written.append(dest)
         f.save(dest)
         saved.append(dest)
         idx += 1
@@ -1161,70 +1167,31 @@ def b(v):
 def save_draft():
     if not admissions_available():
         return jsonify(success=False, error=f"Les inscriptions ouvriront le {OPENING_LABEL}."), 403
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"success": False, "error": "Aucune donnée reçue"}), 400
-
-        # 🔥 On sauvegarde TOUT, absolument tout :
-        # tous les champs text, select, radios, checkboxes, etc.
-        full_form = data.get("full_form", {})
-        if not isinstance(full_form, dict) or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(full_form.get("email", ""))):
-            return jsonify(success=False, error="Indiquez une adresse e-mail valide pour recevoir votre lien de reprise."), 400
-        if str(full_form.get("admin_preview", "")) == "1":
-            return jsonify(success=False, error="Cet aperçu ne permet pas d’enregistrer un brouillon."), 403
-        normalize_candidate_names(full_form)
-        full_form["rentree_annee"] = ADMISSION_YEAR
-
-        # 🔑 Id unique du brouillon (token)
-        token = new_token()
-
-        # 🔗 Lien de reprise
-        resume_link = f"{request.url_root.rstrip('/')}/reprendre/{token}"
-
-        # 🗂 Enregistrement complet du formulaire
-        draft_data = {
-            "id": token,
-            "resume_link": resume_link,
-            "full_form": full_form,
-            "timestamp": datetime.now().isoformat()
-        }
-
-        DATA_FILE = os.path.join(DATA_DIR, "drafts.json")
-        all_drafts = []
-
-        if os.path.exists(DATA_FILE):
-            try:
-                with open(DATA_FILE, "r", encoding="utf-8") as f:
-                    all_drafts = json.load(f)
-            except:
-                all_drafts = []
-
-        all_drafts.append(draft_data)
-
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(all_drafts, f, indent=2, ensure_ascii=False)
-
-        # 💌 Mail de reprise
-        send_mail(
-            full_form.get("email", ""),
-            "Reprenez votre pré-inscription – Intégrale Academy",
-            mail_html(
-                "reprendre_plus_tard",
-                prenom=full_form.get("prenom", ""),
-                bts_label=full_form.get("bts", "BTS"),
-                lien_espace=resume_link
-            )
-        )
-
-        print(f"🟢 Brouillon complet enregistré — {resume_link}")
-        return jsonify({"success": True, "link": resume_link})
-
-    except Exception as e:
-        print(f"❌ Erreur /save_draft : {e}")
-        return jsonify({"success": False, "error": str(e)}), 500
+    data = request.get_json(silent=True)
+    full_form = data.get("full_form") if isinstance(data, dict) else None
+    if isinstance(full_form, dict) and (full_form.get("title_promotion_id") or is_professional_title(full_form.get("bts"))):
+        return jsonify(success=False, error="Ouvre le formulaire de la session choisie."), 400
+    return save_application_draft(full_form, ADMISSION_YEAR)
 
 
+def save_application_draft(full_form, year):
+    if not isinstance(full_form, dict) or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(full_form.get("email", ""))):
+        return jsonify(success=False, error="Indique une adresse e-mail valide pour recevoir ton lien de reprise."), 400
+    if str(full_form.get("admin_preview", "")) == "1":
+        return jsonify(success=False, error="Cet aperçu ne permet pas d’enregistrer un brouillon."), 403
+    full_form = normalize_candidate_names(full_form.copy())
+    for key in ("csrf", "submission_token"):
+        full_form.pop(key, None)
+    full_form["rentree_annee"] = year
+    token = new_token()
+    resume_link = url_for("reprendre_formulaire", token=token, _external=True)
+    with edit_application_drafts() as drafts:
+        drafts.append({"id": token, "resume_link": resume_link, "full_form": full_form,
+                       "timestamp": datetime.now().isoformat()})
+    send_mail(full_form["email"], "Reprenez votre pré-inscription – Intégrale Academy",
+              mail_html("reprendre_plus_tard", prenom=full_form.get("prenom", ""),
+                        bts_label=full_form.get("bts", "BTS"), lien_espace=resume_link))
+    return jsonify(success=True, link=resume_link)
 
 
 # =====================================================
@@ -1232,45 +1199,43 @@ def save_draft():
 # =====================================================
 @app.route("/reprendre/<token>")
 def reprendre_formulaire(token):
+    path = os.path.join(DATA_DIR, "drafts.json")
+    drafts = []
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as source:
+            drafts = json.load(source)
+    draft = next((d for d in drafts if d.get("id") == token), None)
+    saved_full_form = (draft or {}).get("full_form", {})
+    if saved_full_form.get("title_promotion_id"):
+        with closing(db()) as conn:
+            rows = open_title_promotions(conn, saved_full_form["title_promotion_id"])
+        if not rows or (rows[0]["bts"], rows[0]["rentree_annee"]) != (saved_full_form.get("bts"), saved_full_form.get("rentree_annee")):
+            flash("La session de ce brouillon n’est plus disponible. Choisis une session ouverte.", "info")
+            return redirect(url_for("index", _anchor="titres-professionnels"))
+        return render_title_journey(rows[0]["bts"], rows[0], saved_data=saved_full_form)
     if not admissions_available():
         return redirect(url_for("index"))
-    DRAFT_PATH = os.path.join(DATA_DIR, "drafts.json")
-
-    if not os.path.exists(DRAFT_PATH):
-        abort(404)
-
-    # 📂 Charger le fichier drafts.json
-    try:
-        with open(DRAFT_PATH, "r", encoding="utf-8") as f:
-            drafts = json.load(f)
-    except:
-        drafts = []
-
-    draft = next((d for d in drafts if d.get("id") == token), None)
     if not draft:
         abort(404)
-
-    saved_full_form = draft.get("full_form", {})
     if saved_full_form.get("rentree_annee") != ADMISSION_YEAR:
         flash("Ce brouillon concerne une ancienne rentrée. Commencez une nouvelle candidature pour septembre 2027.", "info")
         return redirect(url_for("candidature"))
 
-    # 💥 On injecte TOUT dans la page
-    return render_template(
-        "index.html",
-        saved_data=saved_full_form,   # <--- ici : les données
-        step=1,
-        portal_closed=False
-    )
+    with closing(db()) as conn:
+        titles = admission_titles(conn)
+    return render_template("index.html", title_offers=titles, saved_data=saved_full_form, preview=False)
 
 
-def validate_application(form, files):
+def validate_application(form, files, *, title_code=None):
     required = ("nom", "prenom", "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "email", "email_confirm", "tel", "adresse", "cp", "ville", "num_secu", "baccalaureat", "bac_type", "permis_b", "projet_pourquoi", "projet_objectif", "projet_passions")
     if any(not (form.get(k) or "").strip() for k in required):
         return "Complétez les champs obligatoires avant d’envoyer votre candidature."
     if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", form.get("email", "")) or form.get("email", "").lower() != form.get("email_confirm", "").lower():
         return "Les deux adresses e-mail doivent être valides et identiques."
-    if form.get("bts") not in {"MOS", "MCO", "NDRC", "PI", "CI", "CG"} or form.get("mode") not in {"presentiel", "distanciel"}:
+    if title_code:
+        if form.get("bts") != title_code or form.get("mode") not in {"presentiel", "distanciel"}:
+            return "La formation doit correspondre à la session choisie."
+    elif form.get("bts") not in BTS_LABELS or form.get("mode") not in {"presentiel", "distanciel"}:
         return "Choisissez votre BTS et votre mode de formation."
     if form.get("sexe") not in ("Homme", "Femme"):
         return "Précisez le sexe indiqué sur votre état civil."
@@ -1311,27 +1276,69 @@ def validate_application(form, files):
         return "Confirmez l’exactitude de vos informations."
     allowed = {"ci": {"pdf", "jpg", "jpeg", "png"}, "ci2": {"pdf", "jpg", "jpeg", "png"}, "photo": {"jpg", "jpeg", "png"}, "carte_vitale": {"pdf"}, "cv": {"pdf"}, "lm": {"pdf"}}
     for key, extensions in allowed.items():
-        file = files.get(key)
-        if not file or not file.filename:
-            if key != "ci2":
-                return "Ajoutez tous les justificatifs obligatoires."
-            continue
-        extension = file.filename.rsplit(".", 1)[-1].lower()
-        file.seek(0, 2); size = file.tell(); file.seek(0)
-        if extension not in extensions or not 0 < size <= 8 * 1024 * 1024:
-            return "Un justificatif a un format non accepté ou dépasse 8 Mo."
-        if key in ("carte_vitale", "cv", "lm") and size < 10 * 1024:
-            return "Un PDF semble vide ou incomplet (moins de 10 Ko). Transmettez un document lisible."
-        header = file.read(8); file.seek(0)
-        if (extension == "pdf" and not header.startswith(b"%PDF-")) or (extension in ("jpg", "jpeg") and not header.startswith(b"\xff\xd8")) or (extension == "png" and not header.startswith(b"\x89PNG\r\n\x1a\n")):
-            return "Le contenu d’un justificatif ne correspond pas à son format. Vérifiez le fichier."
+        submitted = [file for file in files.getlist(key) if file and file.filename]
+        if not submitted and key != "ci2":
+            return "Ajoutez tous les justificatifs obligatoires."
+        for file in submitted:
+            extension = file.filename.rsplit(".", 1)[-1].lower()
+            file.seek(0, 2); size = file.tell(); file.seek(0)
+            if extension not in extensions or not 0 < size <= 8 * 1024 * 1024:
+                return "Un justificatif a un format non accepté ou dépasse 8 Mo."
+            if key in ("carte_vitale", "cv", "lm") and size < 10 * 1024:
+                return "Un PDF semble vide ou incomplet (moins de 10 Ko). Transmettez un document lisible."
+            header = file.read(8); file.seek(0)
+            if (extension == "pdf" and not header.startswith(b"%PDF-")) or (extension in ("jpg", "jpeg") and not header.startswith(b"\xff\xd8")) or (extension == "png" and not header.startswith(b"\x89PNG\r\n\x1a\n")):
+                return "Le contenu d’un justificatif ne correspond pas à son format. Vérifiez le fichier."
     return None
+
+
+def guided_application_fields(form):
+    fields = {key: (form.get(key) or "").strip() for key in (
+        "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "num_secu",
+        "adresse", "cp", "ville", "baccalaureat", "bac_type", "bac_autre", "resp_nom", "resp_prenom", "resp_email",
+        "resp_tel", "entreprise_trouvee", "recherches_commencees", "cherche_idf", "projet_pourquoi",
+        "projet_objectif", "projet_passions",
+    )}
+    from datetime import date
+    birth = date.fromisoformat(fields["date_naissance"])
+    today = date.today()
+    age = today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day))
+    aps = int(form.get("bts") == "MOS" and form.get("aps_souhaitee") == "oui")
+    fields.update(mode=form["mode"], est_mineur=int(age < 18), permis_b=int(form.get("permis_b") == "Oui"),
+                  consent=int(form.get("consent") == "1"), bac_status=fields["baccalaureat"],
+                  mos_parcours=form.get("mos_parcours", "") if form.get("bts") == "MOS" else "",
+                  aps_souhaitee=aps, label_aps=aps, raison_aps=form.get("raison_aps", "") if form.get("bts") == "MOS" else "",
+                  aps_session="Calendrier 2027 à confirmer avec l’équipe" if aps else "", souhaite_accompagnement="")
+    for name, column in (("qualites", "projet_qualites"), ("motivation", "projet_motivation"),
+                         ("valeurs", "projet_recherche"), ("travail", "projet_travail")):
+        fields[column] = ", ".join(form.getlist(name + "[]"))
+    return fields
+
+
+def guided_uploads(candidate_id, existing=None, written=None):
+    documents = {}
+    for column, names in (("fichiers_ci", ("ci", "ci2")), ("fichiers_photo", ("photo",)),
+                          ("fichiers_carte_vitale", ("carte_vitale",)), ("fichiers_cv", ("cv",)), ("fichiers_lm", ("lm",))):
+        if existing and existing[column] not in (None, "", "[]"):
+            continue
+        paths = [path for name in names for path in save_files(name, candidate_id, written=written)]
+        documents[column] = json.dumps(paths)
+    return documents
+
+
+def attach_title_dossier(conn, candidate_id, form, written):
+    row = conn.execute("SELECT c.*, s.created_dossier FROM candidats c JOIN formation_submissions s ON s.candidate_id=c.id WHERE c.id=?", (candidate_id,)).fetchone()
+    answers = guided_application_fields(form)
+    if not row["created_dossier"]:
+        answers = {key: value for key, value in answers.items() if row[key] in (None, "")}
+    answers.update(guided_uploads(candidate_id, existing=row, written=written))
+    if answers:
+        columns = ", ".join(key + "=?" for key in answers)
+        conn.execute(f"UPDATE candidats SET {columns} WHERE id=?", [*answers.values(), candidate_id])
 
 
 @app.route("/submit", methods=["POST"])
 def submit():
-    from datetime import date  # ✅ import ici (ou mets-le en haut du fichier)
-
     if request.form.get("admin_preview") == "1":
         return jsonify(ok=False, error="Cet aperçu ne permet pas de déposer un dossier."), 403
     if not admissions_available():
@@ -1345,116 +1352,15 @@ def submit():
     counter = get_counter_for_today(conn)
     numero = dossier_number(counter=counter, year=ADMISSION_YEAR)
 
-    # === Normalisation du BAC ===
-    baccalaureat = (form.get("baccalaureat") or "").strip()
-
-    # === Projet motivé : nouveaux champs ===
-    projet_pourquoi = (form.get("projet_pourquoi") or "").strip()
-    projet_objectif = (form.get("projet_objectif") or "").strip()
-    projet_passions = (form.get("projet_passions") or "").strip()
-
-    # Cases à cocher
-    qualites_list = request.form.getlist("qualites[]")
-    motivation_list = request.form.getlist("motivation[]")
-    valeurs_list = request.form.getlist("valeurs[]")
-    travail_list = request.form.getlist("travail[]")
-
-    projet_qualites = ", ".join(qualites_list)
-    projet_motivation = ", ".join(motivation_list)
-    projet_recherche = ", ".join(valeurs_list)
-    projet_travail = ", ".join(travail_list)
-
-    # === APS (sessions datées) ===
-    aps_souhaitee = 1 if form.get("aps_souhaitee") == "oui" else 0
-    aps_session_value = (form.get("aps_session") or "").strip()
-    aps_session_other = (form.get("aps_session_other") or "").strip()
-    raison_aps = (form.get("raison_aps") or "").strip()
-
-    aps_session = "Calendrier 2027 à confirmer avec l’équipe" if aps_souhaitee else ""
-
-
-    entreprise_trouvee = (form.get("entreprise_trouvee") or "").strip()
-    recherches_commencees = (form.get("recherches_commencees") or "").strip()
-    souhaite_accompagnement = ""  # Retired partner programme; keep historical database values.
-
-    # 🎯 Vérification du numéro de sécurité sociale
-    nir = form.get("num_secu", "").strip()
-    date_naiss = form.get("date_naissance", "")
-    sexe = form.get("sexe", "")
-
-    # 🔞 Calcul automatique : mineur ou non
-    est_mineur = 0
-    try:
-        naissance = datetime.strptime(date_naiss, "%Y-%m-%d").date()
-        today = date.today()
-        age = today.year - naissance.year - (
-            (today.month, today.day) < (naissance.month, naissance.day)
-        )
-        if age < 18:
-            est_mineur = 1
-    except Exception:
-        est_mineur = 0
-
-    # 👤 Responsable légal (si mineur)
-    resp_nom = (form.get("resp_nom") or "").strip()
-    resp_prenom = (form.get("resp_prenom") or "").strip()
-    resp_email = (form.get("resp_email") or "").strip()
-    resp_tel = (form.get("resp_tel") or "").strip()
-
-    # ✅ Maintenant seulement : form_overrides (car est_mineur/resp_* existent)
-    form_overrides = {
-        "rentree_annee": ADMISSION_YEAR,
-        "permis_b": int(form.get("permis_b") == "Oui"),
-        "mos_parcours": form.get("mos_parcours", ""),
-        "projet_pourquoi": projet_pourquoi,
-        "projet_objectif": projet_objectif,
-        "projet_passions": projet_passions,
-        "projet_qualites": projet_qualites,
-        "projet_motivation": projet_motivation,
-        "projet_recherche": projet_recherche,
-        "projet_travail": projet_travail,
-
-        # APS
-        "aps_souhaitee": aps_souhaitee,
-        "aps_session": aps_session,
-        "raison_aps": raison_aps,
-        "label_aps": aps_souhaitee,
-
-        # Bac / apprentissage
-        "bac_status": baccalaureat,
-        "entreprise_trouvee": entreprise_trouvee,
-        "recherches_commencees": recherches_commencees,
-        "baccalaureat": baccalaureat,
-        "souhaite_accompagnement": souhaite_accompagnement,
-
-        # Mineur / responsable légal
-        "est_mineur": est_mineur,
-        "resp_nom": resp_nom,
-        "resp_prenom": resp_prenom,
-        "resp_email": resp_email,
-        "resp_tel": resp_tel,
-    }
-
-    # 👍 Exception : ce numéro doit passer même s'il est invalide
-    if nir == "123456789123456":
-        print("⚠️ Bypass NIR activé pour un cas particulier (123456789123456)")
-    else:
-        ok, msg = validate_nir(nir, date_naiss, sexe)
-        if not ok:
-            flash(msg, "error")
-            return redirect(request.referrer or url_for("index"))
+    form_overrides = guided_application_fields(form)
+    form_overrides["rentree_annee"] = ADMISSION_YEAR
 
     # 🧩 Création du candidat
     cand_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
 
     # 📎 Sauvegarde des fichiers
-    fichiers_ci = save_files("ci", cand_id) + save_files("ci2", cand_id)
-    fichiers_photo = save_files("photo", cand_id)
-    fichiers_carte_vitale = save_files("carte_vitale", cand_id)
-    fichiers_cv = save_files("cv", cand_id)
-    fichiers_lm = save_files("lm", cand_id)
-
+    documents = guided_uploads(cand_id)
     token_confirm = new_token()
     token_confirm_exp = (datetime.now() + timedelta(days=30)).isoformat()
 
@@ -1472,14 +1378,7 @@ def submit():
         elif c in ("created_at", "updated_at"):
             values.append(now)
         elif "fichiers" in c:
-            mapping = {
-                "fichiers_ci": fichiers_ci,
-                "fichiers_photo": fichiers_photo,
-                "fichiers_carte_vitale": fichiers_carte_vitale,
-                "fichiers_cv": fichiers_cv,
-                "fichiers_lm": fichiers_lm,
-            }
-            values.append(json.dumps(mapping.get(c, [])))
+            values.append(documents.get(c, "[]"))
         elif "verif_docs" in c or "replace_meta" in c:
             values.append("{}")
         elif c == "nouveau_doc":
@@ -3650,7 +3549,9 @@ snapshot_legacy_links(db)
 
 from gestionstagiaires_api import register_gestionstagiaires_api
 register_gestionstagiaires_api(app, db, UPLOAD_DIR)
-register_formation_intake(app, db, lambda *args, **kwargs: send_mail(*args, **kwargs), require_admin)
+render_title_journey = register_formation_intake(
+    app, db, lambda *args, **kwargs: send_mail(*args, **kwargs), require_admin,
+    validate_application, attach_title_dossier, save_application_draft)
 
 if __name__ == "__main__":
     # Render starts this file with Werkzeug's reloader. Start in the serving

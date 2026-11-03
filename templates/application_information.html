@@ -28,14 +28,14 @@
 </div>
 {% endmacro %}
 
-{% macro study_modes() %}
-<h3>Et pour suivre les cours ?</h3>
-<p class="study-mode-intro">Le même diplôme, la même exigence, deux façons de suivre ton parcours.</p>
+{% macro study_modes(for_title=false) %}
+{% if not for_title %}<h3>Et pour suivre les cours ?</h3>
+<p class="study-mode-intro">Le même diplôme, la même exigence, deux façons de suivre ton parcours.</p>{% endif %}
 <div class="mode-choices">
-  <label class="choice"><input type="radio" name="mode" value="presentiel" required><span><b>À l’école</b><small>Dans les locaux d’Intégrale Academy à Puget-sur-Argens (Var · Côte d’Azur), avec un accompagnement sur mesure et une immersion connectée aux réalités du métier.</small></span></label>
-  <label class="choice"><input type="radio" name="mode" value="distanciel" required><span><b>100 % en ligne</b><small>En visioconférence ZOOM en direct : même emploi du temps, mêmes enseignants, même accompagnement et même qualité pédagogique qu’en présentiel.</small></span></label>
+  <label class="choice"><input type="radio" name="mode" value="presentiel" required><span><b>À l’école</b><small>{% if for_title %}Suivre les cours au centre de formation.{% else %}Dans les locaux d’Intégrale Academy à Puget-sur-Argens (Var · Côte d’Azur), avec un accompagnement sur mesure et une immersion connectée aux réalités du métier.{% endif %}</small></span></label>
+  <label class="choice"><input type="radio" name="mode" value="distanciel" required><span><b>100 % en ligne</b><small>{% if for_title %}Suivre les cours à distance, si la session le permet.{% else %}En visioconférence ZOOM en direct : même emploi du temps, mêmes enseignants, même accompagnement et même qualité pédagogique qu’en présentiel.{% endif %}</small></span></label>
 </div>
-<details id="infosDistanciel" class="application-information-details">
+{% if not for_title %}<details id="infosDistanciel" class="application-information-details">
   <summary>Comment se déroule la formation à distance ?</summary>
   <div>
     <h4>L’école, 100 % en ligne et en direct</h4>
@@ -49,6 +49,7 @@
   </div>
 </details>
 <p class="information-note">Quel que soit le format choisi, <strong>l’examen final se déroule en présentiel en fin de deuxième année</strong>, au sein de l’académie de Nice ou de l’académie de Paris.</p>
+{% endif %}
 {% endmacro %}
 
 {% macro mos_guidance() %}

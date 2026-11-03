@@ -66,7 +66,8 @@ def ensure_schema(conn):
     """)
 
 
-def register_formation_intake(app, connect, send_mail, require_admin):
+def register_formation_intake(app, connect, send_mail, require_admin, validate_application, attach_title_dossier,
+                              save_application_draft):
     app.extensions['formation_connect'] = connect
     tokens = URLSafeTimedSerializer(app.secret_key, salt='formation-intake-v1')
 
@@ -131,7 +132,7 @@ def register_formation_intake(app, connect, send_mail, require_admin):
                          (fields['projet_pourquoi'], notes, row['id']))
         else:
             row = insert_candidate(conn, fields, date.fromisoformat(clean['birth_date']), received_at=received_at)
-        if promotion and not matches:
+        if promotion and not conn.execute('SELECT 1 FROM student_promotions WHERE candidate_id=?', (row['id'],)).fetchone():
             assign_candidate_promotion(conn, row['id'], promotion['id'])
         details = {k: clean[k] for k in ('available_year','license_b','mobile_departments','privacy_consent','situation','contact_slot','vehicle','privacy_version') if k in clean}
         if legacy_status:
@@ -172,15 +173,26 @@ def register_formation_intake(app, connect, send_mail, require_admin):
                            ON r.candidate_id=c.id AND r.recipient='candidate' WHERE c.id=?""", (cid,)).fetchone()
         return dict(ok=True, reference=row['numero_dossier'], email_sent=bool(row['sent']))
 
-    def store_public(clean, key, program, year, promotion=None):
-        with closing(connect()) as conn, conn:
-            conn.execute('BEGIN IMMEDIATE')
-            previous = conn.execute('SELECT candidate_id FROM formation_submissions WHERE request_key=?', (key,)).fetchone()
-            if previous:
-                return receipt(conn, previous[0]), 200
-            if promotion:
-                promotion = active_title_promotion(conn, promotion['id'])
-            cid, inserted = save(conn, clean, program, year, key=key, promotion=promotion)
+    def store_public(clean, key, program, year, promotion=None, dossier_form=None):
+        written = []
+        try:
+            with closing(connect()) as conn, conn:
+                conn.execute('BEGIN IMMEDIATE')
+                if promotion:
+                    promotion = active_title_promotion(conn, promotion['id'])
+                    if (promotion['bts'], promotion['rentree_annee']) != (program, year):
+                        raise ValueError('La session a changé. Recharge la page pour vérifier la formation.')
+                previous = conn.execute('SELECT candidate_id FROM formation_submissions WHERE request_key=?', (key,)).fetchone()
+                if previous:
+                    return receipt(conn, previous[0]), 200
+                cid, inserted = save(conn, clean, program, year, key=key, promotion=promotion)
+                if inserted and dossier_form is not None:
+                    attach_title_dossier(conn, cid, dossier_form, written)
+        except Exception:
+            for path in written:
+                if os.path.exists(path):
+                    os.unlink(path)
+            raise
         if not inserted:
             return dict(ok=True, reference='', already_received=True), 200
         for recipient in ('candidate','staff'):
@@ -220,8 +232,20 @@ def register_formation_intake(app, connect, send_mail, require_admin):
     def active_title_promotion(conn, pid):
         rows = open_title_promotions(conn, pid)
         if not rows:
+            if request.method == 'POST':
+                abort(app.make_response((jsonify(ok=False, success=False, error='Cette session n’est plus ouverte aux candidatures.'), 404)))
             abort(404)
         return rows[0]
+
+    def title_form(code, promotion=None, *, preview=False, saved_data=None):
+        with closing(connect()) as conn:
+            label = professional_titles(conn).get(code)
+        if not label and not promotion:
+            abort(404)
+        return render_template('index.html', title=(label or program_name(code)) + ' · Candidature',
+                               title_code=code, title_label=label or code[3:].capitalize(), promotion=promotion,
+                               preview=preview, saved_data=saved_data,
+                               **({} if preview else credentials(promotion['id'])))
 
     @app.get('/titres-professionnels/apercu')
     def title_application_preview():
@@ -231,47 +255,50 @@ def register_formation_intake(app, connect, send_mail, require_admin):
         pid = request.args.get('promotion')
         with closing(connect()) as conn:
             promotion = active_title_promotion(conn, pid) if pid else None
-            if promotion and promotion['bts'] != code:
-                abort(404)
-            title = professional_titles(conn).get(code)
-            if not title and not promotion:
-                abort(404)
-        return render_template('title_application.html', preview=True, promotion=promotion, title_code=code,
-                               title_label=title or code[3:].capitalize())
+        if promotion and promotion['bts'] != code:
+            abort(404)
+        return title_form(code, promotion, preview=True)
 
     @app.route('/titres-professionnels/candidature/<promotion_id>', methods=['GET','POST'])
     def title_application(promotion_id):
         with closing(connect()) as conn:
             promotion = active_title_promotion(conn, promotion_id)
-            title_label = professional_titles(conn).get(promotion['bts'], promotion['bts'][3:].capitalize())
         if request.method == 'GET':
-            return render_template('title_application.html', promotion=promotion, title_label=title_label, **credentials(promotion_id))
-        if request.content_length and request.content_length > 15000:
-            abort(413)
-        data = request.form.to_dict()
+            return title_form(promotion['bts'], promotion)
+        form = request.form
+        if form.get('admin_preview') == '1':
+            return jsonify(ok=False, error='Cet aperçu ne permet pas de déposer un dossier.'), 403
         try:
-            key = check_request(data, promotion_id)
+            key = check_request(form.to_dict(), promotion_id)
             if not rate_allowed():
-                abort(429)
-            clean = {k: data.get(k,'').strip() for k in ('last_name','first_name','email','phone','birth_date','motivation')}
-            clean['email'] = clean['email'].lower()
-            clean['phone'] = re.sub(r'[ .()\-]', '', clean['phone'])
-            if (any(not 1 <= len(clean[k]) <= 100 for k in ('last_name','first_name'))
-                    or len(clean['email']) > 254 or not re.fullmatch(r'[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+',clean['email'])
-                    or not re.fullmatch(r'(?:0[1-9]\d{8}|\+[1-9]\d{7,14})',clean['phone'])
-                    or len(clean['motivation']) > 2000 or data.get('privacy_consent') != 'yes'):
-                raise ValueError('Vérifiez vos coordonnées et votre accord pour être recontacté.')
-            try:
-                birth = date.fromisoformat(clean['birth_date'])
-                if not date(1900,1,1) <= birth < today():
-                    raise ValueError
-            except ValueError:
-                raise ValueError('Vérifiez votre date de naissance.') from None
-            clean['privacy_consent'] = True
-            store_public(clean, key, promotion['bts'], promotion['rentree_annee'], promotion)
+                return jsonify(ok=False, error='Trop de tentatives. Réessaie plus tard.'), 429
+            error = validate_application(form, request.files, title_code=promotion['bts'])
+            if error:
+                raise ValueError(error)
+            clean = dict(last_name=' '.join(form['nom'].split()).upper(), first_name=' '.join(form['prenom'].split()).title(),
+                         email=form['email'].strip().lower(), phone=form['tel'], birth_date=form['date_naissance'],
+                         motivation=form['projet_pourquoi'], privacy_consent=True)
+            store_public(clean, key, promotion['bts'], promotion['rentree_annee'], promotion, form)
         except ValueError as error:
-            return render_template('title_application.html', promotion=promotion, title_label=title_label, values=data, error=str(error), **credentials(promotion_id)), 400
+            return jsonify(ok=False, error=str(error)), 400
+        # Identity matches across independent submissions must not reveal a private dossier link.
+        if request.accept_mimetypes.best == 'application/json':
+            return jsonify(ok=True, redirect=url_for('candidate_login'))
         return redirect(url_for('title_application_received'), code=303)
+
+    @app.post('/titres-professionnels/candidature/<promotion_id>/brouillon')
+    def title_application_draft(promotion_id):
+        with closing(connect()) as conn:
+            promotion = active_title_promotion(conn, promotion_id)
+        data = request.get_json(silent=True) or {}
+        form = data.get('full_form') if isinstance(data, dict) else None
+        try:
+            check_request(form, promotion_id)
+            if form.get('bts') != promotion['bts']:
+                raise ValueError('Le titre doit correspondre à la session choisie.')
+        except ValueError as error:
+            return jsonify(success=False, error=str(error)), 400
+        return save_application_draft(dict(form, title_promotion_id=promotion_id), promotion['rentree_annee'])
 
     @app.get('/titres-professionnels/candidature-recue')
     def title_application_received():
@@ -307,7 +334,7 @@ def register_formation_intake(app, connect, send_mail, require_admin):
 
     @app.after_request
     def private_formation_response(response):
-        if request.endpoint in ('security_application','security_application_preview','title_application','title_application_preview','title_application_received','import_security_application'):
+        if request.endpoint in ('security_application','security_application_preview','title_application','title_application_draft','title_application_preview','title_application_received','import_security_application'):
             response.headers.update({'Cache-Control':'no-store','X-Robots-Tag':'noindex, nofollow','X-Content-Type-Options':'nosniff'})
         if request.endpoint in ('security_application','security_application_preview'):
             response.headers['Content-Security-Policy'] = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'"
@@ -345,3 +372,5 @@ def register_formation_intake(app, connect, send_mail, require_admin):
                 thread = threading.Thread(target=maintain, name='formation-intake', daemon=True)
                 app.extensions['formation_maintenance'] = thread
                 thread.start()
+
+    return title_form
