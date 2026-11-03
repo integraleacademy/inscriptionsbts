@@ -102,7 +102,7 @@ def get_authenticated_student(app, db_connect, candidate_id=None, allow_initial=
         raise
 
 
-def register_candidate_access(app, db_connect, send_mail):
+def register_candidate_access(app, db_connect, send_mail, log_event=None):
     dummy_password_hash = generate_password_hash(secrets.token_urlsafe(32), method='scrypt')
 
     def require_configured_key():
@@ -357,6 +357,9 @@ def register_candidate_access(app, db_connect, send_mail):
                     delivered=send_mail(address,'Réinitialiser ton mot de passe · Espace étudiant',html)
                 except Exception:
                     delivered=False
+                if delivered and log_event:
+                    log_event(people[0]['id'], 'MAIL_ENVOYE', dict(destinataire=address, objet='Réinitialiser ton mot de passe · Espace étudiant',
+                              message='Un lien personnel de réinitialisation valable 30 minutes a été envoyé.'))
                 if delivered is False:
                     with closing(db_connect()) as conn:
                         conn.execute('UPDATE student_password_resets SET consumed=1 WHERE token_hash=?',(token_hash,))

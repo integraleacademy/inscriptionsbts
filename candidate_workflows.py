@@ -20,6 +20,7 @@ from flask import abort, jsonify, request, send_file, session, url_for
 
 from branded_email import brand_existing_email
 from campaign import candidate_year
+from candidate_email_history import archived_body
 from candidate_messages import _csrf_token, _equal, _hash, _recipient
 from certificates import certificate_pdf
 from mail_templates import mail_html
@@ -289,7 +290,7 @@ def register_candidate_workflows(app, db_connect, send_mail, send_sms, log_event
                     app.logger.exception('Manual candidate notification failed (%s)', message['type'])
                 event = ('MAIL_ENVOYE' if message['type'] == 'email' else 'SMS_ENVOYE') if provider_id else 'MESSAGE_ECHEC'
                 log_event(row, event, {'type': kind, 'destinataire': message['recipient'], 'objet': message.get('subject', ''),
-                                       'message': message.get('body', ''), 'message_id': str(provider_id or ''),
+                                       'message': archived_body(message['html']) if message['type']=='email' else message.get('body', ''), 'message_id': str(provider_id or ''),
                                        'pieces_jointes': [file['name'] for file in item['files']]})
                 if not provider_id:
                     errors.append(f"{item['name']} : {message['type']}")
