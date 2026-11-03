@@ -220,6 +220,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     def visible_control(frame, pattern):
         return frame.get_by_role("button", name=pattern).or_(frame.get_by_role("link", name=pattern)).filter(visible=True)
 
+    messages = set()
     phase = "menu établissement"
     context_seen = False
     selected_session = False
@@ -268,6 +269,19 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
         if urlsplit(shell.url).hostname != CENTRAL:
             raise CycladesError("Espace établissement inaccessible.")
         phase = "activité comptes élèves"
+        if activity == ACTIVITY:
+            history = re.compile(r"^(?:suivi|historique|consulter le suivi|suivre) (?:des|les|de mes|mes|de vos) traitements(?: asynchrones| planifiés)?$", re.I)
+            routes = set()
+            for frame in shell.frames:
+                for leaf in frame.get_by_text(history).all():
+                    link = leaf.locator("xpath=ancestor-or-self::a[1]")
+                    if link.count() == 1:
+                        href = link.get_attribute("href") or ""
+                        dest = urljoin(frame.url, href)
+                        if official(dest) and urlsplit(dest).hostname == CENTRAL:
+                            routes.add(route_label(dest))
+            if routes:
+                trace.append("historique officiel=" + ",".join(sorted(routes)))
         open_accounts_menu(shell, trace, activity)
         attempted.clear()
         selected_session = False
@@ -278,7 +292,6 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
         deadline = start_wait + 32
         summary = None
         direct_document = False
-        messages = set()
         while time.monotonic() < deadline and summary is None:
             for frame in frames():
                 switch = frame.locator("#selectContexte:visible")
@@ -309,6 +322,9 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     if frame.get_by_text(re.compile(pattern,re.I)).filter(visible=True).count():
                         messages.add(key)
                 button = visible_control(frame, SUMMARY)
+                known_summary = frame.locator("#suiviCreationCompte:visible")
+                if known_summary.count()==1 and SUMMARY.fullmatch(known_summary.get_attribute("value") or ""):
+                    button = known_summary
                 if not button.count():
                     button = frame.get_by_text(SUMMARY).filter(visible=True)
                 if not button.count():
@@ -333,6 +349,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
             if direct_document:
                 break
             if summary is None:
+                active_form = any(f.locator("#suiviCreationCompte").count() for f in frames())
                 # Keep the tab identity in the address itself, as well as on
                 # its requests. The shell consults location.search on reload.
                 tab_view = tabbed_activity_url(shell.url,tab_ids)
@@ -340,7 +357,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     tab_opened = True
                     navigate(shell,tab_view)
                     continue
-                if render_responses and not render_opened and time.monotonic()-start_wait > 2:
+                if render_responses and not render_opened and not active_form and time.monotonic()-start_wait > 2:
                     render_opened = True
                     response = render_responses[-1]
                     from lxml import html, etree
@@ -372,7 +389,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                         direct_document = True
                         break
                     continue
-                if selected_session and "tous_comptes_existants" in messages and time.monotonic() - start_wait > 2:
+                if selected_session and "tous_comptes_existants" in messages and time.monotonic() - start_wait > 5:
                     for record in records:
                         record["slip_sync"] = "not_listed"
                     logging.getLogger(__name__).warning("CYCLADES %s : activité initiale close, consultation du compte rendu des accès existants", academy)
@@ -461,8 +478,16 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     }"""))
             except Error:
                 continue
-        logging.getLogger(__name__).warning("CYCLADES %s papillons : %s (%s), onglet reconnu=%s, fichiers=%s",
-            academy, phase, type(exc).__name__, bool(tab_ids), ",".join(shapes) or "aucun")
+        controls = []
+        for frame in frames():
+            try:
+                for el in frame.locator("#suiviCreationCompte").all():
+                    controls.append(("visible" if el.is_visible() else "caché", "activé" if el.is_enabled() else "désactivé"))
+            except Error:
+                continue
+        why = str(exc) if isinstance(exc,CycladesError) else type(exc).__name__
+        logging.getLogger(__name__).warning("CYCLADES %s papillons : %s (%s), onglet reconnu=%s, fichiers=%s, commande=%s, avis=%s",
+            academy, phase, why, bool(tab_ids), ",".join(shapes) or "aucun",controls, ",".join(sorted(messages)) if phase != "activité comptes élèves" else "")
         for record in records:
             if slip_key(record) in wanted and record.get("slip_sync") != "not_listed":
                 record["slip_sync"] = "unavailable"

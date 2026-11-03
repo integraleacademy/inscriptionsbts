@@ -16,7 +16,7 @@
     {% endfor %}</dl>
     {% if record.slip_eligible and not historical %}
     <div class="cy-access">
-      <form class="cy-slip-form" rel="noopener" method="post" enctype="multipart/form-data" action="{{ url_for('cyclades_student_access', cid=record.candidate_id, key=record.academy_key, year=record.year) }}">
+      <form class="cy-slip-form" rel="noopener" method="post" action="{{ url_for('cyclades_student_access', cid=record.candidate_id, key=record.academy_key, year=record.year) }}">
         <input type="hidden" name="csrf_token" value="{{ session.get('_planning_csrf', '') }}">
         <input type="hidden" name="candidate" value="{{ record.details['N° de candidat'] }}">
         <input type="hidden" name="registration" value="{{ record.details['N° d’inscription'] }}">
@@ -32,11 +32,6 @@
           <p>La plateforme récupère automatiquement le papillon de connexion pendant la synchronisation Cyclades.</p>
           {% endif %}
         {% endif %}
-        <details class="cy-disclosure"><summary>Importer un papillon Cyclades {{ icon('chevron-down') }}</summary>
-          <p>Si tu disposes déjà du PDF de l’établissement, tu peux aussi y retrouver les accès de cet étudiant.</p>
-          <label>PDF Cyclades <input type="file" name="slip" accept=".pdf,application/pdf"></label>
-          <button class="cy-button" name="action" value="import" type="submit" formtarget="_blank">Lire les accès de cet étudiant</button>
-        </details>
       </form>
     </div>
     {% endif %}

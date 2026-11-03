@@ -150,7 +150,9 @@ def open_establishment(page, academy, credentials):
                     raise CycladesError("Nice demande la date de vérification du titulaire du compte.")
                 submit_login(page, idp, {"j_password": credentials["birthdate"]})
         portal_url = re.compile(r"^https://" + re.escape(urlsplit(portal).hostname) + r"(?=[:/])")
-        page.wait_for_url(portal_url, wait_until="domcontentloaded", timeout=45000)
+        # The official academic landing page can keep loading after the
+        # authenticated redirect. The BTS entry below verifies the institution.
+        page.wait_for_url(portal_url, wait_until="commit", timeout=45000)
     open_bts_menu(page, academy)
 
 
