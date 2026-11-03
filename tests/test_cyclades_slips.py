@@ -85,7 +85,7 @@ def test_existing_official_report_is_downloaded_without_creating_accounts(studen
     assert slip_key(record) == REF
     landing = '<h1>BTS 0756548K</h1><div hidden><span onclick="location.href=\'/accounts\'">Générer les comptes Cyclades de mes élèves</span></div>'
     accounts = '<select id="selectContexte"><option>Choisir</option><option>BTS – JUIN 2027 – Académie de Paris</option></select><a href="/confirmed">Valider</a>'
-    confirmed = f'<h2>{session}</h2><button onclick="location.href=\'/forbidden\'">Générer</button><a href="/results">Afficher le compte rendu</a>'
+    confirmed = f'<h2>{session}</h2><p>Papillons de connexion de mes élèves</p><button onclick="location.href=\'/forbidden\'">Générer</button><a href="/results">Afficher le compte rendu</a>'
     results = '<a href="/file">papillonsInformationsConnexionCyclades</a>'
     existing = confirmed
     if archived:

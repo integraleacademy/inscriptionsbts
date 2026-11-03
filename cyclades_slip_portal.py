@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from pathlib import Path
-from urllib.parse import parse_qsl, unquote, urlencode, urljoin, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 from playwright.sync_api import Error
 
@@ -14,35 +14,6 @@ ACTIVITY = re.compile(r"^G[ée]n[ée]rer\s+les comptes\s+(?:CYCLADES\s+)?(?:de m
 EXISTING_ACCOUNTS = re.compile(r"^(?:[Rr][ée]g[ée]n[ée]rer|[Rr][ée]initialiser)\s+le mot de passe (?:d[’'](?:un |une ))?(?:compte |candidat )?(?:(?:d[’'])?un )?(?:[ée]l[èe]ve|candidat)(?: scolaire)?$", re.I)
 SUMMARY = re.compile(r"^\s*(?:(?:Afficher|Consulter|Voir|Télécharger)\s+(?:le |les |l[’'])?(?:dernier\s+)?)?(?:dernier\s+)?comptes?[\s-]*rendus?(?:\s+du (?:dernier )?traitement)?[ .]*$", re.I)
 DOCUMENT = re.compile(r"papillons?\s*(?:(?:d[’']\s*)?informations?\s*)?(?:de\s*)?connexion(?:\s*cyclades)?", re.I)
-
-
-def access_notice(body):
-    """Keep only the official access prerequisite and its non-personal vocabulary."""
-    notice = re.search(r"\bVous devez [^.!?@:\n]{1,235}?accéder à cette activité[.!]?", body, re.I)
-    if not notice:
-        return ""
-    safe = set("""vous devez etre et avoir ete en sur sous un une le la les l de d des du a cette votre
-        son vos mes mon aux par avec afin pour pouvoir acceder activite portail connecte connecter via
-        authentifie authentifier authentification forte renforcee securisee securite niveau cle otp
-        mot passe unique usage certificat habilite habilitation autorise autorisation droit droits
-        profil role administrateur chef responsable direction delegue delegation titulaire compte
-        utilisateur uai rattache rattachement rattacher etablissement centre gestionnaire examens
-        domaine sous domaine contexte travail selectionner selectionne selection selectionnee choisir
-        choisi positionne positionner positionner positionnee preciser precisé renseigner renseigne
-        examen session examen-session souhaite courante courant ouverte ouvert active actif inscription
-        periode pendant dates date service academie annee scolaire phase public prive initialiser
-        valider validation candidature candidat scolarite scolaires eleves connexion portail depuis
-        reseau academique interne externe arena totp code pin passcode passeport logiciel une fois
-        locale local dument duement double facteur facteurs deux second fort tout ou et ne pas
-        modifier eliminer definir defini personnaliser prealablement au moins pre inscrit ceci il faut
-        parisiens paris nice bts avoir acquis application application nationale teleservice agir
-        acceder positionnes positionnes accede enregistre parametre parametrer deployee deploiement
-        cliquer Cliquez est s est d abord necessaire associe selectionnes ouverts editer derniere
-        enregistrement champ champs usager mission valide sur internet intranet equivalent""".lower().split())
-    out = []
-    for token in re.findall(r"[A-Za-zÀ-ÿ]+", notice[0]):
-        out.append(token if words(token) in safe else "…")
-    return " ".join(out)
 
 
 def route_label(url):
@@ -64,48 +35,6 @@ def tabbed_activity_url(url, tabs):
     suffix = urlencode({"OngletID":tabs[prefix]})
     query = parts.query + ("&" if parts.query else "") + suffix
     return urlunsplit((parts.scheme,parts.netloc,parts.path,query,parts.fragment))
-
-
-def public_switch_bindings(frame):
-    """Summarise the official static switch handler; never read credentials or page records."""
-    from cyclades_portal import CENTRAL
-    urls = frame.locator("script[src]").evaluate_all(
-        "(els)=>els.map(e=>e.src).filter(u=>new URL(u).origin===location.origin && /\\.js$/i.test(new URL(u).pathname))")
-    hits = []
-    checked = 0
-    for url in dict.fromkeys(urls):
-        parsed = urlsplit(url)
-        name = parsed.path.rsplit("/",1)[-1]
-        if (parsed.hostname != CENTRAL or not re.fullmatch(r"[A-Za-z_.-]+\.js",name,re.I)
-                or re.search(r"jquery|bootstrap|modernizr|jqueryui|chart|ckeditor|polyfill|moment",name,re.I)):
-            continue
-        if checked >= 8:
-            break
-        checked += 1
-        resp = None
-        try:
-            resp = frame.page.context.request.get(url,timeout=2500,max_redirects=0)
-            if not resp.ok or not re.search(r"javascript|ecmascript",resp.headers.get("content-type",""),re.I):
-                continue
-            raw = resp.body()
-            if len(raw)>2500000:
-                continue
-            code = raw.decode("utf-8","ignore")
-            # Keep event/parameter names around the selector, not raw code or
-            # string values. This is static application JS, not inline data.
-            for match in re.finditer(r"(?:selectContexte|validerContexte)",code,re.I):
-                snippet = code[max(0,match.start()-160):match.end()+450]
-                words_found = re.findall(r"[A-Za-z_$][A-Za-z_$0-9]{1,55}",snippet)
-                terms = [w for w in words_found if re.search(r"select|option|contex|valid|session|examen|attr|change|click|val$|data|locat|href|url|form|ajax|on$|submit|action|param|choix|event|id$|code|resource|replace|concat|encod|get|post|render|affich|open",w,re.I)]
-                hits.append(name+" "+" ".join(terms[:38]))
-                if len(hits)>=6:
-                    return hits
-        except Error:
-            continue
-        finally:
-            if resp is not None:
-                resp.dispose()
-    return hits
 
 
 def open_accounts_menu(shell, trace, activity, *, alternate=False):
@@ -296,7 +225,6 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     selected_session = False
     attempted, observed = {}, set()
     trace = []
-    traffic = set()
     validated = set()
     render_responses = []
     render_opened = False
@@ -305,7 +233,6 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     tab_ids = {}
     # Only the two account portlets in this authentication context.
     account_url = re.compile(r"^https://cyclades\.education\.gouv\.fr/cycetablissement/portal/(?:creation_compte_candidat|regenerer_mdp_compte_candidat)(?:/|\?|$)")
-    transactions = []
     def keep_activity_tab(route):
         req = route.request
         if req.method == "GET" and req.resource_type in ("document","xhr","fetch"):
@@ -318,26 +245,15 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
     def observe_route(response):
         if response.request.resource_type in ("document","xhr","fetch") and official(response.url):
             path = route_label(response.url)
-            traffic.add(str(response.status)+"-"+path)
-            if "compte_candidat" in path and len(transactions) < 20:
-                req = response.request
-                query = urlsplit(req.url).query
-                # The portal encodes some render parameters into path elements
-                # and others into a query. Keep names and matching evidence,
-                # never print parameter values or the session code.
-                sent = unquote(req.url + " " + (req.post_data or ""))
-                fields = parse_qsl(req.post_data or "", keep_blank_values=True) if req.method == "POST" else []
-                data = dict(fields)
+            req = response.request
+            if req.method == "POST" and "compte_candidat" in path:
+                data = dict(parse_qsl(req.post_data or "", keep_blank_values=True))
                 tab_id = data.get("OngletID", "")
-                if (data.get("cleSelected") in context_codes and tab_id not in ("0","null","undefined") and re.fullmatch(r"[a-zA-Z0-9_-]{1,90}",tab_id)):
+                if (data.get("cleSelected") in context_codes and tab_id not in ("0","null","undefined")
+                        and re.fullmatch(r"[a-zA-Z0-9_-]{1,90}", tab_id)):
                     root = re.match(r"^(/cycetablissement/portal/(?:creation_compte_candidat|regenerer_mdp_compte_candidat))(?:/|$)",urlsplit(req.url).path)
                     if root:
                         tab_ids[root[1]] = tab_id
-                posted = ",".join(k+("=selection" if v in context_codes else "=vide" if not v else "=présent") for k,v in fields if re.fullmatch(r"[A-Za-z_]{1,70}",k))
-                keys = [k for k,v in parse_qsl(query) if re.fullmatch(r"[A-Za-z_]{1,65}", k)]
-                keys += re.findall(r"__(?:rp|ac|op)[a-zA-Z_]{1,60}",urlsplit(req.url).path)
-                transactions.append(req.method+" "+req.resource_type+" "+str(response.status)+" "+path+" POST="+posted+" params="+",".join(keys)[:120]+
-                    " choix="+str(any(v in sent for v in context_codes))+" type="+response.headers.get("content-type","").split(";")[0])
             if response.ok and "/validerContexte/true" in path:
                 validated.add(path.rsplit("/validerContexte",1)[0])
                 if (response.request.method == "GET" and response.request.resource_type in ("xhr","fetch")
@@ -381,9 +297,6 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 elif select_account_context(frame, session, academy, attempted, observed):
                     selected_session = True
                     break
-                if selected_session and frame.get_by_text(DOCUMENT).filter(visible=True).count():
-                    direct_document = True
-                    break
                 # These are explicit service messages; arbitrary portal text
                 # must not be logged or interpreted as a personal credential.
                 for key, pattern in (
@@ -402,14 +315,21 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     button = frame.locator("[title]").filter(visible=True)
                     button = [e for e in button.all() if SUMMARY.fullmatch(e.get_attribute("title") or "")]
                     button = button[0] if button else frame.locator(".__no_cyclades_control")
-                if button.count() and button.first.is_enabled():
+                enabled_button = next((b for b in button.all() if b.is_enabled()), None)
+                if enabled_button is not None:
                     # The activity displays the selected BTS context above its parameters.
                     text = frame.locator("body").inner_text(timeout=1500)
                     target_year = re.search(r"\b20\d{2}\b",session).group()
                     if selected_session or (target_year in words(text).split() and "bts" in words(text).split()
                             and academy in words(text).split()):
-                        summary = button.first
+                        summary = enabled_button
                         break
+                # A creation form itself mentions the word "papillon". Only
+                # the file table is an already-open report.
+                if (selected_session and frame.get_by_text(re.compile(r"^Liste des documents g[ée]n[ée]r[ée]s$", re.I)).filter(visible=True).count()
+                        and frame.locator("tr").filter(has_text=DOCUMENT).filter(visible=True).count()):
+                    direct_document = True
+                    break
             if direct_document:
                 break
             if summary is None:
@@ -446,11 +366,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                             href = urljoin(response.url,anchor.get("href"))
                             if official(href) and urlsplit(href).hostname == CENTRAL and not anchor.get("href").startswith("#"):
                                 targets.append(href)
-                    form_controls = [e.get("value","") or e.get("title","") or " ".join(e.itertext()) for e in
-                                     rendered.xpath("//button|//input[@type='submit' or @type='button' or @type='image']")]
-                    trace.append("rendu officiel: comptes-rendus="+str(len(targets))+
-                                 ", commande="+str(any(SUMMARY.fullmatch(v.strip()) for v in form_controls))+
-                                 ", condition="+access_notice(" ".join(rendered.xpath("//body//text()[not(ancestor::script or ancestor::style)]"))[:40000]))
+                    trace.append("liens du compte rendu="+str(len(targets)))
                     navigate(shell,tabbed_activity_url(targets[0] if len(set(targets))==1 else response.url,tab_ids))
                     if len(set(targets))==1:
                         direct_document = True
@@ -475,7 +391,7 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
         if summary is not None:
             summary.click()
         phase = "document du compte rendu"
-        deadline = time.monotonic() + 12
+        deadline = time.monotonic() + 20
         clicked = False
         while time.monotonic() < deadline and not (downloads or responses):
             for frame in frames() if not clicked else ():
@@ -488,7 +404,13 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                     control = label.locator("xpath=ancestor-or-self::a[1]")
                     if not control.count():
                         row = label.locator("xpath=ancestor::*[self::tr or self::li][1]")
-                        control = row.locator("a:visible,button[title*='charg' i]:visible,img[title*='charg' i]:visible")
+                        download_icon = row.locator("a[download]:visible,[title*='télécharg' i]:visible,img[alt*='charg' i]:visible,img[src*='disquette' i]:visible,img[src*='download' i]:visible")
+                        if download_icon.count():
+                            leaf = download_icon.first
+                            button = leaf.locator("xpath=ancestor-or-self::*[self::a or self::button][1]")
+                            control = button if button.count() else leaf
+                        else:
+                            control = row.locator("a:visible")
                         if not control.count():
                             holder = label.locator("xpath=ancestor::*[.//*[self::a or self::button or self::img]][1]")
                             if holder.count() and holder.get_by_text(DOCUMENT).count() <= 1:
@@ -527,150 +449,20 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
         logging.getLogger(__name__).warning("CYCLADES %s papillons : %d/%d accès rattachés", academy, len(found), len(wanted))
         return True
     except (Error, CycladesError, OSError, ValueError) as exc:
-        trace.append("cause="+type(exc).__name__)
-        trace.append("onglet officiel="+str(bool(tab_ids)))
-        # Keep navigation identifiers only, never page text or candidate data.
-        trace.append("transactions="+";".join(transactions)[:2100])
-        trace.append("lectures="+",".join(sorted(traffic))[:600])
-        structure = []
-        chooser_controls = []
-        doc_routes = []
-        buttons = set()
-        ids = set()
-        controls = set()
+        # Aggregate diagnostics only; no document titles, credentials or IDs.
+        shapes = []
         for frame in frames():
             try:
-                # Only static control/route identifiers and navigation verbs,
-                # no form values or student data. Inspect the chooser's actual
-                # siblings and enclosing dialog in addition to the shell.
-                route = urlsplit(frame.url).path
-                doc_routes.append("/".join(w for w in route.split("/") if
-                    re.fullmatch(r"[a-zA-Z_][a-zA-Z_.-]{0,80}",w))[:180])
-                buttons.update(frame.locator("input[type=button]:visible,input[type=submit]:visible,button:visible,a[role=button]:visible").evaluate_all("""els => els.map(e=>{
-                    const text=[e.innerText,e.title,e.getAttribute('aria-label'),e.matches('input')?e.value:''].join(' ');
-                    const words=text.match(/compte|rendu|afficher|génér|édit|valider|contexte|session|télécharg|sélection|choisir|traitement|précédent|confirmation|suivant/gi);
-                    return words ? [...new Set(words)].join('+') : '';
-                }).filter(Boolean)"""))
-                for select in frame.locator("select:visible").all():
-                    chooser_controls.append(select.evaluate("""e => {
-                      const selected=e.selectedOptions[0], value=selected?.textContent||'';
-                      return 'SELECT/'+e.id.replace(/[^A-Za-z_-]/g,'').slice(0,50)+'/'+e.options.length+
-                        '/'+(selected?.value?'choisi':'vide')+'/'+(value.match(/bts|paris|nice|20[0-9]{2}|choisir|sélect|contexte|établissement/gi)||[]).join('-');
+                for label in frame.get_by_text(DOCUMENT).filter(visible=True).all()[:6]:
+                    shapes.append(label.evaluate("""e => {
+                        const row=e.closest('tr,li');
+                        return (row ? row.tagName+':'+[...row.querySelectorAll('a,img,button')].map(x=>x.tagName+
+                            ((x.alt+' '+x.title+' '+x.getAttribute('src')).match(/disquette|charg|download|save|pdf/gi)||[]).join('')).join('/') : e.tagName);
                     }"""))
-                hints = frame.locator("p:visible,h1:visible,h2:visible,h3:visible,.portlet-msg-info:visible,.alert:visible,main:visible").evaluate_all("""els => {
-                    const vocab=/aucun|compte|rendu|tous|pas de|disponible|activité|habilitation|droits|autorisé|autorisation|accès|accéder|choisir|choisissez|sélect|contexte|session|traitement|planifi|génér|existe|déjà|désactiv|ouvert|ferm|démarr|chargement|veuillez|papillon|défini|paramétr|édition|erreur|connexion|élève|examen|établissement/gi;
-                    return [...new Set(els.filter(e=>!e.closest('nav,header,footer')).map(e=>(e.innerText.match(vocab)||[]).slice(0,30).join(' ')).filter(Boolean))].slice(0,12);
-                }""")
-                if hints:
-                    chooser_controls.append("avis-écran="+" / ".join(hints))
-                # Capture only ordered, allowlisted interface words. This
-                # includes legacy portlets built entirely from div/span nodes.
-                body = frame.locator("body").inner_text(timeout=2000)
-                # Only the fixed application prerequisite, no values, names,
-                # identifiers, PDF contents or other body text.
-                fixed_notice = re.search(r"Vous devez ([a-zà-ÿ-]{2,30}) un Examen[- ]session pour accéder à cette activité", body, re.I)
-                if fixed_notice and fixed_notice[1].islower():
-                    chooser_controls.insert(0,"prérequis examen-session="+fixed_notice[1])
-                # Public widget hooks used by this portlet; keep JS operation
-                # names only. No script content, literals or portal data.
-                widget = frame.evaluate(r"""() => {
-                    const scripts=[...document.scripts], inline=scripts.filter(s=>!s.src && /selectContexte|validerContexte/i.test(s.textContent||''));
-                    const hooks = [];
-                    for(const s of inline) {
-                        for(const m of s.textContent.matchAll(/selectContexte|validerContexte/gi)) {
-                            const t = s.textContent.slice(Math.max(0,m.index-180),m.index+320);
-                            const ops=t.match(/selectContexte|validerContexte|sousactivite|change|click|onchange|val\(|option:selected|attr\(|contexte|examen|session|form|submit|href|location|reload|reset|ajax|post|html|param|resourceUrl|actionUrl/gi)||[];
-                            hooks.push(ops.slice(0,30).join('.'));
-                        }
-                    }
-                    const assets=scripts.filter(s=>s.src && new URL(s.src).origin===location.origin)
-                        .map(s=>new URL(s.src).pathname.split('/').pop()).filter(n=>/^[A-Za-z_.-]{1,65}\.js$/.test(n));
-                    return [...new Set(hooks)].slice(0,5).join('|')+' assets='+assets.slice(-12).join(',');
-                }""")
-                # Sanitised control flow for the published context-change
-                # handler. Remove all dynamic string values and numeric IDs.
-                wiring = frame.evaluate(r"""() => {
-                    const keep=/^(?:#?selectContexte|change|click|POST|GET|json|html|option:selected|selected|validerContexte|[A-Za-z_]{0,20}(?:contexte|context|session|examen|sousactivite)[A-Za-z_]{0,22})$/i;
-                    for (const script of document.scripts) {
-                        if (script.src || !/selectContexte/.test(script.textContent)) continue;
-                        const binding=script.textContent.match(/selectContexte[^;]{0,80}?(?:\.change\s*\(|\.on\s*\(\s*["']change["']\s*,)(?:function)?/i);
-                        if(!binding)continue;
-                        const scoped=script.textContent.slice(binding.index+binding[0].length);
-                        const stripped=scoped.replace(new RegExp(String.fromCharCode(96)+'(?:\\\\.|[^'+String.fromCharCode(96)+'\\\\])*'+String.fromCharCode(96),'gs'),"'…'");
-                        const safe=stripped.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gs,v=>{
-                            const t=v.slice(1,-1); return keep.test(t) ? "'"+t+"'" : "'…'";
-                        }).replace(/\/\*[\s\S]*?\*\//g,' ').replace(/\/\/[^\n]*/g,' ').replace(/\b\d{3,}\b/g,'N').replace(/\s+/g,' ');
-                        return safe.slice(0,960);
-                    } return '';
-                }""")
-                if wiring:
-                    chooser_controls.insert(0,"validation officielle="+wiring)
-                chooser_controls.append("widget="+widget)
-                if "compte_candidat" in urlsplit(frame.url).path:
-                    chooser_controls.append("liaisons="+" | ".join(public_switch_bindings(frame))[:1900])
-                notice = access_notice(body)
-                if notice:
-                    chooser_controls.insert(0, "condition="+notice)
-                for switch in frame.locator("#selectContexte:visible").all():
-                    icon_info = switch.evaluate("""e=>{
-                        const area=e.closest('.titreActivite,h2');
-                        return area ? [...area.querySelectorAll('a,button,img,input[type=image]')].map(n=>{
-                            const src=(n.getAttribute('src')||'').split('/').pop().split('?')[0];
-                            const words=[n.title,n.getAttribute('aria-label'),n.alt].join(' ').match(/contexte|session|valider|changer|modifier|appliquer|aide|confirmer|actualiser|choisir|annuler/gi);
-                            return n.tagName+'/'+(src?.match(/^[a-zA-Z_.-]{1,65}$/)?src:'')+'/'+(words||[]).join('+');
-                        }).join(',') : '';
-                    }""")
-                    chooser_controls.append("icônes="+icon_info)
-                ui_words = set("aucun aucune compte rendu tous pas disponible indisponible activité droits habilité autorisé autorisation accès accéder choisir choisissez sélectionner sélectionnez contexte session traitement générer génération générés existant comptes possèdent déjà ouverts chargement veuillez papillon papillons défini paramètres erreur anomalie problème validation élèves examen établissement examens candidats navigation navigateur fenêtre fenêtres document documents téléchargement édition éditions afficher choix valider service fermé initialisé doit devez enregistrée sélectionner".split())
-                rows = [" ".join(w for w in line.casefold().split() if w.strip(".:!,’()") in ui_words)
-                        for line in body.splitlines()]
-                chooser_controls.append("écran="+" / ".join(r for r in rows if r)[-700:])
-                chooser_controls.append("champs="+frame.locator("form,select,input:not([type=hidden]),iframe,object,embed").evaluate_all(
-                    """els=>els.slice(-30).map(e=>e.tagName+'#'+(e.id||e.name||'').replace(/[^A-Za-z_-]/g,'').slice(0,48)).join(',')"""))
-                chooser_controls.append("cadres="+",".join(route_label(f.url) or urlsplit(f.url).scheme
-                    for w in context.pages for f in w.frames)[:480])
-                for chooser in frame.locator("#selectContexte:visible").all():
-                    chooser_controls.append(chooser.evaluate("""e => {
-                        const chain=[]; let n=e;
-                        for(let i=0;n && i<5;i++,n=n.parentElement)chain.push(n.tagName+'.'+String(n.className).replace(/[^a-zA-Z_ -]/g,'').slice(0,70));
-                        const opt=e.options[Math.max(0,e.options.length-1)];
-                        const handlers=n=>['onchange','onclick','oninput','onkeydown','onmousedown'].filter(a=>n && (n[a]||n.hasAttribute(a))).join('+');
-                        return 'zone='+chain.join('>')+' événements='+handlers(e)+'/'+handlers(opt)+' option='+
-                          (String(opt?.value||'').startsWith('https:') || String(opt?.value||'').startsWith('/')?'url':opt?.value?'code':'vide');
-                    }"""))
-                    chooser_controls.extend(chooser.evaluate("""e => {
-                        const region=e.closest('.modal,dialog,[role=dialog],form') || e.closest('div') || e.parentElement.parentElement;
-                        const words=/valider|sélectionner|selectionner|choisir|contexte|session|confirmer|continuer|appliquer|ouvrir|accéder|annuler|fermer|suivant|ok|lancer|activité|afficher|générer/gi;
-                        const names=n=>[n.id,n.name,n.title,n.getAttribute('aria-label'),n.matches('input[type=button],input[type=submit]')?n.value:'',n.textContent].filter(Boolean).join(' ');
-                        return [e.parentElement.tagName+'>'+region.tagName,...Array.from(region.querySelectorAll('button,input[type=submit],input[type=button],a,[role=button],img[title]'))
-                            .filter(n=>n.getClientRects().length).slice(0,20).map(n=>n.tagName+'/'+(n.id||'').replace(/[^a-zA-Z_-]/g,'').slice(0,40)+'/'+[...new Set(names(n).match(words)||[])].join('+'))];
-                    }"""))
-                # Log structural facts from the menu only. Never values, URLs or PDF text.
-                nodes = frame.get_by_text(activity)
-                if nodes.count():
-                    structure.extend(nodes.evaluate_all("""els => els.slice(0,4).map(e => {
-                        const tags=[]; for(let n=e; n && tags.length<5; n=n.parentElement) {
-                            tags.push(n.tagName + (n.hasAttribute('onclick')?'*':'') +
-                                (n.tagName==='A' && n.getAttribute('href')?'(link)':''));
-                        } return tags.join('/');
-                    })"""))
-                for flag, pattern in (("générer",re.compile("^Générer$",re.I)),
-                                      ("choix",re.compile("choisir.*session",re.I)),
-                                      ("aucune édition",re.compile("aucun(?:e)? (?:édition|compte.rendu|traitement)",re.I))):
-                    if frame.get_by_text(pattern).count():
-                        controls.add(flag)
-                if frame.locator("#selectContexte:visible").count():
-                    controls.add("sélecteur")
-                ids.update(frame.locator('[id^="ACTV_"],[id^="ETABLISSEMENT_"]').evaluate_all(
-                    "(els) => els.map(e => e.id).filter(s => /^(ACTV|ETABLISSEMENT)_[A-Z_]{1,90}$/.test(s) && /COMPTE|ETABLISSEMENT_|PAPILLON/.test(s))"))
-                for name, pattern in (("activité", ACTIVITY), ("compte-rendu", SUMMARY), ("document", DOCUMENT)):
-                    if frame.get_by_text(pattern).count():
-                        controls.add(name)
             except Error:
                 continue
-        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), structure %s, contexte %s/%s [%s], commande %s, pages %s, contrôles %s, liens %s, boutons %s, menu %s",
-            academy, phase, ",".join(structure) or "—", context_seen, selected_session if phase not in
-            ("menu établissement","chargement du menu","activité comptes élèves") else False, ",".join(sorted(observed)), ",".join(chooser_controls), ",".join(doc_routes), ",".join(sorted(controls)) or "—", " | ".join(trace), ",".join(sorted(buttons)) or "—", ",".join(sorted(ids)) or "—")
+        logging.getLogger(__name__).warning("CYCLADES %s papillons : %s (%s), onglet reconnu=%s, fichiers=%s",
+            academy, phase, type(exc).__name__, bool(tab_ids), ",".join(shapes) or "aucun")
         for record in records:
             if slip_key(record) in wanted and record.get("slip_sync") != "not_listed":
                 record["slip_sync"] = "unavailable"
