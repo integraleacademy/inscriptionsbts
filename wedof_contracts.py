@@ -4,7 +4,7 @@ No remote writes or bulk imports. Daily scheduled discovery is bounded
 to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
-from akto_pilot import contract_for as akto_contract_for
+from akto_pilot import contract_card as akto_contract_card, contract_for as akto_contract_for
 import base64
 from collections.abc import Mapping
 from contextlib import closing, contextmanager
@@ -599,7 +599,8 @@ def register_wedof_contracts(app, connect, require_admin):
         pilot = akto_contract_for(cid)
         if pilot:
             return jsonify(ok=True, configured=False, has_contracts=True,
-                           html=render_template('_akto_pilot.html', pilot=pilot))
+                           html=render_template('_wedof_contracts_list.html', row=row, pilot=pilot,
+                                                contracts=[akto_contract_card(pilot, row)], configured=False))
         with closing(connection()) as conn:
             try:
                 configured = bool(get_key(app, conn))

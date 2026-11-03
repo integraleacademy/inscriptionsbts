@@ -44,7 +44,7 @@
     </section>
     <section id="panel-contrat-apprentissage" role="tabpanel" aria-labelledby="tab-contrat-apprentissage" class="sheet-panel wc-panel" data-csrf="{{ wedof_csrf() }}" hidden>
       {% set pilot = akto_contract_for(row.id) %}
-      {% if pilot %}{% include '_akto_pilot.html' %}{% else %}{% include '_wedof_contracts_panel.html' %}{% endif %}
+      {% include '_wedof_contracts_panel.html' %}
     </section>
     {% include '_candidate_school_tabs.html' %}
     {% if row.bts in bts_codes %}{% include '_cyclades_panel.html' %}{% endif %}

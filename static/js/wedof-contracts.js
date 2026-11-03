@@ -79,9 +79,9 @@
     await load();
   }
   const openSearch = () => { $('wc-search').hidden = false; $('wc-reference').focus(); };
-  $('wc-add').addEventListener('click', openSearch);
-  $('wc-close-search').addEventListener('click', () => {$('wc-search').hidden = true;});
-  $('wc-kind').addEventListener('change', () => {
+  $('wc-add')?.addEventListener('click', openSearch);
+  $('wc-close-search')?.addEventListener('click', () => {$('wc-search').hidden = true;});
+  $('wc-kind')?.addEventListener('change', () => {
     const kind = $('wc-kind').value;
     $('wc-financer').required = kind === 'number';
     $('wc-reference').placeholder = kind === 'wedof' ? 'Identifiant numérique WEDOF' : kind === 'folder' ? 'Référence du dossier de formation' : 'Numéro de contrat ou DECA';
@@ -111,7 +111,7 @@
       more.addEventListener('click', () => run(() => search({next_token: result.next_token}))); target.append(more);
     }
   }
-  $('wc-search-form').addEventListener('submit', event => {
+  $('wc-search-form')?.addEventListener('submit', event => {
     event.preventDefault(); const data = Object.fromEntries(new FormData(event.target));
     run(() => search(data));
   });
