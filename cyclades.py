@@ -17,7 +17,7 @@ from flask import abort, flash, jsonify, redirect, render_template, request, ses
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, with_exams, words
 from cyclades_portal import read_academy
 
-READER_VERSION = 15
+READER_VERSION = 16
 
 
 def cipher(app):
@@ -44,7 +44,8 @@ def summaries(conn):
 def sheet_status(conn, student):
     person = identity(student)
     identifiable = all(person)
-    sources = {key: item["status"] for key, item in summaries(conn).items() if item["connected"]}
+    accounts = summaries(conn)
+    sources = {key: item["status"] for key, item in accounts.items() if item["connected"]}
     busy = any(status in (None, "pending", "running") for status in sources.values())
     partial = "error" in sources.values()
     checked, outcomes = set(), set()
@@ -61,7 +62,8 @@ def sheet_status(conn, student):
         for record in json.loads(entry["records"]):
             tone = {"inscrit": "green", "pre inscrit": "blue", "anomalie": "amber",
                     "non inscrit": "amber"}.get(words(record["status"]), "slate")
-            item = dict(record, candidate_id=student["id"], academy_key=entry["academy"], academy=ACADEMIES[entry["academy"]][0], year=entry["year"],
+            attempt = accounts[entry["academy"]]
+            item = dict(record, last_partial_attempt=attempt["attempt"] if attempt["connected"] and attempt["status"] == "error" else None, candidate_id=student["id"], academy_key=entry["academy"], academy=ACADEMIES[entry["academy"]][0], year=entry["year"],
                         seen=display_time(entry["seen"]), origin=entry["origin"], tone=tone)
             (matches if entry["outcome"] == "matched" else history).append(item)
 
@@ -108,7 +110,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 reader_changed = row["reader_version"] < READER_VERSION and (
                     row["status"] == "error" or row["reader_version"] > 0)
                 recovering = row["status"] == "running" or (reader_changed and (row["network_retry"] is None or
-                    (key == "nice" and row["network_retry"] == -1 and row["reader_version"] < 15)))
+                    (key == "nice" and row["network_retry"] == -1 and row["reader_version"] < 16)))
                 daily_due = clock.hour >= 8 and (row["day"] or "") < slot
                 retry_at = row["network_retry"]
                 retry_due = retry_at is not None and retry_at > 0 and retry_at <= clock.timestamp() and row["status"] == "error"
