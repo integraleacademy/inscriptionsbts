@@ -27,13 +27,16 @@ def annotate_candidate_statuses(conn, rows, today=None):
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     employed = set()
     verified_mos = set()
+    direct_by_candidate = {}
     if 'akto_students' in tables:
         from akto_sync import get_records
-        from opco_sync import student_records
+        from opco_sync import same_contract, student_records
         for cid,row in eligible.items():
             is_mos = (row.get('bts') or '').strip().upper() == 'MOS'
             records, message = get_records(conn,cid) if is_mos else ([], '')
             direct = student_records(conn, row)
+            if direct:
+                direct_by_candidate[cid] = direct
             if any(i.get('state') == 'accepted' and
                    (not i.get('contract_break_date') or i['contract_break_date'] > today.isoformat()) and
                    active_period(i.get('contract_start'),i.get('contract_end'),today) for i in direct):
@@ -61,6 +64,8 @@ def annotate_candidate_statuses(conn, rows, today=None):
                 except (ValueError, TypeError):
                     continue
                 if not isinstance(item, dict) or item.get('state') != 'accepted' or not (item.get('employer_name') or item.get('employer_siret')):
+                    continue
+                if any(same_contract(item,r) for r in direct_by_candidate.get(row['candidate_id'],())):
                     continue
                 if item.get('contract_break_date') and str(item['contract_break_date'])[:10] <= today.isoformat():
                     continue

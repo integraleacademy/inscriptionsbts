@@ -72,3 +72,26 @@ def test_filiz_account_all_bts_views_and_cache(tmp_path,monkeypatch):
     client.post('/admin/parametres/opco/filiz',data={'action':'disconnect','csrf_token':'csrf'})
     with closing(db()) as conn:
         assert conn.execute('SELECT count(*) FROM filiz_session').fetchone()[0]==0
+
+
+def test_filiz_rupture_precedes_older_wedof_status():
+    from datetime import date
+    from candidate_statuses import annotate_candidate_statuses
+    from filiz_portal import STATUS
+    from opco_sync import schema
+    from akto_sync import schema as akto_schema
+    conn=sqlite3.connect(':memory:')
+    conn.row_factory=sqlite3.Row
+    schema(conn)
+    akto_schema(conn)
+    conn.execute("CREATE TABLE student_wedof_contracts(candidate_id TEXT,payload TEXT)")
+    conn.execute("UPDATE opco_accounts SET credential=x'01' WHERE provider='filiz'")
+    item={'financer':'opcoCfaMobilites','deca_number':'D42','source':'filiz','employer_name':'Test',
+          'apprentice_last_name':'Test','apprentice_first_name':'Alice','apprentice_birth_date':'2001-01-01',
+          'contract_start':'2025-09-01','contract_end':'2027-08-31','state':STATUS['rupture validee']}
+    conn.execute("INSERT INTO opco_contracts VALUES('filiz','demo','student',?)",(json.dumps(item),))
+    conn.execute("INSERT INTO student_wedof_contracts VALUES('student',?)",(json.dumps(dict(item,state='accepted')),))
+    student=dict(id='student',nom='Test',prenom='Alice',date_naissance='2001-01-01',bts='CI',statut='confirmee')
+    annotate_candidate_statuses(conn,[student],date(2026,11,3))
+    assert student['display_status']=='confirmee'
+    conn.close()
