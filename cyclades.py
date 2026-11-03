@@ -14,10 +14,10 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 from flask import abort, flash, redirect, render_template, request, session, url_for
 
-from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, apply_report, identity, match_report, parse_report, with_exams, words
+from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, with_exams, words
 from cyclades_portal import read_academy
 
-READER_VERSION = 11
+READER_VERSION = 12
 
 
 def cipher(app):
@@ -108,12 +108,17 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 recovering = row["status"] == "running" or (
                     (row["status"] == "error" or 0 < row["reader_version"] < READER_VERSION) and row["reader_version"] < READER_VERSION)
                 daily_due = clock.hour >= 8 and (row["day"] or "") < slot
-                if row["day"] is not None and row["status"] != "pending" and not (recovering or daily_due):
+                retry_at = row["network_retry"]
+                retry_due = retry_at is not None and retry_at > 0 and retry_at <= clock.timestamp() and row["status"] == "error"
+                if row["day"] is not None and row["status"] != "pending" and not (recovering or daily_due or retry_due):
                     continue
+                # -1 marks the recovery attempt already consumed for this daily slot.
+                retry_used = (retry_due or retry_at == -1) and not daily_due
                 revision = row["revision"]
-                conn.execute("UPDATE cyclades_accounts SET day=?,attempted=?,reader_version=?,status='running',message='' WHERE academy=?",
-                             (slot, clock.timestamp(), READER_VERSION, key))
+                conn.execute("UPDATE cyclades_accounts SET day=?,attempted=?,reader_version=?,network_retry=?,status='running',message='' WHERE academy=?",
+                             (slot, clock.timestamp(), READER_VERSION, -1 if retry_used else None, key))
                 conn.commit()
+            interrupted = False
             errors = []
             counts = []
             try:
@@ -129,6 +134,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 with closing(source) as reports:
                     for report in reports:
                         if isinstance(report, CycladesError):
+                            interrupted |= isinstance(report, CycladesNetworkError)
                             errors.append(str(report))
                             continue
                         with closing(connect()) as conn:
@@ -142,12 +148,17 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
             except InvalidToken:
                 errors.append("La clé du serveur a changé. Renseignez de nouveau les accès.")
             except CycladesError as error:
+                interrupted = isinstance(error, CycladesNetworkError)
                 errors.append(str(error))
             except Exception:
                 errors.append("La lecture de CYCLADES a été interrompue. Les dernières données sont conservées.")
+            next_retry = -1 if retry_used else None
+            if interrupted and not retry_used:
+                next_retry = clock.timestamp() + 1800
+                errors.append(f"Nouvelle tentative prévue à {datetime.fromtimestamp(next_retry, PARIS):%Hh%M}.")
             with closing(connect()) as conn:
-                updated = conn.execute("UPDATE cyclades_accounts SET status=?, message=? WHERE academy=? AND revision=?",
-                             ("error" if errors else "ok", " ".join(errors), key, revision))
+                updated = conn.execute("UPDATE cyclades_accounts SET status=?, message=?, network_retry=? WHERE academy=? AND revision=?",
+                             ("error" if errors else "ok", " ".join(errors), next_retry, key, revision))
                 conn.commit()
             if updated.rowcount:
                 log = app.logger.warning if errors else app.logger.info

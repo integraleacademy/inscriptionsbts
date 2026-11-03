@@ -450,3 +450,19 @@ def test_new_students_eligible_in_both_academies_without_a_previous_sync(student
     run_due(application.app, application.db, tmp_path, now=clock)
     run_due(application.app, application.db, tmp_path, now=clock + timedelta(minutes=1))
     assert captured == [("paris", 2026), ("paris", 2027), ("nice", 2026), ("nice", 2027)]
+
+
+def test_interrupted_connection_retries_once_in_the_same_slot(student, tmp_path):
+    from cyclades_data import CycladesNetworkError
+    clock = datetime(2026, 11, 3, 8, tzinfo=PARIS)
+    credential = cipher(application.app).encrypt(b'{"username":"example","password":"unused"}')
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_accounts SET credential=? WHERE academy='nice'", (credential,))
+    calls = []
+    def fetch(key, credentials):
+        calls.append(key)
+        raise CycladesNetworkError("Connexion interrompue.")
+        yield
+    for minutes in (0, 12, 30, 31, 90):
+        run_due(application.app, application.db, tmp_path, now=clock + timedelta(minutes=minutes), fetch=fetch)
+    assert calls == ["nice", "nice"]
