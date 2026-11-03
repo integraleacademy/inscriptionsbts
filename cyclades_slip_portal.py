@@ -7,12 +7,31 @@ from urllib.parse import urlsplit
 
 from playwright.sync_api import Error
 
-from cyclades_data import ACADEMIES, MAX_BYTES, CycladesError
+from cyclades_data import ACADEMIES, MAX_BYTES, CycladesError, words
 from cyclades_slips import read_slips, slip_key
 
-ACTIVITY = re.compile(r"^Générer les comptes (?:CYCLADES )?de mes élèves$", re.I)
+ACTIVITY = re.compile(r"^G[ée]n[ée]rer\s+les comptes\s+(?:CYCLADES\s+)?(?:de mes|des)\s+[ée]l[èe]ves$", re.I)
 SUMMARY = re.compile(r"^Afficher le compte[ -]rendu$", re.I)
 DOCUMENT = re.compile(r"papillons?\s*(?:d['’]\s*)?informations?\s*(?:de\s*)?connexion\s*(?:cyclades)?", re.I)
+
+
+def open_accounts_menu(shell):
+    # CYCLADES can pre-render the activity link in a collapsed aside, or
+    # populate its sub-menu only after the parent activity is expanded.
+    leaf = shell.get_by_role("link", name=ACTIVITY, include_hidden=True)
+    if leaf.count() == 1:
+        leaf.dispatch_event("click")
+        return
+    parent = shell.get_by_text(re.compile(r"^Mon [ée]tablissement$", re.I)).filter(visible=True)
+    if parent.count():
+        parent.first.click()
+    group = shell.get_by_text(re.compile(r"^(?:G[ée]rer|Gestion) (?:les |des )?comptes(?: CYCLADES)?(?: (?:de mes|des) [ée]l[èe]ves)?$", re.I)).filter(visible=True)
+    if not leaf.count() and group.count():
+        group.first.click()
+    if leaf.count() == 1:
+        leaf.dispatch_event("click")
+        return
+    shell.get_by_text(ACTIVITY).filter(visible=True).first.click()
 
 
 def read_account_slips(page, academy, session, records, cipher):
@@ -51,27 +70,29 @@ def read_account_slips(page, academy, session, records, cipher):
     try:
         entry = page.url if urlsplit(page.url).hostname == CENTRAL else ACADEMIES[academy][3]
         navigate(shell, entry)
-        heading = shell.get_by_role("heading", level=1).filter(has_text=ACADEMIES[academy][1])
-        heading.wait_for(timeout=20000)
         if urlsplit(shell.url).hostname != CENTRAL:
-            return
-        leaf = shell.get_by_text(ACTIVITY).filter(visible=True)
-        if not leaf.count():
-            shell.get_by_text(re.compile(r"^Mon établissement$", re.I)).filter(visible=True).first.click()
+            raise CycladesError("Espace établissement inaccessible.")
+        # The connected tab was already verified for the academy's UAI. The
+        # new tab uses that same session, as does the official PJ worklist.
+        phase = "chargement du menu"
+        shell.locator("#ETABLISSEMENT_INSCRIPTION").or_(shell.get_by_role("heading", level=1).filter(
+            has_text=ACADEMIES[academy][1])).first.wait_for(state="attached", timeout=20000)
         phase = "activité comptes élèves"
-        leaf.first.click()
+        open_accounts_menu(shell)
         phase = "compte rendu existant"
         deadline = time.monotonic() + 16
         summary = None
+        selected_session = False
         while time.monotonic() < deadline and summary is None:
             for frame in frames():
                 if select_report_context(frame, session):
+                    selected_session = True
                     break
                 button = visible_control(frame, SUMMARY)
                 if button.count() == 1 and button.is_enabled():
                     # The activity displays the selected BTS context above its parameters.
                     text = frame.locator("body").inner_text(timeout=1500)
-                    if " ".join(session.casefold().split()) in " ".join(text.casefold().split()):
+                    if selected_session or words(session) in words(text):
                         summary = button
                         break
             if summary is None:
@@ -124,7 +145,20 @@ def read_account_slips(page, academy, session, records, cipher):
                 record["sealed_slip"] = cipher.encrypt(password.encode()).decode()
         logging.getLogger(__name__).warning("CYCLADES %s papillons : %d/%d accès rattachés", academy, len(found), len(wanted))
     except (Error, CycladesError, OSError, ValueError):
-        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s)", academy, phase)
+        # Keep navigation identifiers only, never page text or candidate data.
+        ids = set()
+        controls = set()
+        for frame in frames():
+            try:
+                ids.update(frame.locator('[id^="ACTV_"],[id^="ETABLISSEMENT_"]').evaluate_all(
+                    "(els) => els.map(e => e.id).filter(s => /^(ACTV|ETABLISSEMENT)_[A-Z_]{1,90}$/.test(s) && /COMPTE|ETABLISSEMENT_|PAPILLON/.test(s))"))
+                for name, pattern in (("activité", ACTIVITY), ("compte-rendu", SUMMARY), ("document", DOCUMENT)):
+                    if frame.get_by_text(pattern).count():
+                        controls.add(name)
+            except Error:
+                continue
+        logging.getLogger(__name__).warning("CYCLADES %s papillons : lecture indisponible (%s), menu %s, contrôles %s",
+            academy, phase, ",".join(sorted(ids)) or "—", ",".join(sorted(controls)) or "—")
     finally:
         context.remove_listener("response", pdf_response)
         context.remove_listener("page", watch)
