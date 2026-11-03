@@ -541,6 +541,9 @@ def read_pieces(page, academy, label, report, records):
                 if result is not None:
                     record.update(result, documents_checked=stamp)
                     return 1
+            logging.getLogger(__name__).warning("CYCLADES %s PJ détail non rapproché : candidat=%s UAI=%s compteur=%s",
+                academy, bool(re.search(r"N[°º]\s*candidat\s*:\s*\d+", text, re.I)),
+                ACADEMIES[academy][1] in text, bool(re.search(r"conformes\s*:\s*\d+\s*/", text, re.I)))
             return 0
         counter = re.compile(r"Pièces justificatives conformes\s*:")
         next_name = re.compile(r"^(?:page )?suivant(?:e)?$", re.I)
@@ -574,6 +577,7 @@ def read_pieces(page, academy, label, report, records):
             return
 
         seen_pages = set()
+        logged_row = False
         while observed < len(targets):
             # Restrict navigation to rows containing a known candidate number.
             visible = []
@@ -601,6 +605,14 @@ def read_pieces(page, academy, label, report, records):
                         continue
                     for index in range(rows.count()):
                         row = rows.nth(index)
+                        if not logged_row:
+                            structure = row.evaluate("""row => Array.from(row.cells || []).map(c => {
+                                const nodes = [c, ...c.querySelectorAll('a,button,input,img,[onclick],[ondblclick]')];
+                                return nodes.map(n => [n.tagName,n.getAttribute('role')||'',n.hasAttribute('onclick')?'click':'',
+                                    n.hasAttribute('ondblclick')?'dblclick':'',n.hasAttribute('href')?'href':''].filter(Boolean).join('/')).join('+');
+                            }).join(' ')""")
+                            logging.getLogger(__name__).warning("CYCLADES %s PJ structure de ligne | %s", academy, structure)
+                            logged_row = True
                         all_links = row.get_by_role("link").filter(visible=True)
                         link = all_links.filter(has_text=reference)
                         if link.count() != 1:
@@ -611,33 +623,52 @@ def read_pieces(page, academy, label, report, records):
                             link = row.get_by_role("button", name=action).or_(row.get_by_title(action)).filter(visible=True)
                         window = frame.page
                         pages_before = set(page.context.pages)
-                        if link.count() == 1:
-                            link.click()
-                        else:
-                            # Some worklists handle selection on the table cell and
-                            # expose a separate read-only 'Consulter' action.
-                            cell = row.locator("td,[role=cell]").filter(has_text=reference)
-                            if cell.count() != 1:
-                                continue
-                            cell.click()
-                            if not any(f.get_by_text(counter).count() for f in active()):
-                                consult = frame.get_by_role("button", name=re.compile(
-                                    r"^(consulter|accéder|voir le détail)( la candidature| le dossier)?$", re.I)).filter(visible=True)
-                                if consult.count() == 1 and consult.is_enabled():
-                                    consult.click()
-                                elif cell.count() and cell.is_visible():
-                                    cell.dblclick()
-                        for _ in range(36):
-                            detail = next((f for f in active() if f.get_by_text(counter).count()), None)
+                        def current_detail():
+                            return next((f for f in active() if f.get_by_text(counter).filter(visible=True).count()), None)
+                        phase = "ouverture de la ligne"
+                        try:
+                            if link.count() == 1:
+                                link.click(timeout=3500)
+                            else:
+                                cell = row.locator("td:visible,[role=cell]:visible").filter(has_text=reference)
+                                if cell.count() != 1:
+                                    continue
+                                handle = cell.element_handle(timeout=2000)
+                                handle.click(timeout=3000)
+                                # A single click can already start a detail navigation.
+                                # Keep the original element: never re-resolve it on the next page.
+                                for _ in range(8):
+                                    if current_detail() or not handle.evaluate("e => e.isConnected"):
+                                        break
+                                    shell.wait_for_timeout(150)
+                                if not current_detail() and handle.evaluate("e => e.isConnected"):
+                                    consult = frame.get_by_role("button", name=re.compile(
+                                        r"^(consulter|accéder|voir le détail)( la candidature| le dossier)?$", re.I)).filter(visible=True)
+                                    if consult.count() == 1 and consult.is_enabled():
+                                        consult.click(timeout=3000)
+                                    else:
+                                        handle.dblclick(timeout=2000)
+                        except Error:
+                            # The clicked element or frame may have been replaced by the detail screen.
+                            pass
+                        phase = "lecture de la fiche"
+                        detail = None
+                        for _ in range(35):
+                            detail = current_detail()
                             if detail:
                                 unread = [r for r in records if "documents_checked" not in r]
                                 observed += consume(detail, unread)
                                 break
                             shell.wait_for_timeout(200)
-                        if detail and detail.page not in pages_before:
+                        if not detail:
+                            logging.getLogger(__name__).warning("CYCLADES %s PJ fiche non ouverte | %s", academy,
+                                filter_structure(frame) if not frame.is_detached() else "cadre remplacé")
+                        elif detail.page not in pages_before:
                             detail.page.close()
-                        elif detail:
-                            window.go_back(wait_until="domcontentloaded", timeout=7000)
+                        else:
+                            phase = "retour aux résultats"
+                            window.go_back(wait_until="commit", timeout=10000)
+                        phase = "dossiers"
                         if all("documents_checked" in r for r in records):
                             break
                     break
@@ -652,7 +683,9 @@ def read_pieces(page, academy, label, report, records):
             if not advanced:
                 break
     except (Error, CycladesError) as exc:
-        logging.getLogger(__name__).warning("CYCLADES %s PJ : %s (%s)", academy, phase, type(exc).__name__)
+        action = re.search(r"(Locator|Page|ElementHandle)\.([a-z_]+):", str(exc))
+        logging.getLogger(__name__).warning("CYCLADES %s PJ : %s (%s, %s)", academy, phase, type(exc).__name__,
+                                           action[2] if action else "navigation")
     finally:
         logging.getLogger(__name__).warning("CYCLADES %s PJ %d : étape %s, %d dossiers vérifiés",
                                            academy, report.year, phase, observed)

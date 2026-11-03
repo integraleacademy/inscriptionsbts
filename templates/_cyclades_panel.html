@@ -9,7 +9,7 @@
       <form class="cy-search" method="post" action="{{ url_for('cyclades_candidate_search', cid=row.id) }}"{% if not cyclades.can_search %} hidden{% endif %}>
         <input type="hidden" name="csrf_token" value="{{ planning_csrf_token }}">
         <input type="hidden" name="return_to" value="{{ request.args.get('return_to', '') }}">
-        <button type="submit" class="cy-button" aria-label="Rechercher sur CYCLADES"{% if cyclades.busy %} disabled{% endif %}>{{ icon('search') }} Rechercher</button>
+        <button type="submit" class="cy-button" aria-label="Rechercher sur CYCLADES"{% if cyclades.busy %} disabled{% endif %}>{{ icon('search') }} {{ 'Actualiser' if cyclades.matches else 'Rechercher' }}</button>
       </form>
     </header>
     <div class="cy-result" aria-live="polite">{% include '_cyclades_result.html' %}</div>
