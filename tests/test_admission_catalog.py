@@ -104,3 +104,19 @@ def test_existing_title_spelling_keeps_its_promotion_and_is_listed_once(client):
     listing = page(client, '/').select_one('#titres-professionnels')
     assert len(listing.select('li')) == len(ACADEMY_TITLES)
     assert listing.find('h3', string=name).find_parent('li').a['href'].endswith('/' + pid)
+
+
+def test_security_agent_title_is_unavailable_even_with_an_existing_promotion(client):
+    auth(client)
+    pid = promotion(client, 'TP GESTIONNAIRE DE PAIE')
+    name = 'Agent de sûreté et de sécurité privée'
+    code = 'TP ' + name.upper()
+    with application.db() as conn:
+        conn.execute('INSERT INTO professional_titles(code,name) VALUES(?,?)', (code, name))
+        conn.execute('UPDATE promotions SET bts=? WHERE id=?', (code, pid))
+    for path in ('/', '/candidature?preview=1'):
+        listing = page(client, path).select_one('#titres-professionnels').get_text()
+        assert name not in listing
+        assert 'Opérateur en vidéoprotection et en télésurveillance' in listing
+    assert client.get('/titres-professionnels/apercu?' + urlencode({'formation': code})).status_code == 404
+    assert client.get('/titres-professionnels/candidature/' + pid).status_code == 404

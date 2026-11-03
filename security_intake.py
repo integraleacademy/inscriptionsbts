@@ -8,11 +8,11 @@ PUBLIC_URL = "https://www.integraleconnect.com/parcoursalternance"
 SITUATIONS = ("En études", "En emploi", "En recherche d’emploi", "En reconversion", "Autre situation")
 SLOTS = ("Le matin", "L’après-midi", "Peu importe")
 TIMELINE = (
-    {"period": "Janvier → février", "title": "Tu prépares l’APS", "detail": "175 h de formation, examen puis demande de carte professionnelle CNAPS.", "kind": "aps"},
+    {"period": "Janvier → février", "title": "Agent de prévention et de sécurité (APS)", "detail": "175 h pour apprendre à surveiller un site et prévenir les incidents, puis un examen avant la demande de carte professionnelle.", "kind": "aps"},
     {"period": "Mars → juin", "title": "Tu passes à l’action en entreprise", "detail": "Tes premières missions de sécurité, après obtention des autorisations nécessaires.", "kind": "work"},
-    {"period": "Juin → juillet", "title": "Tu prépares l’A3P", "detail": "328 h pour apprendre la protection physique des personnes et le travail en équipe.", "kind": "a3p"},
+    {"period": "Juin → juillet", "title": "Agent de protection physique des personnes (A3P)", "detail": "328 h pour apprendre à protéger une personne lors de ses déplacements et travailler en équipe.", "kind": "a3p"},
     {"period": "Juillet → décembre", "title": "Tu développes ton expérience", "detail": "Une nouvelle période en entreprise pour gagner en autonomie.", "kind": "work"},
-    {"period": "Décembre", "title": "Tu complètes avec le SSIAP 1", "detail": "70 h de formation en sécurité incendie, puis l’examen.", "kind": "ssiap"},
+    {"period": "Décembre", "title": "Agent de sécurité incendie et d’assistance à personnes (SSIAP 1)", "detail": "70 h pour apprendre à prévenir les incendies et à porter assistance aux occupants, puis un examen.", "kind": "ssiap"},
 )
 
 
