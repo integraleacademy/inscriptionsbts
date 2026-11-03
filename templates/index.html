@@ -31,7 +31,7 @@
             {% if promotion %}<p>{{ icon('calendar') }} <span><strong>{{ promotion.nom }}</strong><br>Du {{ promotion.date_debut|dmy }} au {{ promotion.date_fin|dmy }}</span></p>
             {% else %}<p>Aucune session ouverte pour ce titre.</p>{% endif %}
           </div>
-          <div class="formation-links"><a class="catalog-return" href="{{ url_for('candidature', preview=1, _anchor='titres-professionnels') if preview else url_for('index', _anchor='titres-professionnels') }}">← Choisir un autre titre</a>
+          <div class="formation-links"><a class="catalog-return" href="{{ url_for('title_selection', preview=1) if preview else url_for('title_selection') }}">← Choisir un autre titre</a>
           {% if preview %}<a href="{{ url_for('admin_promotions', bts=title_code) }}">Gérer les promotions de ce titre ↗</a>{% endif %}</div>
         {% else %}
           <div class="training-choices">{% for code,label in [('MOS','Management opérationnel de la sécurité'),('MCO','Management commercial opérationnel'),('NDRC','Négociation et digitalisation de la relation client'),('PI','Professions immobilières'),('CI','Commerce international'),('CG','Comptabilité et gestion')] %}<label class="training-choice"><input type="radio" name="bts" value="{{ code }}" required><span><b>BTS {{ code }}</b><small>{{ label }}</small></span></label>{% endfor %}</div>
@@ -97,5 +97,5 @@
 <script id="saved-application" type="application/json">{{ saved_data | default(None) | tojson }}</script>
 <script src="{{ url_for('static', filename='js/admission-validation.js') }}?v=3" defer></script>
 <script src="{{ url_for('static', filename='js/place-autocomplete.js') }}" defer></script>
-<script src="{{ url_for('static', filename='js/application-2027.js') }}?v=9" defer></script>
+<script src="{{ url_for('static', filename='js/application-2027.js') }}?v=10" defer></script>
 {% endblock %}

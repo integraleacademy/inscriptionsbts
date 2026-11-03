@@ -44,3 +44,14 @@ body[data-application-view="form"] .admission-catalog { display: none; }
   .catalog-families a { padding: 10px 12px; }
   .catalog-families small { margin-top: 2px; }
 }
+
+.title-selection .catalog-intro { display:grid; grid-template-columns:minmax(0,1fr) minmax(160px,28%); align-items:center; gap:24px; margin:16px 0 24px; }
+.title-selection .catalog-intro img { display:block; width:100%; height:auto; aspect-ratio:16/9; object-fit:cover; border-radius:14px; }
+.title-selection .catalog-intro div > p:last-child { color:#4b5967; line-height:1.5; }
+.title-selection .catalog-title-list { gap:12px; }
+.title-selection .catalog-title-list li { padding:18px; background:white; border:1px solid #e3dfd5; border-radius:14px; }
+.title-selection .catalog-session a { min-height:40px; }
+@media(max-width:640px) {
+  .title-selection .catalog-intro { grid-template-columns:1fr; gap:12px; }
+  .title-selection .catalog-intro img { max-height:145px; }
+}

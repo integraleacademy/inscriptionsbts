@@ -1049,14 +1049,23 @@ def admissions_available():
 
 def admission_landing():
     portal = get_portal_status()
-    with closing(db()) as conn:
-        titles = admission_titles(conn)
-    return render_template("admissions_landing.html", title="Candidatures · Intégrale Academy", title_offers=titles, admission_open=admissions_available(), scheduled=not campaign_is_open(), portal_message=portal.get("message", "") if portal.get("campaign_year") == ADMISSION_YEAR else "")
+    return render_template("admissions_landing.html", title="Candidatures · Intégrale Academy", admission_open=admissions_available(), scheduled=not campaign_is_open(), portal_message=portal.get("message", "") if portal.get("campaign_year") == ADMISSION_YEAR else "")
 
 
 @app.route("/")
 def index():
     return admission_landing()
+
+
+@app.get("/titres-professionnels")
+def title_selection():
+    preview = request.args.get("preview") == "1"
+    if preview and not require_admin():
+        return redirect(url_for("login", next=request.full_path))
+    with closing(db()) as conn:
+        titles = admission_titles(conn)
+    return render_template("title_selection.html", title="Choisir un titre professionnel · Intégrale Academy",
+                           title_offers=titles, preview=preview)
 
 
 @app.route("/candidature")
@@ -1066,9 +1075,7 @@ def candidature():
         return redirect(url_for("login", next="/candidature?preview=1"))
     if not admissions_available() and not preview:
         return redirect(url_for("index"))
-    with closing(db()) as conn:
-        titles = admission_titles(conn)
-    return render_template("index.html", title="Choisir ma formation · Intégrale Academy", title_offers=titles, saved_data=None, preview=preview)
+    return render_template("index.html", title="Choisir ma formation · Intégrale Academy", saved_data=None, preview=preview)
 
 
 register_place_search(app)
@@ -1211,7 +1218,7 @@ def reprendre_formulaire(token):
             rows = open_title_promotions(conn, saved_full_form["title_promotion_id"])
         if not rows or (rows[0]["bts"], rows[0]["rentree_annee"]) != (saved_full_form.get("bts"), saved_full_form.get("rentree_annee")):
             flash("La session de ce brouillon n’est plus disponible. Choisis une session ouverte.", "info")
-            return redirect(url_for("index", _anchor="titres-professionnels"))
+            return redirect(url_for("title_selection"))
         return render_title_journey(rows[0]["bts"], rows[0], saved_data=saved_full_form)
     if not admissions_available():
         return redirect(url_for("index"))
@@ -1221,9 +1228,7 @@ def reprendre_formulaire(token):
         flash("Ce brouillon concerne une ancienne rentrée. Commencez une nouvelle candidature pour septembre 2027.", "info")
         return redirect(url_for("candidature"))
 
-    with closing(db()) as conn:
-        titles = admission_titles(conn)
-    return render_template("index.html", title_offers=titles, saved_data=saved_full_form, preview=False)
+    return render_template("index.html", saved_data=saved_full_form, preview=False)
 
 
 def validate_application(form, files, *, title_code=None):
