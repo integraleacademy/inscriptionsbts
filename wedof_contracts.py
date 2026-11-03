@@ -4,7 +4,7 @@ No remote writes or bulk imports. Daily scheduled discovery is bounded
 to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
-from akto_sync import get_records as akto_records
+from akto_sync import START_DATE as AKTO_START_DATE, get_records as akto_records
 from akto_pilot import contract_card as akto_contract_card, contract_for as akto_contract_for, settings_summary as akto_settings_summary
 import base64
 from collections.abc import Mapping
@@ -222,7 +222,7 @@ def directory_contracts(app, conn, rows, *, include_linked_contracts=False):
                            contract_detail='AKTO · '+', '.join(dict.fromkeys(r['status'] for r in records)))
                 if include_linked_contracts:
                     row['linked_contracts'] = [akto_contract_card(r,row,billing)['item'] for r in records]
-            elif contracts.get(row['id']) and message:
+            elif message and any(isinstance(r,dict) and (r.get('contract_start') or '') >= AKTO_START_DATE for r in contracts.get(row['id'],[])):
                 row.update(contract='yes',contract_label='Contrat archivé',contract_detail='Dernier relevé WEDOF · '+message)
             else:
                 row.update(contract='linked' if message else 'no',contract_label='À vérifier' if message else 'Aucun contrat identifié',
@@ -611,7 +611,7 @@ def register_wedof_contracts(app, connect, require_admin):
                 records,message = akto_records(conn,cid)
             panels = [render_template('_wedof_contracts_list.html',row=row,pilot=r,configured=False,
                                       contracts=[akto_contract_card(r,row,billing)]) for r in records]
-            archive = cards(cid) if not records and message else []
+            archive = [c for c in cards(cid) if (c['item'].get('contract_start') or '') >= AKTO_START_DATE] if not records and message else []
             if message or not records:
                 panels.insert(0,render_template('_akto_read_status.html',message=message,archive=bool(archive)))
             if archive:

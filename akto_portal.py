@@ -132,10 +132,13 @@ def sign_in(page, email, password):
 
 
 def catalogue(page):
-    page.goto(DOSSIERS,wait_until='domcontentloaded')
-    counter=page.get_by_text(re.compile(r'^\d[\d\s]* résultats?$'))
-    counter.wait_for()
-    total=int(''.join(re.findall(r'\d',counter.first.inner_text())))
+    # Navigate within the signed-in app so its prestataire context is retained.
+    page.get_by_role('link',name='Dossiers',exact=True).click()
+    counter=page.locator('.pagination__span').filter(has_text=re.compile(r'^\s*\d[\d\s]*\s+résultats?\s*$',re.I)).first
+    with stage(page,'Lecture du compteur de dossiers'):
+        counter.wait_for()
+    total=int(''.join(re.findall(r'\d',counter.inner_text())))
+    logging.getLogger(__name__).warning('AKTO MOS : catalogue ouvert, %d dossiers.',total)
     if not total:
         return []
     cards=page.locator('.mobileCardWrapper')
@@ -158,7 +161,7 @@ def catalogue(page):
             break
         next_page.click()
         page.wait_for_function('(prev) => {const el=document.querySelector(".mobileCardWrapper");return el && !el.innerText.includes(prev)}',arg=batch[0].splitlines()[1].strip())
-    raise PortalError('Lecture des pages AKTO incomplète. Les relevés précédents sont conservés.')
+    raise PortalError(f'Catalogue AKTO incomplet ({len(found)}/{total} dossiers). Relevés précédents conservés.')
 
 
 def dossier(page, lines, person):
@@ -267,17 +270,21 @@ def read_portal(email,password,people,save,excluded=None,remember=None):
                         logging.getLogger(__name__).warning('AKTO navigation : %s | %s', urlsplit(req.url).hostname,code[0] if code else 'interrompue')
                 page.on('requestfailed',navigation_failed)
                 sign_in(page,email,password)
+                page.set_viewport_size({'width':800,'height':800})
                 with stage(page,'Lecture du catalogue prestataire'):
                     cards=catalogue(page)
                 matches={}
                 for lines in cards:
                     if lines[0]!='CAPP' or 'Stagiaire(s)' not in lines:
                         continue
+                    if lines.index('Stagiaire(s)')+1 >= len(lines):
+                        continue
                     if not any('management operationnel de la securite' in norm(x) or 'bts mos' in norm(x) for x in lines):
                         continue
                     name=norm(lines[lines.index('Stagiaire(s)')+1])
                     if name in by_name:
                         matches.setdefault(name,[]).append(lines)
+                logging.getLogger(__name__).warning('AKTO MOS : catalogue complet, %d contrats MOS à examiner pour %d identités.',sum(map(len,matches.values())),len(matches))
                 errors=0
                 for name,persons in by_name.items():
                     if len(persons)>1:
@@ -298,7 +305,8 @@ def read_portal(email,password,people,save,excluded=None,remember=None):
                                     remember(lines[1])
 
                         save(person,records,'')
-                    except (PortalError,Error,ValueError,ArithmeticError,OSError):
+                    except (PortalError,Error,ValueError,ArithmeticError,OSError) as exc:
+                        logging.getLogger(__name__).warning('AKTO MOS dossier : %s',str(exc) if isinstance(exc,PortalError) else type(exc).__name__)
                         errors+=1
                         save(person,None,'Lecture du dossier ou de son courrier incomplète. Relevé précédent conservé.')
                 logging.getLogger(__name__).info('AKTO MOS : %d dossiers en catalogue, %d fiches examinées, %d à vérifier.',len(cards),len(people),errors)
