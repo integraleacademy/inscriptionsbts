@@ -431,7 +431,7 @@ PJ_TITLE = "Suivre les retours de pièces justificatives"
 
 def read_pieces(page, academy, label, report, records):
     """Open the read-only worklist in its own tab so the CSV editions stay open."""
-    from cyclades_pieces import number, parse_detail
+    from cyclades_pieces import COUNT, PIECE, REF_FIELDS, number, parse_detail, verified_counts
     from datetime import datetime
     from cyclades_data import PARIS
 
@@ -534,24 +534,40 @@ def read_pieces(page, academy, label, report, records):
                 copy.querySelectorAll('div,p,tr,fieldset,legend,h1,h2,h3,h4,b,strong,label').forEach(e=>{
                     e.prepend('\\n'); e.append('\\n');
                 });
-                return copy.textContent;
+                return {rendered:body.innerText, annotated:copy.textContent};
             }""")
+            visible = text["rendered"]
+            annotated = text["annotated"]
+            # Use the rendered header for identity checks: table cell and inline
+            # boundaries can disappear when the portal's DOM is cloned as text.
+            shown, marked = COUNT.search(visible), COUNT.search(annotated)
+            if shown and marked and shown.groups() == marked.groups():
+                annotated = visible[:shown.end()] + "\n" + annotated[marked.end():]
             for record in records:
-                result = parse_detail(text, record, ACADEMIES[academy][1])
+                summary = verified_counts(visible, record, ACADEMIES[academy][1])
+                if summary is None:
+                    continue
+                record["piece_summary"] = dict(summary, checked=stamp)
+                result = parse_detail(annotated, record, ACADEMIES[academy][1])
                 if result is not None:
                     record.update(result, documents_checked=stamp)
                     return 1
-            logging.getLogger(__name__).warning("CYCLADES %s PJ détail non rapproché : candidat=%s UAI=%s compteur=%s",
-                academy, bool(re.search(r"N[°º]\s*candidat\s*:\s*\d+", text, re.I)),
-                ACADEMIES[academy][1] in text, bool(re.search(r"conformes\s*:\s*\d+\s*/", text, re.I)))
+            # Show structural reasons only; never emit a student's name or references.
+            header = visible[:shown.start()] if shown else ""
+            markers = [set(number(v) for v in re.findall(pattern, header, re.I)) for pattern, _ in REF_FIELDS]
+            matches = [[values == {number(r["details"].get(field, ""))} for values, (_,field) in zip(markers, REF_FIELDS)]
+                       for r in records]
+            logging.getLogger(__name__).warning("CYCLADES %s PJ détail : références concordantes=%s, UAI=%s, compteur=%s, rubriques=%d",
+                academy, matches, ACADEMIES[academy][1] in header, shown.groups() if shown else (),
+                len(PIECE.findall(annotated[annotated.find(shown[0]):] if shown else annotated)))
             return 0
         counter = re.compile(r"Pièces justificatives conformes\s*:")
-        next_name = re.compile(r"^(?:page )?suivant(?:e)?$", re.I)
+        next_name = re.compile(r"^(?:(?:aller [àa] la |afficher la )?page )?suivant(?:e)?$", re.I)
         targets = [r for items in expected.values() for r in items]
 
         def next_control(frame):
             return frame.get_by_role("link", name=next_name).or_(
-                frame.get_by_role("button", name=next_name)).filter(visible=True)
+                frame.get_by_role("button", name=next_name)).or_(frame.get_by_title(next_name)).filter(visible=True)
 
         # Some selections lead directly to the detail navigator.
         detail = next((f for f in active() if f.get_by_text(counter).count()), None)
@@ -622,6 +638,7 @@ def read_pieces(page, academy, label, report, records):
                         if link.count() != 1:
                             link = row.get_by_role("button", name=action).or_(row.get_by_title(action)).filter(visible=True)
                         window = frame.page
+                        list_url = window.url
                         pages_before = set(page.context.pages)
                         def current_detail():
                             return next((f for f in active() if f.get_by_text(counter).filter(visible=True).count()), None)
@@ -667,7 +684,19 @@ def read_pieces(page, academy, label, report, records):
                             detail.page.close()
                         else:
                             phase = "retour aux résultats"
-                            window.go_back(wait_until="commit", timeout=10000)
+                            # CYCLADES often changes the activity fragment in place:
+                            # browser Back then returns to the launch menu, not the result set.
+                            if official(list_url) and "suivre_retours_pj" in list_url:
+                                navigate(window, list_url)
+                            else:
+                                window.go_back(wait_until="domcontentloaded", timeout=12000)
+                            searched_again = False
+                            for _ in range(40):
+                                if any(f.locator("tr:visible,[role=row]:visible").filter(has_text=record_number).count() for f in active()):
+                                    break
+                                if not searched_again and not any(f.get_by_text(counter).count() for f in active()):
+                                    searched_again = lookup()
+                                shell.wait_for_timeout(250)
                         phase = "dossiers"
                         if all("documents_checked" in r for r in records):
                             break

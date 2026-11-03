@@ -68,3 +68,14 @@ def test_activity_reads_each_matched_registration_in_both_academies(monkeypatch)
                 for record in records:
                     assert record["documents"][0]["review"] == "En attente de contrôle"
                     assert record["documents"][0]["deposit"] == "Non déposée"
+
+
+def test_summary_can_be_verified_without_treating_incomplete_rows_as_a_full_read():
+    from cyclades_pieces import verified_counts
+    rec = {"details": {"N° de candidat": "12", "N° d’inscription": "001", "Version": "2"}}
+    screen = ("N° candidat : 00012N° inscription : 001 Version : 2\nCode Etab : 1234567A\n"
+              "Pièces justificatives conformes : 1 / 3\nCODE1 : Confirmation signée\nPJ-CONTROLE Conforme")
+    assert verified_counts(screen, rec, "1234567A") == {"conforming": 1, "requested": 3}
+    assert parse_detail(screen, rec, "1234567A") is None
+    assert verified_counts(screen, rec, "1234567B") is None
+    assert verified_counts(screen.replace("Version : 2", "Version : 3"), rec, "1234567A") is None
