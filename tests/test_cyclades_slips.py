@@ -82,7 +82,7 @@ def test_existing_official_report_is_downloaded_without_creating_accounts(studen
     origin = "https://cyclades.education.gouv.fr"
     record = parse_report(export(), "paris").records[0][-1]
     assert slip_key(record) == REF
-    landing = '<h1>BTS 0756548K</h1><button onclick="document.getElementById(\'leaf\').hidden=false">Mon établissement</button><a id="leaf" hidden href="/accounts">Générer les comptes Cyclades de mes élèves</a>'
+    landing = '<h1>BTS 0756548K</h1><div hidden><span onclick="location.href=\'/accounts\'">Générer les comptes Cyclades de mes élèves</span></div>'
     accounts = f'<h2>{session}</h2><button onclick="location.href=\'/forbidden\'">Générer</button><a href="/results">Afficher le compte rendu</a>'
     results = '<a href="/file">papillonsInformationsConnexionCyclades</a>'
     requests = []

@@ -18,20 +18,30 @@ DOCUMENT = re.compile(r"papillons?\s*(?:d['’]\s*)?informations?\s*(?:de\s*)?co
 def open_accounts_menu(shell):
     # CYCLADES can pre-render the activity link in a collapsed aside, or
     # populate its sub-menu only after the parent activity is expanded.
-    leaf = shell.get_by_role("link", name=ACTIVITY, include_hidden=True)
-    if leaf.count() == 1:
-        leaf.dispatch_event("click")
+    def activity():
+        for frame in shell.frames:
+            if urlsplit(frame.url).hostname != urlsplit(shell.url).hostname:
+                continue
+            # Legacy shell links can be hidden and have no accessible name
+            # until the tree is expanded. Use only the exact navigation label.
+            labels = frame.get_by_text(ACTIVITY)
+            for label in labels.all():
+                if label.evaluate("e => !e.closest('button,input[type=submit]') && (!e.closest('form') || e.closest('nav,aside,a,li,[role=menuitem],[id^=ACTV_],[id^=ETABLISSEMENT_]'))"):
+                    label.dispatch_event("click")
+                    return True
+        return False
+
+    if activity():
         return
     parent = shell.get_by_text(re.compile(r"^Mon [ée]tablissement$", re.I)).filter(visible=True)
     if parent.count():
         parent.first.click()
     group = shell.get_by_text(re.compile(r"^(?:G[ée]rer|Gestion) (?:les |des )?comptes(?: CYCLADES)?(?: (?:de mes|des) [ée]l[èe]ves)?$", re.I)).filter(visible=True)
-    if not leaf.count() and group.count():
-        group.first.click()
-    if leaf.count() == 1:
-        leaf.dispatch_event("click")
-        return
-    shell.get_by_text(ACTIVITY).filter(visible=True).first.click()
+    if not activity():
+        if group.count():
+            group.first.click()
+        if not activity():
+            shell.get_by_text(ACTIVITY).filter(visible=True).first.click()
 
 
 def read_account_slips(page, academy, session, records, cipher):
@@ -89,6 +99,8 @@ def read_account_slips(page, academy, session, records, cipher):
                     selected_session = True
                     break
                 button = visible_control(frame, SUMMARY)
+                if not button.count():
+                    button = frame.get_by_text(SUMMARY).filter(visible=True)
                 if button.count() == 1 and button.is_enabled():
                     # The activity displays the selected BTS context above its parameters.
                     text = frame.locator("body").inner_text(timeout=1500)
@@ -115,6 +127,10 @@ def read_account_slips(page, academy, session, records, cipher):
                     if not control.count():
                         row = label.locator("xpath=ancestor::*[self::tr or self::li][1]")
                         control = row.locator("a:visible,button[title*='charg' i]:visible,img[title*='charg' i]:visible")
+                        if not control.count():
+                            holder = label.locator("xpath=ancestor::*[.//*[self::a or self::button or self::img]][1]")
+                            if holder.count() and holder.get_by_text(DOCUMENT).count() <= 1:
+                                control = holder.locator("a:visible,button[title*='charg' i]:visible,img[title*='charg' i]:visible,img[alt*='charg' i]:visible,img[src*='disquette' i]:visible")
                         if not control.count() and label.get_attribute("onclick"):
                             control = label
                     if control.count() == 1:
