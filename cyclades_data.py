@@ -342,11 +342,16 @@ def apply_report(conn, academy, report, origin):
                 earlier = {registration(r): r for r in json.loads(last[0])}
                 for record in found[cid]:
                     old = earlier.get(registration(record))
-                    if (old and old.get("sealed_slip") and (old.get("slip_imported") or not record.get("sealed_slip"))
-                            and old["details"].get("Identifiant de connexion") == record["details"].get("Identifiant de connexion")):
+                    if (old and old.get("sealed_slip")
+                            and old["details"].get("Identifiant de connexion") == record["details"].get("Identifiant de connexion")
+                            and (not record.get("sealed_slip")
+                                 or (record.get("slip_source") != "regeneration"
+                                     and (old.get("slip_imported") or old.get("slip_source") == "regeneration")))):
                         record["sealed_slip"] = old["sealed_slip"]
-                        if old.get("slip_imported"):
-                            record["slip_imported"] = True
+                        record["slip_sync"] = "found"
+                        for key in ("slip_imported", "slip_source"):
+                            if key in old:
+                                record[key] = old[key]
                     if old and old.get("piece_summary") and not record.get("documents_checked") and not record.get("piece_summary"):
                         record["piece_summary"] = old["piece_summary"]
                     if old and old.get("documents_checked") and not record.get("documents_checked") and not record.get("documents"):

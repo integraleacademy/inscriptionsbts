@@ -86,6 +86,34 @@ def test_only_an_admin_can_reveal_a_matched_slip_after_import(student):
     assert student.post(url, data=data).status_code == 404
 
 
+def test_regeneration_precedes_initial_slip_and_survives_later_editions(student, monkeypatch):
+    import cyclades_slip_portal as portal
+
+    lock = cipher(application.app)
+    published = {"creation": "Premiere!Fictive", "regeneration": "Seconde!Fictive"}
+
+    def read_edition(page, academy, session, records, cipher, activity):
+        source = "creation" if activity == portal.ACTIVITY else "regeneration"
+        if source in published:
+            records[0]["sealed_slip"] = cipher.encrypt(published[source].encode()).decode()
+        else:
+            records[0]["slip_sync"] = "not_listed"
+        return True
+
+    monkeypatch.setattr(portal, "read_slip_edition", read_edition)
+    with application.db() as conn:
+        for day in (3, 4):
+            report = parse_report(export(issued=f"{day:02d}/11/2026 08:10"), "paris")
+            record = report.records[0][-1]
+            assert portal.read_account_slips(None, "paris", "", [record], lock)
+            apply_report(conn, "paris", report, "auto")
+            stored = json.loads(conn.execute(
+                "SELECT records FROM cyclades_students WHERE candidate_id='student'").fetchone()[0])[0]
+            assert stored["slip_source"] == "regeneration"
+            assert lock.decrypt(stored["sealed_slip"].encode()).decode() == "Seconde!Fictive"
+            published.pop("regeneration", None)
+
+
 @pytest.mark.parametrize("archived", [False, True])
 def test_existing_official_report_is_downloaded_without_creating_accounts(student, archived):
     from cyclades_slip_portal import read_account_slips
