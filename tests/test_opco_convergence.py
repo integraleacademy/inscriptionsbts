@@ -80,7 +80,7 @@ def test_monitor_manual_daily_cache_and_contract_view(tmp_path):
         return conn
     with db() as conn:
         conn.executescript("""CREATE TABLE candidats(id TEXT, nom TEXT, prenom TEXT, date_naissance TEXT, bts TEXT);
-          INSERT INTO candidats VALUES('A','Exemple','Eve','2005-05-01','MOS'),('B','Exemple','Eve','2005-05-01','MCO');""")
+          INSERT INTO candidats VALUES('A','Exemple','Eve','2005-05-01','MOS'),('B','Autre','Eve','2005-05-01','MCO'),('C','Exemple','Eve','2005-05-01','TP TEST');""")
     auth = lambda:session.get('admin_ok')
     app.add_url_rule('/admin/parametres', endpoint='admin_settings', view_func=lambda:'')
     register_wedof_contracts(app,db,auth)
@@ -104,7 +104,7 @@ def test_monitor_manual_daily_cache_and_contract_view(tmp_path):
     def run(hour):
         tick(app,db,tmp_path,'opcommerce',datetime(2026,11,4,hour,tzinfo=PARIS),reader)
     run(3); run(4); run(5); run(8)
-    assert calls == [('', ['A']), ('2026-11-03',['A'])]
+    assert calls == [('', ['A','B']), ('2026-11-03',['A','B'])]
     action('sync'); run(11)
     with db() as conn:
         assert conn.execute("SELECT state FROM opco_accounts WHERE provider='opcommerce'").fetchone()[0] == 'error'

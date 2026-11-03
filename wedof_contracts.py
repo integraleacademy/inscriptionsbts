@@ -5,6 +5,8 @@ to one student's folders; reference searches paginate explicitly. Credentials an
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
 from opco_sync import coverage as opco_coverage, student_records
+from training_programs import BTS_LABELS
+from filiz_portal import CATALOG as FILIZ_CATALOG
 from opco_convergence import PROVIDERS
 from akto_sync import START_DATE as AKTO_START_DATE, get_records as akto_records
 from akto_pilot import contract_card as akto_contract_card, contract_for as akto_contract_for, settings_summary as akto_settings_summary
@@ -185,6 +187,31 @@ def discovery_fingerprint(candidate, config):
     return hashlib.sha256(json.dumps([fields, config], sort_keys=True).encode()).hexdigest()
 
 
+def same_contract(left, right):
+    if left.get('financer') != right.get('financer'):
+        return False
+    return any(left.get(key) and left[key] == right.get(key)
+               for key in ('deca_number','internal_number','external_number'))
+
+
+def direct_cards(conn, row):
+    records = student_records(conn, row)
+    records.sort(key=lambda r:(bool(r.get('raw_stale')), r.get('source')!='filiz'))
+    direct = []
+    for item in records:
+        if any(same_contract(item,c['item']) for c in direct):
+            continue
+        portal = (FILIZ_CATALOG+'/'+item['filiz_id'] if item['source']=='filiz' else
+                  next(p[2] for p in PROVIDERS.values() if p[0] == item['financer']))
+        direct.append(dict(item=item,billing=billing(item),checked_at=item['checked_at'],
+                           error=item.get('read_warning'),portal=portal))
+    return direct
+
+
+def unseen(cards, preferred):
+    return [c for c in cards if not any(same_contract(c['item'], p['item']) for p in preferred)]
+
+
 def directory_contracts(app, conn, rows, *, include_linked_contracts=False):
     """Read the same links as the student sheet, without making remote calls.
 
@@ -226,7 +253,9 @@ def directory_contracts(app, conn, rows, *, include_linked_contracts=False):
                 labels.extend(dict.fromkeys(FINANCERS[i['financer']]+' · '+i['state_label'] for i in direct))
                 row.update(contract='yes', contract_label='Contrat d’apprentissage', contract_detail=' / '.join(labels))
                 if include_linked_contracts:
-                    row['linked_contracts'] = [akto_contract_card(r,row,billing)['item'] for r in records] + direct
+                    direct = direct_cards(conn,row)
+                    akto = [akto_contract_card(r,row,billing) for r in records]
+                    row['linked_contracts'] = [c['item'] for c in [*direct, *unseen(akto,direct)]]
             elif message and any(isinstance(r,dict) and (r.get('contract_start') or '') >= AKTO_START_DATE for r in contracts.get(row['id'],[])):
                 row.update(contract='yes',contract_label='Contrat archivé',contract_detail='Dernier relevé WEDOF · '+message)
             else:
@@ -234,7 +263,15 @@ def directory_contracts(app, conn, rows, *, include_linked_contracts=False):
                 row.update(contract='linked' if incomplete else 'no',contract_label='À vérifier' if incomplete else 'Aucun contrat identifié',
                            contract_detail=' '.join(filter(None,(message or 'Aucun contrat MOS trouvé dans AKTO.', coverage))))
             continue
+        direct = direct_cards(conn,row) if (row.get('bts') or '').strip().upper() in BTS_LABELS else []
         linked = contracts.get(row['id'], [])
+        if direct:
+            others = unseen([{'item':i} for i in linked if isinstance(i,dict)], direct)
+            row.update(contract='yes', contract_label='Contrat d’apprentissage', contract_needs_check=False,
+                       contract_detail=' / '.join(dict.fromkeys(FINANCERS.get(c['item']['financer'],'OPCO') for c in direct)))
+            if include_linked_contracts:
+                row['linked_contracts'] = [c['item'] for c in [*direct,*others]]
+            continue
         if linked:
             row['contract_needs_check'] = False
             items = [i for i in linked if isinstance(i, dict) and i]
@@ -299,6 +336,8 @@ def billing(item):
         row['remaining'] = max(0, total-paid)/100 if total is not None and paid is not None else None
         if item.get('raw_stale'):
             row['status'], row['status_code'] = 'À vérifier', 'stale'
+        elif item.get('source')=='filiz' and row.get('filiz_label'):
+            row['status'],row['status_code'] = row['filiz_label'],row['filiz_code']
         elif total is not None and paid is not None and paid >= total:
             row['status'], row['status_code'] = 'Réglée', 'paid'
         elif pending is not None and pending > 0:
@@ -319,10 +358,13 @@ def billing(item):
         values = [cents(r.get(key)) for r in schedules]
         return sum(values)/100 if values and all(v is not None for v in values) else None
     amount, paid = total('montantTotal'), total('montantRegle')
+    if item.get('source')=='filiz':
+        amount,paid = item.get('engagement'),item.get('filiz_paid')
     counts = {code: sum(r['status_code'] == code for r in schedules) for code in ('paid', 'pending', 'open', 'upcoming', 'stale', 'unknown')}
-    next_due = next(iter(sorted((r for r in schedules if r['status_code'] in {'open', 'upcoming', 'pending'} and r.get('dateOuverture')),
-                               key=lambda r: r['dateOuverture'])), None)
-    return {'schedules': schedules, 'total': amount, 'paid': paid, 'pending': total('montantEnCoursInstruction'),
+    date_key = 'dateDebut' if item.get('source')=='filiz' else 'dateOuverture'
+    next_due = next(iter(sorted((r for r in schedules if r['status_code'] in {'open', 'upcoming', 'pending'} and r.get(date_key)),
+                               key=lambda r: r[date_key])), None)
+    return {'schedules': schedules, 'total': amount, 'paid': paid, 'pending': item.get('filiz_pending') if item.get('source')=='filiz' else total('montantEnCoursInstruction'),
             'counts': counts, 'next_due': next_due,
             'paid_percent': min(100, max(0, round(cents(paid)/cents(amount)*100))) if amount and paid is not None and not item.get('raw_stale') else None,
             'remaining': max(0, cents(amount)-cents(paid))/100 if amount is not None and paid is not None else None}
@@ -481,7 +523,7 @@ def register_wedof_contracts(app, connect, require_admin):
                     request.headers.get('X-CSRF-Token', ''), session['_wedof_csrf'])):
                 return jsonify(ok=False, message='La session a expiré. Rechargez la page.'), 400
             if kwargs.get('cid') and request.method != 'GET' and (candidate(kwargs['cid']).get('bts') or '').strip().upper() == 'MOS':
-                return jsonify(ok=False, message='Ce dossier est suivi directement dans AKTO.'), 409
+                return jsonify(ok=False, message='Ce dossier est suivi dans les connexions OPCO des paramètres.'), 409
             try:
                 return fn(*args, **kwargs)
             except WedofError as error:
@@ -616,38 +658,32 @@ def register_wedof_contracts(app, connect, require_admin):
     @guarded
     def index(cid):
         row = candidate(cid)
-        if (row.get('bts') or '').strip().upper() == 'MOS':
-            with closing(connection()) as conn:
-                records,message = akto_records(conn,cid)
-                direct = student_records(conn,row)
-                coverage, _ = opco_coverage(conn)
-            panels = [render_template('_wedof_contracts_list.html',row=row,pilot=r,configured=False,
-                                      contracts=[akto_contract_card(r,row,billing)]) for r in records]
-            for item in direct:
-                portal = next(p[2] for p in PROVIDERS.values() if p[0] == item['financer'])
-                panels.append(render_template('_wedof_contracts_list.html', row=row, direct=True, configured=False,
-                    contracts=[{'item':item,'billing':billing(item),'checked_at':item['checked_at'],
-                                'error':item.get('read_warning'),'portal':portal}]))
-            archive = [c for c in cards(cid) if (c['item'].get('contract_start') or '') >= AKTO_START_DATE] if not records and message else []
-            if direct and archive:
-                def already_linked(saved):
-                    return any(saved.get('financer') == item['financer'] and any(
-                        saved.get(k) and saved.get(k) == item.get(k)
-                        for k in ('deca_number', 'internal_number', 'external_number')) for item in direct)
-                archive = [c for c in archive if not already_linked(c['item'])]
+        course = (row.get('bts') or '').strip().upper()
+        with closing(connection()) as conn:
+            direct = direct_cards(conn,row) if course in BTS_LABELS else []
+            records,message = akto_records(conn,cid) if course=='MOS' else ([], '')
+            coverage, _ = opco_coverage(conn) if course=='MOS' else ('',False)
+            try:
+                configured = course!='MOS' and bool(get_key(app, conn))
+            except WedofError:
+                configured = False
+        panels = [render_template('_wedof_contracts_list.html',row=row,direct=True,configured=False,
+                                  contracts=[c]) for c in direct]
+        if course=='MOS':
+            for r in records:
+                card = akto_contract_card(r,row,billing)
+                if unseen([card],direct):
+                    panels.append(render_template('_wedof_contracts_list.html',row=row,pilot=r,configured=False,contracts=[card]))
+            archive = unseen([c for c in cards(cid) if (c['item'].get('contract_start') or '') >= AKTO_START_DATE], direct) if not records and message else []
             if message or not (records or direct):
                 panels.insert(0,render_template('_akto_read_status.html',message=message,archive=bool(archive),coverage=coverage if not records and not direct else ''))
             if archive:
                 panels.append(render_template('_wedof_contracts_list.html',row=row,configured=False,contracts=archive,archived=True))
             return jsonify(ok=True,configured=False,has_contracts=bool(records or direct or archive),html=''.join(panels))
-        with closing(connection()) as conn:
-            try:
-                configured = bool(get_key(app, conn))
-            except WedofError:
-                configured = False
-        contracts = cards(cid)
-        return jsonify(ok=True, configured=configured, has_contracts=bool(contracts),
-                       html=render_template('_wedof_contracts_list.html', contracts=contracts, row=row, configured=configured))
+        contracts = unseen(cards(cid),direct)
+        if contracts or not panels:
+            panels.append(render_template('_wedof_contracts_list.html', contracts=contracts, row=row, configured=configured))
+        return jsonify(ok=True, configured=configured, has_contracts=bool(contracts or direct), html=''.join(panels))
 
     def discovery_state(conn, cid, fingerprint, manual, since=None):
         stored = conn.execute('SELECT * FROM student_wedof_discovery WHERE candidate_id=?', (cid,)).fetchone()

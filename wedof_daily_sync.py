@@ -57,6 +57,18 @@ def create_run(conn, run_id, ts):
         LEFT JOIN student_wedof_contracts w ON w.candidate_id=c.id
         WHERE upper(trim(COALESCE(c.bts,''))) != 'MOS'
         AND (c.statut IN ('confirmee','reconfirmee') OR w.contract_id IS NOT NULL)""", (run_id,))
+    # A verified FILIZ dossier replaces the routine WEDOF search for that student.
+    # Keep refreshing individually linked WEDOF contracts until FILIZ has the same reference.
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE name='opco_contracts'").fetchone():
+        conn.execute("""DELETE FROM student_wedof_daily_items AS q WHERE day=? AND EXISTS (
+            SELECT 1 FROM opco_contracts f JOIN opco_accounts a ON a.provider=f.provider
+            WHERE f.candidate_id=q.candidate_id AND f.provider='filiz' AND a.credential IS NOT NULL
+            AND (q.contract_id='' OR EXISTS (
+                SELECT 1 FROM student_wedof_contracts w WHERE w.candidate_id=q.candidate_id AND w.contract_id=q.contract_id
+                AND json_valid(w.payload) AND json_extract(w.payload,'$.financer')=json_extract(f.payload,'$.financer')
+                AND (NULLIF(json_extract(w.payload,'$.deca_number'),'')=json_extract(f.payload,'$.deca_number')
+                  OR NULLIF(json_extract(w.payload,'$.internal_number'),'')=json_extract(f.payload,'$.internal_number')
+                  OR NULLIF(json_extract(w.payload,'$.external_number'),'')=json_extract(f.payload,'$.external_number')))))""",(run_id,))
 
 
 def active_run(conn, day):
