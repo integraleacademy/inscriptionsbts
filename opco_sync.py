@@ -18,7 +18,7 @@ from opco_convergence import ReadError, identity
 from filiz_portal import HOME as FILIZ_HOME, read_filiz
 from training_programs import BTS_LABELS
 
-FILIZ_LOGIN_VERSION = 3
+FILIZ_LOGIN_VERSION = 4
 BTS_MARKS = ','.join('?' for _ in BTS_LABELS)
 
 
@@ -159,7 +159,8 @@ def tick(app, connect, directory, now=None):
             retry_text = 'Navigation FILIZ interrompue. La progression est enregistrée.'
             old_timeout = 'Lecture interrompue. Vérifiez les accès puis relancez.'
             legacy_login_error = 'FILIZ n’a pas ouvert l’espace école. Vérifiez vos accès ou une validation demandée par FILIZ.'
-            retryable = (account['state'] == 'error' and account['message'] in (retry_text, old_timeout, legacy_login_error)
+            legacy_disabled = 'FILIZ laisse le bouton « Continuer » désactivé sur son formulaire de connexion.'
+            retryable = (account['state'] == 'error' and account['message'] in (retry_text, old_timeout, legacy_login_error, legacy_disabled)
                          and account['cursor'] and account['day'] == day)
             used = conn.execute('SELECT used FROM filiz_retry_budget WHERE day=? AND flow=?', (day, FILIZ_LOGIN_VERSION)).fetchone()
             automatic_retry = retryable and (not used or used[0] < 2)

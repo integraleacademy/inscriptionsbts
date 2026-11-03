@@ -188,3 +188,28 @@ def test_confirmed_waiting_schedule_preserves_previous_finance():
     store_contract(conn, 'ref', 'c', record)
     assert record['raw_stale'] and record['raw_checked_at'] == 'old' and record['filiz_paid'] == 42
     conn.close()
+
+
+def test_login_waits_for_blur_and_keeps_the_callback_alive():
+    import os
+    from playwright.sync_api import sync_playwright
+    from filiz_portal import AUTH_HOST, HOME, login
+    executable = os.environ.get('CYCLADES_CHROMIUM_EXECUTABLE')
+    if not executable:
+        pytest.skip('Ce test nécessite le Chromium de la plateforme.')
+    address_form = """<input name=email onblur="go.disabled = !this.value.includes('@')">
+      <button id=go disabled onclick="location.href='https://AUTH/u/login'">Continuer</button>"""
+    password_form = """<input name=username><input name=password type=password>
+      <button onclick="location.href='HOME/callback'">Continuer</button>"""
+    callback = """<input name=email><button disabled>Continuer</button>
+      <script>setTimeout(()=>document.body.innerHTML='<a href="/school/folder">Dossiers</a>',350)</script>"""
+    with sync_playwright() as pw:
+        browser = pw.chromium.launch(executable_path=executable)
+        page = browser.new_page()
+        pages = {HOME+'/school': address_form.replace('AUTH', AUTH_HOST),
+                 'https://'+AUTH_HOST+'/u/login': password_form.replace('HOME', HOME),
+                 HOME+'/callback': callback}
+        page.route('**/*', lambda route:route.fulfill(content_type='text/html', body=pages[route.request.url]))
+        login(page, {'email':'fixture@example.test','password':'fixture'})
+        assert page.get_by_text('Dossiers').is_visible()
+        browser.close()
