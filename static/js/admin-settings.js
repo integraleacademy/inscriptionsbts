@@ -9,7 +9,7 @@
     if (!root.contains(section)) return;
     if (anchor === 'akto-dossier' && query) {
       const fields = new URLSearchParams(query);
-      for (const [name, id] of [['reference', 'akto-dossier-ref'], ['deca', 'akto-dossier-deca']]) {
+      for (const [name, id] of [['reference', 'akto-dossier-ref'], ['deca', 'akto-dossier-deca'], ['internal', 'akto-dossier-interne']]) {
         const value = fields.get(name);
         if ($(id) && value && /^[a-zA-Z0-9./_-]{1,80}$/.test(value)) $(id).value = value;
       }
