@@ -10,6 +10,8 @@ from candidate_access import register_candidate_access, get_authenticated_studen
 from candidate_messages import register_candidate_messages
 from candidate_photos import photo_response, register_candidate_photos
 from formation_intake import admission_titles, ensure_schema as ensure_formation_schema, register_formation_intake
+from candidate_email_history import archived_body, history as candidate_email_history
+from candidate_csv_import import register_candidate_import
 from candidate_creation import register_candidate_creation
 from candidate_pdf import application_pdf
 from wedof_contracts import directory_contracts
@@ -851,6 +853,14 @@ def log_event(candidat, type_, payload_dict):
             break
 
 
+def send_dossier_mail(row, subject, html, kind):
+    recipient = row.get('email', '')
+    provider = send_mail(recipient, subject, html)
+    log_event(row, 'MAIL_ENVOYE' if provider else 'MESSAGE_ECHEC',
+              dict(type=kind, canal='email', destinataire=recipient, objet=subject,
+                   message=archived_body(html), message_id=str(provider or '')))
+
+
 def get_counter_for_today(conn):
     cur = conn.cursor()
     cur.execute("SELECT COUNT(*) FROM candidats WHERE DATE(created_at) = DATE(?)", (datetime.now().isoformat(),))
@@ -1061,11 +1071,12 @@ def candidature():
 
 
 register_place_search(app)
-register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs))
+register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), log_event)
 register_candidate_messages(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event)
 register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
 register_candidate_photos(app, db, lambda: UPLOAD_DIR, require_admin, log_event)
 register_candidate_creation(app, db, require_admin, normalize_candidate_names, log_event)
+register_candidate_import(app, db, require_admin, normalize_candidate_names)
 register_student_cards(app, db, lambda: UPLOAD_DIR, require_admin)
 register_student_documents(app, db, lambda: UPLOAD_DIR)
 candidate_workflow_response = register_candidate_workflows(
@@ -1536,7 +1547,7 @@ def submit():
         form_tel=form.get("tel", ""),
         form_mode_label=mode_label_email,
     )
-    send_mail(form.get("email", ""), "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html)
+    send_dossier_mail(candidat, "Nous avons bien reçu votre pré-inscription – Intégrale Academy", html, "accuse_reception")
 
     # SMS accusé réception
     tel = (form.get("tel", "") or "").replace(" ", "")
@@ -1551,7 +1562,6 @@ def submit():
     )
     send_sms_brevo(tel, msg)
     log_event(candidat, "SMS_ENVOYE", {"type": "accuse_reception", "tel": tel})
-    log_event(candidat, "MAIL_ENVOYE", {"type": "accuse_reception"})
 
     # Notification email to the admin inbox disabled on request.
 
@@ -1648,6 +1658,20 @@ def admin_candidate_sheet(cid):
     if not row: abort(404)
     year = candidate_year(row)
     return render_template("candidate_sheet.html", **school_context, current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_answers(row), title=person_name(row.get('nom'),row.get('prenom'))+' · Plateforme de gestion des BTS', row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
+
+
+@app.get('/admin/candidat/<cid>/emails')
+def admin_candidate_emails(cid):
+    if not require_admin():
+        abort(403)
+    with closing(db()) as conn:
+        row = get_candidat(conn, cid)
+        if not row:
+            abort(404)
+        messages = candidate_email_history(conn, row)
+    response = app.make_response(render_template('_candidate_email_history.html', messages=messages))
+    response.headers['Cache-Control'] = 'private, no-store'
+    return response
 
 
 @app.post("/admin/candidat/<cid>/informations")
@@ -2633,9 +2657,8 @@ def confirm_inscription():
         form_mode_label=mode_label,
         lien_espace=lien_espace   # 👈 ESSENTIEL
     )
-    send_mail(row.get("email", ""), "Inscription confirmée – Intégrale Academy", html)
+    send_dossier_mail(row, "Inscription confirmée – Intégrale Academy", html, "inscription_confirmee")
 
-    log_event(row, "MAIL_ENVOYE", {"type": "inscription_confirmee"})
     log_event(row, "STATUT_CHANGE", {"statut": "confirmee"})
 
     return render_template("confirm_ok.html", title="Inscription confirmée")
@@ -2747,7 +2770,7 @@ def reconfirm_validate():
         prenom=row.get("prenom", ""),
         bts_label=BTS_LABELS.get((row.get("bts") or "").strip().upper(), program_name(row.get("bts")))
     )
-    send_mail(row.get("email", ""), "Reconfirmation validée ✅", html)
+    send_dossier_mail(row, "Reconfirmation validée ✅", html, "reconfirmation_validee")
 
     # 📱 SMS reconfirmation validée
     tel = (row.get("tel", "") or "").replace(" ", "")
@@ -2763,7 +2786,6 @@ def reconfirm_validate():
     send_sms_brevo(tel, msg)
 
     log_event(row, "STATUT_CHANGE", {"statut": "reconfirmee"})
-    log_event(row, "MAIL_ENVOYE", {"type": "reconfirmation_validee"})
     log_event(row, "SMS_ENVOYE", {"type": "reconfirmation_validee", "tel": tel})
 
     return render_template("reconfirm_ok.html", prenom=row.get("prenom", ""), bts_label=row.get("bts"))

@@ -21,6 +21,8 @@ def schema(conn):
         message_id TEXT NOT NULL,recipient TEXT NOT NULL,name TEXT NOT NULL,kind TEXT NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',provider_id TEXT,updated_at REAL NOT NULL,mode TEXT NOT NULL DEFAULT '',
         PRIMARY KEY(message_id,recipient))''')
+    if 'candidate_id' not in {r[1] for r in conn.execute('PRAGMA table_info(school_message_recipients)')}:
+        conn.execute('ALTER TABLE school_message_recipients ADD COLUMN candidate_id TEXT')
     if 'mode' not in {r[1] for r in conn.execute('PRAGMA table_info(school_message_recipients)')}:
         conn.execute("ALTER TABLE school_message_recipients ADD COLUMN mode TEXT NOT NULL DEFAULT ''")
     if 'sender_json' not in {r[1] for r in conn.execute('PRAGMA table_info(school_messages)')}:
@@ -64,7 +66,7 @@ def audience(conn, data):
         if normalized in recipients:
             duplicate+=1
             continue
-        recipients[normalized]=dict(recipient=contact,name=person['name'],kind=person['kind'],mode=person.get('mode',''))
+        recipients[normalized]=dict(recipient=contact,name=person['name'],kind=person['kind'],mode=person.get('mode',''),candidate_id=person['id'] if person['kind']=='Étudiant' else None)
     return list(recipients.values()),invalid,duplicate
 
 
@@ -139,8 +141,8 @@ def register_school_messaging(app, db_connect, require_admin, send_mail, send_sm
                 mid,now=secrets.token_urlsafe(24),time.time()
                 conn.execute('INSERT INTO school_messages(id,channel,subject,body,html,created_at,owner,sender_json) VALUES(?,?,?,?,?,?,?,?)',
                              (mid,message['channel'],message['subject'],message['body'],message['html'],now,csrf(),json.dumps(message['sender'])))
-                conn.executemany('INSERT INTO school_message_recipients(message_id,recipient,name,kind,updated_at,mode) VALUES(?,?,?,?,?,?)',
-                                 [(mid,p['recipient'],p['name'],p['kind'],now,p.get('mode','')) for p in recipients])
+                conn.executemany('INSERT INTO school_message_recipients(message_id,recipient,name,kind,updated_at,mode,candidate_id) VALUES(?,?,?,?,?,?,?)',
+                                 [(mid,p['recipient'],p['name'],p['kind'],now,p.get('mode',''),p['candidate_id']) for p in recipients])
                 conn.commit()
                 snapshot=state(conn,mid)
             return jsonify(ok=True,**snapshot,invalid=invalid,duplicate=duplicate)

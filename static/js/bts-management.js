@@ -72,8 +72,18 @@
     }});
   }
   async function loadHistory(){
+    if(document.getElementById('panel-emails')?.hidden===false)loadEmails();
     const list=$('#candidate-history');if(!list)return;list.replaceChildren(text('li','Chargement de l’historique…'));
     try{const entries=await api(`/admin/logs/${encodeURIComponent(cid)}`);list.replaceChildren();const labels={FIELD_UPDATE:'Information modifiée',FICHE_MODIFIEE:'Fiche mise à jour',STATUT_CHANGE:'Statut modifié',STATUT_MODIFIE:'Statut modifié',MAIL_ENVOYE:'E-mail envoyé',SMS_ENVOYE:'SMS envoyé',DOC_MARK:'Contrôle d’un document',DOC_GENERE:'Document généré',PDF_GENERE:'Fiche PDF générée',RELANCE_ENVOYEE:'Relance envoyée'};for(const entry of entries){const item=document.createElement('li');item.append(text('b',labels[entry.type]||entry.type.replaceAll('_',' ').toLowerCase()),text('time',formatDate(entry.created_at)),text('p',entry.payload||''));list.append(item);}if(!entries.length)list.append(text('li','Aucune action enregistrée pour le moment.'));}catch(e){list.replaceChildren(text('li',e.message));}
+  }
+  async function loadEmails(){
+    const list=$('#email-history');
+    list.textContent='Chargement des e-mails…';
+    try {
+      const response=await fetch('/admin/candidat/'+encodeURIComponent(cid)+'/emails',{cache:'no-store'});
+      if(!response.ok)throw Error();
+      list.innerHTML=await response.text();
+    } catch { list.textContent='Impossible de charger les e-mails. Rouvrez cet onglet pour réessayer.'; }
   }
   function formatDate(value){if(!value)return'—';const d=new Date(value);return Number.isNaN(d.getTime())?value:d.toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'});}
   async function loadFiles(){
@@ -86,6 +96,7 @@
     sheet.querySelectorAll('.sheet-panel').forEach(panel=>panel.hidden=panel.id!=='panel-'+key);
     sheet.querySelectorAll('.sheet-tabs [role=tab]').forEach(button=>{const active=button.dataset.tabTarget===key;button.classList.toggle('active',active);button.setAttribute('aria-selected',String(active));button.tabIndex=active?0:-1;});
     if(updateURL)history.replaceState({},'',location.pathname+location.search+'#'+key);
+    if(key==='emails')loadEmails();
     if(key==='documents')loadFiles();if(key==='historique')loadHistory();
   }
   document.querySelectorAll('[data-tab-target]').forEach(button=>button.addEventListener('click',()=>tab(button.dataset.tabTarget)));

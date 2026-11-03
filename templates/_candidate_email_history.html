@@ -1,0 +1,7 @@
+{% if messages %}<p>{{ messages|length }} e-mail{% if messages|length > 1 %}s{% endif %}</p>
+<ol class="candidate-history">{% for mail in messages %}<li>
+<details><summary><b>{{ mail.subject }}</b> · <time>{{ mail.date }}</time> · {{ mail.source }}</summary>
+{% if mail.recipient %}<p>À : {{ mail.recipient }}</p>{% endif %}
+<p style="white-space:pre-wrap">{{ mail.body or 'Le contenu de cet ancien e-mail n’a pas été conservé.' }}</p>
+{% if mail.files %}<p>Pièces jointes : {{ mail.files|join(', ') }}</p>{% endif %}</details></li>{% endfor %}</ol>
+{% else %}<p>Aucun e-mail envoyé n’est enregistré pour cet étudiant.</p>{% endif %}

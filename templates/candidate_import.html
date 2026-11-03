@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-create.css') }}">{% endblock %}
+{% block content %}
+<div class="candidate-create">
+  <a class="create-back" href="{{ url_for('admin') }}">← Candidatures</a>
+  <header class="create-heading"><div><p class="eyebrow">INSCRIPTIONS BTS</p><h1>Importer des inscrits</h1><p>Les dossiers seront classés en « Inscription confirmée ». Aucun e-mail ni SMS ne sera envoyé.</p></div></header>
+  <form id="roster" class="create-card" enctype="multipart/form-data" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label>Tableau des inscrits (.csv, 2 Mo maximum)<input type="file" name="csv" accept=".csv" required></label>
+    <p>La division détermine le BTS et la rentrée d’origine. Les nouveaux dossiers sont créés en présentiel.</p>
+    <button class="btn" type="submit" value="preview">Vérifier le tableau</button>
+    <section id="result" aria-live="polite"></section>
+  </form>
+</div>
+<script>
+const roster = document.querySelector('#roster'), result = document.querySelector('#result');
+roster.csv.onchange = () => result.replaceChildren();
+roster.onsubmit = async event => {
+  event.preventDefault();
+  const data = new FormData(roster);
+  data.set('action', event.submitter?.value || 'preview');
+  roster.csv.disabled = true;
+  roster.querySelectorAll('button').forEach(b => b.disabled = true);
+  try {
+    const response = await fetch(location.pathname, {method:'POST', body:data});
+    if (response.ok || response.status === 400) result.innerHTML = await response.text();
+    else throw Error();
+  } catch { result.textContent = 'Vérification interrompue. Rechargez la page puis vérifiez à nouveau le tableau.'; }
+  finally { roster.csv.disabled = false; roster.querySelector('button').disabled = false; }
+};
+</script>
+{% endblock %}

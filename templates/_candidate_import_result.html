@@ -1,0 +1,7 @@
+{% if error %}<p role="alert">{{ error }}</p>{% else %}
+<h2>{{ 'Import terminé' if applied else 'Aperçu avant import' }}</h2>
+<ul>{% for (division,bts,year),n in classes.items() %}<li>{{ division }} · BTS {{ bts }} · rentrée {{ year }} · {{ n }} étudiant(s)</li>{% endfor %}</ul>
+<p>{{ counts.created or 0 }} dossier(s) {{ 'créé(s)' if applied else 'à créer' }} · {{ counts.confirmed or 0 }} candidature(s) {{ 'confirmée(s)' if applied else 'à confirmer' }} · {{ counts.existing or 0 }} déjà inscrit(s).</p>
+{% if conflicts %}<p>À vérifier manuellement (lignes ignorées) : {{ conflicts|join(', ') }}. L’identité, le BTS ou le statut diffère d’un dossier existant.</p>{% endif %}
+{% if applied %}<a class="btn primary" href="{{ url_for('admin_enrollments') }}">Voir les inscriptions</a>{% elif counts.created or counts.confirmed %}<button class="btn primary" value="import" type="submit">Confirmer l’import sans envoi</button>{% endif %}
+{% endif %}
