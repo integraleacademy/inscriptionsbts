@@ -104,26 +104,55 @@ def consent(page):
 
 
 def login(page, config):
-    page.goto(HOME+'/school',wait_until='domcontentloaded')
-    page.wait_for_function("""() => document.querySelector('a[href$="/school/folder"]') ||
-        document.querySelector('input[name=email],input[name=username]')""")
-    if page.locator('a[href$="/school/folder"]').count():
-        return
-    consent(page)
-    if urlsplit(page.url).hostname == 'app.filiz.io':
-        page.locator('input[name=email]').fill(config['email'])
-        page.get_by_role('button',name='Continuer',exact=True).click()
-    try:
-        page.wait_for_url('https://'+AUTH_HOST+'/**',timeout=30000)
-        if urlsplit(page.url).hostname != AUTH_HOST:
+    visited = set()
+    school = page.locator('a[href$="/school/folder"]').first
+    page.goto(HOME+'/school', wait_until='domcontentloaded')
+    for _ in range(4):
+        # FILIZ may restore SSO without ever presenting the Auth0 password form.
+        page.wait_for_function(r"""() => [...document.querySelectorAll(
+            'a[href$="/school/folder"],input[name=email],input[name=username],input[name=password],[role=alert],input[aria-invalid=true]')]
+            .some(e=>e.offsetWidth && (e.getAttribute('role') !== 'alert' || e.textContent.trim())) ||
+            /captcha|multi.factor|\/mfa|\/challenge/i.test(location.pathname)""", timeout=35000)
+        host = urlsplit(page.url).hostname
+        if host == 'app.filiz.io' and school.count() and school.is_visible():
+            return
+        if host not in ('app.filiz.io', AUTH_HOST):
             raise ReadError('Mode de connexion FILIZ non reconnu.')
-        page.locator('input[name=username]').fill(config['email'])
-        page.locator('input[name=password]').fill(config['password'])
-        page.get_by_role('button',name='Continuer',exact=True).click()
-        page.wait_for_url(HOME+'/school**',timeout=35000)
-        page.locator('a[href$="/school/folder"]').first.wait_for(state='attached')
-    except BrowserError:
-        raise ReadError('FILIZ n’a pas ouvert l’espace école. Vérifiez vos accès ou une validation demandée par FILIZ.') from None
+        challenge = page.locator('input[autocomplete=one-time-code], iframe[title*="captcha" i]').first
+        if host == AUTH_HOST and (challenge.is_visible() or
+                re.search('captcha|multi.factor|/mfa|/challenge', urlsplit(page.url).path, re.I)):
+            raise ReadError('FILIZ demande une vérification interactive du compte école.')
+        consent(page)
+        password = page.locator('input[name=password]').first
+        address = page.locator('input[name=email]' if host == 'app.filiz.io' else 'input[name=username]').first
+        has_password = host == AUTH_HOST and password.is_visible()
+        step = (host, has_password)
+        if step in visited or not (has_password or address.is_visible()):
+            alert = page.locator('[role=alert]').filter(has_text=re.compile(r'\S')).first
+            invalid = page.locator('input[aria-invalid=true]').first
+            if host == AUTH_HOST and (alert.is_visible() or invalid.is_visible()):
+                raise ReadError('FILIZ a refusé la connexion ou demande une vérification du compte école.')
+            # A redirect may still be rendering after submitting the preceding form.
+            school.wait_for(state='visible', timeout=20000)
+            return
+        visited.add(step)
+        if address.is_visible():
+            if address.is_editable():
+                address.fill(config['email'])
+            elif address.input_value().casefold() != config['email'].casefold():
+                raise ReadError('FILIZ présente un autre compte que le compte école configuré.')
+        if has_password:
+            password.fill(config['password'])
+        page.get_by_role('button', name='Continuer', exact=True).click()
+        # Do not confuse the already submitted form with the next screen.
+        page.wait_for_function(r"""([host, pwd]) => location.hostname !== host ||
+            [...document.querySelectorAll('a[href$="/school/folder"]')].some(e=>e.offsetWidth) ||
+            [...document.querySelectorAll('[role=alert]')].some(e=>e.offsetWidth && e.textContent.trim()) ||
+            [...document.querySelectorAll('input[aria-invalid=true]')].some(e=>e.offsetWidth) ||
+            /captcha|multi.factor|\/mfa|\/challenge/i.test(location.pathname) ||
+            (!pwd && [...document.querySelectorAll('input[name=password]')].some(e=>e.offsetWidth))""",
+            arg=[host, has_password], timeout=35000)
+    raise ReadError('Mode de connexion FILIZ non reconnu.')
 
 
 def catalogue(page):
@@ -348,19 +377,32 @@ def school_browser(config, stored_session):
             logging.getLogger(__name__).warning('FILIZ : lancement Chromium : %.1200s', str(exc))
             raise ReadError('Chromium n’a pas pu démarrer depuis le cache des portails.') from None
         try:
-            with browser.new_context(locale='fr-FR', storage_state=stored_session, service_workers='block') as ctx:
-                # The login page and password form use different origins.
-                def guard(route):
-                    url = urlsplit(route.request.url)
-                    if route.request.method == 'POST' and not (url.scheme == 'https' and
-                            (url.hostname in (AUTH_HOST, 'filiz.io') or (url.hostname or '').endswith('.filiz.io'))):
-                        return route.abort()
-                    route.continue_()
-                ctx.route('**/*', guard)
-                page = ctx.new_page()
-                page.set_default_timeout(20000)
-                login(page, config)
-                yield page, ctx
+            for state in ([stored_session, None] if stored_session else [None]):
+                with browser.new_context(locale='fr-FR', storage_state=state, service_workers='block') as ctx:
+                    # The login page and password form use different origins.
+                    def guard(route):
+                        url = urlsplit(route.request.url)
+                        if route.request.method == 'POST' and not (url.scheme == 'https' and
+                                (url.hostname in (AUTH_HOST, 'filiz.io') or (url.hostname or '').endswith('.filiz.io'))):
+                            return route.abort()
+                        route.continue_()
+                    ctx.route('**/*', guard)
+                    page = ctx.new_page()
+                    page.set_default_timeout(20000)
+                    try:
+                        login(page, config)
+                    except BrowserError as exc:
+                        host = urlsplit(page.url).hostname
+                        stage = 'FILIZ' if host == 'app.filiz.io' else 'authentification' if host == AUTH_HOST else 'redirection'
+                        logging.getLogger(__name__).warning('FILIZ : délai à l’étape %s (%s), session restaurée=%s.',
+                                                            stage, type(exc).__name__, bool(state))
+                        if state is None:
+                            raise
+                        # Expired browser storage must not prevent a new login with the configured account.
+                        logging.getLogger(__name__).warning('FILIZ : session enregistrée interrompue, nouvel essai sans cache.')
+                        continue
+                    yield page, ctx
+                    return
         finally:
             browser.close()
 

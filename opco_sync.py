@@ -149,7 +149,8 @@ def tick(app, connect, directory, now=None):
             daily = clock.hour >= 5 and account['day'] != day
             retry_text = 'Navigation FILIZ interrompue. La progression est enregistrée.'
             old_timeout = 'Lecture interrompue. Vérifiez les accès puis relancez.'
-            retryable = (account['state'] == 'error' and account['message'] in (retry_text, old_timeout)
+            legacy_login_error = 'FILIZ n’a pas ouvert l’espace école. Vérifiez vos accès ou une validation demandée par FILIZ.'
+            retryable = (account['state'] == 'error' and account['message'] in (retry_text, old_timeout, legacy_login_error)
                          and account['cursor'] and account['day'] == day)
             used = conn.execute('SELECT used FROM filiz_retry_budget WHERE day=?', (day,)).fetchone()
             automatic_retry = retryable and (not used or used[0] < 2)
