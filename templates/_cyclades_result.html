@@ -14,6 +14,26 @@
       {% for label in main_fields if record.details.get(label) %}
       <div><dt>{{ label }}</dt><dd>{{ record.details[label] }}</dd></div>
     {% endfor %}</dl>
+    {% if record.slip_eligible and not historical %}
+    <div class="cy-access">
+      <form class="cy-slip-form" rel="noopener" method="post" enctype="multipart/form-data" action="{{ url_for('cyclades_student_access', cid=record.candidate_id, key=record.academy_key, year=record.year) }}">
+        <input type="hidden" name="csrf_token" value="{{ session.get('_planning_csrf', '') }}">
+        <input type="hidden" name="candidate" value="{{ record.details['N° de candidat'] }}">
+        <input type="hidden" name="registration" value="{{ record.details['N° d’inscription'] }}">
+        <input type="hidden" name="return_to" value="{{ request.args.get('return_to', '') }}">
+        {% if record.slip_ready %}
+          <button class="cy-button" type="submit" formtarget="_blank">Afficher l’identifiant et le mot de passe provisoire</button>
+        {% else %}
+          <p>Le mot de passe provisoire est disponible dès que le papillon de connexion est retrouvé sur Cyclades.</p>
+        {% endif %}
+        <details class="cy-disclosure"><summary>Importer un papillon Cyclades {{ icon('chevron-down') }}</summary>
+          <p>Dans Cyclades, ouvre « Mon établissement », puis « Générer les comptes Cyclades de mes élèves » et « Afficher le compte rendu ». Télécharge le PDF des papillons existants.</p>
+          <label>PDF Cyclades <input type="file" name="slip" accept=".pdf,application/pdf"></label>
+          <button class="cy-button" name="action" value="import" type="submit" formtarget="_blank">Lire les accès de cet étudiant</button>
+        </details>
+      </form>
+    </div>
+    {% endif %}
     <details class="cy-disclosure cy-pieces">
       <summary>Pièces justificatives
         {% if record.piece_summary %}<span class="cy-count">{{ record.piece_summary.conforming }}/{{ record.piece_summary.requested }} conformes</span>

@@ -339,9 +339,14 @@ def apply_report(conn, academy, report, origin):
             if last:
                 def registration(record):
                     return tuple(record["details"].get(k) for k in ("N° de candidat", "N° d’inscription", "Version"))
-                earlier = {registration(r): r for r in json.loads(last[0]) if r.get("documents_checked") or r.get("piece_summary")}
+                earlier = {registration(r): r for r in json.loads(last[0])}
                 for record in found[cid]:
                     old = earlier.get(registration(record))
+                    if (old and old.get("sealed_slip") and (old.get("slip_imported") or not record.get("sealed_slip"))
+                            and old["details"].get("Identifiant de connexion") == record["details"].get("Identifiant de connexion")):
+                        record["sealed_slip"] = old["sealed_slip"]
+                        if old.get("slip_imported"):
+                            record["slip_imported"] = True
                     if old and old.get("piece_summary") and not record.get("documents_checked") and not record.get("piece_summary"):
                         record["piece_summary"] = old["piece_summary"]
                     if old and old.get("documents_checked") and not record.get("documents_checked") and not record.get("documents"):

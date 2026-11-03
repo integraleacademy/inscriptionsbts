@@ -16,8 +16,9 @@ from flask import abort, flash, jsonify, redirect, render_template, request, ses
 
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, piece_receipt, with_exams, words
 from cyclades_portal import read_academy
+from cyclades_slips import read_slips, slip_key
 
-READER_VERSION = 21
+READER_VERSION = 22
 
 
 def cipher(app):
@@ -65,6 +66,8 @@ def sheet_status(conn, student):
             attempt = accounts[entry["academy"]]
             item = dict(record, last_partial_attempt=attempt["attempt"] if attempt["connected"] and attempt["status"] == "error" else None, candidate_id=student["id"], academy_key=entry["academy"], academy=ACADEMIES[entry["academy"]][0], year=entry["year"],
                         seen=display_time(entry["seen"]), origin=entry["origin"], tone=tone)
+            item["slip_eligible"] = bool(slip_key(record)) and entry["outcome"] == "matched"
+            item["slip_ready"] = bool(item.pop("sealed_slip", None))
             (matches if entry["outcome"] == "matched" else history).append(item)
 
     unsearched = [key for key, status in sources.items() if status == "ok" and key not in checked]
@@ -132,7 +135,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                         with closing(connect()) as conn:
                             _, found, ambiguous = match_report(conn, report)
                         return [r for cid, records in found.items() if cid not in ambiguous for r in records]
-                    source = read_academy(key, credentials, matched_records)
+                    source = read_academy(key, credentials, matched_records, cipher(app))
                 else:
                     source = fetch(key, credentials)
                 with closing(source) as reports:
@@ -255,6 +258,56 @@ def register_cyclades(app, connect, require_admin, directory):
         if requested and request.headers.get("X-Cyclades-Fragment") != "1":
             return redirect(url_for("admin_candidate_sheet", cid=cid, return_to=request.form.get("return_to") or None) + "#cyclades", code=303)
         return render_template("_cyclades_result.html", cyclades=result, notice=notice), 200, {"Cache-Control": "no-store"}
+
+    @app.post("/admin/candidat/<cid>/cyclades/<key>/<int:year>/acces")
+    def cyclades_student_access(cid, key, year):
+        if request.content_length is None or request.content_length > MAX_BYTES + 65536:
+            abort(413)
+        guard(key)
+        candidate = request.form.get("candidate")
+        registration = request.form.get("registration")
+        importing = request.form.get("action") == "import"
+        upload = request.files.get("slip") if importing else None
+        with closing(connect()) as conn:
+            student = conn.execute("SELECT id,bts,nom,prenom,date_naissance FROM candidats WHERE id=?", (cid,)).fetchone()
+            from training_programs import BTS_LABELS
+            if not student or student["bts"] not in BTS_LABELS:
+                abort(404)
+            entry = conn.execute("""SELECT records FROM cyclades_students WHERE candidate_id=? AND academy=?
+                AND year=? AND identity=? AND outcome='matched'""",
+                (cid, key, year, json.dumps(identity(student), ensure_ascii=False))).fetchone()
+            records = json.loads(entry["records"]) if entry else []
+            matching = [r for r in records if slip_key(r) and r["details"]["N° de candidat"] == candidate
+                        and r["details"]["N° d’inscription"] == registration]
+            if len(matching) != 1:
+                abort(404)
+            record = matching[0]
+            ref = slip_key(record)
+            try:
+                if importing:
+                    if not upload:
+                        raise CycladesError("Sélectionnez le PDF de papillons délivré par Cyclades.")
+                    found = read_slips(upload.stream.read(MAX_BYTES + 1), {ref})
+                    if ref not in found:
+                        raise CycladesError("Aucun papillon unique ne correspond au candidat, à l’inscription et à l’identifiant de cette fiche.")
+                    record["sealed_slip"] = cipher(app).encrypt(found[ref].encode()).decode()
+                    record["slip_imported"] = True
+                    changed = conn.execute("""UPDATE cyclades_students SET records=? WHERE candidate_id=? AND academy=?
+                        AND year=? AND outcome='matched' AND records=? AND identity=?""",
+                        (json.dumps(records, ensure_ascii=False), cid, key, year, entry["records"], json.dumps(identity(student), ensure_ascii=False)))
+                    if not changed.rowcount:
+                        raise CycladesError("Le dossier vient de changer. Actualisez la fiche et relancez la lecture.")
+                    conn.commit()
+                if not record.get("sealed_slip"):
+                    raise CycladesError("Aucun papillon disponible pour cette inscription.")
+                password = cipher(app).decrypt(record["sealed_slip"].encode()).decode()
+            except (CycladesError, InvalidToken) as exc:
+                message = str(exc) if isinstance(exc, CycladesError) else "Le papillon doit être relu ou importé."
+                flash(message, "error")
+                return redirect(url_for("admin_candidate_sheet", cid=cid, return_to=request.form.get("return_to") or None) + "#cyclades", code=303)
+        return render_template("cyclades_access.html", student=student, login=ref[2], password=password,
+                               year=year, academy=ACADEMIES[key][0]), 200, {
+            "Cache-Control": "private, no-store", "Referrer-Policy": "no-referrer", "X-Frame-Options": "DENY"}
 
     @app.post("/admin/candidat/<cid>/cyclades/<key>/<int:year>/releve-pieces")
     def cyclades_piece_statement(cid, key, year):

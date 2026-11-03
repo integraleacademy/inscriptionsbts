@@ -120,3 +120,8 @@
 .cy-statement label { color: var(--cy-ink); font-size: .83rem; }
 .cy-statement :is(input,textarea) { width: 100%; padding: 7px; border: 1px solid var(--cy-line); border-radius: 5px; }
 .cy-statement button { justify-self: start; }
+
+.cy-access { margin: 14px 0; padding: 12px 15px; background: #f4f7fc; border-radius: 9px; }
+.cy-access p { margin: 0 0 8px; color: var(--cy-muted); font-size: .85rem; }
+.cy-access .cy-disclosure > summary { border: 0; }
+.cy-access label { display: block; margin-bottom: 9px; font-size: .83rem; }

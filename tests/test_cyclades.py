@@ -476,7 +476,7 @@ def test_new_students_eligible_in_both_academies_without_a_previous_sync(student
     import cyclades
     clock = datetime(2026, 11, 3, 8, tzinfo=PARIS)
     captured = []
-    def read(academy, credentials, matched_records):
+    def read(academy, credentials, matched_records, slip_cipher):
         for year in (2026, 2027):
             raw = export(academy).decode("utf-8-sig").replace("2027", str(year), 1)
             report = parse_report(raw.encode(), academy)
