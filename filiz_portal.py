@@ -131,7 +131,17 @@ def catalogue(page):
     page.locator('[role=tab]').filter(has_text='Alternance').wait_for(state='attached')
     consent(page)
     search = page.get_by_placeholder('Rechercher...')
-    search.fill('')
+    if search.input_value():
+        search.fill('')
+    # FILIZ remembers pagination between visits, including our previous scan's last page.
+    page.locator(CARDS).first.wait_for(state='attached', timeout=30000)
+    first = page.get_by_role('button', name='Go to page 1', exact=True)
+    if first.count() and first.is_visible():
+        old = page.locator(CARDS).first.get_attribute('href')
+        first.click()
+        page.get_by_role('button', name='page 1', exact=True).wait_for(state='visible')
+        page.wait_for_function('([selector, old]) => { const a = document.querySelector(selector); return a && a.getAttribute("href") !== old }',
+                               arg=[CARDS, old])
     # Never mistake a loader or a filtered catalogue for a completed scan.
     page.locator(CARDS).first.wait_for(state='attached',timeout=30000)
     expected = re.search(r'\d+',page.get_by_role('tab',name=re.compile('Alternance')).inner_text())
@@ -195,8 +205,14 @@ def switch_tab(page, title, anchor):
 
 def finance(page, item):
     switch_tab(page,'Comptabilité','invoice')
-    panel = page.get_by_role('tabpanel').filter(has=page.get_by_role('heading',name='Facture OPCO',exact=True)).last
-    panel.wait_for(state='visible',timeout=10000)
+    heading = page.get_by_role('heading', name='Facture OPCO', exact=True)
+    waiting = page.get_by_role('heading', name='Échéancier en cours de récupération', exact=True)
+    heading.or_(waiting).first.wait_for(state='visible', timeout=12000)
+    if waiting.is_visible():
+        item['schedule_notice'] = 'FILIZ indique que l’échéancier est en cours de récupération.'
+        item['raw_checked_at'] = stamp()
+        return
+    panel = page.get_by_role('tabpanel').filter(has=heading).last
     portal_lines = lines(panel.inner_text())
     item['filiz_paid'] = labeled_amount(portal_lines, 'Payé')
     item['engagement'] = labeled_amount(portal_lines,'Montant total de la facture OPCO')
@@ -279,9 +295,27 @@ def read_item(page, ref, card, people):
         item.update(training_start=iso(training[0]),training_end=iso(training[1]))
     switch_tab(page,'Contrat','contract')
     page.locator('input[name=contractStartDate]').wait_for(state='attached')
+    # A disabled date input can be present before FILIZ loads its value.
+    try:
+        page.wait_for_function("""() => Array.from(document.querySelectorAll('input[name=contractStartDate]'))
+            .some(input => input.offsetWidth && /[0-9]/.test(input.value))""", timeout=4000)
+    except BrowserError:
+        pass
     contract = fields(page,['contractStartDate','contractEndDate','contractClosingDate','MonthlySalaryAmount'])
-    if iso(contract['contractStartDate']) != item['contract_start']:
-        raise ReadError('Les dates du contrat FILIZ diffèrent.')
+    form_start = iso(contract['contractStartDate'])
+    if form_start and form_start < START_DATE:
+        return None
+    if form_start != item['contract_start']:
+        shown = re.search('('+DAY+r')\s*-\s*('+DAY+')', card['text'])
+        if not shown or iso(shown[1]) != item['contract_start']:
+            raise ReadError('Les dates du contrat FILIZ diffèrent.')
+        # The dossier summary and catalogue agree. Preserve the discrepancy in the contract view.
+        if form_start:
+            item['details_error'] = ('Le catalogue et le suivi FILIZ indiquent le ' +
+                datetime.fromisoformat(item['contract_start']).strftime('%d/%m/%Y') +
+                ', le formulaire Contrat indique le ' + datetime.fromisoformat(form_start).strftime('%d/%m/%Y') + '.')
+        else:
+            item['details_error'] = 'Date de début confirmée dans le catalogue et le suivi. Le formulaire Contrat ne la précise pas.'
     item.update(contract_conclusion=iso(contract['contractClosingDate']),gross_salary=contract['MonthlySalaryAmount'] or None)
     switch_tab(page,'Entreprise','company')
     page.locator('input[name=apeCode]').wait_for(state='attached')
@@ -292,8 +326,9 @@ def read_item(page, ref, card, people):
     item.update(employer_address=company['address'],employer_postcode=company['postalCode'],employer_city=company['city'])
     try:
         finance(page,item)
-    except (ReadError,BrowserError):
-        item.update(raw_stale=True,raw_error='L’échéancier FILIZ n’a pas pu être relu.')
+    except (ReadError, BrowserError) as exc:
+        message = str(exc) if isinstance(exc, ReadError) else 'L’onglet comptable FILIZ n’a pas pu être lu.'
+        item.update(raw_stale=True, raw_error=message)
     return matched[0]['id'], item
 
 
@@ -336,7 +371,15 @@ def read_filiz(config, people, stored_session, save_session, completed, save_bat
     logger = logging.getLogger(__name__)
     with school_browser(config, stored_session) as (page, ctx):
         logger.warning('FILIZ : Chromium démarré, espace école ouvert.')
-        cards = catalogue(page)
+        for attempt in range(3):
+            try:
+                cards = catalogue(page)
+                break
+            except (ReadError, BrowserError) as exc:
+                message = str(exc) if isinstance(exc, ReadError) else 'Chargement du catalogue incomplet.'
+                logger.warning('FILIZ : catalogue, essai %d : %s', attempt + 1, message)
+                if attempt == 2:
+                    raise ReadError(message) from None
         stored_session = ctx.storage_state()
         save_session(stored_session)
     names = {norm(p['prenom']+' '+p['nom']) for p in people}
@@ -358,7 +401,7 @@ def read_filiz(config, people, stored_session, save_session, completed, save_bat
                         results[ref] = entry
                         if entry[1].get('raw_stale'):
                             failed.add(ref)
-                            reasons['échéancier indisponible'] += 1
+                            reasons[entry[1]['raw_error']] += 1
                 except (BrowserError, ReadError) as exc:
                     failed.add(ref)
                     # ReadError messages from read_item are fixed labels. Browser errors may contain private page data.
