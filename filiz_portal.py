@@ -8,7 +8,7 @@ import logging
 import subprocess
 from urllib.parse import urlsplit
 
-from playwright.sync_api import Error as BrowserError
+from playwright.sync_api import Error as BrowserError, TimeoutError as BrowserTimeout, expect
 from portal_browser import persistent_playwright, launch_chromium
 from akto_portal import START_DATE, norm
 from opco_convergence import ReadError, identity
@@ -103,6 +103,39 @@ def consent(page):
             (close.last if close.count() else dialog.first.get_by_role('button').first).click()
 
 
+class InactiveLoginForm(ReadError):
+    """No submission took place; a stale browser session may be discarded."""
+
+
+def fill_login_form(page, config, host, address, password, submit):
+    if address.is_visible():
+        if address.is_editable():
+            address.fill(config['email'])
+            address.press('Tab')
+        elif address.input_value().casefold() != config['email'].casefold():
+            raise ReadError('FILIZ présente un autre compte que le compte école configuré.')
+    if password.is_visible() and host == AUTH_HOST:
+        password.fill(config['password'])
+    try:
+        expect(submit).to_be_enabled(timeout=2500)
+        return
+    except AssertionError:
+        pass
+
+    # A remounted/controlled input can lose an early fill. Re-enter only before any submit.
+    if host == 'app.filiz.io' and address.is_visible() and address.is_editable():
+        address.fill('')
+        address.press_sequentially(config['email'], delay=35)
+        address.press('Tab')
+    try:
+        expect(submit).to_be_enabled(timeout=8000)
+    except AssertionError:
+        value_kept = address.is_visible() and address.input_value().casefold() == config['email'].casefold()
+        logging.getLogger(__name__).warning('FILIZ : formulaire inactif avant soumission, origine=%s, adresse conservée=%s.',
+                                            host, value_kept)
+        raise InactiveLoginForm('Le formulaire de connexion FILIZ ne s’est pas activé après la saisie.') from None
+
+
 def login(page, config):
     visited = set()
     school = page.locator('a[href$="/school/folder"]').first
@@ -130,8 +163,8 @@ def login(page, config):
                 re.search('captcha|multi.factor|/mfa|/challenge', urlsplit(page.url).path, re.I)):
             raise ReadError('FILIZ demande une vérification interactive du compte école.')
         consent(page)
-        password = page.locator('input[name=password]').first
-        address = page.locator('input[name=email]' if host == 'app.filiz.io' else 'input[name=username]').first
+        password = page.locator('input[name=password]:visible').first
+        address = page.locator('input[name=email]:visible' if host == 'app.filiz.io' else 'input[name=username]:visible').first
         has_password = host == AUTH_HOST and password.is_visible()
         step = (host, has_password)
         logger.warning('FILIZ : identification, formulaire %s.', 'mot de passe' if has_password else 'adresse école')
@@ -142,7 +175,11 @@ def login(page, config):
                 raise ReadError('FILIZ a refusé la connexion ou demande une vérification du compte école.')
             if host == 'app.filiz.io' and (AUTH_HOST, True) in visited:
                 # The OAuth callback may leave the school login screen mounted.
-                page.goto(HOME+'/school', wait_until='commit', timeout=45000)
+                try:
+                    # Leave the application time to exchange the OAuth callback before navigating away.
+                    school.wait_for(state='visible', timeout=15000)
+                except BrowserTimeout:
+                    page.goto(HOME+'/school', wait_until='commit', timeout=45000)
                 try:
                     school.wait_for(state='visible', timeout=15000)
                 except BrowserError:
@@ -154,25 +191,15 @@ def login(page, config):
             page.remove_listener('response', login_response)
             return
         visited.add(step)
-        if address.is_visible():
-            if address.is_editable():
-                address.fill(config['email'])
-            elif address.input_value().casefold() != config['email'].casefold():
-                raise ReadError('FILIZ présente un autre compte que le compte école configuré.')
-        if has_password:
-            password.fill(config['password'])
         submit = page.get_by_role('button', name='Continuer', exact=True)
+        fill_login_form(page, config, host, address, password, submit)
         try:
-            submit.click(timeout=12000)
+            submit.click(timeout=12000, no_wait_after=True)
         except BrowserError as exc:
-            if 'intercepts pointer events' in str(exc):
-                # Consent is rendered asynchronously on a new session.
-                consent(page)
-                submit.click(timeout=6000)
-            elif submit.count() and submit.is_disabled():
-                raise ReadError('FILIZ laisse le bouton « Continuer » désactivé sur son formulaire de connexion.') from None
-            else:
+            if 'intercepts pointer events' not in str(exc):
                 raise
+            consent(page)
+            submit.click(timeout=6000, no_wait_after=True)
         # Do not confuse the already submitted form with the next screen.
         page.wait_for_function(r"""([host, pwd]) => location.hostname !== host ||
             [...document.querySelectorAll('a[href$="/school/folder"]')].some(e=>e.offsetWidth) ||
@@ -409,10 +436,16 @@ def school_browser(config, stored_session):
             for state in ([stored_session, None] if stored_session else [None]):
                 with browser.new_context(locale='fr-FR', storage_state=state, service_workers='block') as ctx:
                     # The login page and password form use different origins.
+                    login_pending = True
+                    blocked_origins = set()
                     def guard(route):
                         url = urlsplit(route.request.url)
                         if route.request.method == 'POST' and not (url.scheme == 'https' and
                                 (url.hostname in (AUTH_HOST, 'filiz.io') or (url.hostname or '').endswith('.filiz.io'))):
+                            if login_pending and url.hostname and url.hostname not in blocked_origins:
+                                blocked_origins.add(url.hostname)
+                                logging.getLogger(__name__).warning('FILIZ : POST tiers filtré pendant la connexion (%s).',
+                                                                    url.hostname)
                             return route.abort()
                         route.continue_()
                     ctx.route('**/*', guard)
@@ -420,6 +453,12 @@ def school_browser(config, stored_session):
                     page.set_default_timeout(20000)
                     try:
                         login(page, config)
+                        login_pending = False
+                    except InactiveLoginForm:
+                        if state is None:
+                            raise
+                        logging.getLogger(__name__).warning('FILIZ : formulaire inactif, nouvelle session avant toute soumission.')
+                        continue
                     except BrowserError as exc:
                         host = urlsplit(page.url).hostname
                         stage = 'FILIZ' if host == 'app.filiz.io' else 'authentification' if host == AUTH_HOST else 'redirection'
