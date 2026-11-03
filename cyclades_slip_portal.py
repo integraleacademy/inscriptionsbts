@@ -132,12 +132,26 @@ def open_accounts_menu(shell, trace, activity, *, alternate=False):
                     break
                 if parent.is_visible():
                     parent.hover(timeout=800)
+                    if not action.is_visible():
+                        menu = parent.locator(":scope > ul").first
+                        toggle = parent.locator(":scope > a, :scope > button").first
+                        if menu.count() and not menu.is_visible() and toggle.count() and toggle.is_visible():
+                            toggle.click(timeout=1200)
             except Error:
                 continue
     if action.is_visible():
         action.click(timeout=3500)
     else:
         action.evaluate("e=>e.click()")
+    if (info["href"] and not info["href"].startswith("#") and official(dest)
+            and urlsplit(dest).hostname == CENTRAL and "/cycetablissement/portal/" in urlsplit(dest).path):
+        wanted_path = urlsplit(dest).path.split("/__")[0].rstrip("/")
+        until = time.monotonic() + 2
+        while time.monotonic() < until:
+            if any(urlsplit(f.url).path.startswith(wanted_path) for w in shell.context.pages for f in w.frames):
+                return
+            shell.wait_for_timeout(100)
+        navigate(shell, dest)
 
 
 CONFIRM_CONTEXT = re.compile(r"^\s*(?:valider|confirmer|continuer|sélectionner|appliquer|ok|accéder|choisir|suivant|ouvrir)(?:\s+(?:(?:la|le|ce|cette|mon|ma)\s+)?(?:session|contexte|choix|sélection)(?: de travail)?)?[!.]?\s*$", re.I)
@@ -486,6 +500,22 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                         .map(s=>new URL(s.src).pathname.split('/').pop()).filter(n=>/^[A-Za-z_.-]{1,65}\.js$/.test(n));
                     return [...new Set(hooks)].slice(0,5).join('|')+' assets='+assets.slice(-12).join(',');
                 }""")
+                # Sanitised control flow for the published context-change
+                # handler. Remove all dynamic string values and numeric IDs.
+                wiring = frame.evaluate(r"""() => {
+                    const keep=/^(?:#?selectContexte|change|click|POST|GET|json|html|option:selected|selected|validerContexte|[A-Za-z_]{0,20}(?:contexte|context|session|examen|sousactivite)[A-Za-z_]{0,22})$/i;
+                    for (const script of document.scripts) {
+                        if (script.src || !/selectContexte/.test(script.textContent)) continue;
+                        if(script.textContent.includes(String.fromCharCode(96))) continue;
+                        const safe=script.textContent.replace(/"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gs,v=>{
+                            const t=v.slice(1,-1); return keep.test(t) ? "'"+t+"'" : "'…'";
+                        }).replace(/\/\*[\s\S]*?\*\//g,' ').replace(/\/\/[^\n]*/g,' ').replace(/\b\d{3,}\b/g,'N').replace(/\s+/g,' ');
+                        const m=safe.match(/.{0,50}selectContexte.{0,50}\.change\s*\(/i);
+                        if(m) return safe.slice(Math.max(0,m.index),m.index+1250);
+                    } return '';
+                }""")
+                if wiring:
+                    chooser_controls.insert(0,"validation officielle="+wiring)
                 chooser_controls.append("widget="+widget)
                 if "compte_candidat" in urlsplit(frame.url).path:
                     chooser_controls.append("liaisons="+" | ".join(public_switch_bindings(frame))[:1900])
