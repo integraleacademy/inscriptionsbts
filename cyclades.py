@@ -18,7 +18,7 @@ from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNe
 from cyclades_portal import read_academy
 from cyclades_slips import read_slips, slip_key
 
-READER_VERSION = 23
+READER_VERSION = 24
 
 
 def cipher(app):
