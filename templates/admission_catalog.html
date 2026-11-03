@@ -4,8 +4,8 @@
   <div class="admission-card-copy">
     <h2>{{ title }}</h2>
     <div class="admission-formats">
-      <span>Présentiel</span>
-      {% if online %}<span class="format-online">100 % en ligne · à distance en visioconférence</span>{% endif %}
+      <span>{{ 'Présentiel à Puget-sur-Argens, Côte d’Azur' if online else 'Présentiel' }}</span>
+      {% if online %}<div class="admission-alternative">ou <span class="format-online">100 % en ligne à distance, en visioconférence</span></div>{% endif %}
     </div>
     <p>{{ description }}</p>
     <ul class="admission-programs">{{ caller() }}</ul>
@@ -30,10 +30,10 @@
     <p>Découvre les formations proposées dans chaque parcours.</p>
   </header>
   <nav class="admission-grid" aria-label="Choix de la formation">
-    {% call admission_card('BTS en alternance', 'admissions/student-space-illustration.webp', 'Deux ans pour préparer ton diplôme, à l’école à Puget-sur-Argens, Côte d’Azur, ou en ligne.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', timer='inscriptions-bts', online=true) %}
+    {% call admission_card('BTS en alternance', 'admissions/student-space-illustration.webp', 'Prépare ton BTS en deux ans en alternant cours et expérience en entreprise.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', timer='inscriptions-bts', online=true) %}
       {% for code,label in bts_programs.items() %}<li><strong>{{ code }}</strong><span>{{ label.removeprefix('BTS ') }}</span></li>{% endfor %}
     {% endcall %}
-    {% call admission_card('Titre professionnel en alternance', 'admissions/company-space-illustration.webp', 'Prépare un titre professionnel en présentiel à l’école à Puget-sur-Argens, Côte d’Azur.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#ouverture-tp', id='titres-professionnels', timer='ouverture-tp') %}
+    {% call admission_card('Titre professionnel en alternance', 'admissions/company-space-illustration.webp', 'Choisis le métier que tu souhaites préparer en alternance.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#ouverture-tp', id='titres-professionnels', timer='ouverture-tp') %}
       {% for offer in title_offers %}<li>TP {{ offer.name }}</li>{% endfor %}
     {% endcall %}
     {% call admission_card('Parcours sécurité en alternance', 'parcours-alternance/aps.webp', 'En un an, prépare trois qualifications complémentaires en alternant formation et missions en entreprise.', 'Candidatures ouvertes · Candidater', url_for('security_application')) %}
