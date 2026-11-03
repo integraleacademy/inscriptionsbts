@@ -16,12 +16,23 @@
     {% endif %}
     <section class="cy-pieces" aria-label="Suivi des pièces justificatives">
       <h4>Pièces justificatives{% if record.requested is defined %} · {{ record.conforming }}/{{ record.requested }} conformes{% endif %}</h4>
-      {% if record.documents_checked %}<p>Vérifiées dans Cyclades le {{ record.documents_checked }}.</p>{% endif %}
+      {% if record.documents_checked %}<p>{% if record.documents_source == 'statement' %}Relevé manuel de l’écran Cyclades du {{ record.documents_checked }}.{% else %}Vérifiées dans Cyclades le {{ record.documents_checked }}.{% endif %}</p>{% endif %}
       {% if record.documents %}
       <table class="cy-table"><thead><tr><th>Pièce demandée</th><th>Dépôt candidat</th><th>Contrôle administratif</th></tr></thead>
         <tbody>{% for piece in record.documents %}<tr><th scope="row">{{ piece.label }}{% if piece.deadline %}<small class="cy-pj-meta">Échéance : {{ piece.deadline }} (Paris)</small>{% endif %}</th><td>{{ piece.deposit or 'Non communiqué' }}{% if piece.manager == 'Déposée' %}<small class="cy-pj-meta">Fichier déposé par le gestionnaire</small>{% endif %}</td><td>{{ piece.review or 'Non communiqué' }}</td></tr>{% endfor %}</tbody>
       </table>
       {% elif record.requested is defined and record.requested == 0 %}<p>Aucune pièce demandée.</p>{% else %}<p>Le dépôt et le contrôle des pièces ne sont pas renseignés dans les données reçues.</p>{% endif %}
+      {% if not historical and not record.documents_checked and not record.documents %}
+      <details class="cy-disclosure"><summary>Renseigner un relevé Cyclades {{ icon('chevron-down') }}</summary>
+        <form class="cy-statement" method="post" action="{{ url_for('cyclades_piece_statement', cid=record.candidate_id, key=record.academy_key, year=record.year) }}">
+          <input type="hidden" name="csrf_token" value="{{ session.get('_planning_csrf', '') }}">
+          <input type="hidden" name="return_to" value="{{ request.args.get('return_to', '') }}">
+          <label>Date et heure du relevé<input type="datetime-local" name="observed" required></label>
+          <label>Texte de l’écran de suivi<textarea rows="5" name="statement" maxlength="120000" required></textarea></label>
+          <p>Incluez la session, les références du dossier et les lignes de chaque pièce. Le prochain contrôle automatique pourra remplacer ce relevé.</p>
+          <button type="submit" class="cy-button">Enregistrer le relevé</button>
+        </form>
+      </details>{% endif %}
     </section>
     {% if record.exams %}
     <details class="cy-disclosure"><summary>Épreuves et langues <span class="cy-count">{{ record.exams|length }}</span>{{ icon('chevron-down') }}</summary>

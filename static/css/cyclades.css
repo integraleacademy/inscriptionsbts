@@ -116,3 +116,9 @@
 }
 
 .cy-pj-meta { display: block; font-size: .75rem; font-weight: 400; color: var(--cy-muted); }
+
+.cy-statement, .cy-statement label { display: grid; gap: 5px; }
+.cy-statement { gap: 10px; padding-bottom: 10px; }
+.cy-statement label { color: var(--cy-ink); font-size: .83rem; }
+.cy-statement :is(input,textarea) { width: 100%; padding: 7px; border: 1px solid var(--cy-line); border-radius: 5px; }
+.cy-statement button { justify-self: start; }

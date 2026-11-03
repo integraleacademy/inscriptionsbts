@@ -249,6 +249,8 @@ def apply_report(conn, academy, report, origin):
                     if old and not record.get("documents_checked") and not record.get("documents"):
                         for key in ("documents", "documents_checked", "requested", "conforming"):
                             record[key] = old[key]
+                        if old.get("documents_source"):
+                            record["documents_source"] = old["documents_source"]
         payload = json.dumps(found[cid] if outcome == "matched" else [], ensure_ascii=False)
         conn.execute("""INSERT INTO cyclades_students VALUES (?,?,?,?,?,?,?)
             ON CONFLICT(candidate_id,academy,year) DO UPDATE SET

@@ -358,3 +358,34 @@ def test_document_fields_are_independent_from_enrolment_and_candidate_validation
     piece = document_status({"Pièce justificative demandée": "Attestation", "Etat": "Inscrit",
                              "PJ validée par candidat ON": "Oui"})
     assert piece["review"] is None and piece["deposit"] is None
+
+
+def test_piece_statement_provenance_and_replacement(student):
+    auth(student)
+    path = "/admin/candidat/student/cyclades"
+    with application.db() as conn:
+        apply_report(conn, "nice", parse_report(export("nice"), "nice"), "auto")
+    student.get("/admin/candidat/student")
+    with student.session_transaction() as session:
+        token = session["_planning_csrf"]
+    statement = ("BTS - 2027 - ACADÉMIE DE NICE\nN° candidat : 0001234 N° inscription : 001 Version : 2\n"
+                 "Code Etab : 0831774C\nPièces justificatives conformes : 0 / 1\n"
+                 "TEST01 : Justificatif test\nAucun fichier par le candidat\nAucun fichier par le gestionnaire\n"
+                 "Traitement administratif : Statut : En attente de contrôle")
+    data = dict(csrf_token=token, observed="2026-11-02T08:24", statement=statement)
+    url = path + "/nice/2027/releve-pieces"
+    assert student.post(url, data=dict(data, csrf_token="wrong")).status_code == 403
+    student.post(url, data=dict(data, statement=statement.replace("Version : 2", "Version : 9")))
+    assert "Justificatif test" not in student.get(path).get_data(as_text=True)
+    assert student.post(url, data=data).status_code == 303
+    with application.db() as conn:
+        newer = parse_report(export("nice", issued="04/11/2026 08:10"), "nice")
+        apply_report(conn, "nice", newer, "auto")
+    html = student.get(path).get_data(as_text=True)
+    assert "Relevé manuel" in html and "Justificatif test" in html and "En attente de contrôle" in html
+    with application.db() as conn:
+        latest = parse_report(export("nice", issued="05/11/2026 08:10"), "nice")
+        latest.records[0][-1].update(documents=[], requested=0, conforming=0, documents_checked="05/11/2026 à 08h10")
+        apply_report(conn, "nice", latest, "auto")
+    html = student.get(path).get_data(as_text=True)
+    assert "Relevé manuel" not in html and "Justificatif test" not in html
