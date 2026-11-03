@@ -19,6 +19,7 @@ def daily(setup, monkeypatch):
         state['admin_ok'] = True
         state['_wedof_csrf'] = 'test-csrf'
     with setup[1]() as conn:
+        conn.execute("ALTER TABLE candidats ADD COLUMN bts TEXT DEFAULT 'MCO'")
         conn.execute("ALTER TABLE candidats ADD COLUMN statut TEXT DEFAULT 'confirmee'")
         conn.execute("UPDATE candidats SET statut='preinscription' WHERE id='bob'")
     initialize(setup[1], clock[0])
@@ -235,3 +236,4 @@ def test_expired_lease_resumes_and_completed_items_are_not_repeated(daily):
     clock[0] += timedelta(seconds=121)
     finish(daily)
     assert env[3].call_count == 5
+

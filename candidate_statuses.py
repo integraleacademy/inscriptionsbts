@@ -26,6 +26,17 @@ def annotate_candidate_statuses(conn, rows, today=None):
         return rows
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     employed = set()
+    verified_mos = set()
+    if 'akto_students' in tables:
+        from akto_sync import get_records
+        for cid,row in eligible.items():
+            if (row.get('bts') or '').strip().upper() != 'MOS':
+                continue
+            records, message = get_records(conn,cid)
+            if records or not message:
+                verified_mos.add(cid)
+            if any(r.get('status') == 'Accordé' and active_period(r.get('contract_start'),r.get('contract_end'),today) for r in records):
+                employed.add(cid)
     ids = list(eligible)
     for offset in range(0, len(ids), 400):
         batch = ids[offset:offset+400]
@@ -38,6 +49,8 @@ def annotate_candidate_statuses(conn, rows, today=None):
                     employed.add(row['candidate_id'])
         if 'student_wedof_contracts' in tables:
             for row in conn.execute(f'SELECT candidate_id,payload FROM student_wedof_contracts WHERE candidate_id IN ({marks})', batch):
+                if row['candidate_id'] in verified_mos:
+                    continue
                 try:
                     item = json.loads(row['payload'])
                 except (ValueError, TypeError):
@@ -51,3 +64,4 @@ def annotate_candidate_statuses(conn, rows, today=None):
     for cid in employed:
         eligible[cid].update(display_status=EMPLOYMENT_STATUS[0], display_status_label=EMPLOYMENT_STATUS[1])
     return rows
+

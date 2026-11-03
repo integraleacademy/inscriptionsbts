@@ -4,6 +4,7 @@ No remote writes or bulk imports. Daily scheduled discovery is bounded
 to one student's folders; reference searches paginate explicitly. Credentials and previews
 remain server-side. The API contract is documented in docs/wedof-contracts.md.
 """
+from akto_sync import get_records as akto_records
 from akto_pilot import contract_card as akto_contract_card, contract_for as akto_contract_for, settings_summary as akto_settings_summary
 import base64
 from collections.abc import Mapping
@@ -213,10 +214,19 @@ def directory_contracts(app, conn, rows, *, include_linked_contracts=False):
                 f'SELECT * FROM student_wedof_discovery WHERE candidate_id IN ({marks})', batch)})
     for row in rows:
         row.update(contract='linked', contract_label='À vérifier', contract_detail='Recherche WEDOF à effectuer', contract_needs_check=bool(api_key))
-        pilot = akto_contract_for(row['id'])
-        if pilot:
-            row.update(contract='yes', contract_label='Contrat d’apprentissage',
-                       contract_detail=f"AKTO · {pilot['status']}", contract_needs_check=False)
+        if (row.get('bts') or '').strip().upper() == 'MOS' and 'akto_students' in tables:
+            records, message = akto_records(conn,row['id'])
+            row['contract_needs_check'] = False
+            if records:
+                row.update(contract='yes', contract_label='Contrat d’apprentissage',
+                           contract_detail='AKTO · '+', '.join(dict.fromkeys(r['status'] for r in records)))
+                if include_linked_contracts:
+                    row['linked_contracts'] = [akto_contract_card(r,row,billing)['item'] for r in records]
+            elif contracts.get(row['id']) and message:
+                row.update(contract='yes',contract_label='Contrat archivé',contract_detail='Dernier relevé WEDOF · '+message)
+            else:
+                row.update(contract='linked' if message else 'no',contract_label='À vérifier' if message else 'Aucun contrat identifié',
+                           contract_detail=message or 'Aucun contrat MOS trouvé dans AKTO.')
             continue
         linked = contracts.get(row['id'], [])
         if linked:
@@ -460,7 +470,7 @@ def register_wedof_contracts(app, connect, require_admin):
             if request.method != 'GET' and (not session.get('_wedof_csrf') or not hmac.compare_digest(
                     request.headers.get('X-CSRF-Token', ''), session['_wedof_csrf'])):
                 return jsonify(ok=False, message='La session a expiré. Rechargez la page.'), 400
-            if kwargs.get('cid') and akto_contract_for(kwargs['cid']) and request.method != 'GET':
+            if kwargs.get('cid') and request.method != 'GET' and (candidate(kwargs['cid']).get('bts') or '').strip().upper() == 'MOS':
                 return jsonify(ok=False, message='Ce dossier est suivi directement dans AKTO.'), 409
             try:
                 return fn(*args, **kwargs)
@@ -596,11 +606,17 @@ def register_wedof_contracts(app, connect, require_admin):
     @guarded
     def index(cid):
         row = candidate(cid)
-        pilot = akto_contract_for(cid)
-        if pilot:
-            return jsonify(ok=True, configured=False, has_contracts=True,
-                           html=render_template('_wedof_contracts_list.html', row=row, pilot=pilot,
-                                                contracts=[akto_contract_card(pilot, row, billing)], configured=False))
+        if (row.get('bts') or '').strip().upper() == 'MOS':
+            with closing(connection()) as conn:
+                records,message = akto_records(conn,cid)
+            panels = [render_template('_wedof_contracts_list.html',row=row,pilot=r,configured=False,
+                                      contracts=[akto_contract_card(r,row,billing)]) for r in records]
+            archive = cards(cid) if not records and message else []
+            if message or not records:
+                panels.insert(0,render_template('_akto_read_status.html',message=message,archive=bool(archive)))
+            if archive:
+                panels.append(render_template('_wedof_contracts_list.html',row=row,configured=False,contracts=archive,archived=True))
+            return jsonify(ok=True,configured=False,has_contracts=bool(records or archive),html=''.join(panels))
         with closing(connection()) as conn:
             try:
                 configured = bool(get_key(app, conn))
@@ -886,7 +902,7 @@ def register_wedof_contracts(app, connect, require_admin):
         return jsonify(refresh_contract(cid, key))
 
     def sync_item(cid, key, since):
-        if akto_contract_for(cid):
+        if (candidate(cid).get('bts') or '').strip().upper() == 'MOS':
             return {'skipped': True}
         if key:
             return refresh_contract(cid, key, since)
@@ -915,3 +931,4 @@ def register_wedof_contracts(app, connect, require_admin):
         return jsonify(ok=True, message='Le lien avec cette fiche a été retiré. Le contrat reste dans WEDOF.')
 
     app.register_blueprint(bp)
+

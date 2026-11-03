@@ -43,7 +43,7 @@
       <section class="sheet-card"><h2>Le profil en quelques mots</h2>{% for group in profile_groups %}<h3>{{ group.title }}</h3><div class="profile-pills">{% for value in profile_display[group.name] %}<span>{{ value }}</span>{% else %}<small>Non renseigné</small>{% endfor %}</div>{% endfor %}</section>
     </section>
     <section id="panel-contrat-apprentissage" role="tabpanel" aria-labelledby="tab-contrat-apprentissage" class="sheet-panel wc-panel" data-csrf="{{ wedof_csrf() }}" hidden>
-      {% set pilot = akto_contract_for(row.id) %}
+      {% set mos = row.bts|trim|upper == 'MOS' %}
       {% include '_wedof_contracts_panel.html' %}
     </section>
     {% include '_candidate_school_tabs.html' %}
@@ -101,3 +101,4 @@
 </dialog>
 <script src="{{ url_for('static', filename='js/message-assistant.js') }}?v=1" defer></script>
 {% endblock %}
+

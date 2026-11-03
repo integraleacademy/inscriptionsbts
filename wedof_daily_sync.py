@@ -73,7 +73,7 @@ def tick(connect, sync_item, configured, *, now=None):
             conn.execute('''INSERT INTO student_wedof_daily_items(day,candidate_id,contract_id)
                 SELECT ?,c.id,COALESCE(w.contract_id,'') FROM candidats c
                 LEFT JOIN student_wedof_contracts w ON w.candidate_id=c.id
-                WHERE c.statut IN ('confirmee','reconfirmee') OR w.contract_id IS NOT NULL''', (day,))
+                WHERE upper(trim(COALESCE(c.bts,''))) != 'MOS' AND (c.statut IN ('confirmee','reconfirmee') OR w.contract_id IS NOT NULL)''', (day,))
             run = conn.execute('SELECT * FROM student_wedof_daily_runs WHERE day=?', (day,)).fetchone()
         if run['status'] != 'running':
             return max(1, tomorrow-ts)
@@ -173,3 +173,4 @@ def register_daily_sync(app, connect, sync_item, configured):
     app.before_request(start)
     app.extensions['wedof_start_daily_sync'] = start
     app.extensions['wedof_sync_item'] = sync_item
+
