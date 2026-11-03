@@ -144,24 +144,38 @@ def catalogue(page):
         return []
     cards=page.locator('.mobileCardWrapper')
     found={}
+    first_cards=set()
     for number in range(1,total+1):
-        cards.first.wait_for(state='attached')
-        batch=cards.all_inner_texts()
-        previous=len(found)
-        for raw in batch:
-            lines=[x.strip() for x in raw.splitlines() if x.strip()]
-            if len(lines)<3 or not re.fullmatch(r'[A-Z0-9]{5,32}',lines[1]):
-                raise PortalError('Présentation de la liste AKTO à vérifier.')
-            found[lines[1]]=lines
+        cards.first.locator('.headerSubtitle').wait_for(state='attached')
+        # AKTO can append a company alias after the reference, e.g. "… (SAMSIC EVENT)".
+        batch=cards.evaluate_all("""cards => cards.map(c => {
+            const txt = s => c.querySelector(s)?.textContent?.trim() || '';
+            const foot = [...c.querySelectorAll('.footerElem')].find(e =>
+                e.querySelector('.footerTitle')?.textContent.trim() === 'Stagiaire(s)');
+            return { title:txt('.headerTitle'), subtitle:txt('.headerSubtitle'),
+                     status:txt('.badge__label'), name:foot?.querySelector('.footerSubtitle')?.textContent.trim() || '',
+                     text:c.textContent };
+        })""")
+        first=batch[0]['subtitle'] if batch else ''
+        if not first or first in first_cards:
+            break
+        first_cards.add(first)
+        for card in batch:
+            ref=re.match(r'^([A-Z0-9][A-Z0-9-]{4,40})(?=\s|$)',card['subtitle'],re.I)
+            if not ref:
+                raise PortalError(f'Référence de dossier illisible sur la page {number} du catalogue AKTO.')
+            key=ref[1]
+            found[key]=[card['title'],key,card['status'],card['text'],'Stagiaire(s)',card['name']]
         if len(found)==total:
             return list(found.values())
-        if len(found)==previous or len(found)>total:
+        if len(found)>total:
             break
         next_page=page.get_by_role('button',name=str(number+1),exact=True)
         if next_page.count()!=1:
             break
         next_page.click()
-        page.wait_for_function('(prev) => {const el=document.querySelector(".mobileCardWrapper");return el && !el.innerText.includes(prev)}',arg=batch[0].splitlines()[1].strip())
+        page.wait_for_function("""prev => {const el=document.querySelector('.mobileCardWrapper .headerSubtitle');
+            return el && el.textContent.trim() && el.textContent.trim() !== prev}""",arg=first)
     raise PortalError(f'Catalogue AKTO incomplet ({len(found)}/{total} dossiers). Relevés précédents conservés.')
 
 
