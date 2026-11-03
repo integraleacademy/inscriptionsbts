@@ -17,7 +17,7 @@ from flask import abort, flash, jsonify, redirect, render_template, request, ses
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, piece_receipt, with_exams, words
 from cyclades_portal import read_academy
 
-READER_VERSION = 20
+READER_VERSION = 21
 
 
 def cipher(app):

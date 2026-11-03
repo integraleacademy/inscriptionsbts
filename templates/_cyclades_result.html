@@ -9,11 +9,11 @@
       </div>
       <span class="cy-badge cy-{{ 'slate' if historical else record.tone }}">{{ record.status }}</span>
     </div>
-    {% if record.details.get(main_fields[0]) or record.details.get(main_fields[1]) %}
-    <dl class="cy-refs">{% for label in main_fields if record.details.get(label) %}
+    <dl class="cy-refs">
+      <div><dt>Identifiant de connexion Cyclades</dt><dd>{{ record.details.get('Identifiant de connexion') or 'Indisponible dans ce relevé' }}</dd></div>
+      {% for label in main_fields if record.details.get(label) %}
       <div><dt>{{ label }}</dt><dd>{{ record.details[label] }}</dd></div>
     {% endfor %}</dl>
-    {% endif %}
     <details class="cy-disclosure cy-pieces">
       <summary>Pièces justificatives
         {% if record.piece_summary %}<span class="cy-count">{{ record.piece_summary.conforming }}/{{ record.piece_summary.requested }} conformes</span>

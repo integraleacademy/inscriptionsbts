@@ -22,8 +22,8 @@ def export(academy="paris", status="Pré-inscrit", *, issued="02/11/2026 08:10",
                  "Edité le " + issued, "Critères de recherche : Etat Egal " + states):
         writer.writerow([line])
     head = ["N° Candidat", "N° inscription", "N° version", "Nom de famille", "Prénom(s)", "Date de naissance",
-            "Code établissement inscription", "Etat", "Mesures pour Handicap", "Identifiant de connexion"]
-    vals = ["0001234", "001", "2", "TÉST", "Camille Marie", "03/02/2005", uai, status, "private-medical", "private-login"]
+            "Code établissement inscription", "Etat", "Mesures pour Handicap", "Identifiant de connexion", "Mot de passe"]
+    vals = ["0001234", "001", "2", "TÉST", "Camille Marie", "03/02/2005", uai, status, "private-medical", "camille.test01", "private-password"]
     if exams:
         head.append("31213 : E1 - P - Langue vivante")
         vals.append("Inscrit - Anglais")
@@ -65,12 +65,47 @@ def test_real_csv_shape_secure_link_and_admin_only(student):
     page = client.get("/admin/candidat/student?return_to=/admin/inscriptions").get_data(as_text=True)
     for expected in ('id="tab-cyclades"', 'id="panel-cyclades"', "Pré-inscrit", "Inscrit - Anglais", "Import manuel", "08h10"):
         assert expected in page
-    for sensitive in ("private-login", "private-medical"):
-        assert sensitive not in page
+    assert "Identifiant de connexion Cyclades" in page and "camille.test01" in page
+    with application.db() as conn:
+        stored = conn.execute("SELECT records FROM cyclades_students WHERE candidate_id='student'").fetchone()[0]
+    for sensitive in ("private-password", "private-medical"):
+        assert sensitive not in stored and sensitive not in page
+    fragment = "/admin/candidat/student/cyclades"
+    assert "camille.test01" in client.get(fragment).text
+    assert application.app.test_client().get(fragment).status_code == 403
+    assert "camille.test01" not in client.get("/admin/inscriptions").text
     with pytest.raises(CycladesError):
         parse_report(export("nice"), "paris")
     with pytest.raises(CycladesError):
         parse_report(export(), "paris", expected_year=2028)
+
+
+@pytest.mark.parametrize("academy", ["nice", "paris"])
+def test_only_the_matched_students_official_login_is_displayed(student, academy):
+    auth(student)
+    seed(2025, "another")
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET nom='Autre',date_naissance='2005-02-03' WHERE id='another'")
+    fragment = "/admin/candidat/student/cyclades"
+    for value, label in ((b"camille.test01", "camille.test01"),
+                         (b"Pas de compte candidat Cyclades", "Pas de compte candidat Cyclades"),
+                         (b"-", "Indisponible dans ce relevé")):
+        report = parse_report(export(academy).replace(b"camille.test01", value), academy)
+        with application.db() as conn:
+            apply_report(conn, academy, report, "auto")
+        page = student.get(fragment).text
+        assert label in page
+        if value != b"camille.test01":
+            assert "camille.test01" not in page
+        assert "Identifiant de connexion Cyclades" not in student.get("/admin/candidat/another/cyclades").text
+
+
+def test_exam_export_can_supply_a_missing_login_for_the_same_registration():
+    supplement = parse_report(export(exams=True), "paris")
+    for original, expected in ((b"-", "camille.test01"), (b"updated.login", "updated.login")):
+        primary = parse_report(export().replace(b"camille.test01", original), "paris")
+        record = with_exams(primary, supplement).records[0][-1]
+        assert record["details"]["Identifiant de connexion"] == expected
 
 
 def test_ambiguous_identity_missing_and_newer_data(student):

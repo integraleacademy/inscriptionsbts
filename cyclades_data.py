@@ -18,9 +18,10 @@ ACADEMIES = {
 }
 MAX_BYTES = 12 * 1024 * 1024
 ALL_STATES = {"anomalie", "inscrit", "non inscrit", "pre inscrit", "redoublant"}
-# Exact headers from the detailed BTS CSV. Health data and login information in
-# other columns must never be retained with a student's exam record.
+# Only allow the named student fields from the detailed BTS CSV.
+# Passwords and medical information are outside this list.
 DETAILS = {
+    "Identifiant de connexion": "Identifiant de connexion",
     "N° Candidat": "N° de candidat", "N° inscription": "N° d’inscription", "N° version": "Version",
     "Spécialité": "Spécialité", "Code Spécialité": "Code spécialité", "Division de classe": "Classe",
     "Catégorie": "Catégorie", "Forme de passage": "Forme de passage", "VAE": "VAE",
@@ -178,6 +179,9 @@ def with_exams(report, supplement):
         extra = additional.get(key(entry))
         if extra:
             entry[-1]["exams"] = extra["exams"]
+            login = extra["details"].get("Identifiant de connexion")
+            if login:
+                entry[-1]["details"].setdefault("Identifiant de connexion", login)
             if extra.get("documents") and not entry[-1].get("documents"):
                 entry[-1]["documents"] = extra["documents"]
     return report
