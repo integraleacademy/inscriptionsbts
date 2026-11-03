@@ -1,1 +1,1 @@
-<p class="wc-message">{{ message or "Aucun contrat d’apprentissage MOS trouvé dans le compte prestataire AKTO." }}{% if archive %} Le dernier relevé WEDOF reste consultable en lecture seule.{% endif %}</p>
+<p class="wc-message">{{ message or "Aucun contrat d’apprentissage MOS trouvé dans le compte prestataire AKTO." }}{% if archive %} Le dernier relevé WEDOF reste consultable en lecture seule.{% endif %}{% if coverage %} {{ coverage }}.{% endif %}</p>
