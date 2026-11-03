@@ -15,6 +15,7 @@ body.academy-ui.waiting-page { background:#f7f6f2; color:#172d49; }
 .admission-card-copy h2 { margin:0 0 8px; color:#182f4b; font-size:clamp(22px,2vw,32px); line-height:1.14; letter-spacing:-.025em; }
 .admission-formats { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:10px 0 12px; }
 .admission-formats span { display:inline-block; max-width:100%; padding:4px 9px; border-radius:14px; background:#eef2f7; color:#274567; font-size:12px; line-height:1.35; font-weight:650; }
+.admission-alternative { display:flex; align-items:center; gap:6px; width:100%; min-width:0; color:#45576c; font-size:13px; }
 .admission-formats .format-online { background:#faf1de; color:#6c501b; }
 .admission-card-copy p { margin:0; font-size:15px; line-height:1.5; color:#46566a; }
 .admission-programs { display:grid; gap:0; padding:0; margin:16px 0 0; list-style:none; }
