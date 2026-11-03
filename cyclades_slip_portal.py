@@ -16,6 +16,35 @@ SUMMARY = re.compile(r"^\s*(?:(?:Afficher|Consulter|Voir|Télécharger)\s+(?:le 
 DOCUMENT = re.compile(r"papillons?\s*(?:(?:d[’']\s*)?informations?\s*)?(?:de\s*)?connexion(?:\s*cyclades)?", re.I)
 
 
+def access_notice(body):
+    """Keep only the official access prerequisite and its non-personal vocabulary."""
+    notice = re.search(r"\bVous devez [^.!?@:\n]{1,235}?accéder à cette activité[.!]?", body, re.I)
+    if not notice:
+        return ""
+    safe = set("""vous devez etre et avoir ete en sur sous un une le la les l de d des du a cette votre
+        son vos mes mon aux par avec afin pour pouvoir acceder activite portail connecte connecter via
+        authentifie authentifier authentification forte renforcee securisee securite niveau cle otp
+        mot passe unique usage certificat habilite habilitation autorise autorisation droit droits
+        profil role administrateur chef responsable direction delegue delegation titulaire compte
+        utilisateur uai rattache rattachement rattacher etablissement centre gestionnaire examens
+        domaine sous domaine contexte travail selectionner selectionne selection selectionnee choisir
+        choisi positionne positionner positionner positionnee preciser precisé renseigner renseigne
+        examen session examen-session souhaite courante courant ouverte ouvert active actif inscription
+        periode pendant dates date service academie annee scolaire phase public prive initialiser
+        valider validation candidature candidat scolarite scolaires eleves connexion portail depuis
+        reseau academique interne externe arena totp code pin passcode passeport logiciel une fois
+        locale local dument duement double facteur facteurs deux second fort tout ou et ne pas
+        modifier eliminer definir defini personnaliser prealablement au moins pre inscrit ceci il faut
+        parisiens paris nice bts avoir acquis application application nationale teleservice agir
+        acceder positionnes positionnes accede enregistre parametre parametrer deployee deploiement
+        cliquer Cliquez est s est d abord necessaire associe selectionnes ouverts editer derniere
+        enregistrement champ champs usager mission valide sur internet intranet equivalent""".lower().split())
+    out = []
+    for token in re.findall(r"[A-Za-zÀ-ÿ]+", notice[0]):
+        out.append(token if words(token) in safe else "…")
+    return " ".join(out)
+
+
 def route_label(url):
     # Static portlet names only, never a query, token or candidate identifier.
     return "/".join(x for x in urlsplit(url).path.split("/") if
@@ -102,6 +131,20 @@ def select_account_context(frame, session, academy, attempted, observed):
                 control.press("End")
             else:
                 control.select_option(index=index)
+        if control.count():
+            heading = control.locator("xpath=ancestor::*[self::h2 or @role='dialog'][1]")
+            if heading.count():
+                for action in heading.locator("a:visible,button:visible,input[type=image]:visible").all():
+                    safe_confirm = action.evaluate("""e => {
+                        const icon=e.querySelector('img');
+                        const words=[e.title,e.getAttribute('aria-label'),e.textContent,icon?.alt,icon?.title,
+                            (icon?.getAttribute('src')||'').split('/').pop()].filter(Boolean).join(' ');
+                        return /valider|confirmer|appliquer|validate|confirm|checkmark/i.test(words)
+                            && !/génér|regén|annul|supprim|renouv/i.test(words);
+                    }""")
+                    if safe_confirm and action.is_enabled():
+                        action.click(timeout=3000)
+                        break
         return scoped_year
     if select_report_context(frame, choice):
         return scoped_year
@@ -354,6 +397,19 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
                 # Capture only ordered, allowlisted interface words. This
                 # includes legacy portlets built entirely from div/span nodes.
                 body = frame.locator("body").inner_text(timeout=2000)
+                notice = access_notice(body)
+                if notice:
+                    chooser_controls.insert(0, "condition="+notice)
+                for switch in frame.locator("#selectContexte:visible").all():
+                    icon_info = switch.evaluate("""e=>{
+                        const area=e.closest('.titreActivite,h2');
+                        return area ? [...area.querySelectorAll('a,button,img,input[type=image]')].map(n=>{
+                            const src=(n.getAttribute('src')||'').split('/').pop().split('?')[0];
+                            const words=[n.title,n.getAttribute('aria-label'),n.alt].join(' ').match(/contexte|session|valider|changer|modifier|appliquer|aide|confirmer|actualiser|choisir|annuler/gi);
+                            return n.tagName+'/'+(src?.match(/^[a-zA-Z_.-]{1,65}$/)?src:'')+'/'+(words||[]).join('+');
+                        }).join(',') : '';
+                    }""")
+                    chooser_controls.append("icônes="+icon_info)
                 ui_words = set("aucun aucune compte rendu tous pas disponible indisponible activité droits habilité autorisé autorisation accès accéder choisir choisissez sélectionner sélectionnez contexte session traitement générer génération générés existant comptes possèdent déjà ouverts chargement veuillez papillon papillons défini paramètres erreur anomalie problème validation élèves examen établissement examens candidats navigation navigateur fenêtre fenêtres document documents téléchargement édition éditions afficher choix valider service fermé initialisé doit devez enregistrée sélectionner".split())
                 rows = [" ".join(w for w in line.casefold().split() if w.strip(".:!,’()") in ui_words)
                         for line in body.splitlines()]
