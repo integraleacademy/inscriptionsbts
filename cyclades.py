@@ -14,7 +14,7 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
 
-from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, with_exams, words
+from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, piece_receipt, with_exams, words
 from cyclades_portal import read_academy
 
 READER_VERSION = 20
@@ -200,6 +200,7 @@ def register_cyclades(app, connect, require_admin, directory):
             return summaries(conn)
 
     app.jinja_env.globals["cyclades_accounts"] = settings
+    app.jinja_env.globals["cyclades_receipt"] = piece_receipt
 
     def guard(key=None):
         if not require_admin():

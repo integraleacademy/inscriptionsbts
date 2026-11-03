@@ -25,12 +25,12 @@
       {% set partial_items = record.piece_summary.get('items') if record.piece_summary else none %}
       {% if partial_items %}<p>Détail lu pour {{ partial_items|length }} pièce(s) sur {{ record.piece_summary.requested }} le {{ record.piece_summary.checked }}.</p>{% endif %}
       {% if partial_items or record.documents %}
-      <table class="cy-table"><thead><tr><th>Pièce demandée</th><th>Dépôt candidat</th><th>Contrôle administratif</th></tr></thead>
-        <tbody>{% for piece in partial_items or record.documents %}<tr><th scope="row">{{ piece.label }}{% if piece.deadline %}<small class="cy-pj-meta">Échéance : {{ piece.deadline }} (Paris)</small>{% endif %}</th><td>{{ piece.deposit or 'Non communiqué' }}{% if piece.manager == 'Déposée' %}<small class="cy-pj-meta">Fichier déposé par le gestionnaire</small>{% endif %}</td><td>{{ piece.review or 'Non communiqué' }}</td></tr>{% endfor %}</tbody>
+      <table class="cy-table"><thead><tr><th>Pièce demandée</th><th>Réception de la pièce</th><th>Contrôle administratif</th></tr></thead>
+        <tbody>{% for piece in partial_items or record.documents %}<tr><th scope="row">{{ piece.label }}{% if piece.deadline %}<small class="cy-pj-meta">Échéance : {{ piece.deadline }} (Paris)</small>{% endif %}</th><td>{% set receipt = cyclades_receipt(piece) %}{{ receipt.label }}{% if receipt.note %}<small class="cy-pj-meta">{{ receipt.note }}</small>{% endif %}</td><td>{{ piece.review or 'Non communiqué' }}</td></tr>{% endfor %}</tbody>
       </table>
       {% elif record.requested is defined and record.requested == 0 %}<p>Aucune pièce demandée.</p>{% else %}<p>Le dépôt et le contrôle des pièces ne sont pas renseignés dans les données reçues.</p>{% endif %}
       {% if not historical and record.last_partial_attempt %}
-      <p>Dernier contrôle de l’académie le {{ record.last_partial_attempt }} : lecture incomplète. Les informations disponibles pour cette inscription sont affichées ci-dessus.</p>
+      <p>Dernier contrôle de l’académie le {{ record.last_partial_attempt }} : certains dossiers de l’académie n’ont pas pu être lus.</p>
       {% endif %}
       {% if not historical and not record.documents_checked and not record.documents %}
       <details class="cy-disclosure"><summary>Renseigner un relevé Cyclades {{ icon('chevron-down') }}</summary>
