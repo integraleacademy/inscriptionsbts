@@ -149,3 +149,14 @@ def test_catalogue_and_batches_release_their_browsers(monkeypatch):
     refs = portal.read_filiz({}, [{'prenom':'Léa','nom':'Test'}], None, lambda data:None, {'1'}, save)
     assert refs == {str(n) for n in range(9)}
     assert groups == [(3,4),(3,7),(2,9)] and launches == [None,1,2,3]
+
+
+def test_confirmed_waiting_schedule_preserves_previous_finance():
+    from opco_sync import schema, store_contract
+    conn = sqlite3.connect(':memory:')
+    schema(conn)
+    store_contract(conn, 'ref', 'c', {'schedules':[{'numero':1}], 'filiz_paid':42, 'raw_checked_at':'old'})
+    record = {'schedule_notice':'En cours de récupération', 'raw_checked_at':'new'}
+    store_contract(conn, 'ref', 'c', record)
+    assert record['raw_stale'] and record['raw_checked_at'] == 'old' and record['filiz_paid'] == 42
+    conn.close()

@@ -114,6 +114,8 @@ def store_contract(conn, ref, cid, item):
                            (ref, cid)).fetchone()
     if old_row:
         old = json.loads(old_row[0])
+        if item.get('schedule_notice') and old.get('schedules'):
+            item.update(raw_stale=True, raw_error=item['schedule_notice'])
         if item.get('raw_stale') and 'schedules' in old:
             for field in ('schedules','raw_checked_at','invoices','filiz_paid','filiz_pending','engagement',
                           'filiz_updated','extra_costs_available','extra_costs'):
@@ -182,7 +184,7 @@ def tick(app, connect, directory, now=None):
                     for ref in group:
                         if ref in results:
                             store_contract(conn, ref, *results[ref])
-                            outcome = 'partial' if ref in failed else 'linked'
+                            outcome = 'partial' if ref in failed or results[ref][1].get('raw_stale') else 'linked'
                         else:
                             outcome = 'error' if ref in failed else 'ignored'
                         conn.execute('INSERT OR REPLACE INTO filiz_scan_progress VALUES (?,?)', (ref, outcome))
@@ -209,9 +211,12 @@ def tick(app, connect, directory, now=None):
                                      (json.dumps(item, ensure_ascii=False), provider, ref))
                     elif outcome not in ('linked','partial'):
                         conn.execute('DELETE FROM opco_contracts WHERE provider=? AND ref=?', (provider, ref))
-                count = conn.execute('SELECT count(*) FROM opco_contracts WHERE provider=?', (provider,)).fetchone()[0]
+                records = [json.loads(row[0]) for row in conn.execute(
+                    'SELECT payload FROM opco_contracts WHERE provider=?', (provider,))]
+                count = len(records)
+                schedules = sum(bool(item.get('schedules')) and not item.get('raw_stale') for item in records)
                 state = 'partial' if failed else 'ok'
-                message = f'{count} contrat(s) rattaché(s) aux fiches BTS.'
+                message = f'{count} contrat(s) rattaché(s) aux fiches BTS, dont {schedules} avec échéancier lu.'
                 if failed:
                     message += f' {len(failed)} dossier(s) à vérifier.'
                 conn.execute("""UPDATE opco_accounts SET state=?,message=?,succeeded=CASE WHEN ? THEN ? ELSE succeeded END,
@@ -227,7 +232,7 @@ def tick(app, connect, directory, now=None):
                 conn.execute("UPDATE opco_accounts SET state='error',message=? WHERE provider=? AND credential=?",
                              (message, provider, account['credential']))
                 conn.commit()
-            app.logger.warning('FILIZ : lecture interrompue (%s)', type(exc).__name__)
+            app.logger.warning('FILIZ : lecture interrompue (%s). %s', type(exc).__name__, message)
 
 
 def register_opcos(app, connect, require_admin, directory):
@@ -235,10 +240,12 @@ def register_opcos(app, connect, require_admin, directory):
         schema(conn)
         # Resume a read that failed with the obsolete temporary browser cache.
         conn.execute("""UPDATE opco_accounts SET state='pending',requested=1,
-            message='Reprise de la lecture FILIZ après correction du navigateur.'
+            message='Reprise de la lecture FILIZ après correction de la lecture du portail.'
             WHERE provider='filiz' AND credential IS NOT NULL AND state='error'
             AND message IN ('Le serveur ne peut pas démarrer Chromium pour la lecture du portail.',
-                            'Installation de Chromium indisponible sur le serveur.')""")
+                            'Installation de Chromium indisponible sur le serveur.',
+                            'Pagination FILIZ incohérente. Dernier relevé conservé.', 'Liste FILIZ incomplète.',
+                            'Le nombre de dossiers lus diffère du compteur FILIZ. Relancez la synchronisation.')""")
         conn.commit()
         account = account_status(conn)
         app.logger.warning('FILIZ : compte configuré=%s, état=%s, dernière lecture complète=%s.',

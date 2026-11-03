@@ -87,7 +87,7 @@
         <td data-label="État">{{ state_badge(due) }}</td>
       </tr>{% endfor %}
     </tbody></table></div><p class="wc-filter-empty wc-empty-small" hidden>Aucune échéance pour ce filtre.</p>
-    {% else %}<div class="wc-empty-small">{{ 'Aucune échéance transmise par l’OPCO pour ce contrat.' if not item.raw_stale else 'Échéancier indisponible. Les autres informations du contrat restent consultables.' }}</div>{% endif %}
+    {% else %}<div class="wc-empty-small">{{ item.schedule_notice or ('Aucune échéance transmise par l’OPCO pour ce contrat.' if not item.raw_stale else 'Échéancier indisponible. Les autres informations du contrat restent consultables.') }}</div>{% endif %}
   </section>
   <section class="wc-subpanel" id="wc-{{ key }}-extras" role="tabpanel" aria-labelledby="wc-{{ key }}-tab-extras" data-wc-panel="extras" tabindex="0" hidden>
     <div class="wc-section-title"><div><p class="wc-eyebrow">PRISES EN CHARGE COMPLÉMENTAIRES</p><h4>Frais annexes & financement</h4></div></div>
