@@ -19,8 +19,10 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     guest = application.app.test_client()
     preview = page(client, '/candidature?preview=1')
     catalog = preview.select_one('#choix-formation')
-    assert preview.select_one('h1#preparation-title').find_next('section') == catalog
-    assert catalog.select_one('[data-start-application]') and catalog.select_one('[aria-controls="titres-professionnels"]')
+    guide = preview.select_one('#application-guide')
+    assert guide.select_one('#start-application') and not guide.select_one('.route-option')
+    assert catalog.has_attr('hidden') and guide.find_next_sibling('section') == catalog
+    assert catalog.select_one('#start-bts') and catalog.select_one('[aria-controls="titres-professionnels"]')
     shared_fields = {field['name'] for field in preview.select('#application-form [name]')}
     shared_fields -= {'mos_parcours', 'aps_souhaitee', 'raison_aps'}
     public = page(guest, '/').select_one('#choix-formation')

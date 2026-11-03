@@ -4,6 +4,7 @@
   const steps = [...form.querySelectorAll('.application-step')];
   const nav = [...document.querySelectorAll('#step-navigation button')];
   const guide = document.getElementById('application-guide');
+  const catalog = document.getElementById('choix-formation');
   const journey = document.getElementById('application-journey');
   const previewSelect = document.getElementById('preview-step');
   const activeSteps = () => steps.filter(step => step.dataset.available !== 'false');
@@ -150,6 +151,7 @@
     region.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
   }
   function showGuide(focus = true) {
+    if (catalog) catalog.hidden = true;
     journey.hidden = true; guide.hidden = false;
     document.body.dataset.applicationView = 'guide';
     if (previewSelect) previewSelect.value = 'guide';
@@ -160,6 +162,7 @@
   function show(step, focus = true) {
     if (steps[step]?.dataset.available === 'false' || !steps[step]) return;
     index = step; started = true;
+    if (catalog) catalog.hidden = true;
     guide.hidden = true; journey.hidden = false;
     document.body.dataset.applicationView = 'form';
     document.body.dataset.applicationStep = steps[index].dataset.stepId;
@@ -187,20 +190,29 @@
   }
   previous.addEventListener('click', () => {
     const active = activeSteps(), position = active.indexOf(steps[index]);
-    if (position > 0) show(steps.indexOf(active[position-1])); else showGuide();
+    if (position > 0) show(steps.indexOf(active[position-1])); else if (catalog) showChoice(); else showGuide();
   });
   next.addEventListener('click', advance);
   nav.forEach(button => button.addEventListener('click', () => {
     const target = steps.findIndex(step => step.dataset.group === button.dataset.groupNav && step.dataset.available !== 'false');
     navigateTo(target);
   }));
-  document.querySelectorAll('[data-start-application]').forEach(button => button.addEventListener('click', () => show(index)));
+  function showChoice() {
+    guide.hidden = true; journey.hidden = true; catalog.hidden = false;
+    document.body.dataset.applicationView = 'choice';
+    if (previewSelect) previewSelect.value = 'choice';
+    focusHeading(document.getElementById('catalog-title'), catalog);
+  }
+  document.getElementById('start-application').addEventListener('click', () => {
+    if (started || titleJourney) show(index);
+    else showChoice();
+  });
+  document.getElementById('start-bts')?.addEventListener('click', () => show(index));
+  document.getElementById('choice-back')?.addEventListener('click', () => showGuide());
   document.getElementById('review-preparation').addEventListener('click', () => showGuide());
-  const catalog = document.getElementById('choix-formation');
   document.querySelector('[data-choose-formation]')?.addEventListener('click', event => {
     event.preventDefault();
-    showGuide(false);
-    focusHeading(document.getElementById('catalog-title'), catalog);
+    showChoice();
   });
   const titleToggle = document.getElementById('toggle-titles');
   if (titleToggle) {
@@ -217,21 +229,20 @@
     });
     window.addEventListener('hashchange', () => {
       if (location.hash === '#titres-professionnels') {
-        showGuide(false); toggleTitles(true); focusHeading(document.getElementById('titles-heading'), panel);
+        showChoice(); toggleTitles(true); focusHeading(document.getElementById('titles-heading'), panel);
       }
     });
   }
   document.querySelectorAll('[data-prepared]').forEach(input => input.addEventListener('change', () => {
     const count = document.querySelectorAll('[data-prepared]:checked').length;
     document.getElementById('preparation-count').textContent = `${count} / 5 pièces préparées`;
-    document.getElementById('prepared-progress').value = count;
   }));
   if (previewSelect) {
     steps.forEach((step,i) => {
       const option = document.createElement('option'); option.value = String(i); option.dataset.question = '';
       option.textContent = step.dataset.title; previewSelect.append(option);
     });
-    previewSelect.addEventListener('change', () => { if (previewSelect.value === 'guide') showGuide(); else navigateTo(Number(previewSelect.value)); });
+    previewSelect.addEventListener('change', () => { if (previewSelect.value === 'guide') showGuide(); else if (previewSelect.value === 'choice') showChoice(); else navigateTo(Number(previewSelect.value)); });
     document.getElementById('preview-validation').addEventListener('change', updateProgress);
   }
   form.addEventListener('change', event=>{conditional();if(event.target.name==='mode' && distanceInfo)distanceInfo.open=value('mode')==='distanciel';if(['num_secu','date_naissance','sexe'].includes(event.target.name))nirFeedback();});
@@ -266,5 +277,5 @@
   const saved=JSON.parse(document.getElementById('saved-application').textContent || 'null');
   if(saved) Object.entries(saved).forEach(([key,val]) => { [...form.elements].filter(x=>x.name===key&&x.type!=='file').forEach(input=>{if(['radio','checkbox'].includes(input.type))input.checked=Array.isArray(val)?val.includes(input.value):input.value===String(val);else input.value=val;}); });
   normalizeNames();conditional();if(distanceInfo)distanceInfo.open=value('mode')==='distanciel';nirFeedback();
-  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else if (titleJourney) show(0,false); else showGuide(false);
+  if(saved) { show(0,false); showMessage('Ton brouillon est chargé. Vérifie les étapes, puis ajoute à nouveau tes justificatifs.',false); } else if (titleJourney) show(0,false); else if (location.hash === '#titres-professionnels') showChoice(); else showGuide(false);
 })();
