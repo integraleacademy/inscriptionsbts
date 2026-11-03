@@ -64,7 +64,13 @@ def account_status(conn):
         row = conn.execute("""SELECT credential IS NOT NULL AS configured,state,message,attempted,succeeded,requested,roster
             FROM opco_accounts WHERE provider='filiz'""").fetchone()
         if row:
-            return dict(row)
+            status = dict(row)
+            if status['state'] == 'error' and status['configured']:
+                processed = conn.execute('SELECT count(*) FROM filiz_scan_progress').fetchone()[0]
+                if processed:
+                    attached = conn.execute("SELECT count(*) FROM opco_contracts WHERE provider='filiz'").fetchone()[0]
+                    status['message'] += f' Progression conservée. Dossiers examinés : {processed}. Contrats rattachés : {attached}.'
+            return status
     return dict(configured=False,state='unconfigured',message='',attempted='',succeeded='',requested=0,roster='')
 
 
@@ -164,7 +170,8 @@ def tick(app, connect, directory, now=None):
                              (day, 1 + (used[0] if used else 0), FILIZ_LOGIN_VERSION))
             people = bts_students(conn)
             roster = roster_key(people)
-            resuming = account['state'] == 'running' or retryable
+            resume_requested = account['requested'] and account['state'] == 'error' and account['day'] == day
+            resuming = account['state'] == 'running' or retryable or resume_requested
             if not resuming or account['cursor'] != roster:
                 conn.execute('DELETE FROM filiz_scan_progress')
             revisit_failures = retryable and account['message'] == old_timeout
