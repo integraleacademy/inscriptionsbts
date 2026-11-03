@@ -173,16 +173,21 @@ def read_account_slips(page, academy, session, records, cipher):
     # Cyclades can close the initial account-creation activity once every
     # student has an account. The password-management activity also exposes
     # an existing report. Open only its report, never submit its generator.
-    pending = wanted
     outcomes = []
-    for activity in (ACTIVITY, EXISTING_ACCOUNTS):
-        outcomes.append(read_slip_edition(page, academy, session, pending, cipher, activity))
-        pending = [r for r in pending if r.get("slip_sync") != "found"]
-        if not pending:
-            break
+    for source, activity in (("creation", ACTIVITY), ("regeneration", EXISTING_ACCOUNTS)):
+        # A published regeneration may replace a password in the initial
+        # edition. Read both reports without erasing an already matched slip.
+        edition = [{"details": record["details"]} for record in wanted]
+        outcomes.append(read_slip_edition(page, academy, session, edition, cipher, activity))
+        for record, result in zip(wanted, edition):
+            if result.get("sealed_slip"):
+                record.update(sealed_slip=result["sealed_slip"], slip_source=source, slip_sync="found")
+            elif not record.get("sealed_slip"):
+                record["slip_sync"] = result.get("slip_sync", "unavailable")
+    total = sum(bool(r.get("sealed_slip")) for r in wanted)
     logging.getLogger(__name__).warning("CYCLADES %s accès automatiques : %d/%d inscriptions avec papillon",
-                                        academy, len(wanted)-len(pending), len(wanted))
-    return not pending or all(outcomes)
+                                        academy, total, len(wanted))
+    return total == len(wanted) or all(outcomes)
 
 
 def read_slip_edition(page, academy, session, records, cipher, activity):

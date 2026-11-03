@@ -1,8 +1,6 @@
 """Read individual access details from the institution's official CYCLADES slips."""
 import io
-import logging
 import re
-from collections import Counter
 
 from pypdf import PdfReader
 
@@ -25,7 +23,7 @@ def slip_key(record):
     return (candidate.lstrip("0") or "0", registration.lstrip("0") or "0", login)
 
 
-def collect_slips(pages, wanted, found, metrics):
+def collect_slips(pages, wanted, found):
     # A slip can continue onto the next page. Its candidate reference bounds
     # the block, even when the edition contains several slips on one page.
     text = "\n".join(pages)
@@ -46,7 +44,6 @@ def collect_slips(pages, wanted, found, metrics):
             else:
                 end = markers[index + 1].start() if index + 1 < len(markers) else len(section)
                 block = section[marker.start():end]
-            metrics["candidates"] += 1
             registrations = {v.lstrip("0") or "0" for v in REGISTRATION.findall(block)}
             if len(registrations) != 1:
                 continue
@@ -54,17 +51,14 @@ def collect_slips(pages, wanted, found, metrics):
             if len(keys) != 1:
                 continue
             key = keys[0]
-            metrics["matched_reference"] += 1
             pattern = r"(?<![\w.@+-])" + re.escape(key[2]) + r"(?![\w.@+-])"
             if not re.search(pattern, block):
                 continue
-            metrics["matched_login"] += 1
             logins = set(LOGIN.findall(block))
             if logins and logins != {key[2]}:
                 continue
             passwords = {value for value in PASSWORD.findall(block)
                          if 1 <= len(value) <= 128 and set(value) != {"*"}}
-            metrics["password_fields"] += len(passwords)
             if passwords:
                 found.setdefault(key, set()).update(passwords)
 
@@ -73,29 +67,20 @@ def read_slips(raw, wanted):
     """Match all three official fields. Never store a PDF or a conflicting pair."""
     if not raw.startswith(b"%PDF-") or len(raw) > MAX_BYTES:
         raise CycladesError("Sélectionnez un PDF de papillons Cyclades de moins de 12 Mo.")
-    found, metrics = {}, Counter()
+    found = {}
     try:
         pdf = PdfReader(io.BytesIO(raw), strict=False)
         if pdf.is_encrypted or len(pdf.pages) > 500:
             raise ValueError
         pages = [page.extract_text() or "" for page in pdf.pages]
-        metrics["pages"] = len(pages)
-        collect_slips(pages, wanted, found, metrics)
+        collect_slips(pages, wanted, found)
         if any(key not in found for key in wanted):
             # Some official editions paint labels and values in different text
             # objects; reconstruct their visual reading order before matching.
             import pdfplumber
             with pdfplumber.open(io.BytesIO(raw)) as layout:
                 pages = [page.extract_text(x_tolerance=2, y_tolerance=3) or "" for page in layout.pages]
-            collect_slips(pages, wanted, found, metrics)
+            collect_slips(pages, wanted, found)
     except Exception:
         raise CycladesError("Le PDF de papillons est illisible ou protégé.") from None
-    if any(key not in found for key in wanted):
-        labels = []
-        vocab = set("votre vos identifiant identifiants login connexion votre mot passe provisoire initial premiere temporaire candidat inscription numero compte deja active utilise utilisez creer cree active personnel personnalise choisissez oubli reinitialiser cyclades transmis existez service ligne examens".split())
-        for n,page in enumerate(pages[:12]):
-            labels.append([n+1, sum(key[2] in page for key in wanted), len(CANDIDATE.findall(page)), len(REGISTRATION.findall(page)), len(LOGIN.findall(page)), len(PASSWORD.findall(page)), [tuple(w for w in words(line).split() if w in vocab) for line in page.splitlines()
-                            if re.search(r"identi|connexion|mot de passe|candidat|inscription",line,re.I)][:20]])
-        logging.getLogger(__name__).warning("CYCLADES PDF champs officiels : %s",labels)
-    logging.getLogger(__name__).warning("CYCLADES PDF papillons : %s",dict(metrics))
     return {key: values.pop() for key, values in found.items() if len(values) == 1}
