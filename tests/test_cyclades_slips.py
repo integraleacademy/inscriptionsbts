@@ -172,3 +172,45 @@ def test_validated_portlet_can_reset_the_context_switch_without_reloading(studen
             assert read_account_slips(page,"paris",session,[record],cipher(application.app))
     assert calls[:calls.index("/edition")].count(validated) == 1, calls
     assert record["slip_sync"] == "found"
+
+
+def test_context_validation_keeps_the_tab_issued_by_the_portal(student):
+    from urllib.parse import urlsplit, parse_qs
+    from cyclades_slip_portal import read_account_slips, tabbed_activity_url
+    binary = os.getenv("CYCLADES_CHROMIUM_EXECUTABLE")
+    if not binary:
+        pytest.skip("Requires test Chromium")
+    origin = "https://cyclades.education.gouv.fr"
+    route = "/cycetablissement/portal/creation_compte_candidat"
+    session_label = "BTS - 2027 - ACADEMIE DE PARIS"
+    tab = "1234567890"
+    assert tabbed_activity_url("https://unrelated.example/"+route, {route:tab}) == "https://unrelated.example/"+route
+    switch = f"""<span><select id="selectContexte"
+        onchange="fetch('{route}',{{method:'POST',body:new URLSearchParams({{OngletID:'{tab}',cleSelected:this.value,choixContexte:'true'}})}}).then(()=>location.assign('{route}'))">
+        <option value="">Choisir</option><option value="tab-session">{session_label}</option></select></span>"""
+    views = []
+    record = parse_report(export(), "paris").records[0][-1]
+    with sync_playwright() as pw, pw.chromium.launch(executable_path=binary) as browser:
+        with browser.new_context(accept_downloads=True) as ctx:
+            def serve(request):
+                u = urlsplit(request.request.url)
+                views.append((u.path,parse_qs(u.query).get("OngletID")))
+                if u.path == route and request.request.method == "POST":
+                    return request.fulfill(status=200,content_type="application/json",body="{}")
+                if u.path.startswith(route):
+                    page_html = (f'<h2>{session_label}</h2><a href="/edition">Afficher le compte rendu</a>'
+                                 if parse_qs(u.query).get("OngletID") == [tab] else switch)
+                elif u.path == "/edition":
+                    page_html = '<a href="/file">Papillon de connexion</a>'
+                elif u.path == "/file":
+                    return request.fulfill(body=document(SAMPLE),content_type="application/pdf",
+                                           headers={"Content-Disposition":"attachment; filename=papillons.pdf"})
+                else:
+                    page_html = f'<a href="{route}">Générer les comptes Cyclades de mes élèves</a>'
+                request.fulfill(content_type="text/html; charset=utf-8",body=page_html)
+            ctx.route("**/*",serve)
+            page = ctx.new_page()
+            page.goto(origin+"/cycetablissement/")
+            assert read_account_slips(page,"paris",session_label,[record],cipher(application.app))
+    assert any(path.startswith(route) and value==[tab] for path,value in views)
+    assert record["slip_sync"] == "found"
