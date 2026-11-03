@@ -9,6 +9,7 @@ from tempfile import TemporaryDirectory
 from urllib.parse import urljoin, urlsplit
 
 from playwright.sync_api import Error, TimeoutError as BrowserTimeout
+from cyclades_slip_portal import read_account_slips
 from portal_browser import persistent_playwright, launch_chromium
 
 from cyclades_data import ACADEMIES, ALL_STATES, MAX_BYTES, CycladesError, CycladesNetworkError, parse_report, with_exams, words
@@ -813,7 +814,7 @@ def read_pieces(page, academy, label, report, records):
             shell.close()
 
 
-def read_academy(academy, credentials, matched_records):
+def read_academy(academy, credentials, matched_records, slip_cipher):
     with persistent_playwright() as playwright:
         try:
             browser = launch_chromium(playwright)
@@ -877,6 +878,7 @@ def read_academy(academy, credentials, matched_records):
                             yield error
                     records = matched_records(report)
                     read_pieces(page, academy, label, report, records)
+                    read_account_slips(page, academy, label, records, slip_cipher)
                     checked = sum("documents_checked" in record for record in records)
                     yield report
                     logging.getLogger(__name__).warning("CYCLADES %s PJ %d : %d/%d inscriptions lues",
