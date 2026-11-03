@@ -17,7 +17,7 @@ from flask import abort, flash, redirect, render_template, request, session, url
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, with_exams, words
 from cyclades_portal import read_academy
 
-READER_VERSION = 12
+READER_VERSION = 13
 
 
 def cipher(app):
@@ -105,8 +105,9 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 if not row or not row["credential"]:
                     continue
                 # First connection is checked immediately. Subsequent days start at 08:00.
-                recovering = row["status"] == "running" or (
-                    (row["status"] == "error" or 0 < row["reader_version"] < READER_VERSION) and row["reader_version"] < READER_VERSION)
+                reader_changed = row["reader_version"] < READER_VERSION and (
+                    row["status"] == "error" or row["reader_version"] > 0)
+                recovering = row["status"] == "running" or (reader_changed and row["network_retry"] is None)
                 daily_due = clock.hour >= 8 and (row["day"] or "") < slot
                 retry_at = row["network_retry"]
                 retry_due = retry_at is not None and retry_at > 0 and retry_at <= clock.timestamp() and row["status"] == "error"
