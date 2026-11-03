@@ -135,6 +135,46 @@ def test_daily_runs_restart_concurrency_and_one_academy_down(student, tmp_path):
         assert [(item["academy"], item["status"]) for item in result["matches"]] == [("Paris", "Pré-inscrit")]
 
 
+def test_settings_manual_check_and_daily_schedule_are_independent(student, tmp_path):
+    path = "/admin/parametres/cyclades/paris/connexion"
+    assert student.post(path, data={"action": "retry"}).status_code == 403
+    auth(student)
+    student.get("/admin/parametres")
+    with student.session_transaction() as state:
+        token = state["_planning_csrf"]
+    def request_check():
+        response = student.post(path, data={"action": "retry", "csrf_token": token})
+        assert response.status_code == 303
+        assert response.location.endswith("#cyclades-paris")
+    assert student.post(path, data={"action": "retry", "csrf_token": "wrong"}).status_code == 403
+    request_check()
+    assert "Enregistrez les accès" in student.get("/admin/parametres").get_data(as_text=True)
+
+    calls = []
+    def fetch(key, credentials):
+        calls.append(key)
+        yield parse_report(export(key), key)
+    def tick(hour):
+        run_due(application.app, application.db, tmp_path,
+                now=datetime(2026, 11, 3, hour, tzinfo=PARIS), fetch=fetch)
+
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_accounts SET credential=?,day='2026-11-02',status='ok'",
+                     (cipher(application.app).encrypt(b'{"username":"example","password":"unused"}'),))
+    tick(6)
+    assert not calls
+    request_check()
+    request_check()
+    tick(7)
+    assert calls == ["paris"]
+    tick(8)
+    assert calls == ["paris", "paris", "nice"]
+    request_check()
+    tick(12)
+    tick(13)
+    assert calls == ["paris", "paris", "nice", "paris"]
+
+
 def test_candidate_search_shows_only_personal_results_and_preserves_history(student):
     client = student
     auth(client)

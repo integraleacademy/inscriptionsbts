@@ -1,11 +1,19 @@
 {% extends 'base.html' %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-settings.css') }}?v=1">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-settings.css') }}?v=2">{% endblock %}
 {% block body_class %}settings-page{% endblock %}
 {% block content %}
+{% macro card_summary(key, symbol, title, description, status=false) %}
+  <summary class="settings-summary">
+    <span class="settings-icon">{{ icon(symbol) }}</span>
+    <span class="settings-caption"><strong id="{{ key }}-title">{{ title }}</strong><span>{{ description }}</span></span>
+    {% if status %}<span id="{{ key }}-status" class="settings-status" role="status">Chargement…</span>{% endif %}
+    {{ icon('chevron-down', 'settings-chevron') }}
+  </summary>
+{% endmacro %}
 <div class="settings-app" data-csrf="{{ csrf_token }}">
   <header class="settings-heading"><p>VOTRE PLATEFORME BTS</p><h1>Les <em>paramètres.</em></h1><span>Gérez les connexions utilisées par votre équipe.</span></header>
-  <section class="settings-card" aria-labelledby="openai-title">
-    <header><span class="settings-icon">{{ icon('spark') }}</span><div><h2 id="openai-title">OpenAI</h2><p>Recherche et analyse des référentiels officiels des BTS.</p></div><span id="openai-status" class="settings-status" role="status">Chargement…</span></header>
+  <details class="settings-card" id="openai" aria-labelledby="openai-title">
+    {{ card_summary('openai', 'spark', 'OpenAI', 'Recherche et analyse des référentiels officiels des BTS.', true) }}
     <div class="settings-content">
       <p id="openai-error" class="settings-message error" role="alert" hidden></p>
       <p id="openai-success" class="settings-message" role="status" hidden></p>
@@ -20,10 +28,10 @@
       <div class="settings-info"><p>L’utilisation de l’API est facturée sur votre compte OpenAI, séparément de l’abonnement ChatGPT.</p><a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">Gérer mes clés sur OpenAI ↗</a></div>
     </div>
     <footer><span>La connexion est partagée par les administrateurs de la plateforme.</span><a href="/admin/matieres">Aller aux matières {{ icon('arrow') }}</a></footer>
-  </section>
+  </details>
   {% if cyclades_accounts is defined %}{% include '_cyclades_settings.html' %}{% endif %}
-  {% if wedof_csrf is defined %}<section class="settings-card" id="wedof" data-wedof-csrf="{{ wedof_csrf() }}" aria-labelledby="wedof-title">
-    <header><span class="settings-icon">{{ icon('file') }}</span><div><h2 id="wedof-title">WEDOF · Contrats d’apprentissage</h2><p>Informations des contrats BTS, financement OPCO et échéanciers.</p></div><span id="wedof-status" class="settings-status" role="status">Chargement…</span></header>
+  {% if wedof_csrf is defined %}<details class="settings-card" id="wedof" data-wedof-csrf="{{ wedof_csrf() }}" aria-labelledby="wedof-title">
+    {{ card_summary('wedof', 'file', 'WEDOF · Contrats d’apprentissage', 'Informations des contrats BTS, financement OPCO et échéanciers.', true) }}
     <div class="settings-content">
       <p id="wedof-error" class="settings-message error" role="alert" hidden></p><p id="wedof-success" class="settings-message" role="status" hidden></p>
       <p id="wedof-managed" hidden>La clé WEDOF est configurée sur le serveur.</p>
@@ -32,8 +40,8 @@
       <div class="settings-info"><p>Dans une fiche étudiante, ouvrez « Contrat d’apprentissage », recherchez une référence précise puis vérifiez le dossier avant de le rattacher. Les informations sont conservées pour consultation et peuvent être actualisées toutes les 30 minutes.</p><a href="https://www.wedof.fr/" target="_blank" rel="noopener noreferrer">Ouvrir WEDOF ↗</a></div>
     </div>
     <footer><span>Connexion partagée entre les administrateurs. Aucun import global automatique.</span><a href="/admin">Ouvrir les fiches étudiantes {{ icon('arrow') }}</a></footer>
-  </section>{% endif %}
+  </details>{% endif %}
 </div>
-<script src="{{ url_for('static', filename='js/admin-settings.js') }}?v=1" defer></script>
+<script src="{{ url_for('static', filename='js/admin-settings.js') }}?v=2" defer></script>
 <script src="{{ url_for('static', filename='js/wedof-settings.js') }}?v=1" defer></script>
 {% endblock %}

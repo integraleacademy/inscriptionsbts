@@ -3,6 +3,16 @@
   const root = document.querySelector('.settings-app');
   if (!root) return;
   const $ = id => document.getElementById(id);
+  function openLinkedSection() {
+    let section = $(window.location.hash.slice(1));
+    if (!root.contains(section)) return;
+    while (section) {
+      if (section.tagName === 'DETAILS') section.open = true;
+      section = section.parentElement;
+    }
+  }
+  openLinkedSection();
+  window.addEventListener('hashchange', openLinkedSection);
   let busy = false;
   const message = (id, text) => { $(id).textContent = text || ''; $(id).hidden = !text; };
   function render(settings) {
