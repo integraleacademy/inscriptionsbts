@@ -83,7 +83,6 @@ def select_account_context(frame, session, academy, attempted, observed):
     if len(choices) != 1:
         return False
     choice = choices[0]
-    scoped_year = bool(exact or by_year)
     # Playwright reuses the Frame object across navigations. A choice made
     # in the list portlet is not a choice in the account portlet.
     document = (frame, frame.url, frame.evaluate("performance.timeOrigin"), choice)
@@ -101,12 +100,8 @@ def select_account_context(frame, session, academy, attempted, observed):
                 # The real shell listens to keyboard/mouse activation of the
                 # context switch. This also supplies a native user gesture.
                 control.press("End")
-            if control.count() and control.locator("option:checked").inner_text().strip() != choice:
+            else:
                 control.select_option(index=index)
-            if control.count():
-                option = control.locator("option").nth(index)
-                if option.count():
-                    option.dispatch_event("click")
         return scoped_year
     if select_report_context(frame, choice):
         return scoped_year
@@ -422,10 +417,18 @@ def read_slip_edition(page, academy, session, records, cipher, activity):
             if window not in existing:
                 window.close()
         if not page.is_closed() and page.url != original_url:
-            # The next session still uses the existing reports menu.
             from cyclades_portal import open_list_menu
             try:
-                if not page.locator("#ETABLISSEMENT_INSCRIPTION").count() or not open_list_menu(page):
-                    page.go_back(wait_until="domcontentloaded", timeout=10000)
+                # Keep the shell navigation of the current page if available;
+                # otherwise go back to the verified menu, not an intermediate
+                # context chooser or file-result page.
+                for _ in range(4):
+                    if (page.url == original_url or page.locator("#ETABLISSEMENT_INSCRIPTION").count()
+                        or page.get_by_text(ACTIVITY).count() or page.get_by_text(EXISTING_ACCOUNTS).count()):
+                        break
+                    if not page.go_back(wait_until="domcontentloaded", timeout=7000):
+                        break
+                if page.locator("#ETABLISSEMENT_INSCRIPTION").count():
+                    open_list_menu(page)
             except Error:
                 pass

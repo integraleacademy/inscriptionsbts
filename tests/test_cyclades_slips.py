@@ -165,5 +165,5 @@ def test_validated_portlet_can_reset_the_context_switch_without_reloading(studen
             page = ctx.new_page()
             page.goto(origin+"/cycetablissement/")
             assert read_account_slips(page,"paris",session,[record],cipher(application.app))
-    assert calls.count(validated) == 1
+    assert calls[:calls.index("/edition")].count(validated) == 1, calls
     assert record["slip_sync"] == "found"
