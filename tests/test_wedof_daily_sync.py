@@ -237,3 +237,29 @@ def test_expired_lease_resumes_and_completed_items_are_not_repeated(daily):
     finish(daily)
     assert env[3].call_count == 5
 
+
+
+def test_manual_settings_job_survives_departure_and_deduplicates(daily):
+    env, clock = daily
+    client = env[0]
+    url = '/admin/parametres/wedof/synchroniser'
+    headers = {'Accept': 'application/json'}
+    assert client.post(url, headers=headers).status_code == 403
+    with env[1]() as conn:
+        conn.execute("UPDATE candidats SET bts='MOS',statut='confirmee' WHERE id='bob'")
+    for _ in range(2):
+        assert client.post(url, data={'csrf_token': 'test-csrf'}, headers=headers).status_code == 202
+    assert not env[3].called
+    with client.session_transaction() as s:
+        s.clear()
+    with env[1]() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM student_wedof_daily_runs").fetchone()[0] == 1
+        assert [r[0] for r in conn.execute("SELECT candidate_id FROM student_wedof_daily_items")] == ['alice']
+    seen = []
+    sync = lambda cid, *_: seen.append(cid) or {}
+    step(daily, sync)
+    clock[0] += timedelta(seconds=1)
+    step(daily, sync)
+    with env[1]() as conn:
+        assert conn.execute("SELECT status FROM student_wedof_daily_runs").fetchone()[0] == 'completed'
+    assert seen == ['alice']

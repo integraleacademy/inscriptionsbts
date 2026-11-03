@@ -13,6 +13,43 @@
   }
   openLinkedSection();
   window.addEventListener('hashchange', openLinkedSection);
+  root.addEventListener('click', event => {
+    if (event.target.closest('[data-refresh-job]')) window.location.reload();
+  });
+  root.addEventListener('submit', async event => {
+    const button = event.submitter;
+    if (!button?.matches('[data-background-job]')) return;
+    event.preventDefault();
+    const form = event.target;
+    const body = new FormData(form);
+    if (button.name) body.set(button.name, button.value);
+    button.disabled = true;
+    let notice = form.querySelector('.job-notice');
+    if (!notice) {
+      notice = document.createElement('p');
+      notice.className = 'settings-message job-notice';
+      notice.setAttribute('role', 'status');
+      form.append(notice);
+    }
+    notice.textContent = 'Envoi de la demande au serveur…';
+    try {
+      const response = await fetch(form.getAttribute('action'), {method: 'POST', body, keepalive: true,
+        credentials: 'same-origin', headers: {Accept: 'application/json'}});
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.message);
+      notice.textContent = result.message + ' ';
+      const refresh = document.createElement('button');
+      refresh.type = 'button';
+      refresh.dataset.refreshJob = '';
+      refresh.className = 'settings-button';
+      refresh.textContent = 'Actualiser le statut';
+      notice.append(refresh);
+    } catch (error) {
+      notice.textContent = error instanceof TypeError || error instanceof SyntaxError ?
+        'La confirmation du serveur est indisponible. Actualisez le statut avant de relancer.' : error.message;
+      button.disabled = false;
+    }
+  });
   let busy = false;
   const message = (id, text) => { $(id).textContent = text || ''; $(id).hidden = !text; };
   function render(settings) {

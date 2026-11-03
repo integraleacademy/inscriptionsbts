@@ -1,7 +1,7 @@
 <details class="settings-card" id="cyclades" aria-labelledby="cyclades-title">
   {{ card_summary('cyclades', 'file', 'CYCLADES · Inscriptions aux examens', 'Académies de Paris et de Nice · Vérification quotidienne à 8 h.') }}
   <div class="settings-content">
-    <p>Chaque académie est consultée à la première connexion, puis tous les jours à 8 h, heure de Paris. Les accès sont conservés chiffrés sur le serveur.</p>
+    <p>Chaque académie est consultée à la première connexion, puis tous les jours à 8 h, heure de Paris. Une fois la demande enregistrée, vous pouvez quitter les paramètres ou fermer l’onglet. Le serveur poursuit la vérification.</p>
     {% for key, academy in cyclades_accounts().items() %}
     {% set busy = academy.connected and academy.status in (none, 'pending', 'running') %}
     <details class="settings-academy" id="cyclades-{{ key }}">
@@ -14,7 +14,7 @@
         {% if academy.connected %}
         <form method="post" action="{{ url_for('cyclades_settings',key=key) }}" class="settings-actions">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-          <button type="submit" name="action" value="retry" class="settings-button primary"{% if busy %} disabled{% endif %}>Relancer la vérification</button>
+          <button type="submit" name="action" value="retry" data-background-job class="settings-button primary"{% if busy %} disabled{% endif %}>Relancer la vérification</button>
           <button type="submit" name="action" value="remove" class="settings-button">Déconnecter {{ academy.label }}</button>
         </form>
         {% if busy %}<form method="get" action="{{ url_for('admin_settings') }}#cyclades-{{ key }}">

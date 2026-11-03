@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from cryptography.fernet import Fernet, InvalidToken
-from flask import abort, flash, redirect, render_template, request, session, url_for
+from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
 
 from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, with_exams, words
 from cyclades_portal import read_academy
@@ -208,6 +208,8 @@ def register_cyclades(app, connect, require_admin, directory):
             abort(403)
 
     def finish(key, message, error=False):
+        if request.form.get("action") == "retry" and request.headers.get("Accept") == "application/json":
+            return jsonify(message=message), 409 if error else 202
         flash(message, "error" if error else "success")
         return redirect(url_for("admin_settings", _anchor=f"cyclades-{key}"), code=303)
 
@@ -313,7 +315,7 @@ def register_cyclades(app, connect, require_admin, directory):
                 conn.commit()
             start()
             wake.set()
-            return finish(key, f"{ACADEMIES[key][0]} · Nouvelle vérification demandée.")
+            return finish(key, f"{ACADEMIES[key][0]} · Vérification enregistrée sur le serveur. Vous pouvez quitter la page.")
         credential = None
         if action == "save":
             username = request.form.get("username", "").strip()
