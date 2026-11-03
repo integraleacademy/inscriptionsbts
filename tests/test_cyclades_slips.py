@@ -86,6 +86,79 @@ def test_only_an_admin_can_reveal_a_matched_slip_after_import(student):
     assert student.post(url, data=data).status_code == 404
 
 
+def test_manual_email_only_sends_after_confirmation_to_current_student(student, monkeypatch):
+    from bs4 import BeautifulSoup
+    from branded_email import email_plain_text
+
+    auth(student)
+    url = "/admin/candidat/student/cyclades/paris/2027/acces"
+    calls = []
+    def mail(to, subject, html, **options):
+        calls.append((to, subject, html, options))
+        return "test-message"
+    monkeypatch.setattr(application, "send_mail", mail)
+    report = parse_report(export(), "paris")
+    record = report.records[0][-1]
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET email='eleve@example.org' WHERE id='student'")
+        apply_report(conn, "paris", report, "auto")
+    page = student.get("/admin/candidat/student")
+    with student.session_transaction() as state:
+        data = dict(csrf_token=state["_planning_csrf"], candidate=SAMPLE[0], registration=SAMPLE[1])
+    assert "Envoyer les accès par e-mail" not in page.text
+    assert student.post(url, data=dict(data, action="prepare_email")).status_code == 303
+    with application.db() as conn:
+        record["sealed_slip"] = cipher(application.app).encrypt(SAMPLE[-1].encode()).decode()
+        apply_report(conn, "paris", report, "auto")
+    assert "Envoyer les accès par e-mail" in student.get("/admin/candidat/student/cyclades").text
+    def preview():
+        response = student.post(url, data=dict(data, action="prepare_email"))
+        assert response.status_code == 200 and "no-store" in response.headers["Cache-Control"]
+        assert "Confirmer l’envoi" in response.text and "eleve@example.org" in response.text
+        return BeautifulSoup(response.text, "html.parser").select_one('input[name="ticket"]')["value"]
+    args = dict(data, action="email", ticket=preview(), email="intrus@example.org")
+    assert not calls
+    assert application.app.test_client().post(url, data=args).status_code == 403
+    assert student.post(url, data=dict(args, csrf_token="incorrect")).status_code == 403
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET email='nouveau@example.org' WHERE id='student'")
+    assert student.post(url, data=args).status_code == 303 and not calls
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET email='eleve@example.org' WHERE id='student'")
+    args["ticket"] = preview()
+    assert student.post(url, data=args).status_code == 303
+    assert student.post(url, data=args).status_code == 303
+    assert len(calls) == 1
+    to, subject, html, options = calls[0]
+    assert to == "eleve@example.org" and options == {"copy_admin": False, "private": True}
+    assert SAMPLE[-1] not in subject and OTHER[-1] not in html
+    assert SAMPLE[-1] in email_plain_text(html) and LOGIN in email_plain_text(html)
+    with application.db() as conn:
+        assert conn.execute("SELECT status FROM cyclades_mail_attempts").fetchone()[0] == "sent"
+
+    args["ticket"] = preview()
+    monkeypatch.setattr(application, "send_mail", lambda *args, **kwargs: False)
+    student.post(url, data=args)
+    with application.db() as conn:
+        assert conn.execute("SELECT status FROM cyclades_mail_attempts WHERE ticket=?", (args["ticket"],)).fetchone()[0] == "unconfirmed"
+
+
+def test_private_mail_never_logs_provider_response_or_adds_an_admin_copy(monkeypatch, capsys):
+    from types import SimpleNamespace
+    import utils
+    payloads = []
+
+    def refuse(url, headers, json, timeout):
+        payloads.append(json)
+        return SimpleNamespace(ok=False, status_code=400, text=SAMPLE[-1])
+
+    monkeypatch.setattr(utils, "BREVO_KEY", "fake-for-test")
+    monkeypatch.setattr(utils.requests, "post", refuse)
+    assert not utils.send_mail("eleve@example.org", "Vos accès Cyclades", "<p>Essai</p>", copy_admin=False, private=True)
+    assert payloads[0]["to"] == [{"email": "eleve@example.org"}]
+    assert SAMPLE[-1] not in capsys.readouterr().out
+
+
 def test_regeneration_precedes_initial_slip_and_survives_later_editions(student, monkeypatch):
     import cyclades_slip_portal as portal
 

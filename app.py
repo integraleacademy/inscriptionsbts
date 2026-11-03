@@ -1106,7 +1106,7 @@ register_trainer_availability(app, db, lambda *args, **kwargs: send_mail(*args, 
 register_admin_trainer_planning(app, db, require_admin)
 register_planning_sync(app, db, require_admin)
 from cyclades import register_cyclades, sheet_status as cyclades_sheet_status
-register_cyclades(app, db, require_admin, DATA_DIR)
+register_cyclades(app, db, require_admin, DATA_DIR, lambda *args: send_mail(*args, copy_admin=False, private=True))
 from akto_sync import register_akto
 from opco_contracts import register_opco_contracts
 register_akto(app, db, require_admin, DATA_DIR)

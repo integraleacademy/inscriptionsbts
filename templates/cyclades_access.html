@@ -1,12 +1,24 @@
 <!doctype html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Accès candidat Cyclades</title>
 <style>
-*{box-sizing:border-box}body{margin:0;padding:clamp(16px,6vw,64px);background:#f3f6fa;color:#192d4c;font:16px/1.55 system-ui,sans-serif}main{max-width:39rem;margin:auto;background:white;padding:clamp(20px,5vw,44px);border:1px solid #dce5ef;border-radius:16px}h1{font-size:1.65rem;line-height:1.2;margin:.3em 0}h2{font-size:1.1rem}dt{color:#526782;font-size:.88rem}dd{margin:0 0 1em;font:bold 1.05rem/1.6 monospace;overflow-wrap:anywhere}button{font:inherit;border:1px solid #bbc9db;border-radius:7px;background:white;padding:7px 12px;cursor:pointer}button:first-child{background:#214b8f;color:white}small{color:#526782}a{color:#214b8f}@media print{body{padding:0;background:white}main{border:0}nav,#feedback{display:none}}
+*{box-sizing:border-box}body{margin:0;padding:clamp(16px,6vw,64px);background:#f3f6fa;color:#192d4c;font:16px/1.55 system-ui,sans-serif}main{max-width:39rem;margin:auto;background:white;padding:clamp(20px,5vw,44px);border:1px solid #dce5ef;border-radius:16px}h1{font-size:1.65rem;line-height:1.2;margin:.3em 0}h2{font-size:1.1rem}dt{color:#526782;font-size:.88rem}dd{margin:0 0 1em;font:bold 1.05rem/1.6 monospace;overflow-wrap:anywhere}button{font:inherit;border:1px solid #bbc9db;border-radius:7px;background:white;padding:7px 12px;cursor:pointer}button:first-child{background:#214b8f;color:white}small{color:#526782}a{color:#214b8f}@media print{body{padding:0;background:white}main{border:0}nav,#feedback,.cy-mail{display:none}}
 </style></head><body><main>
 <small>INTÉGRALE ACADEMY · BTS {{ year }} · {{ academy }}</small>
 <h1>Accès au compte Cyclades</h1><h2>{{ student.prenom }} {{ student.nom }}</h2>
 <dl><dt>Identifiant de connexion</dt><dd id="login">{{ login }}</dd><dt>Mot de passe provisoire du papillon</dt><dd id="pass">{{ password }}</dd></dl>
 <p><a id="portal" href="https://candidat.examens-concours.gouv.fr/cyccandidat/" rel="noreferrer">Ouvrir l’espace candidat Cyclades</a></p>
 <p>Si vous avez personnalisé votre mot de passe, utilisez celui que vous avez choisi.</p>
-<nav><button id="copy" type="button">Copier les accès</button> <button id="print" type="button">Imprimer</button></nav><p id="feedback" role="status"></p>
-</main><script src="{{ url_for('static',filename='js/cyclades-access.js') }}"></script></body></html>
+{% if ticket %}
+<section class="cy-mail"><h2>Envoyer les accès par e-mail</h2>
+<p>Les deux accès ci-dessus seront envoyés à <strong>{{ recipient }}</strong>, l’adresse de la fiche de {{ student.prenom }} {{ student.nom }}.</p>
+<form method="post" action="{{ request.path }}">
+<input type="hidden" name="csrf_token" value="{{ session['_planning_csrf'] }}">
+<input type="hidden" name="candidate" value="{{ request.form.candidate }}">
+<input type="hidden" name="registration" value="{{ request.form.registration }}">
+<input type="hidden" name="return_to" value="{{ request.form.get('return_to', '') }}">
+<input type="hidden" name="ticket" value="{{ ticket }}">
+<button name="action" value="email" type="submit">Confirmer l’envoi</button> <a href="{{ back }}">Annuler</a>
+</form></section>
+{% else %}
+<nav><button id="copy" type="button">Copier les accès</button> <button id="print" type="button">Imprimer</button></nav><p id="feedback" role="status"></p>{% endif %}
+</main>{% if not ticket %}<script src="{{ url_for('static',filename='js/cyclades-access.js') }}"></script>{% endif %}</body></html>
