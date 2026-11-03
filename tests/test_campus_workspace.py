@@ -9,7 +9,7 @@ from teaching import schema as teaching_schema
 from trainer_access import _schema as trainer_schema
 from candidate_access import _schema as account_schema
 from student_course_details import student_details, zoom_url
-from filiz_fixtures import account, contract
+from opco_fixtures import account, contract
 
 
 @pytest.fixture

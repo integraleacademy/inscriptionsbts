@@ -10,7 +10,7 @@ from test_london_mobility import data, versions, post
 from company_portal import ensure_company_schema
 from london_mobility_data import automatic_data, mobile
 from london_mobility_signatures import SignatureError
-from filiz_fixtures import account, contract
+from opco_fixtures import account, contract
 
 
 @pytest.fixture

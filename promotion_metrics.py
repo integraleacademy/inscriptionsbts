@@ -1,6 +1,6 @@
 """Read-only attached-contract indicator for confirmed students."""
 
-from filiz_contracts import directory_contracts
+from opco_contracts import directory_contracts
 
 
 def annotate_promotion_metrics(app, conn, promotions):

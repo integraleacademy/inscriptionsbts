@@ -1,10 +1,10 @@
 {% set account = akto_status() %}
 <details class="settings-card" id="akto" aria-labelledby="akto-title">
-  {{ card_summary('akto','briefcase','AKTO · BTS MOS','Synchronisation quotidienne à 5 h, heure de Paris, et à la demande.') }}
+  {{ card_summary('akto','briefcase','AKTO · Tous les BTS','Synchronisation quotidienne à 5 h, heure de Paris, et à la demande.') }}
   <div class="settings-content">
     <p class="settings-message" role="status"><strong>{{ {'unconfigured':'Compte AKTO à connecter','pending':'Vérification en attente','running':'Synchronisation en cours','error':'Échec de la dernière lecture','partial':'Lecture partielle','ok':'Synchronisation réussie'}.get(account.state) }}</strong> {{ account.message }}
       {% if account.attempted %} Dernière tentative le {{ account.attempted }}.{% endif %}{% if account.succeeded %} Dernier passage complet le {{ account.succeeded }}.{% endif %}{% if account.requested %} Une vérification est en attente.{% endif %}</p>
-    <p>La plateforme lit les dossiers et les courriers d’accord du compte prestataire du CFA pour les étudiants en BTS MOS dont le contrat débute à compter du 1er juin 2025 inclus. Une synchronisation lancée continue si vous quittez cette page.</p>
+    <p>La plateforme lit les dossiers et les courriers d’accord du compte prestataire du CFA pour les étudiants des six BTS dont le contrat débute à compter du 1er juin 2025 inclus. Une synchronisation lancée continue si vous quittez cette page.</p>
     {% if account.configured %}<form method="post" action="{{ url_for('akto_settings') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="settings-actions"><button class="settings-button primary" data-background-job name="action" value="sync" {% if account.requested or account.state=='running' %}disabled{% endif %}>Synchroniser maintenant</button><button class="settings-button" name="action" value="disconnect">Déconnecter le compte</button></div></form>{% endif %}
     <details class="settings-academy"{% if not account.configured %} open{% endif %}><summary>{{ 'Remplacer les accès' if account.configured else 'Connecter le compte prestataire' }}</summary>

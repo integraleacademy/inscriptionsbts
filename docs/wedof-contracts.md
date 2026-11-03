@@ -1,4 +1,4 @@
-> Archive technique. La plateforme utilise désormais uniquement FILIZ pour les contrats d’apprentissage. La configuration active se trouve dans les paramètres, rubrique FILIZ.
+> Archive technique WEDOF. Les connexions actives sont configurées dans Paramètres, rubriques AKTO et OPCO.
 
 # Contrats d’apprentissage dans les fiches étudiantes
 

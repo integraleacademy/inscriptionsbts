@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from flask import abort, flash, jsonify, redirect, request, send_file, session, url_for
 from candidate_messages import _equal
-from opco_sync import student_records
+from opco_contracts import records_by_student
 from london_mobility_documents import VERSION, minor_at_signing, pdf_document, word_document
 from london_mobility_signatures import active_signature, register_signatures, signature_context, signature_schema
 
@@ -78,7 +78,7 @@ def schema(conn):
 def contracts(conn, row):
     return [{'id':i['working_contract_id'],**{k:i.get(k) for k in (*EMPLOYER_FIELDS,'training_start','training_end',
               'contract_start','contract_end','external_number','deca_number','state','state_label')}}
-            for i in student_records(conn,row) if i.get('state') not in {'cancelled','broken','refused'}]
+            for i in records_by_student(conn,[row]).get(row['id'],[]) if i.get('state') not in {'cancelled','broken','refused'}]
 
 
 def source_values(conn, row, contract_id=''):

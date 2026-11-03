@@ -30,7 +30,8 @@
     <footer><span>La connexion est partagée par les administrateurs de la plateforme.</span><a href="/admin/matieres">Aller aux matières {{ icon('arrow') }}</a></footer>
   </details>
   {% if cyclades_accounts is defined %}{% include '_cyclades_settings.html' %}{% endif %}
-  {% if filiz_status is defined %}{% include '_opco_settings.html' %}{% endif %}
+  {% if akto_status is defined %}{% include '_akto_settings.html' %}{% endif %}
+  {% if opco_statuses is defined %}{% include '_opco_settings.html' %}{% endif %}
 </div>
 <script src="{{ url_for('static', filename='js/admin-settings.js') }}?v=3" defer></script>
 {% endblock %}

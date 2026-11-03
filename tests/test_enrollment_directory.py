@@ -1,4 +1,4 @@
-"""The filtered directory and its KPIs use verified FILIZ contracts and portraits."""
+"""The filtered directory and its KPIs use verified OPCO contracts and portraits."""
 import hashlib
 from html import unescape
 import io
@@ -14,7 +14,7 @@ import pytest
 
 from test_admissions_2027 import application, auth, client, seed
 from test_campus_workspace import campus
-from filiz_fixtures import complete, contract
+from opco_fixtures import complete, contract
 
 
 def kpis(html):

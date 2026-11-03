@@ -1,9 +1,10 @@
-"""Server-side AKTO synchronization for BTS MOS, on the persistent BTS disk."""
+"""Server-side AKTO synchronization for BTS students, on the persistent BTS disk."""
 import base64
 import fcntl
 import hashlib
 import hmac
 import json
+import os
 import threading
 import re
 from playwright.sync_api import Error as BrowserError
@@ -17,6 +18,9 @@ from flask import abort, flash, redirect, request, session, url_for
 
 from akto_portal import START_DATE, PortalError, read_portal
 from akto_pilot import contract_for
+from training_programs import BTS_LABELS
+
+BTS_MARKS = ",".join("?" for _ in BTS_LABELS)
 
 PARIS = ZoneInfo('Europe/Paris')
 
@@ -71,13 +75,13 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
                 return
             conn.execute("""UPDATE akto_connection SET requested=0,state='running',attempted=?,day=?,message='Lecture du portail en cours.' WHERE id=1""",
                          (stamp,day if daily else row['day']))
-            people=[dict(p) for p in conn.execute("SELECT id,prenom,nom,date_naissance FROM candidats WHERE upper(trim(bts))='MOS'")]
+            people=[dict(p) for p in conn.execute(f"SELECT id,prenom,nom,date_naissance,bts FROM candidats WHERE upper(trim(bts)) IN ({BTS_MARKS})", tuple(BTS_LABELS))]
             conn.commit()
         def save(person,records,message,unavailable=()):
             with closing(connect()) as conn:
                 conn.execute('BEGIN IMMEDIATE')
-                current=conn.execute("SELECT 1 FROM candidats WHERE id=? AND upper(trim(bts))='MOS' AND nom=? AND prenom=? AND COALESCE(date_naissance,'')=COALESCE(?,'')",
-                                     (person['id'],person['nom'],person['prenom'],person['date_naissance'])).fetchone()
+                current=conn.execute("SELECT 1 FROM candidats WHERE id=? AND bts=? AND nom=? AND prenom=? AND COALESCE(date_naissance,'')=COALESCE(?,'')",
+                                     (person['id'],person['bts'],person['nom'],person['prenom'],person['date_naissance'])).fetchone()
                 if not current or conn.execute('SELECT credential FROM akto_connection WHERE id=1').fetchone()[0]!=row['credential']:
                     return
                 # Do not replace a verified agreement with a partial portal response.
@@ -122,7 +126,7 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
             else:
                 errors=reader(email,password,people,save)
             state='partial' if errors else 'ok'
-            message=f'{len(people)} fiche(s) MOS examinée(s). {errors} lecture(s) à vérifier.'
+            message=f'{len(people)} fiche(s) BTS examinée(s). {errors} lecture(s) à vérifier.'
         except PortalError as exc:
             state,message='error',str(exc)
         except BrowserError as exc:
@@ -131,16 +135,16 @@ def run_due(app,connect,directory,now=None,reader=read_portal):
             action=match[1] if match else type(exc).__name__
             clues=("Executable doesn't exist",'not found','Missing X server','browser has been closed','has been closed','Cannot find module','Connection closed','Timeout','net::ERR_','Host system is missing dependencies','Protocol error','object has been collected','Interrupted by another navigation','ENOENT')
             reason=next((hint for hint in clues if hint.lower() in str(exc).lower()),'erreur du navigateur')
-            app.logger.warning('AKTO MOS : navigateur %s (%s)',action,reason)
+            app.logger.warning('AKTO BTS : navigateur %s (%s)',action,reason)
             state,message='error',f'Lecture interrompue à l’étape {action} ({reason}).'
         except Exception as exc:
-            app.logger.warning('AKTO MOS : exception %s',type(exc).__name__)
+            app.logger.warning('AKTO BTS : exception %s',type(exc).__name__)
             state,message='error','Lecture AKTO interrompue. Vérifiez le compte prestataire et relancez la synchronisation.'
         with closing(connect()) as conn:
             conn.execute('''UPDATE akto_connection SET state=?,message=?,succeeded=CASE WHEN ?='ok' THEN ? ELSE succeeded END
                             WHERE id=1 AND credential=?''',(state,message,state,stamp,row['credential']))
             conn.commit()
-        app.logger.info('AKTO MOS : %s (%s) %s',state,stamp,message)
+        app.logger.info('AKTO BTS : %s (%s) %s',state,stamp,message)
 
 
 def register_akto(app,connect,require_admin,directory):
@@ -149,6 +153,9 @@ def register_akto(app,connect,require_admin,directory):
         if conn.execute("INSERT OR IGNORE INTO akto_upgrades VALUES('invoices-detail-v2')").rowcount:
             conn.execute("UPDATE akto_connection SET requested=1 WHERE credential IS NOT NULL AND state IN ('error','partial','ok')")
         conn.commit()
+        access = conn.execute('SELECT credential IS NOT NULL FROM akto_connection WHERE id=1').fetchone()[0]
+        stored = conn.execute("SELECT count(*) FROM akto_students WHERE records IS NOT NULL AND records!='[]'").fetchone()[0]
+        app.logger.warning('OPCO direct : AKTO, accès configuré=%s, %d fiches avec relevé AKTO conservé.', bool(access), stored)
     wake,guard=threading.Event(),threading.Lock()
     thread=None
     def worker():
@@ -156,16 +163,16 @@ def register_akto(app,connect,require_admin,directory):
             try:
                 run_due(app,connect,directory)
             except Exception:
-                app.logger.warning('AKTO MOS : passage à reprendre.')
+                app.logger.warning('AKTO BTS : passage à reprendre.')
             wake.wait(20)
             wake.clear()
     def start():
         nonlocal thread
-        if app.testing:
+        if app.testing or os.environ.get('OPCO_SYNC_DISABLED') == '1':
             return
         with guard:
             if thread is None or not thread.is_alive():
-                thread=threading.Thread(target=worker,name='akto-mos',daemon=True)
+                thread=threading.Thread(target=worker,name='akto-bts',daemon=True)
                 thread.start()
     app.extensions['akto_start']=start
     app.before_request(start)

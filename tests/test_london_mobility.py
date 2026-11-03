@@ -9,7 +9,7 @@ from docx import Document
 
 from test_admissions_2027 import application, auth, client, seed
 from london_mobility import london_context, schema
-from filiz_fixtures import account, contract
+from opco_fixtures import account, contract
 
 
 @pytest.fixture
@@ -149,7 +149,7 @@ def test_prepopulation_selects_only_attached_contract_and_dates_are_checked(lond
     page = london.get('/admin/candidat/london').text
     assert 'Employeur OPCO' in page and '1 rue du Contrat' in page
     assert post(london, data(london, contract_id='foreign')).status_code == 400
-    assert post(london, data(london, contract_id='filiz-123',mobility_start='2029-11-08',mobility_end='2029-11-12')).status_code == 400
+    assert post(london, data(london, contract_id='ep-123',mobility_start='2029-11-08',mobility_end='2029-11-12')).status_code == 400
     assert not versions()
 
 

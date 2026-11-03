@@ -95,7 +95,7 @@
     checking = true; checkContracts.disabled = true;
     try {
       await refresh();
-      contractFeedback.textContent = 'Affichage actualisé. La lecture FILIZ est prévue chaque jour à 5 h, heure de Paris.';
+      contractFeedback.textContent = 'Affichage actualisé. La lecture OPCO est prévue chaque jour à 5 h, heure de Paris.';
     } catch (error) {contractFeedback.textContent = error.message;}
     finally {checking = false; checkContracts.disabled = busy;}
   }

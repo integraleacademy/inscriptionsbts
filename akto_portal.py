@@ -2,11 +2,6 @@
 import re
 import logging
 from contextlib import contextmanager, suppress
-import shutil
-import os
-import time
-import subprocess
-import sys
 import unicodedata
 from datetime import datetime
 from decimal import Decimal
@@ -16,7 +11,9 @@ from urllib.parse import quote, urlsplit
 from zoneinfo import ZoneInfo
 
 import pdfplumber
-from playwright.sync_api import Error, sync_playwright
+from playwright.sync_api import Error
+from portal_browser import persistent_playwright, launch_chromium
+from training_programs import BTS_LABELS
 
 ROOT = 'https://monespace.akto.fr'
 DOSSIERS = ROOT + '/prestataire/formations/dossiers'
@@ -44,7 +41,7 @@ def stage(page, label):
         host=urlsplit(page.url).hostname or "navigation"
         reason=re.search(r'net::ERR_[A-Z_]+',str(exc))
         detail=reason[0] if reason else type(exc).__name__
-        logging.getLogger(__name__).warning('AKTO MOS : %s | %s | %s',label,host,detail)
+        logging.getLogger(__name__).warning('AKTO BTS : %s | %s | %s',label,host,detail)
         raise PortalError(f"{label} : {detail} ({host}).") from None
 
 
@@ -72,7 +69,8 @@ def notice(path, record, person):
         dates = re.search(r'Dates de contrat\s*:\s*Du ('+DATE+') au ('+DATE+')', first, re.I)
         if not dates:
             raise PortalError('Date de début du contrat non confirmée dans le courrier AKTO.')
-        record.update(contract_start=iso(dates[1]), contract_end=iso(dates[2]))
+        record.update(contract_start=iso(dates[1]), contract_end=iso(dates[2]), apprentice_birth_date=iso(ident[2]),
+                      apprentice_first_name=person['prenom'], apprentice_last_name=person['nom'])
         if record['contract_start'] < START_DATE:
             raise BeforeCutoff
         rncp = re.search(r'RNCP\s*(\d{4,6})', first)
@@ -140,7 +138,7 @@ def catalogue(page):
     with stage(page,'Lecture du compteur de dossiers'):
         counter.wait_for()
     total=int(''.join(re.findall(r'\d',counter.inner_text())))
-    logging.getLogger(__name__).warning('AKTO MOS : catalogue ouvert, %d dossiers.',total)
+    logging.getLogger(__name__).warning('AKTO BTS : catalogue ouvert, %d dossiers.',total)
     if not total:
         return []
     cards=page.locator('.mobileCardWrapper')
@@ -315,33 +313,18 @@ def dossier(page, lines, person, previous):
     return record
 
 
-def launch_chromium(pw):
-    exe=shutil.which('chromium') or os.getenv('CYCLADES_CHROMIUM_EXECUTABLE')
-    try:
-        browser=pw.chromium.launch(executable_path=exe)
-    except Error as exc:
-        # No account data has been used during browser setup.
-        logging.getLogger(__name__).warning('AKTO initialisation Chromium : %.500s',str(exc))
-        if not exe and "Executable doesn't exist" in str(exc):
-            try:
-                subprocess.run([sys.executable,'-m','playwright','install','--only-shell','chromium'],check=True,timeout=180,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-            except (OSError,subprocess.SubprocessError):
-                raise PortalError('Installation de Chromium indisponible sur le serveur.') from None
-        # On Render the first launch can race browser installation at boot.
-        time.sleep(2)
-        try:
-            browser=pw.chromium.launch(executable_path=exe)
-        except Error as retry:
-            logging.getLogger(__name__).warning('AKTO lancement Chromium : %.600s',str(retry))
-            raise PortalError('Le serveur ne peut pas démarrer Chromium pour la lecture du portail.') from None
-    return browser
+def course_matches(lines, bts):
+    if bts not in BTS_LABELS:
+        return False
+    title = norm(BTS_LABELS[bts]).removeprefix('bts ')
+    return any(title in norm(line) or (' bts '+bts.lower()+' ') in (' '+norm(line)+' ') for line in lines)
 
 
 def read_portal(email,password,people,save,excluded=None,remember=None,previous=None):
     by_name={}
     for p in people:
         by_name.setdefault(norm(p['prenom']+' '+p['nom']),[]).append(p)
-    with sync_playwright() as pw:
+    with persistent_playwright() as pw:
         browser=launch_chromium(pw)
         try:
             with browser.new_context(locale='fr-FR',accept_downloads=True,service_workers='block',viewport={'width':1280,'height':900}) as ctx:
@@ -369,12 +352,10 @@ def read_portal(email,password,people,save,excluded=None,remember=None,previous=
                         continue
                     if lines.index('Stagiaire(s)')+1 >= len(lines):
                         continue
-                    if not any('management operationnel de la securite' in norm(x) or 'bts mos' in norm(x) for x in lines):
-                        continue
                     name=norm(lines[lines.index('Stagiaire(s)')+1])
-                    if name in by_name:
+                    if any(course_matches(lines,p['bts'].strip().upper()) for p in by_name.get(name,[])):
                         matches.setdefault(name,[]).append(lines)
-                logging.getLogger(__name__).warning('AKTO MOS : catalogue complet, %d contrats MOS à examiner pour %d identités.',sum(map(len,matches.values())),len(matches))
+                logging.getLogger(__name__).warning('AKTO BTS : catalogue complet, %d contrats BTS à examiner pour %d identités.',sum(map(len,matches.values())),len(matches))
                 errors=0
                 for name,persons in by_name.items():
                     if len(persons)>1:
@@ -393,14 +374,14 @@ def read_portal(email,password,people,save,excluded=None,remember=None,previous=
                             if remember:
                                 remember(lines[1])
                         except (PortalError,Error,ValueError,ArithmeticError,OSError) as exc:
-                            logging.getLogger(__name__).warning('AKTO MOS dossier : %s',str(exc) if isinstance(exc,PortalError) else type(exc).__name__)
+                            logging.getLogger(__name__).warning('AKTO BTS dossier : %s',str(exc) if isinstance(exc,PortalError) else type(exc).__name__)
                             unavailable.append(lines[1])
                     if unavailable:
                         errors+=1
                         save(person,records,'Lecture incomplète : date ou courrier à vérifier. Les relevés vérifiés restent disponibles.',unavailable)
                     else:
                         save(person,records,'')
-                logging.getLogger(__name__).info('AKTO MOS : %d dossiers en catalogue, %d fiches examinées, %d à vérifier.',len(cards),len(people),errors)
+                logging.getLogger(__name__).info('AKTO BTS : %d dossiers en catalogue, %d fiches examinées, %d à vérifier.',len(cards),len(people),errors)
                 return errors
         finally:
             # A secondary close error must not mask the original failing step.
