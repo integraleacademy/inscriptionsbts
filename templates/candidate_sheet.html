@@ -43,7 +43,8 @@
       <section class="sheet-card"><h2>Le profil en quelques mots</h2>{% for group in profile_groups %}<h3>{{ group.title }}</h3><div class="profile-pills">{% for value in profile_display[group.name] %}<span>{{ value }}</span>{% else %}<small>Non renseigné</small>{% endfor %}</div>{% endfor %}</section>
     </section>
     <section id="panel-contrat-apprentissage" role="tabpanel" aria-labelledby="tab-contrat-apprentissage" class="sheet-panel wc-panel" data-csrf="{{ wedof_csrf() }}" hidden>
-      {% include '_wedof_contracts_panel.html' %}
+      {% set pilot = akto_contract_for(row.id) %}
+      {% if pilot %}{% include '_akto_pilot.html' %}{% else %}{% include '_wedof_contracts_panel.html' %}{% endif %}
     </section>
     {% include '_candidate_school_tabs.html' %}
     {% if row.bts in bts_codes %}{% include '_cyclades_panel.html' %}{% endif %}
