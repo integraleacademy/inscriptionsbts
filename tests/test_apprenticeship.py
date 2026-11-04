@@ -249,3 +249,83 @@ def test_pdf_upload_bounds_and_manual_dues(workspace):
     update={**due,'id':d['id'],'version':d['version'],'paid_cents':75000}
     assert client.post(url+'/echeances',headers=h,json=update).status_code==200
     assert client.post(url+'/echeances',headers=h,json=update).status_code==409
+
+
+def test_delete_draft_hides_documents_and_dues_without_an_opco_call(workspace,monkeypatch):
+    app,client,db=workspace;h=authorize(client);row=create(client,h)
+    monkeypatch.setattr('apprenticeship.submit',lambda *a:pytest.fail('Deletion must not send to an OPCO'))
+    monkeypatch.setattr('apprenticeship.read',lambda *a:pytest.fail('Deletion must not contact an OPCO'))
+    url='/admin/apprentissage/dossiers/'+row['id'];body={'version':row['version'],'confirm':row['id']}
+    assert row['can_delete'] and row['origin']=='local'
+    pdf=client.post(url+'/documents',headers=h,json={'kind':'cerfa','version':row['version']}).json['document_url']
+    assert client.post(url+'/echeances',headers=h,json=dict(label='Prévision',due_date='2027-01-01',amount_cents=50000,payer='Entreprise')).status_code==200
+    assert client.delete(url,json=body).status_code==403
+    assert client.delete(url,headers=h,json={**body,'version':0}).status_code==409
+    assert client.delete(url,headers=h,json={**body,'confirm':'wrong'}).status_code==400
+    assert client.delete(url,headers=h,json=body).status_code==200
+    assert client.get('/admin/apprentissage/dossiers').json['dossiers']==[]
+    assert client.get('/admin/apprentissage/dossiers?candidate_id=A').json['dossiers']==[]
+    assert client.get('/admin/apprentissage/echeances').json['dues']==[]
+    assert client.get(url).status_code==404
+    assert client.get(pdf).status_code==404
+    assert client.post(url+'/recuperer',headers=h,json=body).status_code==404
+    assert client.post(url+'/archiver',headers=h,json=body).status_code==404
+    assert client.post(url+'/documents',headers=h,json={**body,'kind':'cerfa'}).status_code==404
+    assert client.post('/admin/apprentissage/dossiers',headers=h,json={'candidate_id':'A','creation_key':'test-creation-123456'}).status_code==404
+    with closing(db()) as conn:
+        assert conn.execute('SELECT state FROM apprenticeship_dossiers').fetchone()[0]=='deleted'
+        assert conn.execute("SELECT count(*) FROM apprenticeship_events WHERE action='deleted'").fetchone()[0]==1
+
+
+@pytest.mark.parametrize('state,reference',[(s,None) for s in ('ready','sending','sent','accepted','uncertain','archived','refused','cancelled','completed','broken')]+[('draft','OPCO-42')])
+def test_delete_rejects_non_drafts_and_any_opco_reference(workspace,state,reference):
+    app,client,db=workspace;h=authorize(client);row=create(client,h);url='/admin/apprentissage/dossiers/'+row['id']
+    with closing(db()) as conn:
+        conn.execute('UPDATE apprenticeship_dossiers SET state=?,opco_ref=? WHERE id=?',(state,reference,row['id']));conn.commit()
+    assert not client.get(url).json['dossier']['can_delete']
+    assert client.delete(url,headers=h,json={'version':row['version'],'confirm':row['id']}).status_code==400
+
+
+@pytest.mark.parametrize('provider',['akto','ep','opcommerce','mobilites'])
+@pytest.mark.parametrize('environment',['production','recette'])
+def test_only_convergence_production_populates_admin_contracts(workspace,monkeypatch,provider,environment):
+    from opco_contracts import records_by_student, directory_contracts, register_opco_contracts
+    app,client,db=workspace
+    register_opco_contracts(app,db,lambda:True)
+    h=authorize(client);row=create(client,h)
+    # Historical portal data and the local draft must never become contracts.
+    with closing(db()) as conn:
+        legacy=dict(reference='PORTAL-42',status='Accordé',employer='OLD PORTAL COMPANY',contract_start='2026-09-01',
+                    schedules=[dict(numero=1,montantTotal=999,dateOuverture='2026-09-01')])
+        conn.execute("INSERT INTO akto_students VALUES('A',?,'','test')",(json.dumps([legacy]),))
+        conn.execute('UPDATE apprenticeship_dossiers SET provider=?,environment=?',(provider,environment));conn.commit()
+        p=dict(conn.execute("SELECT * FROM candidats WHERE id='A'").fetchone())
+        assert records_by_student(conn,[p])=={}
+        directory_contracts(app,conn,[p]);assert p['contract']!='yes'
+    assert len(client.get('/admin/apprentissage/dossiers').json['dossiers'])==1
+    assert client.get('/admin/apprentissage/echeances').json['dues']==[]
+    raw={'cerfa':dict(complete_payload()['cerfa'],numeroInterne='API-42',etat='ENGAGE'),
+         'engagement':14000,'echeances':[dict(numero=1,montantTotal=4000,dateOuverture='2026-09-01')]}
+    monkeypatch.setattr('apprenticeship.connection',lambda *a:('https://api.example.test',{}))
+    monkeypatch.setattr('apprenticeship.read',lambda *a:raw)
+    result=client.post('/admin/apprentissage/dossiers/'+row['id']+'/recuperer',headers=h,json={'version':row['version'],'reference':'API-42'})
+    assert result.status_code==200,result.json
+    with closing(db()) as conn:
+        items=records_by_student(conn,[p]).get('A',[])
+        directory_contracts(app,conn,[p])
+        assert (p['contract']=='yes')==(environment=='production')
+        assert len(items)==int(environment=='production')
+        if items:
+            assert items[0]['source']=='convergence' and items[0]['internal_number']=='API-42'
+            assert items[0]['state']=='accepted' and items[0]['employer_name']=='ENTREPRISE EXEMPLE'
+            assert 'nir' not in conn.execute('SELECT payload FROM opco_contracts').fetchone()[0]
+    listed=client.get('/admin/apprentissage/dossiers').json['dossiers']
+    assert len(listed)==1 and listed[0]['origin']=='convergence' and not listed[0]['can_delete']
+    synthesis=client.get('/admin/candidat/A/contrats-apprentissage').json
+    assert synthesis['has_contracts']==(environment=='production')
+    assert 'OLD PORTAL COMPANY' not in synthesis['html']
+    if environment=='production':assert 'API Convergence' in synthesis['html']
+    dues=client.get('/admin/apprentissage/echeances').json['dues']
+    assert len(dues)==1 and dues[0]['amount']==4000
+    assert client.post('/admin/apprentissage/dossiers/'+row['id']+'/archiver',headers=h,json={'version':result.json['dossier']['version']}).status_code==200
+    assert client.get('/admin/apprentissage/echeances').json['dues']==[]

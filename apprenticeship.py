@@ -16,7 +16,7 @@ from flask import Blueprint, abort, jsonify, render_template, request, send_file
 from pypdf import PdfReader
 
 from akto_sync import secret
-from opco_convergence import identity
+from opco_convergence import identity, dossier as convergence_dossier
 from apprenticeship_data import (FORM_GROUPS, PROVIDERS, STATES, REMOTE_STATES, at, clean_payload, completion, document_content, project_cerfa, fields, now, seed, validate)
 from apprenticeship_convergence import TransferError, connection, read, submit, trusted_url
 from apprenticeship_documents import agreement_pdf, cerfa_pdf
@@ -90,7 +90,7 @@ def register_apprenticeship(app,connect,require_admin):
         if not row:abort(404)
         return dict(row)
     def load(conn,did):
-        row=conn.execute('SELECT * FROM apprenticeship_dossiers WHERE id=?',(did,)).fetchone()
+        row=conn.execute("SELECT * FROM apprenticeship_dossiers WHERE id=? AND state!='deleted'",(did,)).fetchone()
         if not row:abort(404)
         row=dict(row);row['payload']=unpack(row['payload']);row['details']=unpack(row['details'])
         row['remote']=unpack(row['remote']) if row['remote'] else {}
@@ -126,10 +126,12 @@ def register_apprenticeship(app,connect,require_admin):
           training=at(payload,'cerfa.formation.intituleQualification','Formation à compléter'),promotion=row['details'].get('promotion',''),
           employer=at(payload,'cerfa.employeur.denomination','Entreprise à compléter'),provider=row['provider'],environment=row['environment'],
           state=row['state'],state_label=STATES.get(row['state'],row['state']),start=at(payload,'cerfa.contrat.dateDebutContrat','')[:10],
-          end=at(payload,'cerfa.contrat.dateFinContrat','')[:10],updated_at=row['updated_at'],opco_ref=row['opco_ref'],external_ref=row['external_ref'],source='local')
+          end=at(payload,'cerfa.contrat.dateFinContrat','')[:10],updated_at=row['updated_at'],opco_ref=row['opco_ref'],external_ref=row['external_ref'],source='local',
+          origin='convergence' if row['opco_ref'] else 'local',version=row['version'],
+          can_delete=row['state']=='draft' and not row['opco_ref'] and not row['external_ref'])
     def output(conn,row):
         documents=docs(conn,row['id']);errors=checks(row,documents)
-        return dict(**summary(row),payload=row['payload'],details=row['details'],version=row['version'],revision=row['revision'],
+        return dict(**summary(row),payload=row['payload'],details=row['details'],revision=row['revision'],
           documents=documents,errors=errors,completion=completion(row['payload']),
           events=[dict(r) for r in conn.execute('SELECT action,message,actor,created_at FROM apprenticeship_events WHERE dossier_id=? ORDER BY id DESC LIMIT 60',(row['id'],))],
           last_sync=row['last_sync'],error=row['error'],remote=row['remote'],recoverable=recoverable(row),locked=bool(row['opco_ref'] or row['state'] in ('sending','uncertain','archived')))
@@ -165,7 +167,7 @@ def register_apprenticeship(app,connect,require_admin):
     def dossiers():
         cid=request.args.get('candidate_id','')
         with closing(connect()) as conn:
-            ids=[r[0] for r in conn.execute('SELECT id FROM apprenticeship_dossiers'+(' WHERE candidate_id=?' if cid else '')+' ORDER BY updated_at DESC', (cid,) if cid else ())]
+            ids=[r[0] for r in conn.execute("SELECT id FROM apprenticeship_dossiers WHERE state!='deleted'"+(' AND candidate_id=?' if cid else '')+' ORDER BY updated_at DESC', (cid,) if cid else ())]
             rows=[summary(load(conn,did)) for did in ids]
             if not cid:
                 # Existing read-only OPCO contracts remain visible, without creating or sending a dossier.
@@ -177,14 +179,14 @@ def register_apprenticeship(app,connect,require_admin):
                 roster={p['id']:p for p in people}
                 for sid,records in records_by_student(conn,people).items():
                     for rec in records:
-                        provider=provider_keys.get(rec.get('financer'),'akto' if rec.get('akto_record') else '')
+                        provider=provider_keys.get(rec.get('financer'),'')
                         ref=rec.get('internal_number') or rec.get('external_number') or rec.get('reference','')
                         if (provider,ref) in known:continue
                         p=roster[sid]
-                        rows.append(dict(id=ref,candidate_id=sid,name=p['prenom']+' '+p['nom'],training=rec.get('training_name') or p['bts'],
+                        rows.append(dict(id=ref,candidate_id=sid,name=p['prenom']+' '+p['nom'],training=rec.get('training_title') or p['bts'],
                           promotion='',employer=rec.get('employer_name',''),provider=provider,environment='production',state=rec.get('state','pending'),
                           state_label=rec.get('state_label','Relevé OPCO'),start=rec.get('contract_start',''),end=rec.get('contract_end',''),
-                          source='opco',updated_at=rec.get('checked_at',''),opco_ref=ref,external_ref=rec.get('external_number','')))
+                          source='opco',origin='convergence',can_delete=False,updated_at=rec.get('checked_at',''),opco_ref=ref,external_ref=rec.get('external_number','')))
         return jsonify(ok=True,dossiers=rows)
 
     @bp.post('/admin/apprentissage/dossiers')
@@ -207,6 +209,20 @@ def register_apprenticeship(app,connect,require_admin):
     @bp.get('/admin/apprentissage/dossiers/<did>')
     def detail(did):
         with closing(connect()) as conn:return jsonify(ok=True,dossier=output(conn,load(conn,did)))
+
+    @bp.delete('/admin/apprentissage/dossiers/<did>')
+    def delete_draft(did):
+        data=body()
+        with closing(connect()) as conn:
+            conn.execute('BEGIN IMMEDIATE');row=load(conn,did);version(row,data.get('version'))
+            if not summary(row)['can_delete']:
+                raise ValueError('Seul un dossier « À compléter », sans référence OPCO, peut être supprimé.')
+            if data.get('confirm')!=did:raise ValueError('Confirmez la suppression de ce dossier.')
+            # Keep an audit tombstone; all routes, documents and dues hide deleted drafts.
+            conn.execute("UPDATE apprenticeship_dossiers SET state='deleted',version=version+1,updated_at=? WHERE id=?",(now(),did))
+            event(conn,did,'deleted','Brouillon supprimé par l’administration. Aucune action envoyée à l’OPCO.')
+            conn.commit()
+        return jsonify(ok=True)
 
     @bp.put('/admin/apprentissage/dossiers/<did>')
     def save(did):
@@ -265,8 +281,10 @@ def register_apprenticeship(app,connect,require_admin):
 
     @bp.get('/admin/apprentissage/documents/<docid>')
     def download(docid):
-        with closing(connect()) as conn:row=conn.execute('SELECT * FROM apprenticeship_documents WHERE id=?',(docid,)).fetchone()
-        if not row:abort(404)
+        with closing(connect()) as conn:
+            row=conn.execute('SELECT * FROM apprenticeship_documents WHERE id=?',(docid,)).fetchone()
+            if not row:abort(404)
+            load(conn,row['dossier_id'])
         content=secret(app).decrypt(row['content'])
         response=send_file(BytesIO(content),mimetype='application/pdf',as_attachment=request.args.get('download')=='1',download_name=f'{row["kind"]}-{row["dossier_id"]}-v{row["revision"]}.pdf')
         response.headers['Content-Security-Policy']="sandbox; default-src 'none'"
@@ -333,6 +351,11 @@ def register_apprenticeship(app,connect,require_admin):
                 if v is not None and (type(v) not in (int,float) or not math.isfinite(v) or v<0):raise ValueError('Montants OPCO invalides. Le relevé précédent est conservé.')
         allowed=('numero','dateOuverture','montantTotal','montantRegle','montantEnCoursInstruction','dateDebut','dateFin','codification')
         remote=dict(engagement=raw.get('engagement'),etat=raw['cerfa'].get('etat'),echeances=[{k:v for k,v in d.items() if k in allowed} for d in dues] if dues is not None else row['remote'].get('echeances',[]),schedule_missing=dues is None)
+        # Publish only a verified production API response to the common admin views.
+        # Never promote portal data, local form fields or recette responses to a contract.
+        snapshot=convergence_dossier(row['provider'],raw,raw['cerfa']['numeroInterne']) if row['environment']=='production' else None
+        if snapshot is not None and remote['schedule_missing']:
+            snapshot['schedules']=remote['echeances']
         with closing(connect()) as conn:
             conn.execute('BEGIN IMMEDIATE');current=load(conn,did);version(current,row['version'])
             state=REMOTE_STATES.get(raw['cerfa'].get('etat'),'sent')
@@ -349,6 +372,12 @@ def register_apprenticeship(app,connect,require_admin):
                     conn.execute('UPDATE apprenticeship_dossiers SET payload=?,revision=revision+1 WHERE id=?',(pack(payload),did))
             conn.execute('UPDATE apprenticeship_dossiers SET remote=?,state=?,opco_ref=?,external_ref=?,last_sync=?,error=NULL,version=version+1,updated_at=? WHERE id=?',
               (pack(remote),state,raw['cerfa']['numeroInterne'],raw['cerfa'].get('numeroExterne'),now(),now(),did))
+            if snapshot is not None:
+                ref=raw['cerfa']['numeroInterne']
+                other=conn.execute('SELECT candidate_id FROM opco_contracts WHERE provider=? AND ref=?',(row['provider'],ref)).fetchone()
+                if other and other['candidate_id']!=row['candidate_id']:abort(409)
+                conn.execute('INSERT INTO opco_contracts(provider,ref,candidate_id,payload) VALUES(?,?,?,?) ON CONFLICT(provider,ref) DO UPDATE SET payload=excluded.payload',
+                  (row['provider'],ref,row['candidate_id'],json.dumps(snapshot,ensure_ascii=False)))
             event(conn,did,'synchronized','Dossier retrouvé auprès de l’OPCO ; statut et échéances actualisés.' if not remote['schedule_missing'] else 'Dossier retrouvé. Échéancier non communiqué : dernier relevé conservé.')
             conn.commit();return jsonify(ok=True,dossier=output(conn,load(conn,did)))
 
@@ -398,10 +427,10 @@ def register_apprenticeship(app,connect,require_admin):
             result.append(dict(id=str(ref)+'-'+str(d.get('numero')),dossier_id=did,candidate_id=cid,reference=ref,name=name,provider=provider,environment=environment,payer='OPCO',
               due_date=due,amount=amount,paid=paid,state=state,label='Échéance n°'+str(d.get('numero','')),source='opco',start=d.get('dateDebut'),end=d.get('dateFin')))
         with closing(connect()) as conn:
-            ids=[r[0] for r in conn.execute("SELECT id FROM apprenticeship_dossiers WHERE state!='archived'")];known=set()
+            ids=[r[0] for r in conn.execute("SELECT id FROM apprenticeship_dossiers WHERE state NOT IN ('archived','deleted')")]
+            known={(r[0],r[1]) for r in conn.execute("SELECT provider,opco_ref FROM apprenticeship_dossiers WHERE environment='production' AND opco_ref IS NOT NULL")}
             for did in ids:
                 row=load(conn,did);s=summary(row)
-                if row['opco_ref'] and row['environment']=='production':known.add((row['provider'],row['opco_ref']))
                 for d in row['remote'].get('echeances',[]):remote_due(d,row['opco_ref'] or did,s['name'],row['provider'],row['environment'],did,row['candidate_id'])
                 for d in conn.execute('SELECT * FROM apprenticeship_dues WHERE dossier_id=? ORDER BY due_date',(did,)):
                     result.append(dict(d,id=d['id'],dossier_id=did,reference=did,name=s['name'],provider=row['provider'],environment=row['environment'],amount=d['amount_cents']/100,paid=d['paid_cents']/100,
@@ -411,7 +440,7 @@ def register_apprenticeship(app,connect,require_admin):
             keys={'opcoCfaAkto':'akto','opcoCfaOpcommerce':'opcommerce','opcoCfaEp':'ep','opcoCfaMobilites':'mobilites'}
             for cid,records in records_by_student(conn,people).items():
                 for rec in records:
-                    provider=keys.get(rec.get('financer'),'akto' if rec.get('akto_record') else '')
+                    provider=keys.get(rec.get('financer'),'')
                     ref=rec.get('internal_number') or rec.get('external_number') or rec.get('reference','')
                     if (provider,ref) in known:continue
                     for d in rec.get('schedules',[]):remote_due(d,ref,roster[cid]['prenom']+' '+roster[cid]['nom'],provider,'production',cid=cid)

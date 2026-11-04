@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block content %}
 <div id="ap-workspace" class="ap-workspace" data-view="{{ view }}" data-csrf="{{ csrf_token }}">
-  <header class="ap-hero"><div><span class="ap-eyebrow">INTÉGRALE ACADEMY · ALTERNANCE</span><h1>Contrats d’apprentissage<span class="ap-title-dot"></span></h1><p>Du premier brouillon au suivi du financement, chaque dossier au même endroit.</p></div><div class="ap-actions"><button class="ap-button ap-secondary" data-ap-connections>{{ icon('settings') }} Connexions OPCO</button><button class="ap-button ap-primary" data-ap-create>+ Créer un dossier</button></div></header>
+  <header class="ap-hero"><div><span class="ap-eyebrow">INTÉGRALE ACADEMY · ALTERNANCE</span><h1>Contrats d’apprentissage<span class="ap-title-dot"></span></h1><p>Vos brouillons locaux et vos contrats récupérés via l’API Convergence, au même endroit.</p></div><div class="ap-actions"><button class="ap-button ap-secondary" data-ap-connections>{{ icon('settings') }} Connexions OPCO</button><button class="ap-button ap-primary" data-ap-create>+ Créer un dossier</button></div></header>
   <nav class="ap-page-tabs" aria-label="Gestion de l’apprentissage"><a href="/admin/contrats-apprentissage" {% if view=='folders' %}aria-current="page"{% endif %}>{{ icon('file') }} Dossiers</a><a href="/admin/contrats-apprentissage/echeances" {% if view=='dues' %}aria-current="page"{% endif %}>{{ icon('clock') }} Échéances</a><span class="ap-local-note">Vos informations restent enregistrées entre deux visites</span></nav>
   <div id="ap-kpis" class="ap-kpis" aria-live="polite"></div>
   <section class="ap-card ap-directory"><div class="ap-section-title"><div><h2>{{ 'Tous les dossiers' if view=='folders' else 'Suivi des échéances' }}</h2><p id="ap-result-count">Chargement…</p></div><div class="ap-actions"><button class="ap-button ap-secondary" data-ap-export>Exporter CSV</button><button class="ap-icon-button" data-ap-refresh title="Actualiser" aria-label="Actualiser">↻</button></div></div>
@@ -9,5 +9,5 @@
   <div id="ap-results" aria-live="polite"><div class="ap-loading">Chargement de votre espace apprentissage…</div></div></section>
 </div>
 {% include '_apprenticeship_dialog.html' %}
-<script src="{{ url_for('static',filename='js/apprenticeship.js') }}?v=1" defer></script>
+<script src="{{ url_for('static',filename='js/apprenticeship.js') }}?v=2" defer></script>
 {% endblock %}

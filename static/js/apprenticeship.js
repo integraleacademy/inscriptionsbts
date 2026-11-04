@@ -44,7 +44,7 @@
   function folder(row) {
     const attr=row.source==='local'?`data-ap-open="${esc(row.id)}"`:`href="/admin/candidat/${encodeURIComponent(row.candidate_id)}#contrat-apprentissage"`;
     const tag=row.source==='local'?'button':'a';
-    return `<${tag} class="ap-folder" ${attr}><div class="ap-folder-top"><span class="ap-avatar">${esc(initials(row.name))}</span><div><h3>${esc(row.name)}</h3><small>#${esc(row.id)}${row.source==='opco'?' · Relevé OPCO':''}</small></div></div><div class="ap-actions">${badge(row.state_label,row.state)}${row.environment==='recette'?badge('Recette · test','ap-test'):''}</div><div class="ap-folder-meta"><div>▤ &nbsp; <b>${esc(row.training)}</b>${row.promotion?`<br><span>${esc(row.promotion)}</span>`:''}</div><div>◇ &nbsp; ${esc(row.employer || 'Entreprise à compléter')}</div><div>◷ &nbsp; ${date(row.start)} → ${date(row.end)}</div></div><div class="ap-folder-footer"><span>${row.source==='local'?'Dossier Intégrale Academy':'Consulter la synthèse'} ↗</span><strong>${esc(providerName(row.provider))}</strong></div></${tag}>`;
+    return `<article class="ap-folder-shell"><${tag} class="ap-folder" ${attr}><div class="ap-folder-top"><span class="ap-avatar">${esc(initials(row.name))}</span><div><h3>${esc(row.name)}</h3><small>#${esc(row.id)} · ${row.origin==='convergence'?'API Convergence':'Dossier local'}</small></div></div><div class="ap-actions">${badge(row.state_label,row.state)}${row.environment==='recette'?badge('Recette · test','ap-test'):''}</div><div class="ap-folder-meta"><div>▤ &nbsp; <b>${esc(row.training)}</b>${row.promotion?`<br><span>${esc(row.promotion)}</span>`:''}</div><div>◇ &nbsp; ${esc(row.employer || 'Entreprise à compléter')}</div><div>◷ &nbsp; ${date(row.start)} → ${date(row.end)}</div></div><div class="ap-folder-footer"><span>${row.source==='local'?'Ouvrir le dossier':'Consulter la synthèse'} ↗</span><strong>${esc(providerName(row.provider))}</strong></div></${tag}>${row.can_delete?`<div class="ap-folder-actions"><button type="button" class="ap-delete-draft" data-ap-delete="${esc(row.id)}" aria-label="Supprimer le dossier ${esc(row.name)} #${esc(row.id)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7"/></svg>Supprimer</button></div>`:''}</article>`;
   }
   function selectOptions(id, values, first) {
     const el=$(id);if(!el)return;const selected=el.value;
@@ -63,10 +63,11 @@
   function renderRows() {
     const q=$('ap-search').value.toLocaleLowerCase('fr');
     visible=rows.filter(r=>['training','promotion','state','provider','environment','payer'].every(key=>!$('ap-'+key)?.value || $('ap-'+key).value===r[key]) && [r.name,r.employer,r.id,r.reference,r.invoice,r.training].join(' ').toLocaleLowerCase('fr').includes(q));
+    const production=visible.filter(r=>r.origin==='convergence' && r.environment==='production');
     const kpis=isDues?[
       ['Montant des échéances',money(visible.reduce((s,r)=>s+r.amount,0)),'€'],['À facturer',money(visible.filter(r=>r.state==='due').reduce((s,r)=>s+r.amount-(r.paid||0),0)),'◷'],
       ['En attente',money(visible.filter(r=>r.state==='pending').reduce((s,r)=>s+r.amount-(r.paid||0),0)),'↗'],['Règlements connus',money(visible.reduce((s,r)=>s+(r.paid||0),0)),'✓']]:[
-      ['Dossiers',visible.length,'▤'],['À préparer',visible.filter(r=>['draft','ready'].includes(r.state)).length,'◷'],['Transmis / en instruction',visible.filter(r=>['sent','pending','sending','pendingAcceptation'].includes(r.state)).length,'↗'],['Engagés / soldés',visible.filter(r=>['accepted','completed'].includes(r.state)).length,'✓']];
+      ['Dossiers',visible.length,'▤'],['Brouillons à préparer',visible.filter(r=>['draft','ready'].includes(r.state)).length,'◷'],['Convergence · transmis',production.filter(r=>['sent','pending','pendingAcceptation'].includes(r.state)).length,'↗'],['Convergence · engagés / soldés',production.filter(r=>['accepted','completed'].includes(r.state)).length,'✓']];
     $('ap-kpis').innerHTML=kpis.map(([label,value,icon])=>`<div class="ap-kpi"><div><span>${label}</span><strong>${esc(value)}</strong></div><i>${icon}</i></div>`).join('');
     $('ap-result-count').textContent=`${visible.length} ${isDues?'échéance(s)':'dossier(s)'}${isDues?' · Les relevés OPCO et les prévisions saisies restent identifiés.':''}`;
     page=Math.min(page,Math.max(1,Math.ceil(visible.length/24)));const displayed=visible.slice((page-1)*24,page*24);
@@ -105,7 +106,7 @@
       if(tab==='management')html+=`<div class="ap-card ap-form-card"><h3>Organisation du dossier</h3><div class="ap-form-grid ap-note-block"><label class="ap-field"><span>OPCO destinataire</span><select id="ap-edit-provider" ${d.locked?'disabled':''}>${Object.entries(config.providers).map(([v,t])=>`<option value="${v}" ${v===d.provider?'selected':''}>${t}</option>`).join('')}</select></label><label class="ap-field"><span>Environnement de transmission</span><select id="ap-edit-environment" ${d.locked?'disabled':''}><option value="recette" ${d.environment==='recette'?'selected':''}>Recette · dossiers de test uniquement</option><option value="production" ${d.environment==='production'?'selected':''}>Production · dépôt réel</option></select></label>${detailField('owner')}${detailField('promotion')}${detailField('nda')}${detailField('cfa_signer')}${detailField('employer_signer')}</div></div>`;
       for(const [i,g] of config.groups.filter(g=>g.tab===tab).entries()) html+=`<details class="ap-card ap-form-card" data-ap-group="${esc(g.path)}" ${i===0?'open':''}><summary>${esc(g.title)}</summary><div class="ap-form-grid">${g.fields.map(f=>inputField(f,get(d.payload,f.path),d.locked)).join('')}</div></details>`;
       if(tab==='contract')html+=`<div class="ap-card ap-form-card"><div class="ap-section-title"><div><h3>Calendrier de rémunération</h3><p>Renseignez les périodes et taux convenus. Aucun salaire n’est calculé automatiquement.</p></div>${!d.locked?'<button type="button" class="ap-button ap-secondary" data-ap-add-period>+ Période</button>':''}</div><div id="ap-periods">${(get(d.payload,'cerfa.contrat.remunerationsAnnuelles')||[]).map(periodHTML).join('')}</div><div class="ap-form-grid ap-note-block">${detailField('job_title')}${detailField('missions',true)}</div></div>`;
-      if(tab==='management')html+=`<details class="ap-card ap-form-card" data-ap-group="details" open><summary>Contenu de la convention de formation</summary><div class="ap-form-grid">${['objectives','organization','assessment','payment_terms','terms'].map(k=>detailField(k,true)).join('')}${detailField('vat')}</div></details><div class="ap-card ap-form-card"><h3>Notes internes</h3><div class="ap-form-grid ap-note-block">${detailField('notes',true)}</div></div><div class="ap-card"><div class="ap-section-title"><div><h3>Échéancier complémentaire</h3><p>Prévisions OPCO ou entreprise, distinctes des montants retournés par l’API.</p></div><button type="button" class="ap-button ap-secondary" data-ap-add-due ${d.state==='archived'?'disabled':''}>+ Échéance</button></div><a href="/admin/contrats-apprentissage/echeances" class="ap-button ap-secondary">Ouvrir le suivi des échéances ↗</a><div class="ap-section-divider"></div><div class="ap-section-title"><div><h3>Archiver le dossier</h3><p>L’archivage conserve l’historique et n’annule pas le contrat auprès de l’OPCO.</p></div><button type="button" class="ap-button ap-danger" data-ap-archive ${['archived','sending','uncertain'].includes(d.state)?'disabled':''}>Archiver</button></div></div>`;
+      if(tab==='management')html+=`<details class="ap-card ap-form-card" data-ap-group="details" open><summary>Contenu de la convention de formation</summary><div class="ap-form-grid">${['objectives','organization','assessment','payment_terms','terms'].map(k=>detailField(k,true)).join('')}${detailField('vat')}</div></details><div class="ap-card ap-form-card"><h3>Notes internes</h3><div class="ap-form-grid ap-note-block">${detailField('notes',true)}</div></div><div class="ap-card"><div class="ap-section-title"><div><h3>Échéancier complémentaire</h3><p>Prévisions OPCO ou entreprise, distinctes des montants retournés par l’API.</p></div><button type="button" class="ap-button ap-secondary" data-ap-add-due ${d.state==='archived'?'disabled':''}>+ Échéance</button></div><a href="/admin/contrats-apprentissage/echeances" class="ap-button ap-secondary">Ouvrir le suivi des échéances ↗</a><div class="ap-section-divider"></div>${d.can_delete?`<div class="ap-section-title"><div><h3>Supprimer le brouillon</h3><p>Retirer ce dossier « À compléter » de vos listes.</p></div><button type="button" class="ap-button ap-danger" data-ap-delete="${esc(d.id)}">Supprimer</button></div><div class="ap-section-divider"></div>`:''}<div class="ap-section-title"><div><h3>Archiver le dossier</h3><p>L’archivage conserve l’historique et n’annule pas le contrat auprès de l’OPCO.</p></div><button type="button" class="ap-button ap-danger" data-ap-archive ${['archived','sending','uncertain'].includes(d.state)?'disabled':''}>Archiver</button></div></div>`;
       $('ap-panel-'+tab).innerHTML=html;
     }
     renderTracking();activateTab(activeTab);dirty=false;alert(d.error|| (d.state==='sending'?'Une transmission a été lancée. Si cet état persiste, faites vérifier la réception par l’OPCO avant toute nouvelle opération.':''));
@@ -168,6 +169,19 @@
     showSmall(title,`<form id="ap-small-form">${html}<div class="ap-actions"><button type="button" class="ap-button ap-secondary" data-ap-small-close>Annuler</button><button class="ap-button ap-primary" type="submit">${submit}</button></div></form>`);
     $('ap-small-form').addEventListener('submit',e=>{e.preventDefault();run(()=>handler(new FormData(e.currentTarget)));});
   }
+  function deleteDraft(did) {
+    if(busy)return;
+    const row=current?.id===did?current:rows.find(r=>r.id===did);
+    if(!row?.can_delete)return;
+    smallForm('Supprimer ce brouillon ?',`<p>Le dossier <strong>#${esc(row.id)}</strong> de <strong>${esc(row.name)}</strong> sera retiré de vos listes, avec ses documents et ses échéances internes.</p><p>Aucune action ne sera envoyée à l’OPCO.</p>`,async()=>{
+      await api('/dossiers/'+encodeURIComponent(row.id),{method:'DELETE',body:{version:row.version,confirm:row.id}});
+      small.close();
+      if(current?.id===row.id){dialog.close();document.body.style.overflow='';dirty=false;current=null;}
+      await loadRows();root.querySelector('[data-ap-create]')?.focus();toast('Brouillon supprimé');
+    },'Supprimer le brouillon');
+    small.querySelector('button[type="submit"]').className='ap-button ap-danger';
+    small.querySelector('[data-ap-small-close]').focus();
+  }
   async function createFor(cid) {
     const data=await api('/dossiers',{method:'POST',body:{candidate_id:cid,creation_key:creationKey}});creationKey=crypto.randomUUID();small.close();await loadRows();await open(data.dossier.id);
   }
@@ -221,6 +235,7 @@
     if(b.hasAttribute('data-ap-create'))run(createChoice);
     else if(b.dataset.apChoose)run(()=>createFor(b.dataset.apChoose));
     else if(b.dataset.apOpen)run(()=>open(b.dataset.apOpen));
+    else if(b.dataset.apDelete)deleteDraft(b.dataset.apDelete);
     else if(b.dataset.apGenerate)run(()=>generate(b.dataset.apGenerate));
     else if(b.dataset.apUpload)run(()=>upload(b.dataset.apUpload));
     else if(b.hasAttribute('data-ap-transmit'))run(transmit);

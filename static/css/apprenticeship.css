@@ -7,3 +7,7 @@
 @media(prefers-reduced-motion:reduce){.ap-button,.ap-folder{transition:none}.ap-button:hover,.ap-folder:hover{transform:none}}
 
 .workspace-sidebar nav a.ap-sidebar-child{padding-left:48px;font-size:11px;min-height:30px;opacity:.85}
+
+.ap-folder-shell{display:flex;flex-direction:column;min-width:0}.ap-folder-shell>.ap-folder{width:100%;box-sizing:border-box;flex:1}.ap-folder-shell:has(.ap-folder-actions)>.ap-folder{border-radius:16px 16px 0 0}.ap-folder-actions{display:flex;justify-content:flex-end;padding:9px 14px;border:1px solid #e5e7f1;border-top:0;border-radius:0 0 16px 16px;background:#fcfcff}.ap-delete-draft{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border:0;border-radius:7px;background:transparent;color:#b23f57;font-size:11px;font-weight:600;cursor:pointer}.ap-delete-draft:hover{background:#fff0f3}.ap-delete-draft svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}.ap-delete-draft:focus-visible,.ap-folder:focus-visible{outline:3px solid #b7aff1;outline-offset:2px}
+
+.ap-button.ap-danger{background:#fff0f1!important;color:#b52f48!important;border-color:#ffcbd4;box-shadow:none}.ap-button.ap-danger:hover{background:#ffe2e7!important}
