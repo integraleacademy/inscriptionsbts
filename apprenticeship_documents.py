@@ -1,20 +1,31 @@
 """Official CERFA 10103*14 and a readable training agreement, generated from a revision."""
 from io import BytesIO
+from functools import lru_cache
 from pathlib import Path
 import re
 from xml.sax.saxutils import escape
 
 from pypdf import PdfReader, PdfWriter
+from pypdf.generic import NameObject, DecodedStreamObject, RectangleObject
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
-from planning_pdf import _fonts
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
 
 from apprenticeship_data import at
 
 TEMPLATE=Path(__file__).parent/'apprenticeship_assets/cerfa_10103-14.pdf'
+
+@lru_cache(maxsize=1)
+def _fonts():
+    root=Path(__file__).parent/'assets/certificates/fonts'
+    for name,filename in [('ApprenticeshipSans','LiberationSans-Regular.ttf'),('ApprenticeshipSans-Bold','LiberationSans-Bold.ttf')]:
+        if name not in pdfmetrics.getRegisteredFontNames():pdfmetrics.registerFont(TTFont(name,str(root/filename)))
+    return 'ApprenticeshipSans','ApprenticeshipSans-Bold'
 
 def cerfa_values(data):
     values={}
@@ -98,6 +109,26 @@ def cerfa_pdf(data):
     values=cerfa_values(data)
     assert set(values)<=set(reader.get_fields()),'CERFA template changed'
     writer.update_page_form_field_values(None,values,auto_regenerate=False)
+    # Keep logical AcroForm values, but render text appearances with a bundled,
+    # embedded font. This avoids viewer substitution and the template's partial
+    # font metrics, without flattening the form or disturbing checkboxes.
+    sample=BytesIO();font_page=canvas.Canvas(sample);font=_fonts()[0];widgets=[]
+    for page in writer.pages:
+        for ref in page.get('/Annots',[]):
+            widget=ref.get_object();name=widget.get('/T','')
+            if name not in values or not name.startswith('Zone de texte '):continue
+            rect=widget['/Rect'];w,h=float(rect[2]-rect[0]),float(rect[3]-rect[1]);value=values[name]
+            size=min(8,(h-2)*.85,(w-4)/max(1,pdfmetrics.stringWidth(value,font,1)))
+            ascent,descent=pdfmetrics.getAscentDescent(font,size)
+            font_page.setPageSize((w,h));font_page.setFont(font,size)
+            font_page.drawString(2,(h-ascent-descent)/2,value);font_page.showPage()
+            widgets.append((widget,w,h))
+    font_page.save();rendered=PdfReader(BytesIO(sample.getvalue()))
+    for (widget,w,h),page in zip(widgets,rendered.pages):
+        appearance=DecodedStreamObject();appearance.set_data(page.get_contents().get_data())
+        appearance.update({NameObject('/Type'):NameObject('/XObject'),NameObject('/Subtype'):NameObject('/Form'),
+          NameObject('/BBox'):RectangleObject((0,0,w,h)),NameObject('/Resources'):page['/Resources'].clone(writer)})
+        widget['/AP'][NameObject('/N')]=writer._add_object(appearance)
     output=BytesIO();writer.write(output)
     check=PdfReader(BytesIO(output.getvalue())).get_fields()
     if any(str(check[k].get('/V',''))!=str(v) for k,v in values.items()):raise ValueError('Le CERFA généré n’a pas pu être vérifié.')

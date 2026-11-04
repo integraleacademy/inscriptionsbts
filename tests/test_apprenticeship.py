@@ -141,6 +141,8 @@ def test_official_cerfa_fields_and_exact_v2_payload():
             if widget.get('/T') in cerfa_values(payload):
                 assert str(widget['/V'])==str(cerfa_values(payload)[widget['/T']])
                 assert widget['/AP']['/N']
+                if widget['/T'].startswith('Zone de texte '):
+                    assert any(f.get_object().get('/FontDescriptor',{}).get('/FontFile2') for f in widget['/AP']['/N']['/Resources']['/Font'].values())
 
 
 def test_validation_dates_minor_and_periods():
