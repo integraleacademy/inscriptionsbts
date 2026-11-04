@@ -2,6 +2,7 @@
 from contextlib import closing
 from copy import deepcopy
 from io import BytesIO
+from datetime import date, timedelta
 import json
 from pathlib import Path
 import sqlite3
@@ -239,7 +240,7 @@ def test_transport_uses_official_multipart_field_and_no_pdf_cerfa_endpoint(monke
 def test_pdf_upload_bounds_and_manual_dues(workspace):
     app,client,db=workspace;h=authorize(client);row=create(client,h);url='/admin/apprentissage/dossiers/'+row['id']
     assert client.post(url+'/documents-signes',headers=h,data={'version':'1','kind':'cerfa','confirmed':'true','file':(BytesIO(b'not a pdf'),'bad.pdf')}).status_code==400
-    due=dict(label='Participation employeur',due_date='2026-12-01',amount_cents=75000,paid_cents=0,payer='Entreprise')
+    due=dict(label='Participation employeur',due_date=(date.today()+timedelta(days=30)).isoformat(),amount_cents=75000,paid_cents=0,payer='Entreprise')
     assert client.post(url+'/echeances',headers=h,json=due).status_code==200
     d=client.get('/admin/apprentissage/echeances').json['dues'][0]
     assert d['source']=='manual' and d['amount']==750 and d['state']=='upcoming'
