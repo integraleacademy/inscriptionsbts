@@ -1116,6 +1116,8 @@ register_akto_convergence(app, db, require_admin)
 register_opco_contracts(app, db, require_admin)
 from opco_sync import register_opcos
 register_opcos(app, db, require_admin, DATA_DIR)
+from apprenticeship import register_apprenticeship
+register_apprenticeship(app, db, require_admin)
 from teaching import register_teaching
 register_teaching(app, db, lambda: UPLOAD_DIR, require_admin)
 from student_workspace import register_student_workspace, student_home_summary

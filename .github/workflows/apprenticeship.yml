@@ -1,0 +1,29 @@
+name: Dossiers apprentissage et Convergence
+on:
+  pull_request:
+    paths:
+      - 'apprenticeship*.py'
+      - 'apprenticeship_assets/**'
+      - 'templates/apprenticeship_workspace.html'
+      - 'templates/_apprenticeship_dialog.html'
+      - 'templates/_wedof_contracts_panel.html'
+      - 'static/js/apprenticeship.js'
+      - 'static/css/apprenticeship.css'
+      - 'tests/test_apprenticeship.py'
+      - '.github/workflows/apprenticeship.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  apprenticeship:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt pytest
+      - run: python -m pytest -q tests/test_apprenticeship.py tests/test_akto_recette.py tests/test_opco_convergence.py
+      - run: node --check static/js/apprenticeship.js
