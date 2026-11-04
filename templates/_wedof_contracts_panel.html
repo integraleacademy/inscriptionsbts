@@ -1,6 +1,12 @@
-<div class="wc-heading"><div><p class="wc-eyebrow">ALTERNANCE · SUIVI DU CONTRAT</p><h2>Contrat d’apprentissage</h2><p>Contrat, entreprise et financement relevés auprès des OPCO.</p></div></div>
+<div id="ap-candidate" data-candidate-id="{{ row.id }}" data-csrf="{{ planning_csrf_token }}">
+<div class="wc-heading"><div><p class="wc-eyebrow">ALTERNANCE · SUIVI DU CONTRAT</p><h2>Contrat d’apprentissage</h2><p>Préparez les documents, transmettez et suivez les financements.</p></div><button type="button" class="ap-button ap-primary" data-ap-create>+ Créer un dossier</button></div>
+<nav class="ap-page-tabs" aria-label="Contrat d’apprentissage"><button type="button" data-ap-subtab="summary" aria-pressed="true">Synthèse</button><button type="button" data-ap-subtab="folders" aria-pressed="false">Dossiers apprentissage <span id="ap-candidate-count"></span></button></nav>
+<div data-ap-subpanel="summary">
 <p class="wc-help">Lecture quotidienne à 5 h, heure de Paris. <a href="/admin/parametres#akto">Paramètres et synchronisation manuelle OPCO</a></p>
 <p class="wc-message" id="wc-notice" role="status" hidden></p>
 <p class="wc-message wc-error" id="wc-error" role="alert" hidden></p>
 <div id="wc-list"><p class="wc-loading">Chargement des contrats OPCO…</p></div>
+</div><div data-ap-subpanel="folders" hidden><div class="ap-section-title"><div><h3>Ses dossiers d’apprentissage</h3><p>Un dossier par contrat ou avenant, avec ses documents et son historique.</p></div><a class="ap-button ap-secondary" href="/admin/contrats-apprentissage">Tous les dossiers ↗</a></div><div id="ap-candidate-results" class="ap-folder-grid"></div></div></div>
+{% include '_apprenticeship_dialog.html' %}
+<script src="{{ url_for('static', filename='js/apprenticeship.js') }}?v=1" defer></script>
 <script src="{{ url_for('static', filename='js/wedof-contracts.js') }}?v=6" defer></script>
