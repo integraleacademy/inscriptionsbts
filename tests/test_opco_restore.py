@@ -1,6 +1,8 @@
 import json
 import sqlite3
 
+import pytest
+
 from flask import Flask
 from test_admissions_2027 import client
 
@@ -9,7 +11,7 @@ from opco_contracts import records_by_student, register_opco_contracts
 from opco_sync import register_opcos, schema
 
 
-def test_filiz_retired_and_local_archives_are_separate(tmp_path):
+def test_portal_and_filiz_archives_never_populate_live_contracts(tmp_path):
     def db():
         c = sqlite3.connect(tmp_path/'opco.sqlite')
         c.row_factory = sqlite3.Row
@@ -44,17 +46,17 @@ def test_filiz_retired_and_local_archives_are_separate(tmp_path):
     client = app.test_client()
     assert client.post('/admin/parametres/opco/filiz',data={'action':'sync'}).status_code == 404
     result = client.get('/admin/candidat/a/contrats-apprentissage').get_json()
-    assert not result['has_contracts'] and 'Archive FILIZ' in result['html']
+    assert not result['has_contracts'] and 'Archive FILIZ' not in result['html']
     assert 'app.filiz.io' not in result['html']
-    # A saved direct agreement remains visible even before AKTO is reconnected.
+    # A portal agreement is not evidence of a Convergence API contract.
     with db() as c:
         c.execute('UPDATE akto_connection SET credential=NULL')
         akto = dict(reference='AKTO123', status='Accordé', employer='Entreprise test', contract_start='2025-06-01',
                     schedules=[dict(numero=1,montantTotal=120,dateOuverture='2025-07-01')])
         c.execute("INSERT INTO akto_students VALUES('a',?,'','test')", (json.dumps([akto]),))
     result = client.get('/admin/candidat/a/contrats-apprentissage').get_json()
-    assert result['has_contracts'] and 'Données AKTO' in result['html'] and '120,00' in result['html']
-    assert 'Archive FILIZ' in result['html'] and 'app.filiz.io' not in result['html']
+    assert not result['has_contracts'] and 'Données AKTO' not in result['html'] and '120,00' not in result['html']
+    assert 'Archive FILIZ' not in result['html'] and 'app.filiz.io' not in result['html']
 
 
 def test_akto_training_filter_all_bts():
@@ -79,3 +81,21 @@ def test_settings_show_each_provider_and_no_filiz_login(client):
     for key in ('akto', 'opco-opcommerce', 'opco-mobilites', 'opco-ep'):
         assert f'id="{key}"' in html
     assert 'id="opco-filiz"' not in html and 'action="/admin/parametres/opco/filiz"' not in html
+
+
+@pytest.mark.parametrize('changes', [dict(source='filiz'), dict(source='portal'), dict(source=''),
+    dict(environment='recette'), dict(financer='opcoCfaAkto'), dict(apprentice_birth_date='2001-01-02')])
+def test_contract_cache_requires_convergence_provenance_and_identity(changes):
+    from opco_contracts import directory_contracts
+    conn=sqlite3.connect(':memory:');conn.row_factory=sqlite3.Row
+    schema(conn)
+    person=dict(id='a',nom='Exemple',prenom='Eve',date_naissance='2000-01-02',bts='MOS')
+    record=dict(source='convergence',financer='opcoCfaEp',contract_start='2026-09-01',
+                apprentice_first_name='Eve',apprentice_last_name='Exemple',apprentice_birth_date='2000-01-02',
+                state='accepted',state_label='Engagé',internal_number='42')
+    conn.execute("INSERT INTO opco_contracts VALUES('ep','42','a',?)",(json.dumps(record),))
+    assert records_by_student(conn,[person])['a'][0]['internal_number']=='42'
+    conn.execute('UPDATE opco_contracts SET payload=?',(json.dumps({**record,**changes}),))
+    assert records_by_student(conn,[person])=={}
+    directory_contracts(None,conn,[person]);assert person['contract']!='yes'
+    conn.close()

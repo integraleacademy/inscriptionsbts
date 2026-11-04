@@ -112,11 +112,11 @@ def test_monitor_manual_daily_cache_and_contract_view(tmp_path):
         item = student_records(conn,dict(conn.execute("SELECT * FROM candidats WHERE id='A'").fetchone()))[0]
         assert item['read_warning']
     html = client.get('/admin/candidat/A/contrats-apprentissage').json['html']
-    assert 'Données L’Opcommerce' in html and 'data-wc-panel="schedule"' in html and 'F1' in html
+    assert 'API Convergence · L’Opcommerce' in html and 'data-wc-panel="schedule"' in html and 'F1' in html
     assert 'Données WEDOF' not in html and 'data-wc-unlink' not in html
     with db() as conn:
         conn.execute("UPDATE candidats SET date_naissance='2000-01-01' WHERE id='A'")
-    assert 'Données L’Opcommerce' not in client.get('/admin/candidat/A/contrats-apprentissage').json['html']
+    assert 'API Convergence · L’Opcommerce' not in client.get('/admin/candidat/A/contrats-apprentissage').json['html']
     action('disconnect')
     with db() as conn:
         assert conn.execute('SELECT count(*) FROM opco_contracts').fetchone()[0] == 0

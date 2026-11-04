@@ -16,6 +16,7 @@ PROVIDERS = {
     'mobilites': ('opcoCfaMobilites', 'opcomobilites.fr', 'https://mgestion.opcomobilites.fr/'),
     'ep': ('opcoCfaEp', 'opcoep.fr', 'https://cfa.opcoep.fr/#/visitor/auth'),
 }
+FINANCER_BY_PROVIDER = {'akto': 'opcoCfaAkto', **{key: info[0] for key, info in PROVIDERS.items()}}
 STATE_CODES = {'TRANSMIS': 'sent', 'EN_COURS_INSTRUCTION': 'pendingAcceptation', 'ENGAGE': 'accepted',
                'ANNULE': 'cancelled', 'REFUSE': 'refused', 'RUPTURE': 'broken', 'RUTPURE': 'broken', 'SOLDE': 'completed'}
 
@@ -147,7 +148,7 @@ def dossier(provider, raw, ref):
         return None
     fields = raw_fields(raw, {'external_number': ref})
     state = STATE_CODES.get(cerfa.get('etat'), 'unknown')
-    fields.update(source='convergence', financer=PROVIDERS[provider][0], state=state,
+    fields.update(source='convergence', environment='production', financer=FINANCER_BY_PROVIDER[provider], state=state,
                   state_label=STATES.get(state, 'État non communiqué'), engagement=nonnegative(raw.get('engagement')),
                   external_number=text(cerfa.get('numeroExterne')) or ref, checked_at=stamp(),
                   working_contract_id=provider + '-' + hashlib.sha256(ref.encode()).hexdigest()[:24],

@@ -84,7 +84,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 {% if request.endpoint in ['admin_candidate_sheet', 'admin'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-editor.css') }}?v=5">{% endif %}
 {% if is_admin or is_student_portal or is_trainer_portal or (is_company_space and not is_company_auth) %}<link rel="stylesheet" href="{{ url_for('static', filename='css/campus.css') }}?v=2">{% endif %}
 {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace-shell.css') }}?v=2">{% endif %}
-{% if request.endpoint == 'admin_candidate_sheet' or request.path.startswith('/admin/contrats-apprentissage') %}<link rel="stylesheet" href="{{ url_for('static',filename='css/apprenticeship.css') }}?v=1">{% endif %}
+{% if request.endpoint == 'admin_candidate_sheet' or request.path.startswith('/admin/contrats-apprentissage') %}<link rel="stylesheet" href="{{ url_for('static',filename='css/apprenticeship.css') }}?v=2">{% endif %}
 </head>
 
 <body {% if planning_sync_config %}data-planning-sync-url="{{ planning_sync_config.url }}" data-planning-sync-revision="{{ planning_sync_config.revision }}"{% endif %} class="academy-ui {% if daily_login %}daily-login-page daily-role-{{ daily_login.role }} daily-tone-{{ daily_login.tone }}{% endif %} {% if is_student_auth %}student-auth-page{% endif %} {% if has_student_navigation %}student-portal-page{% endif %} {% if is_trainer_space %}trainer-space-page{% endif %} {% if is_trainer_portal %}trainer-portal-page{% endif %} {% if is_admin %}workspace-page{% endif %} {% block body_class %}{% endblock %}">
