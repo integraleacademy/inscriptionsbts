@@ -30,13 +30,13 @@
     <p>Découvre les formations proposées dans chaque parcours.</p>
   </header>
   <nav class="admission-grid" aria-label="Choix de la formation">
-    {% call admission_card('BTS en alternance', 'admissions/student-space-illustration.webp', 'Prépare ton BTS en deux ans en alternant cours et expérience en entreprise.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', timer='inscriptions-bts', online=true) %}
+    {% call admission_card('BTS en alternance', 'admissions/home/bts-alternance.webp', 'Prépare ton BTS en deux ans en alternant cours et expérience en entreprise.', 'Commencer ma candidature' if admission_open else opening_status, url_for('candidature') if admission_open else '#inscriptions-bts', timer='inscriptions-bts', online=true) %}
       {% for code,label in bts_programs.items() %}<li><strong>{{ code }}</strong><span>{{ label.removeprefix('BTS ') }}</span></li>{% endfor %}
     {% endcall %}
-    {% call admission_card('Titre professionnel en alternance', 'admissions/company-space-illustration.webp', 'Choisis le métier que tu souhaites préparer en alternance.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#ouverture-tp', id='titres-professionnels', timer='ouverture-tp') %}
+    {% call admission_card('Titre professionnel en alternance', 'admissions/home/titres-professionnels.webp', 'Choisis le métier que tu souhaites préparer en alternance.', 'Choisir un titre professionnel' if admission_open else opening_status, url_for('title_selection') if admission_open else '#ouverture-tp', id='titres-professionnels', timer='ouverture-tp') %}
       {% for offer in title_offers %}<li>TP {{ offer.name }}</li>{% endfor %}
     {% endcall %}
-    {% call admission_card('Parcours sécurité en alternance', 'parcours-alternance/aps.webp', 'En un an, prépare trois qualifications complémentaires en alternant formation et missions en entreprise.', 'Candidatures ouvertes · Candidater', url_for('security_application')) %}
+    {% call admission_card('Parcours sécurité en alternance', 'admissions/home/parcours-securite.webp', 'En un an, prépare trois qualifications complémentaires en alternant formation et missions en entreprise.', 'Candidatures ouvertes · Candidater', url_for('security_application')) %}
       <li><strong>Agent de sécurité</strong><span>Surveiller les sites et prévenir les incidents (APS).</span></li>
       <li><strong>Agent de protection physique des personnes</strong><span>Assurer la protection rapprochée d’une personne (A3P).</span></li>
       <li><strong>Agent de sécurité incendie</strong><span>Prévenir les incendies et porter assistance aux occupants (SSIAP 1).</span></li>

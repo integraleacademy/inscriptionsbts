@@ -167,3 +167,13 @@ def test_home_and_title_form_switch_at_the_campaign_opening(client, monkeypatch)
         assert landing.select_one('#titres-professionnels')['href'] == expected
         assert guest.get('/titres-professionnels').status_code == (200 if available else 302)
         assert guest.get('/parcoursalternance/candidature').status_code == 200
+
+
+def test_vtc_exam_area_and_catalogue_illustrations(client):
+    landing = page(client, '/')
+    offers = page(client, '/vtc')
+    assert len(landing.select('.admission-card img[src*="/admissions/home/"]')) == 3
+    assert len(offers.select('.admission-card img[src*="/admissions/vtc/"]')) == 2
+    region = offers.select_one('.vtc-region').get_text(' ', strip=True)
+    assert 'Saint-Laurent-du-Var (06)' in region and 'La Valette-du-Var (83)' in region
+    assert len(offers.select('a[href*="/vtc/commande/"]')) == 3
