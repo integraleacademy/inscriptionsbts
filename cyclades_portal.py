@@ -12,7 +12,7 @@ from playwright.sync_api import Error, TimeoutError as BrowserTimeout
 from cyclades_slip_portal import read_account_slips
 from portal_browser import persistent_playwright, launch_chromium
 
-from cyclades_data import ACADEMIES, ALL_STATES, MAX_BYTES, CycladesError, CycladesNetworkError, parse_report, with_exams, words
+from cyclades_data import ACADEMIES, ALL_STATES, MAX_BYTES, CycladesError, CycladesNetworkError, DetailWarning, parse_report, with_exams, words
 
 DROPPED = {"ERR_CONNECTION_RESET", "ERR_CONNECTION_CLOSED", "ERR_TIMED_OUT"}
 CENTRAL = "cyclades.education.gouv.fr"
@@ -867,6 +867,13 @@ def read_academy(academy, credentials, matched_records, slip_cipher):
                 for index, (label, year) in enumerate(sorted(sessions, key=lambda item: -item[1])):
                     try:
                         with portal_step(page, f"Les critères de la liste des élèves pour {year} ne sont pas accessibles"):
+                            if index:
+                                # The optional editions can leave several portlets open. Start the
+                                # next year from its own verified BTS menu in the same login session.
+                                for window in context.pages:
+                                    if window != page:
+                                        window.close()
+                                open_bts_menu(page, academy)
                             report = download_session(page, label, academy, year, already_open=index == 0)
                     except CycladesError as error:
                         yield error
@@ -877,18 +884,26 @@ def read_academy(academy, credentials, matched_records, slip_cipher):
                                 supplement = download_session(page, label, academy, year, exam_details=True)
                             with_exams(report, supplement)
                         except CycladesError as error:
-                            yield error
+                            yield DetailWarning(str(error), isinstance(error, CycladesNetworkError))
                     records = matched_records(report)
-                    read_pieces(page, academy, label, report, records)
-                    slips_read = read_account_slips(page, academy, label, records, slip_cipher)
+                    try:
+                        with portal_step(page, f"Session {year} : lecture des justificatifs interrompue"):
+                            read_pieces(page, academy, label, report, records)
+                    except CycladesError as error:
+                        yield DetailWarning(str(error), isinstance(error, CycladesNetworkError))
+                    try:
+                        with portal_step(page, f"Session {year} : lecture des papillons interrompue"):
+                            slips_read = read_account_slips(page, academy, label, records, slip_cipher)
+                    except CycladesError:
+                        slips_read = False
                     checked = sum("documents_checked" in record for record in records)
                     yield report
                     if not slips_read:
-                        yield CycladesNetworkError(f"Session {year} : lecture des papillons provisoirement indisponible.")
+                        yield DetailWarning(f"Session {year} : lecture des papillons provisoirement indisponible.", retryable=True)
                     logging.getLogger(__name__).warning("CYCLADES %s PJ %d : %d/%d inscriptions lues",
                                                         academy, year, checked, len(records))
                     if checked < len(records):
-                        yield CycladesError(f"Session {year} : justificatifs lus pour {checked}/{len(records)} inscriptions rattachées.")
+                        yield DetailWarning(f"Session {year} : justificatifs lus pour {checked}/{len(records)} inscriptions rattachées.")
         except Error:
             raise CycladesError("Le navigateur de synchronisation s’est interrompu.") from None
         finally:

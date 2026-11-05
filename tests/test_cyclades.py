@@ -594,3 +594,39 @@ def test_four_conforming_pieces_with_unknown_uploader_in_sheet_and_directory(stu
     assert "4/4 conformes" in html and "Non communiqué" not in html
     listing = student.get("/admin/inscriptions/donnees?bts=MCO").json["rows_html"]
     assert "cyclades-dot-green" in listing
+
+
+def test_optional_editions_do_not_hide_search_results(student, tmp_path):
+    from cyclades_data import DetailWarning
+
+    auth(student)
+    clock = datetime(2026, 11, 5, 8, tzinfo=PARIS)
+    credential = cipher(application.app).encrypt(b'{"username":"test","password":"test"}')
+    with application.db() as conn:
+        conn.execute("UPDATE cyclades_accounts SET credential=? WHERE academy='nice'", (credential,))
+
+    attempts = []
+    def read(key, credentials):
+        attempts.append(key)
+        yield parse_report(export(key, empty=True), key)
+        yield DetailWarning("Session 2027 : justificatifs lus pour 9/10 inscriptions rattachées.")
+        yield DetailWarning("Session 2027 : lecture des papillons provisoirement indisponible.", retryable=True)
+
+    for minutes in (0, 15, 30, 60):
+        run_due(application.app, application.db, tmp_path, now=clock + timedelta(minutes=minutes), fetch=read)
+    assert attempts == ["nice", "nice"]
+    path = "/admin/candidat/student/cyclades"
+    assert 'data-state="empty"' in student.get(path).text
+    settings = student.get("/admin/parametres").text
+    assert "Listes d’inscription vérifiées" in settings and "9/10" in settings
+    with student.session_transaction() as state:
+        token = state["_planning_csrf"]
+    assert student.post(path, data={"csrf_token": token}, headers={"X-Cyclades-Fragment": "1"}).status_code == 200
+    with application.db() as conn:
+        assert conn.execute("SELECT status FROM cyclades_accounts WHERE academy='nice'").fetchone()[0] == "pending"
+
+    def incomplete(key, credentials):
+        yield from read(key, credentials)
+        yield CycladesError("Liste de la session 2026 indisponible.")
+    run_due(application.app, application.db, tmp_path, now=clock + timedelta(hours=1), fetch=incomplete)
+    assert 'data-state="partial"' in student.get(path).text

@@ -16,13 +16,13 @@ from itsdangerous import BadSignature, URLSafeTimedSerializer
 from cryptography.fernet import Fernet, InvalidToken
 from flask import abort, flash, jsonify, redirect, render_template, request, session, url_for
 
-from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, apply_report, identity, match_report, parse_report, piece_receipt, with_exams, words
+from cyclades_data import ACADEMIES, MAX_BYTES, PARIS, CycladesError, CycladesNetworkError, DetailWarning, apply_report, identity, match_report, parse_report, piece_receipt, with_exams, words
 from branded_email import render_branded_email
 from candidate_messages import _recipient
 from cyclades_portal import read_academy
 from cyclades_slips import read_slips, slip_key
 
-READER_VERSION = 39
+READER_VERSION = 40
 
 
 def cipher(app):
@@ -74,7 +74,7 @@ def sheet_status(conn, student):
             item["slip_ready"] = bool(item.pop("sealed_slip", None))
             (matches if entry["outcome"] == "matched" else history).append(item)
 
-    unsearched = [key for key, status in sources.items() if status == "ok" and key not in checked]
+    unsearched = [key for key, status in sources.items() if status in ("ok", "details_partial") and key not in checked]
     if not identifiable:
         state = "identity"
     elif matches:
@@ -121,7 +121,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                     (key == "nice" and row["network_retry"] == -1 and (row["reader_version"] < 20 or "justificatifs lus" in (row["message"] or "") or "esterel.ac-nice.fr, délai dépassé" in (row["message"] or "")))))
                 daily_due = clock.hour >= 8 and (row["day"] or "") < slot
                 retry_at = row["network_retry"]
-                retry_due = retry_at is not None and retry_at > 0 and retry_at <= clock.timestamp() and row["status"] == "error"
+                retry_due = retry_at is not None and retry_at > 0 and retry_at <= clock.timestamp() and row["status"] in ("error", "details_partial")
                 if row["day"] is not None and row["status"] != "pending" and not (recovering or daily_due or retry_due):
                     continue
                 # -1 marks the recovery attempt already consumed for this daily slot.
@@ -132,6 +132,7 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                 conn.commit()
             interrupted = False
             errors = []
+            warnings = []
             counts = []
             try:
                 credentials = json.loads(cipher(app).decrypt(row["credential"]))
@@ -145,6 +146,10 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
                     source = fetch(key, credentials)
                 with closing(source) as reports:
                     for report in reports:
+                        if isinstance(report, DetailWarning):
+                            interrupted |= report.retryable
+                            warnings.append(report.message)
+                            continue
                         if isinstance(report, CycladesError):
                             interrupted |= isinstance(report, CycladesNetworkError)
                             errors.append(str(report))
@@ -160,21 +165,27 @@ def run_due(app, connect, directory, *, now=None, fetch=None):
             except InvalidToken:
                 errors.append("La clé du serveur a changé. Renseignez de nouveau les accès.")
             except CycladesError as error:
-                interrupted = isinstance(error, CycladesNetworkError)
+                interrupted |= isinstance(error, CycladesNetworkError)
                 errors.append(str(error))
             except Exception:
                 errors.append("La lecture de CYCLADES a été interrompue. Les dernières données sont conservées.")
+            status = "ok"
+            if errors:
+                status = "error"
+            elif warnings:
+                status = "details_partial"
+            messages = errors + warnings
             next_retry = -1 if retry_used else None
             if interrupted and not retry_used:
                 next_retry = clock.timestamp() + 1800
-                errors.append(f"Nouvelle tentative prévue à {datetime.fromtimestamp(next_retry, PARIS):%Hh%M}.")
+                messages.append(f"Nouvelle tentative prévue à {datetime.fromtimestamp(next_retry, PARIS):%Hh%M}.")
             with closing(connect()) as conn:
                 updated = conn.execute("UPDATE cyclades_accounts SET status=?, message=?, network_retry=? WHERE academy=? AND revision=?",
-                             ("error" if errors else "ok", " ".join(errors), next_retry, key, revision))
+                             (status, " ".join(messages), next_retry, key, revision))
                 conn.commit()
             if updated.rowcount:
-                log = app.logger.warning if errors else app.logger.info
-                log("CYCLADES %s | %s | listes %s", key, " ".join(errors) or "lecture terminée", ", ".join(counts) or "—")
+                log = app.logger.warning if messages else app.logger.info
+                log("CYCLADES %s | %s | %s | listes %s", key, status, " ".join(messages) or "lecture terminée", ", ".join(counts) or "—")
 
 
 def register_cyclades(app, connect, require_admin, directory, send_access_mail):
@@ -249,7 +260,7 @@ def register_cyclades(app, connect, require_admin, directory, send_access_mail):
                 cutoff = datetime.now(PARIS).timestamp() - 300
                 for key in keys:
                     queued += conn.execute("""UPDATE cyclades_accounts SET status='pending',message=''
-                        WHERE academy=? AND credential IS NOT NULL AND status IN ('ok','error')
+                        WHERE academy=? AND credential IS NOT NULL AND status IN ('ok','error','details_partial')
                         AND (attempted IS NULL OR attempted < ? OR ?)""",
                         (key, cutoff, key in result["unsearched"])).rowcount
                 conn.commit()
@@ -417,7 +428,7 @@ def register_cyclades(app, connect, require_admin, directory, send_access_mail):
             with closing(connect()) as conn:
                 conn.execute("BEGIN IMMEDIATE")
                 queued = conn.execute("""UPDATE cyclades_accounts SET status='pending',message=''
-                    WHERE academy=? AND credential IS NOT NULL AND status IN ('ok','error')""", (key,)).rowcount
+                    WHERE academy=? AND credential IS NOT NULL AND status IN ('ok','error','details_partial')""", (key,)).rowcount
                 if not queued:
                     connected = conn.execute("SELECT credential IS NOT NULL FROM cyclades_accounts WHERE academy=?",
                                              (key,)).fetchone()[0]
