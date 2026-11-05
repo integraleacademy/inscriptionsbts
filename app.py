@@ -1066,6 +1066,11 @@ def index():
     return admission_landing()
 
 
+@app.get("/vtc", strict_slashes=False)
+def vtc_offers():
+    return render_template("vtc_offers.html", title="Examen pratique VTC · Intégrale Academy")
+
+
 @app.get("/titres-professionnels")
 def title_selection():
     preview = request.args.get("preview") == "1"

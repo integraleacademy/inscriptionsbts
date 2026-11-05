@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block body_class %}waiting-page vtc-page{% endblock %}
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static',filename='css/admissions-home.css') }}?v=4">
+<link rel="stylesheet" href="{{ url_for('static',filename='css/vtc.css') }}?v=2">
+{% endblock %}
+{% block content %}
+<section class="admission-home vtc-offers" aria-labelledby="vtc-title">
+  <header class="home-intro">
+    <p class="home-kicker">INTÉGRALE ACADEMY · CÔTE D’AZUR</p>
+    <h1 id="vtc-title">Votre examen <em>pratique VTC</em></h1>
+    <p>Choisissez votre formule pour passer l’épreuve pratique avec notre véhicule à double commande.</p>
+  </header>
+  <div class="admission-grid vtc-grid">
+    <article class="admission-card">
+      <img src="{{ url_for('static',filename='admissions/vtc/vehicle.webp') }}" alt="Remise des clés du véhicule d’examen à une candidate" width="1088" height="612">
+      <div class="admission-card-copy">
+        <h2>Prêt du véhicule</h2>
+        <p>Utilisez notre véhicule à double commande le jour de votre examen pratique.</p>
+        <p class="vtc-price">150 € <small>TTC</small></p>
+      </div>
+      <div class="admission-foot">
+        <a class="vtc-action" href="https://gestionstagiaires-r5no.onrender.com/vtc/commande/vehicule">Commander par carte bancaire <span aria-hidden="true">→</span></a>
+        <p>Après règlement, retrouvez votre facture et votre attestation de mise à disposition du véhicule dans votre dossier.</p>
+      </div>
+    </article>
+    <article class="admission-card">
+      <img src="{{ url_for('static',filename='admissions/vtc/practice.webp') }}" alt="Une séance de conduite accompagnée par un formateur" width="1088" height="612">
+      <div class="admission-card-copy">
+        <h2>Formation pratique + véhicule</h2>
+        <p>Préparez l’épreuve au volant avec un formateur à Puget-sur-Argens, puis retrouvez le véhicule le jour de l’examen.</p>
+        <p class="vtc-price">600 € <small>TTC</small></p>
+      </div>
+      <div class="admission-foot">
+        <a class="vtc-action" href="https://gestionstagiaires-r5no.onrender.com/vtc/commande/formation">Choisir le paiement par carte <span aria-hidden="true">→</span></a>
+        <a class="vtc-action secondary" href="https://gestionstagiaires-r5no.onrender.com/vtc/commande/cpf">Utiliser mon CPF · RDV avec Cassandre <span aria-hidden="true">→</span></a>
+        <p>Par carte, vous signez d’abord votre contrat en ligne. Pour le CPF, choisissez un créneau téléphonique afin de vérifier votre prise en charge.</p>
+      </div>
+    </article>
+  </div>
+  <aside class="vtc-cma">
+    <h2>À indiquer à la Chambre de métiers</h2>
+    <p>Lors de votre inscription à l’examen pratique, indiquez que vous utiliserez le véhicule à double commande d’<strong>Intégrale Academy – Intégrale Sécurité Formations</strong>. La Chambre de métiers et de l’artisanat pourra ainsi organiser votre passage avec nos autres candidats et nous pourrons prévoir le véhicule pour votre créneau.</p>
+  </aside>
+</section>
+{% endblock %}

@@ -3,6 +3,7 @@
 {% block page_styles %}<link rel="stylesheet" href="{{ url_for('static',filename='css/admissions-home.css') }}?v=4">{% endblock %}
 {% block content %}
 {% include 'admission_catalog.html' %}
+<p class="admission-note">Vous préparez l’examen pratique VTC ? <a href="{{ url_for('vtc_offers') }}">Voir les formules véhicule et formation pratique</a></p>
 {% if scheduled %}<p class="admission-note">Rentrée de septembre 2027 · <a href="{{ url_for('opening_calendar') }}">Ajouter l’ouverture BTS et TP à mon calendrier</a></p>
 {% elif not admission_open and portal_message %}<p class="admission-note">{{ portal_message }}</p>{% endif %}
 <script src="{{ url_for('static', filename='js/countdown.js') }}?v=2" defer></script>
