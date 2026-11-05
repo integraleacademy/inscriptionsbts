@@ -1,0 +1,15 @@
+.vtc-offers { max-width:1120px; margin:0 auto; }
+.vtc-offers .vtc-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.vtc-offers .admission-card:hover { outline:0; }
+.vtc-offers .admission-card img { aspect-ratio:2.4; object-position:center; }
+.vtc-offers .vtc-price { margin-top:16px; font-size:32px; font-weight:750; line-height:1.1; color:#182f4b; }
+.vtc-price small { font-size:13px; font-weight:550; color:#526377; }
+.vtc-offers .admission-foot { display:grid; gap:9px; }
+.vtc-offers .admission-foot p { font-size:13px; color:#526377; line-height:1.45; margin:0; }
+.vtc-action { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:13px 16px; border-radius:9px; text-decoration:none; background:#203d60; color:white; font-weight:650; }
+.vtc-action.secondary { background:#f4eddd; color:#5d492b; }
+.vtc-action:hover,.vtc-action:focus-visible { text-decoration:underline; text-underline-offset:3px; }
+.vtc-cma { margin-top:22px; border-left:4px solid #af8950; padding:17px 22px; background:#f1ece1; border-radius:0 10px 10px 0; }
+.vtc-cma h2 { font-size:20px; margin:0 0 6px; }
+.vtc-cma p { margin:0; line-height:1.55; color:#35485c; }
+@media(max-width:700px) { .vtc-offers .vtc-grid { grid-template-columns:1fr; } }
