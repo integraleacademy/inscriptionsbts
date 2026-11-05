@@ -2,7 +2,7 @@
 {% block body_class %}waiting-page vtc-page{% endblock %}
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static',filename='css/admissions-home.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static',filename='css/vtc.css') }}">
+<link rel="stylesheet" href="{{ url_for('static',filename='css/vtc.css') }}?v=2">
 {% endblock %}
 {% block content %}
 <section class="admission-home vtc-offers" aria-labelledby="vtc-title">
@@ -21,6 +21,7 @@
       </div>
       <div class="admission-foot">
         <a class="vtc-action" href="https://gestionstagiaires-r5no.onrender.com/vtc/commande/vehicule">Commander par carte bancaire <span aria-hidden="true">→</span></a>
+        <p>Après règlement, retrouvez votre facture et votre attestation de mise à disposition du véhicule dans votre dossier.</p>
       </div>
     </article>
     <article class="admission-card">
