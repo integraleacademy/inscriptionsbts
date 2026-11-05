@@ -45,6 +45,12 @@ class CycladesNetworkError(CycladesError):
     """The official portal connection was interrupted during a read."""
 
 
+class DetailWarning(NamedTuple):
+    """An optional edition failed; the registration list can still be used."""
+    message: str
+    retryable: bool = False
+
+
 class Report(NamedTuple):
     year: int
     issued: float

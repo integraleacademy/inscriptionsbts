@@ -97,7 +97,7 @@
     {% if cyclades.ambiguous %}<p class="cy-note">Une autre inscription nécessite de vérifier l’identité.</p>{% endif %}
   {% else %}
     {% set states = {
-      'empty': ('search', 'Aucun dossier trouvé', 'Aucune inscription ne correspond à cet étudiant dans les listes CYCLADES consultées.'),
+      'empty': ('search', 'Aucun dossier trouvé', 'Aucun dossier ne correspond au nom, au prénom et à la date de naissance de cet étudiant dans les listes CYCLADES consultées.'),
       'searching': ('clock', 'Recherche en cours', 'Le résultat s’affichera ici dès la fin de la recherche.'),
       'partial': ('clock', 'Recherche incomplète', 'CYCLADES n’a pas fourni toutes les listes. La présence de cet étudiant reste à vérifier.'),
       'ambiguous': ('person', 'Identité à vérifier', 'Plusieurs fiches peuvent correspondre à cette inscription. Vérifiez les noms, les prénoms et la date de naissance.'),

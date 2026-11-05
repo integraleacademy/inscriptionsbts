@@ -9,6 +9,7 @@
       <div class="settings-academy-body">
         <p>{{ 'Accès enregistré' if academy.connected else 'Connexion à configurer' }}{% if academy.attempt %} · Dernière tentative le {{ academy.attempt }}{% endif %}.</p>
         {% if academy.status == 'error' %}<p class="settings-message error" role="status">{{ academy.message }}</p>
+        {% elif academy.status == 'details_partial' %}<p>Listes d’inscription vérifiées.</p><p class="settings-message" role="status">{{ academy.message }}</p>
         {% elif academy.status == 'ok' %}<p>Dernière vérification terminée.</p>
         {% elif busy %}<p role="status">{{ 'Vérification en cours.' if academy.status == 'running' else 'Vérification en attente.' }}</p>{% endif %}
         {% if academy.connected %}
