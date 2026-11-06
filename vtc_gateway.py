@@ -28,7 +28,10 @@ def forward(path):
     data = request.stream.read(65537) if request.method == "POST" else None
     if data and len(data) > 65536:
         abort(413)
-    headers = {"X-VTC-Gateway": "admissions", "Accept": request.headers.get("Accept", "*/*")}
+    # This is a server gateway, not a browser on the management origin.
+    # Keep origin-specific browser integrations (e.g. service workers) upstream.
+    headers = {"X-VTC-Gateway": "admissions", "X-Requested-With": "VTC-Gateway",
+               "Accept": request.headers.get("Accept", "*/*")}
     if request.method == "POST":
         headers["Content-Type"] = "application/x-www-form-urlencoded"
     # Never pass either application's login cookie, Authorization or proxy headers.
@@ -55,7 +58,7 @@ def forward(path):
                           lambda _: render_template("vtc_gateway_header.html"), html, count=1, flags=re.S)
             html = html.replace('</head>', '<link rel="stylesheet" href="/static/css/academy-header.css?v=1"></head>', 1)
             html = html.replace('</body>', '<script src="/static/js/academy-header.js?v=2" defer></script></body>', 1)
-            html = html.replace('href="/confidentialite"', 'href="' + UPSTREAM + '/confidentialite"')
+            html = html.replace('href="/confidentialite"', 'href="https://www.integraleconnect.com/confidentialite"')
             body = html.encode("utf-8")
         response = Response(body, status=upstream.status_code, content_type=content_type)
         for name in ("Content-Disposition", "Retry-After"):

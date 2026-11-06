@@ -19,7 +19,7 @@ def upstream(body=b"ok", status=200, content_type="text/html; charset=utf-8", **
                            raw=SimpleNamespace(headers=raw_headers), close=Mock())
 
 def test_shared_header_and_separate_session_survive_post(client, monkeypatch):
-    html = b'<html><head></head><body><header class="top">Old</header><form method="post"><input name="csrf_token" value="original"><input name="draft" value="id"></form><img src="/static/vtc/vehicle.webp"></body></html>'
+    html = b'<html><head></head><body><header class="top">Old</header><form method="post"><input name="csrf_token" value="original"><input name="draft" value="id"></form><img src="/static/vtc/vehicle.webp"><a href="/confidentialite">Privacy</a></body></html>'
     remote = Mock(return_value=upstream(html))
     monkeypatch.setattr(gateway.requests, "request", remote)
     with client.session_transaction() as session:
@@ -31,6 +31,7 @@ def test_shared_header_and_separate_session_survive_post(client, monkeypatch):
     assert soup.select_one("#academy-header") == header
     assert soup.select_one('[name="csrf_token"]')["value"] == "original"
     assert soup.select_one("img[src='/vtc/assets/vtc/vehicle.webp']")
+    assert soup.select_one("a[href='https://www.integraleconnect.com/confidentialite']")
     assert remote.call_args.kwargs["cookies"] == {}
     cookie = form.headers["Set-Cookie"]
     assert cookie.startswith("vtc_checkout_session=") and "Path=/vtc" in cookie
@@ -42,6 +43,7 @@ def test_shared_header_and_separate_session_survive_post(client, monkeypatch):
     assert options["cookies"] == {"integrale_admin":"signed-vtc-state"}
     assert options["data"] == b"csrf_token=original&draft=id"
     assert "Authorization" not in options["headers"] and "Cookie" not in options["headers"]
+    assert options["headers"]["X-Requested-With"] == "VTC-Gateway"
     assert options["allow_redirects"] is False
     assert result.status_code == 303 and result.location == PATH+"/confirmation"
     assert result.headers["Cache-Control"] == "no-store"
