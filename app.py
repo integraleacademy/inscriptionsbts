@@ -1066,6 +1066,10 @@ def index():
     return admission_landing()
 
 
+from vtc_gateway import bp as vtc_gateway_bp
+app.register_blueprint(vtc_gateway_bp)
+
+
 @app.get("/vtc", strict_slashes=False)
 def vtc_offers():
     return render_template("vtc_offers.html", title="Examen pratique VTC · Intégrale Academy")
