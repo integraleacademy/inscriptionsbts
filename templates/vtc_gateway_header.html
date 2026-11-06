@@ -1,0 +1,4 @@
+{% from "ui_icons.html" import icon %}
+{% set is_admin = false %}{% set has_student_navigation = false %}
+{% macro academy_logo() %}<span class="academy-sigle" aria-hidden="true"><img src="{{ url_for('static', filename='academy-official-logo.png') }}" width="5906" height="1772" alt=""></span><span class="academy-wordmark"><span>INTÉGRALE</span><span>ACADEMY</span></span>{% endmacro %}
+{% include "academy_header.html" %}
