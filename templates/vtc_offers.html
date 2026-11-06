@@ -2,7 +2,7 @@
 {% block body_class %}waiting-page vtc-page{% endblock %}
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static',filename='css/admissions-home.css') }}?v=4">
-<link rel="stylesheet" href="{{ url_for('static',filename='css/vtc.css') }}?v=2">
+<link rel="stylesheet" href="{{ url_for('static',filename='css/vtc.css') }}?v=3">
 {% endblock %}
 {% block content %}
 <section class="admission-home vtc-offers" aria-labelledby="vtc-title">
@@ -11,9 +11,14 @@
     <h1 id="vtc-title">Votre examen <em>pratique VTC</em></h1>
     <p>Choisissez votre formule pour passer l’épreuve pratique avec notre véhicule à double commande.</p>
   </header>
+  <aside class="vtc-region" aria-labelledby="exam-centres">
+    <svg aria-hidden="true" width="25" height="29" viewBox="0 0 24 28" fill="none"><path d="M21 10c0 6-9 15-9 15S3 16 3 10a9 9 0 1 1 18 0Z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2"/></svg>
+    <div><h2 id="exam-centres">Où passer l’examen avec notre véhicule ?</h2>
+    <p>Pour les deux formules, le prêt du véhicule est réservé aux examens pratiques de <strong>Saint-Laurent-du-Var (06)</strong> et de <strong>La Valette-du-Var (83)</strong>.</p></div>
+  </aside>
   <div class="admission-grid vtc-grid">
     <article class="admission-card">
-      <img src="{{ url_for('static',filename='admissions/vtc/vehicle.webp') }}" alt="Remise des clés du véhicule d’examen à une candidate" width="1088" height="612">
+      <img src="{{ url_for('static',filename='admissions/vtc/vehicle.webp') }}?v=manuel-aps" alt="Le véhicule à double commande pour l’examen pratique VTC" width="1088" height="612">
       <div class="admission-card-copy">
         <h2>Prêt du véhicule</h2>
         <p>Utilisez notre véhicule à double commande le jour de votre examen pratique.</p>
@@ -25,7 +30,7 @@
       </div>
     </article>
     <article class="admission-card">
-      <img src="{{ url_for('static',filename='admissions/vtc/practice.webp') }}" alt="Une séance de conduite accompagnée par un formateur" width="1088" height="612">
+      <img src="{{ url_for('static',filename='admissions/vtc/practice.webp') }}?v=manuel-aps" alt="Une séance de conduite accompagnée par un formateur" width="1088" height="612">
       <div class="admission-card-copy">
         <h2>Formation pratique + véhicule</h2>
         <p>Préparez l’épreuve au volant avec un formateur à Puget-sur-Argens, puis retrouvez le véhicule le jour de l’examen.</p>
