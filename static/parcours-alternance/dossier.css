@@ -10,6 +10,3 @@
 .profile-options label:has(input:checked) { background: #edf4ff; border-color: var(--blue); }
 .profile-options input { flex: 0 0 auto; accent-color: var(--blue); }
 @media (max-width: 600px) { .dossier-grid, .profile-options { grid-template-columns: 1fr; } }
-.security-preparation-notes { border-left: 3px solid #e5bd6c; padding: 0 0 0 18px; margin: 0 0 28px; max-width: 85ch; }
-.security-preparation-notes h2 { margin: 0 0 6px; font-size: 1.1rem; }
-.security-preparation-notes p { margin: 4px 0; line-height: 1.6; color: #47566b; }
