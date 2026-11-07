@@ -3,13 +3,6 @@
     <div><p class="eyebrow">{{ "PARCOURS SÉCURITÉ EN ALTERNANCE" if security_guide else "TA PRÉ-INSCRIPTION · INTÉGRALE ACADEMY" }}</p><h1 id="preparation-title" tabindex="-1">Quelques pièces,<br><em>et c’est parti.</em></h1>{% if security_guide %}<p>Prépare ta pièce d’identité, ta photo et ta carte Vitale. Tu peux aussi joindre un CV et une lettre de motivation.</p>{% else %}<p>Tu souhaites rejoindre un BTS, préparer un titre professionnel (TP) ou intégrer le parcours sécurité en alternance ? Voici les pièces à avoir sous la main selon la formation choisie.</p>{% endif %}</div>
     <div class="preparation-limits"><b>8 Mo maximum par fichier</b><span>Des documents entiers, nets et lisibles.</span><span id="preparation-count" role="status">0 / {{ "3 pièces obligatoires préparées" if security_guide else "5 pièces préparées" }}</span></div>
   </header>
-  {% if security_guide %}
-  <aside class="security-preparation-notes" aria-label="Informations à préparer">
-    <h2>Les informations à avoir sous la main</h2>
-    <p>Ton état civil, ta nationalité, ton lieu de naissance avec son code postal, ton numéro de sécurité sociale avec sa clé et ton adresse complète.</p>
-    <p>Prépare aussi l’intitulé de ton diplôme le plus élevé et quelques phrases sur ton projet, ta personnalité et tes passions. Tu choisiras les mots qui décrivent ton profil. Si tu n’as pas encore de diplôme, tu peux indiquer « Aucun diplôme ».</p>
-  </aside>
-  {% endif %}
   <div class="preparation-document-list" aria-label="Les documents à préparer">
     {% for code,number,title,format,description,alt in [
       ('identity','01','Ta pièce d’identité','PDF, JPG ou PNG','Carte d’identité recto-verso, ou page d’identité du passeport.','Un candidat prépare sa carte d’identité et son passeport.'),
