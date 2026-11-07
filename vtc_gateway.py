@@ -19,7 +19,14 @@ def forward(path):
     if request.method == "POST":
         # Backend still checks its signed session, CSRF token and submission ID.
         origin = request.headers.get("Origin")
-        if origin and origin != "https://" + request.host:
+        # no-referrer makes native form navigations send Origin: null.
+        # Only trust that opaque value when the browser confirms a local navigation.
+        same_origin_form = (
+            origin == "null"
+            and request.headers.get("Sec-Fetch-Site") == "same-origin"
+            and request.headers.get("Sec-Fetch-Mode") == "navigate"
+        )
+        if origin and origin != "https://" + request.host and not same_origin_form:
             abort(403)
         if request.mimetype != "application/x-www-form-urlencoded":
             abort(415)

@@ -81,6 +81,34 @@ def test_cross_origin_and_oversized_submissions_are_rejected(client, monkeypatch
     assert client.post(PATH, json={"x":"y"}, base_url=BASE).status_code == 415
     remote.assert_not_called()
 
+@pytest.mark.parametrize("path", [PATH, "/vtc/commande/formation", "/vtc/commande/cpf", "/vtc/suivi/"+KEY])
+def test_native_private_form_reaches_backend_validation(client, monkeypatch, path):
+    remote = Mock(return_value=upstream(status=400))
+    monkeypatch.setattr(gateway.requests, "request", remote)
+    client.set_cookie(gateway.COOKIE, "signed-vtc-state", path="/vtc")
+    result = client.post(path, data={"csrf_token":"original", "draft":"id"}, base_url=BASE,
+                         headers={"Origin":"null", "Sec-Fetch-Site":"same-origin", "Sec-Fetch-Mode":"navigate"})
+    assert result.status_code == 400  # The backend's validation still decides the outcome.
+    assert remote.call_args.kwargs["cookies"] == {"integrale_admin":"signed-vtc-state"}
+    assert remote.call_args.kwargs["data"] == b"csrf_token=original&draft=id"
+    assert result.headers["Referrer-Policy"] == "no-referrer"
+
+
+@pytest.mark.parametrize("origin,site,mode", [
+    ("null", "cross-site", "navigate"), ("null", "same-site", "navigate"),
+    ("null", None, "navigate"), ("null", "same-origin", "cors"),
+    ("https://other.test", "same-origin", "navigate"),
+])
+def test_untrusted_form_is_rejected_before_forwarding(client, monkeypatch, origin, site, mode):
+    remote = Mock()
+    monkeypatch.setattr(gateway.requests, "request", remote)
+    headers = {"Origin":origin, "Sec-Fetch-Mode":mode}
+    if site is not None:
+        headers["Sec-Fetch-Site"] = site
+    assert client.post(PATH, data={"draft":"id"}, base_url=BASE, headers=headers).status_code == 403
+    remote.assert_not_called()
+
+
 def test_timeout_is_private_and_does_not_retry_post(client, monkeypatch):
     remote = Mock(side_effect=requests.Timeout("secret-dossier-token"))
     monkeypatch.setattr(gateway.requests, "request", remote)
