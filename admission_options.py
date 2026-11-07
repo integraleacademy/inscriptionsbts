@@ -44,13 +44,25 @@ PROFILE_GROUPS = [{'name': 'qualites',
               ('objectif', 'Je me fixe des objectifs précis')]}]
 
 
-def profile_answers(row):
-    """Use the form labels for both historical JSON lists and current CSV answers."""
-    columns = {'qualites': 'projet_qualites', 'motivation': 'projet_motivation',
-               'valeurs': 'projet_recherche', 'travail': 'projet_travail'}
+PROFILE_COLUMNS = {'qualites': 'projet_qualites', 'motivation': 'projet_motivation',
+                   'valeurs': 'projet_recherche', 'travail': 'projet_travail'}
+
+
+def profile_fields(form):
     answers = {}
     for group in PROFILE_GROUPS:
-        raw = (row.get(columns[group['name']]) or '').strip()
+        selected = form.getlist(group['name'] + '[]')
+        if not selected or any(value not in dict(group['options']) for value in selected):
+            raise ValueError('Sélectionne au moins une réponse dans la rubrique « ' + group['title'] + ' ».')
+        answers[PROFILE_COLUMNS[group['name']]] = ', '.join(dict.fromkeys(selected))
+    return answers
+
+
+def profile_answers(row):
+    """Use the form labels for both historical JSON lists and current CSV answers."""
+    answers = {}
+    for group in PROFILE_GROUPS:
+        raw = (row.get(PROFILE_COLUMNS[group['name']]) or '').strip()
         try:
             values = json.loads(raw)
         except ValueError:

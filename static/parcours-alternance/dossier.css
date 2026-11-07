@@ -1,0 +1,15 @@
+.dossier-grid, .profile-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.dossier-grid { margin: 24px 0; }
+.dossier-field { display: grid; align-content: start; gap: 8px; min-width: 0; font-weight: 600; }
+.dossier-field .answer-input { width: 100%; min-width: 0; margin: 0; font-size: 1rem; }
+.dossier-field small { line-height: 1.5; color: var(--muted); font-weight: 400; }
+.dossier-field input[type=file] { width: 100%; font: inherit; font-size: .88rem; color: var(--ink); }
+.dossier-field input::file-selector-button { padding: .7rem; border: 1px solid var(--line); background: white; color: var(--blue); border-radius: 8px; cursor: pointer; }
+.profile-options { padding: 0; margin: 18px 0; border: 0; }
+.profile-options label { display: flex; align-items: center; gap: 10px; padding: 12px; background: white; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; }
+.profile-options label:has(input:checked) { background: #edf4ff; border-color: var(--blue); }
+.profile-options input { flex: 0 0 auto; accent-color: var(--blue); }
+@media (max-width: 600px) { .dossier-grid, .profile-options { grid-template-columns: 1fr; } }
+.security-preparation-notes { border-left: 3px solid #e5bd6c; padding: 0 0 0 18px; margin: 0 0 28px; max-width: 85ch; }
+.security-preparation-notes h2 { margin: 0 0 6px; font-size: 1.1rem; }
+.security-preparation-notes p { margin: 4px 0; line-height: 1.6; color: #47566b; }

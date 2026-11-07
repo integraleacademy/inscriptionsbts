@@ -1,8 +1,15 @@
 <section id="application-guide" class="preparation-page" aria-labelledby="preparation-title">
   <header class="preparation-intro">
-    <div><p class="eyebrow">TA PRÉ-INSCRIPTION · INTÉGRALE ACADEMY</p><h1 id="preparation-title" tabindex="-1">Quelques pièces,<br><em>et c’est parti.</em></h1><p>Tu souhaites rejoindre un BTS, préparer un titre professionnel (TP) ou intégrer le parcours sécurité en alternance ? Voici les pièces à avoir sous la main selon la formation choisie.</p></div>
-    <div class="preparation-limits"><b>8 Mo maximum par fichier</b><span>Des documents entiers, nets et lisibles.</span><span id="preparation-count" role="status">0 / 5 pièces préparées</span></div>
+    <div><p class="eyebrow">{{ "PARCOURS SÉCURITÉ EN ALTERNANCE" if security_guide else "TA PRÉ-INSCRIPTION · INTÉGRALE ACADEMY" }}</p><h1 id="preparation-title" tabindex="-1">Quelques pièces,<br><em>et c’est parti.</em></h1>{% if security_guide %}<p>Prépare ta pièce d’identité, ta photo et ta carte Vitale. Tu peux aussi joindre un CV et une lettre de motivation.</p>{% else %}<p>Tu souhaites rejoindre un BTS, préparer un titre professionnel (TP) ou intégrer le parcours sécurité en alternance ? Voici les pièces à avoir sous la main selon la formation choisie.</p>{% endif %}</div>
+    <div class="preparation-limits"><b>8 Mo maximum par fichier</b><span>Des documents entiers, nets et lisibles.</span><span id="preparation-count" role="status">0 / {{ "3 pièces obligatoires préparées" if security_guide else "5 pièces préparées" }}</span></div>
   </header>
+  {% if security_guide %}
+  <aside class="security-preparation-notes" aria-label="Informations à préparer">
+    <h2>Les informations à avoir sous la main</h2>
+    <p>Ton état civil, ta nationalité, ton lieu de naissance avec son code postal, ton numéro de sécurité sociale avec sa clé et ton adresse complète.</p>
+    <p>Prépare aussi l’intitulé de ton diplôme le plus élevé et quelques phrases sur ton projet, ta personnalité et tes passions. Tu choisiras les mots qui décrivent ton profil. Si tu n’as pas encore de diplôme, tu peux indiquer « Aucun diplôme ».</p>
+  </aside>
+  {% endif %}
   <div class="preparation-document-list" aria-label="Les documents à préparer">
     {% for code,number,title,format,description,alt in [
       ('identity','01','Ta pièce d’identité','PDF, JPG ou PNG','Carte d’identité recto-verso, ou page d’identité du passeport.','Un candidat prépare sa carte d’identité et son passeport.'),
@@ -13,14 +20,18 @@
     ] %}
     <article class="preparation-document">
       <div class="preparation-document-art"><img src="{{ url_for('static',filename='admissions/preparation/' ~ code ~ '.webp') }}" width="960" height="640" alt="{{ alt }}" {% if loop.index > 3 %}loading="lazy"{% endif %}><span class="document-number" aria-hidden="true">{{ number }}</span></div>
-      <div class="preparation-document-copy"><p class="document-format">{{ format }}</p><h2>{{ title }}</h2><p>{{ description }}</p><label class="document-ready"><input type="checkbox" data-prepared="{{ code }}"><span>C’est prêt<span class="sr-only"> : {{ title }}</span></span></label></div>
+      <div class="preparation-document-copy"><p class="document-format">{{ format }}{% if security_guide %} · {{ "Facultatif" if code in ("cv","letter") else "Obligatoire" }}{% endif %}</p><h2>{{ title }}</h2><p>{{ description }}</p><label class="document-ready"><input type="checkbox" data-prepared="{{ code }}"><span>C’est prêt<span class="sr-only"> : {{ title }}</span></span></label></div>
     </article>
     {% endfor %}
     <div class="preparation-start">
       <p class="eyebrow">À TON RYTHME</p><h2>Prêt à <em>te lancer ?</em></h2>
       <ol class="preparation-route" aria-label="Les étapes de ta pré-inscription"><li><span>01</span>Tu complètes ton dossier.</li><li><span>02</span>Notre équipe étudie ta candidature.</li><li><span>03</span>Notre équipe te recontacte pour la suite.</li></ol>
+      {% if security_guide %}
+      <a id="start-application" class="button preparation-cta" href="{{ url_for('security_application_preview' if preview else 'security_application', etape='dossier') }}">Commencer ma candidature</a>
+      {% else %}
       <button type="button" id="start-application" class="button preparation-cta" data-start-application><span data-start-label>Commencer ma pré-inscription</span></button>
       <p class="preparation-resume">Tu choisiras ta formation à l’étape suivante.</p>
+      {% endif %}
     </div>
   </div>
   <aside class="preparation-adviser" aria-labelledby="preparation-adviser-title">

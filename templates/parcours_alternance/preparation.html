@@ -1,0 +1,10 @@
+{% extends 'parcours_alternance/public_base.html' %}
+{% from 'ui_icons.html' import icon %}
+{% block title %}Pièces à préparer · Parcours sécurité en alternance{% endblock %}
+{% block body_class %}academy-ui application-page{% endblock %}
+{% block head %}<link rel="stylesheet" href="{{ url_for('static', filename='css/application-journey.css') }}?v=8"><link rel="stylesheet" href="{{ url_for('static',filename='parcours-alternance/dossier.css') }}">{% endblock %}
+{% block body %}
+<header class="form-header"><a href="{{ public_url }}" aria-label="Présentation du parcours sécurité">{% include 'parcours_alternance/logo.html' %}</a><a href="{{ public_url }}">Revoir le parcours</a></header>
+<main id="main">{% include 'application_preparation.html' %}</main>
+<script src="{{ url_for('static',filename='parcours-alternance/application.js') }}?v=3" defer></script>
+{% endblock %}

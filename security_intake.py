@@ -73,6 +73,27 @@ def validate(payload, day=None, *, imported=False):
     clean.update(birth_date=birth.isoformat(), email=email, phone=phone, postcode=postcode,
                  situation=situation, contact_slot=slot, vehicle=vehicle, campaign=YEAR,
                  available_year=True, license_b=True, mobile_departments=True, privacy_consent=True,
-                 privacy_version="2026-10-22", age_at_submission=age_on(birth, day))
+                 privacy_version="2026-10-22" if imported else "2026-11-07", age_at_submission=age_on(birth, day))
     # Do not persist criminal-history answers, failed applications or arbitrary fields.
     return clean
+
+def dossier_fields(form):
+    answers = {}
+    for key, label, limit in (
+        ("pays_naissance", "ton pays de naissance", 120), ("ville_naissance", "ta ville de naissance", 120),
+        ("cp_naissance", "ton code postal de naissance", 16), ("nationalite", "ta nationalité", 120),
+        ("adresse", "ton adresse postale", 250), ("diplome_obtenu", "ton diplôme le plus élevé", 160),
+        ("projet_objectif", "ton objectif professionnel", 2000),
+        ("projet_passions", "ta personnalité et tes passions", 2000),
+    ):
+        value = (form.get(key) or "").strip()
+        if not value or len(value) > limit or re.search(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", value):
+            raise ValueError(f"Vérifie {label}.")
+        answers[key] = value
+    if answers["pays_naissance"].casefold() == "france" and not re.fullmatch(r"[0-9]{5}", answers["cp_naissance"]):
+        raise ValueError("Indique le code postal à cinq chiffres de ta ville de naissance.")
+    if form.get("sexe") not in ("Homme", "Femme"):
+        raise ValueError("Sélectionne le sexe indiqué sur ton état civil.")
+    answers["sexe"] = form["sexe"]
+    answers["num_secu"] = "".join((form.get("num_secu") or "").split()).upper()
+    return answers

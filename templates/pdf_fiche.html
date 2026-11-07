@@ -118,6 +118,7 @@
 {% endif %}
 {{ section('Parcours et alternance') }}
 <table class="facts">
+  {% if row.bts == 'PARCOURS-SECURITE' %}<tr><td colspan="3">{{ fact('Diplôme le plus élevé obtenu', row.diplome_obtenu) }}</td></tr>{% endif %}
   <tr><td>{{ fact('Baccalauréat', bac) }}</td><td>{{ fact('Type de bac', row.bac_type) }}</td><td>{{ fact('Promotion', promotion.nom if promotion else 'Non affectée') }}</td></tr>
   <tr><td>{{ fact('Entreprise trouvée au dépôt', answer(row.entreprise_trouvee)) }}</td><td>{{ fact('Recherches commencées', answer(row.recherches_commencees)) }}</td><td>{{ fact('Recherche en Île-de-France', answer(row.get('cherche_idf'))) }}</td></tr>
 </table>
