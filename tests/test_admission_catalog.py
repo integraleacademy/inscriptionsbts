@@ -73,9 +73,11 @@ def test_preview_starts_with_preparation_then_offers_bts_and_titles_without_subm
     security = catalog.select_one('a[href*="parcoursalternance"]')['href']
     assert public.select_one('a[href="/parcoursalternance/candidature"]')
     assert guest.get(security).status_code == 302
-    sample = page(client, security).select_one('#application-form')
+    preview_start = page(client, security).select_one('#start-application')['href']
+    sample = page(client, preview_start).select_one('#application-form')
     assert sample.get('data-preview-return') and not sample.get('data-token') and not sample.get('data-endpoint')
-    assert len(sample.select('.question')) == 17
+    assert len(sample.select('[data-options]')) == 4
+    assert {control['name'] for control in sample.select('input[type=file][required]')} == {'ci', 'photo', 'carte_vitale'}
     assert client.post(security, json={}).status_code == 405
     assert client.post('/parcoursalternance/candidature', json={}).status_code == 400
     assert client.get('/titres-professionnels/apercu?formation=MCO').status_code == 404

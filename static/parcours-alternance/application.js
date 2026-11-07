@@ -1,5 +1,16 @@
 (() => {
   'use strict';
+  const guide = document.getElementById('application-guide');
+  if (guide) {
+    const checks = [...guide.querySelectorAll('[data-prepared]')].filter(input =>
+      ['identity', 'photo', 'vitale'].includes(input.dataset.prepared));
+    function countPrepared() {
+      const count = checks.filter(input => input.checked).length;
+      guide.querySelector('#preparation-count').textContent = count + ' / 3 pièces obligatoires préparées';
+    }
+    guide.addEventListener('change', countPrepared);
+    countPrepared();
+  }
   const form = document.getElementById('application-form');
   if (!form) return;
   const questions = [...form.querySelectorAll('.question')];
@@ -11,7 +22,7 @@
   const progressLabel = document.getElementById('progress-label');
   const blocked = document.getElementById('blocked');
   let index = 0, busy = false, completed = false;
-  const yesNo = ['available_year','judicial_clear','license_b','mobile_departments','privacy_consent'];
+  progress.max = questions.length;
   const labels = {last_name:'Nom', first_name:'Prénom', birth_date:'Date de naissance', email:'E-mail', phone:'Téléphone', city:'Ville', postcode:'Code postal', situation:'Situation actuelle', vehicle:'Véhicule', motivation:'Ta motivation', contact_slot:'Créneau de contact'};
   const messages = {
     age:'Malheureusement, tu ne peux pas candidater au parcours sécurité en alternance : ce parcours est réservé aux personnes de moins de 26 ans au moment de leur candidature.',
@@ -20,7 +31,7 @@
     license_b:'Le permis B en cours de validité est nécessaire pour ce parcours. Tu ne peux pas poursuivre cette candidature tant que cette condition n’est pas remplie.',
     mobile_departments:'Les déplacements en entreprise dans le Var et les Alpes-Maritimes sont nécessaires. Tu ne peux pas poursuivre cette candidature si tu ne peux pas organiser ces trajets.'
   };
-  function value(field) { const data = new FormData(form); return data.get(field) || ''; }
+  function value(field) { return form.elements.namedItem(field)?.value || ''; }
   function show(i) {
     index = i;
     form.hidden = false; blocked.hidden = true;
@@ -46,7 +57,33 @@
   function validateStep(i, allowBlock=true) {
     const q = questions[i], field = q.dataset.field;
     if (field === 'review') return true;
-    const v = value(field).trim();
+    if (q.hasAttribute('data-options')) {
+      if (q.querySelector('input:checked')) return true;
+      error.textContent = 'Choisis au moins une réponse pour continuer.';
+      return false;
+    }
+    if (q.hasAttribute('data-fields')) {
+      for (const control of q.querySelectorAll('[data-review]')) {
+        const file = control.files?.[0];
+        let message = '';
+        if (!control.checkValidity() || (control.required && !control.value.trim())) {
+          message = 'Complète le champ « ' + control.dataset.review + ' ».';
+        } else if (file && (!file.size || file.size > 8 * 1024 * 1024 ||
+                 !control.accept.split(',').some(ext => file.name.toLowerCase().endsWith(ext)))) {
+          message = 'Vérifie le format et la taille du fichier « ' + control.dataset.review + ' » (8 Mo maximum).';
+        } else if (control.name === 'num_secu') {
+          const checked = window.AdmissionValidation.nir(control.value, value('birth_date'), value('sexe'), false);
+          if (!checked.ok) message = checked.message;
+        } else if (control.name === 'cp_naissance' && value('pays_naissance').trim().toLowerCase() === 'france' &&
+                   !/^\d{5}$/.test(control.value.trim())) {
+          message = 'Indique les cinq chiffres du code postal de ta ville de naissance.';
+        }
+        if (message) { error.textContent = message; control.focus(); return false; }
+      }
+      return true;
+    }
+    const control = form.elements.namedItem(field);
+    const v = control.type === 'checkbox' && !control.checked ? '' : value(field).trim();
     if (!v) { error.textContent = field === 'available_year' ? 'Confirme ta disponibilité pour toute l’année 2027 pour continuer.' : field === 'privacy_consent' ? 'Ton accord est nécessaire pour transmettre ta candidature.' : 'Ajoute ta réponse pour continuer.'; return false; }
     const input = q.querySelector('input:not([type=radio]):not([type=checkbox]),textarea');
     if (input && !input.checkValidity()) { error.textContent = 'Vérifie ta réponse avant de continuer.'; input.focus(); return false; }
@@ -64,17 +101,33 @@
   }
   function renderReview() {
     const container = document.getElementById('review'); container.replaceChildren();
-    Object.entries(labels).forEach(([field,label]) => {
-      const item = document.createElement('div'); item.className = 'review-item' + (field === 'motivation' ? ' wide' : '');
+    function add(label, text, step) {
+      const item = document.createElement('div'); item.className = 'review-item';
       const key = document.createElement('span'); key.textContent = label;
-      const val = document.createElement('strong');
-      let text = value(field);
-      if (field === 'birth_date') text = text.split('-').reverse().join('/');
-      if (field === 'vehicle') text = {yes:'Oui',no:'Autre organisation',planned:'Prévu pour la rentrée'}[text];
-      val.textContent = text;
-      const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = 'Modifier'; edit.setAttribute('aria-label','Modifier : '+label);
-      edit.addEventListener('click', () => show(questions.findIndex(q => q.dataset.field === field)));
-      item.append(key,val,edit); container.append(item);
+      const val = document.createElement('strong'); val.textContent = text || 'Non renseigné';
+      const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = 'Modifier';
+      edit.setAttribute('aria-label', 'Modifier : ' + label);
+      edit.addEventListener('click', () => show(step));
+      item.append(key, val, edit); container.append(item);
+    }
+    questions.forEach((q, step) => {
+      const field = q.dataset.field;
+      if (labels[field]) {
+        let text = value(field);
+        if (field === 'birth_date') text = text.split('-').reverse().join('/');
+        if (field === 'vehicle') text = {yes:'Oui', no:'Autre organisation', planned:'Prévu pour la rentrée'}[text];
+        add(labels[field], text, step);
+      }
+      q.querySelectorAll('[data-review]').forEach(control => {
+        let text = control.value;
+        if (control.type === 'file') text = control.files[0]?.name || 'Aucun fichier joint';
+        if (control.name === 'num_secu' && text) text = '••••• ' + text.trim().slice(-2);
+        add(control.dataset.review, text, step);
+      });
+      if (q.hasAttribute('data-options')) {
+        const selected = [...q.querySelectorAll('input:checked')].map(input => input.parentElement.textContent.trim());
+        add(q.querySelector('h1').textContent, selected.join(', '), step);
+      }
     });
   }
   async function submit() {
@@ -84,16 +137,16 @@
     }
     busy = true; next.disabled = true; previous.disabled = true; next.textContent = 'Enregistrement en cours…';
     error.textContent = '';
-    const payload = Object.fromEntries(new FormData(form));
-    yesNo.forEach(k => { payload[k] = payload[k] === 'yes'; });
-    payload.csrf = form.dataset.csrf; payload.submission_token = form.dataset.token;
+    const payload = new FormData(form);
+    payload.set('csrf', form.dataset.csrf);
+    payload.set('submission_token', form.dataset.token);
     try {
-      const res = await fetch(form.dataset.endpoint, {method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify(payload),credentials:'same-origin'});
+      const res = await fetch(form.dataset.endpoint, {method:'POST',headers:{'Accept':'application/json'},body:payload,credentials:'same-origin'});
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) throw new Error(data?.error || 'L’envoi n’a pas pu être confirmé. Vérifie ta connexion puis réessaie. Tes réponses sont conservées sur cette page.');
       completed = true; form.hidden = true; document.getElementById('progress-wrap').hidden = true;
       const success = document.getElementById('success'); success.hidden = false;
-      document.getElementById('success-message').textContent = data.already_received ? 'Une candidature a déjà été enregistrée avec ces coordonnées. Notre équipe reviendra vers toi. Tu peux nous contacter pour la mettre à jour.' : data.email_sent === false ? 'Ton dossier est enregistré. Le mail de confirmation n’a pas encore pu partir : tu n’as pas besoin de recommencer ta candidature.' : `Merci ${payload.first_name.trim()} ! Un e-mail de confirmation a été envoyé à ${payload.email.trim()}. Pense à vérifier tes courriers indésirables.`;
+      document.getElementById('success-message').textContent = data.already_received ? 'Une candidature a déjà été enregistrée avec ces coordonnées. Notre équipe reviendra vers toi. Tu peux nous contacter pour la mettre à jour.' : data.email_sent === false ? 'Ton dossier est enregistré. Le mail de confirmation n’a pas encore pu partir : tu n’as pas besoin de recommencer ta candidature.' : `Merci ${value('first_name').trim()} ! Un e-mail de confirmation a été envoyé à ${value('email').trim()}. Pense à vérifier tes courriers indésirables.`;
       document.getElementById('application-reference').textContent = data.reference ? `Ta référence : ${data.reference}` : '';
       success.querySelector('h1').focus({preventScroll:true}); window.scrollTo({top:0,behavior:'instant'});
       form.reset();
@@ -111,7 +164,7 @@
     if (index === questions.length - 1) { submit(); return; }
     if (validateStep(index)) show(index + 1);
   });
-  form.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.tagName !== 'TEXTAREA' && event.target.tagName !== 'BUTTON') { event.preventDefault(); form.requestSubmit(); } });
+  form.addEventListener('keydown', event => { if (event.key === 'Enter' && event.target.matches('input:not([type=file]):not([type=checkbox]):not([type=radio])')) { event.preventDefault(); form.requestSubmit(); } });
   previous.addEventListener('click', () => { if (!busy) show(Math.max(0,index-1)); });
   document.getElementById('correct-answer').addEventListener('click', () => show(index));
   document.querySelectorAll('[data-block]').forEach(button => button.addEventListener('click', () => block(button.dataset.block)));

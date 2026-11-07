@@ -1,11 +1,11 @@
 /* The same checks run at the server before a dossier is created. No NIR is sent
    to any external service; this is a format/coherence check, not a registry lookup. */
 (function (root) {
-  function nir(value, birth, sex) {
+  function nir(value, birth, sex, allowLegacy = true) {
     const n = (value || '').replace(/\s/g, '').toUpperCase();
     if (!n) return {ok:false, message:'Indique les 15 caractères de ton numéro de sécurité sociale.'};
     // Preserve the explicit special case already supported by the 2026 form.
-    if (n === '123456789123456') return {ok:true, message:'Numéro accepté selon le cas particulier prévu.'};
+    if (allowLegacy && n === '123456789123456') return {ok:true, message:'Numéro accepté selon le cas particulier prévu.'};
     if (!/^\d{5}(?:\d{2}|2[AB])\d{8}$/.test(n)) return {ok:false, message:'15 caractères attendus ; 2A et 2B sont acceptés pour la Corse.'};
     const calculation = n.replace('2A','19').replace('2B','18');
     if (Number(97n - BigInt(calculation.slice(0,13)) % 97n) !== Number(calculation.slice(13))) return {ok:false, message:'Le numéro et sa clé de contrôle ne correspondent pas. Vérifie les 15 caractères sur ton attestation de droits : l’erreur peut se trouver n’importe où dans le numéro, pas seulement dans les deux derniers chiffres.'};

@@ -7,6 +7,7 @@ import json
 import os
 import re
 import secrets
+import shutil
 import threading
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -73,8 +74,28 @@ def ensure_schema(conn):
     """)
 
 
-def register_formation_intake(app, connect, send_mail, require_admin, validate_application, attach_title_dossier,
-                              save_application_draft, admissions_available):
+def expire_submissions(conn, cutoff, upload_dir):
+    # Hold the write lock while checking enrolment and removing an expired dossier.
+    conn.execute('BEGIN IMMEDIATE')
+    expired = conn.execute("""DELETE FROM candidats WHERE statut IN ('preinscription','validee','annulee','docs_non_conformes')
+        AND bts='PARCOURS-SECURITE' AND id IN (SELECT candidate_id FROM formation_submissions WHERE received_at<? AND created_dossier=1)
+        AND coalesce(date_confirmee,'')='' AND NOT EXISTS (SELECT 1 FROM student_promotions WHERE candidate_id=candidats.id)
+        RETURNING id""", (cutoff,)).fetchall()
+    for row in expired:
+        cid = row[0]
+        if not re.fullmatch(r'[0-9a-fA-F-]{36}', cid):
+            continue
+        directory = os.path.join(upload_dir, cid)
+        if os.path.islink(directory):
+            os.unlink(directory)
+        elif os.path.isdir(directory):
+            shutil.rmtree(directory)
+    conn.execute('DELETE FROM formation_submissions WHERE received_at<?', (cutoff,))
+
+
+def register_formation_intake(app, connect, send_mail, require_admin, validate_application, title_fields,
+                              security_fields, attach_formation_dossier,
+                              save_application_draft, admissions_available, upload_dir):
     app.extensions['formation_connect'] = connect
     tokens = URLSafeTimedSerializer(app.secret_key, salt='formation-intake-v1')
 
@@ -180,7 +201,7 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
                            ON r.candidate_id=c.id AND r.recipient='candidate' WHERE c.id=?""", (cid,)).fetchone()
         return dict(ok=True, reference=row['numero_dossier'], email_sent=bool(row['sent']))
 
-    def store_public(clean, key, program, year, promotion=None, dossier_form=None):
+    def store_public(clean, key, program, year, promotion=None, dossier_fields=None):
         written = []
         try:
             with closing(connect()) as conn, conn:
@@ -193,8 +214,8 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
                 if previous:
                     return receipt(conn, previous[0]), 200
                 cid, inserted = save(conn, clean, program, year, key=key, promotion=promotion)
-                if inserted and dossier_form is not None:
-                    attach_title_dossier(conn, cid, dossier_form, written)
+                if inserted and dossier_fields is not None:
+                    attach_formation_dossier(conn, cid, dossier_fields, written)
         except Exception:
             for path in written:
                 if os.path.exists(path):
@@ -211,6 +232,9 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
             return receipt(conn, cid), 201
 
     def security_form(preview=False):
+        if request.args.get('etape') != 'dossier':
+            return render_template('parcours_alternance/preparation.html', security_guide=True, preview=preview,
+                                   public_url=PUBLIC_URL)
         return render_template('parcours_alternance/application.html', preview=preview, timeline=TIMELINE,
                                situations=SITUATIONS, slots=SLOTS, public_url=PUBLIC_URL, server_date=today().isoformat(),
                                **({} if preview else credentials(SECURITY)))
@@ -225,14 +249,19 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
     def security_application():
         if request.method == 'GET':
             return security_form()
-        if request.content_length and request.content_length > 20000:
-            return jsonify(ok=False, error='Le formulaire est trop volumineux.'), 413
-        data = request.get_json(silent=True)
+        if request.mimetype != 'multipart/form-data':
+            return jsonify(ok=False, error='Le formulaire a changé. Recharge la page pour joindre les pièces demandées.'), 400
+        form = request.form
+        data = form.to_dict()
+        for field in ('available_year', 'judicial_clear', 'license_b', 'mobile_departments', 'privacy_consent'):
+            data[field] = form.get(field) == 'yes'
         try:
             key = check_request(data, SECURITY)
             if not rate_allowed():
                 return jsonify(ok=False, error='Trop de tentatives. Réessaie plus tard.'), 429
-            return store_public(validate(data), key, SECURITY, YEAR)
+            clean = validate(data)
+            answers = security_fields(form, request.files)
+            return store_public(clean, key, SECURITY, YEAR, dossier_fields=answers)
         except ValueError as error:
             return jsonify(ok=False, error=str(error)), 400
 
@@ -302,7 +331,7 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
             clean = dict(last_name=' '.join(form['nom'].split()).upper(), first_name=' '.join(form['prenom'].split()).title(),
                          email=form['email'].strip().lower(), phone=form['tel'], birth_date=form['date_naissance'],
                          motivation=form['projet_pourquoi'], privacy_consent=True)
-            store_public(clean, key, promotion['bts'], promotion['rentree_annee'], promotion, form)
+            store_public(clean, key, promotion['bts'], promotion['rentree_annee'], promotion, title_fields(form))
         except ValueError as error:
             return jsonify(ok=False, error=str(error)), 400
         # Identity matches across independent submissions must not reveal a private dossier link.
@@ -374,11 +403,7 @@ def register_formation_intake(app, connect, send_mail, require_admin, validate_a
                 now = datetime.now(timezone.utc)
                 with app.app_context(), closing(connect()) as conn, conn:
                     expired = (now-timedelta(days=365)).isoformat()
-                    # Enrollment has its own retention policy. Remove abandoned intake dossiers and their intake metadata.
-                    conn.execute("""DELETE FROM candidats WHERE statut IN ('preinscription','validee','annulee','docs_non_conformes')
-                        AND bts='PARCOURS-SECURITE' AND id IN (SELECT candidate_id FROM formation_submissions WHERE received_at<? AND created_dossier=1)
-                        AND coalesce(date_confirmee,'')='' AND NOT EXISTS (SELECT 1 FROM student_promotions WHERE candidate_id=candidats.id)""", (expired,))
-                    conn.execute('DELETE FROM formation_submissions WHERE received_at<?', (expired,))
+                    expire_submissions(conn, expired, upload_dir())
                     conn.execute('DELETE FROM formation_rate_limits WHERE expires<?', (int(now.timestamp()),))
                     due = conn.execute('SELECT candidate_id,recipient FROM formation_receipts WHERE sent=0 AND tries<5 AND retry_at<=? LIMIT 10',
                                        (int(now.timestamp()),)).fetchall()

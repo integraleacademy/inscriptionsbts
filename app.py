@@ -6,7 +6,8 @@ import fcntl
 import tempfile
 from datetime import datetime, timedelta
 from training_programs import BTS_LABELS as BTS_PROGRAMS, SECURITY, catalog, is_professional_title, program_name
-from admission_options import PROFILE_GROUPS, profile_answers
+from admission_options import PROFILE_GROUPS, profile_answers, profile_fields
+from security_intake import dossier_fields as security_identity_fields
 from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
@@ -746,7 +747,7 @@ def ensure_schema():
     cols = [r[1] for r in cur.fetchall()]
 
     expected_cols = [
-        "nationalite", "raison_aps",
+        "nationalite", "raison_aps", "diplome_obtenu",
         "projet_qualites", "projet_motivation", "projet_recherche", "projet_travail",
         "verif_docs", "nouveau_doc", "replace_token", "replace_token_exp", "replace_meta",
         "label_ypareo", "label_carte_etudiante",
@@ -1301,27 +1302,44 @@ def validate_application(form, files, *, title_code=None):
             return "Complétez les réponses concernant votre recherche d’entreprise."
     if form.get("bts") == "MOS" and form.get("mos_parcours") == "autre" and form.get("aps_souhaitee") == "non" and not form.get("raison_aps", "").strip():
         return "Précisez la solution envisagée pour la formation APS."
-    for group in PROFILE_GROUPS:
-        selected = form.getlist(group["name"] + "[]")
-        if not selected or any(value not in dict(group["options"]) for value in selected):
-            return "Sélectionnez au moins une réponse dans chaque partie du projet motivé."
+    try:
+        profile_fields(form)
+    except ValueError as exc:
+        return str(exc)
     if form.get("consent") != "1":
         return "Confirmez l’exactitude de vos informations."
+    return validate_guided_uploads(files)
+
+
+def validate_guided_uploads(files, *, security=False):
     allowed = {"ci": {"pdf", "jpg", "jpeg", "png"}, "ci2": {"pdf", "jpg", "jpeg", "png"}, "photo": {"jpg", "jpeg", "png"}, "carte_vitale": {"pdf"}, "cv": {"pdf"}, "lm": {"pdf"}}
     for key, extensions in allowed.items():
         submitted = [file for file in files.getlist(key) if file and file.filename]
-        if not submitted and key != "ci2":
-            return "Ajoutez tous les justificatifs obligatoires."
+        if not submitted and key != "ci2" and not (security and key in ("cv", "lm")):
+            return f"Ajoutez le justificatif obligatoire : {DOC_FIELDS[key][1]}."
+        if security and len(submitted) > 1:
+            return "Choisissez un seul fichier par emplacement."
         for file in submitted:
             extension = file.filename.rsplit(".", 1)[-1].lower()
             file.seek(0, 2); size = file.tell(); file.seek(0)
             if extension not in extensions or not 0 < size <= 8 * 1024 * 1024:
                 return "Un justificatif a un format non accepté ou dépasse 8 Mo."
-            if key in ("carte_vitale", "cv", "lm") and size < 10 * 1024:
+            if not security and key in ("carte_vitale", "cv", "lm") and size < 10 * 1024:
                 return "Un PDF semble vide ou incomplet (moins de 10 Ko). Transmettez un document lisible."
             header = file.read(8); file.seek(0)
             if (extension == "pdf" and not header.startswith(b"%PDF-")) or (extension in ("jpg", "jpeg") and not header.startswith(b"\xff\xd8")) or (extension == "png" and not header.startswith(b"\x89PNG\r\n\x1a\n")):
                 return "Le contenu d’un justificatif ne correspond pas à son format. Vérifiez le fichier."
+            if security and key == "photo":
+                from PIL import Image
+                try:
+                    with Image.open(file.stream) as image:
+                        if image.width * image.height > 40_000_000:
+                            return "La photo est trop grande. Réduisez-la avant de la transmettre."
+                        image.verify()
+                except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
+                    return "La photo ne peut pas être lue. Choisissez une image JPG ou PNG valide."
+                finally:
+                    file.seek(0)
     return None
 
 
@@ -1342,9 +1360,7 @@ def guided_application_fields(form):
                   mos_parcours=form.get("mos_parcours", "") if form.get("bts") == "MOS" else "",
                   aps_souhaitee=aps, label_aps=aps, raison_aps=form.get("raison_aps", "") if form.get("bts") == "MOS" else "",
                   aps_session="Calendrier 2027 à confirmer avec l’équipe" if aps else "", souhaite_accompagnement="")
-    for name, column in (("qualites", "projet_qualites"), ("motivation", "projet_motivation"),
-                         ("valeurs", "projet_recherche"), ("travail", "projet_travail")):
-        fields[column] = ", ".join(form.getlist(name + "[]"))
+    fields.update(profile_fields(form))
     return fields
 
 
@@ -1359,9 +1375,20 @@ def guided_uploads(candidate_id, existing=None, written=None):
     return documents
 
 
-def attach_title_dossier(conn, candidate_id, form, written):
+def security_dossier_fields(form, files):
+    answers = security_identity_fields(form)
+    valid, message = validate_nir(answers["num_secu"], form["birth_date"], answers["sexe"])
+    if not valid:
+        raise ValueError(message)
+    error = validate_guided_uploads(files, security=True)
+    if error:
+        raise ValueError(error)
+    answers.update(profile_fields(form))
+    return answers
+
+
+def attach_formation_dossier(conn, candidate_id, answers, written):
     row = conn.execute("SELECT c.*, s.created_dossier FROM candidats c JOIN formation_submissions s ON s.candidate_id=c.id WHERE c.id=?", (candidate_id,)).fetchone()
-    answers = guided_application_fields(form)
     if not row["created_dossier"]:
         answers = {key: value for key, value in answers.items() if row[key] in (None, "")}
     answers.update(guided_uploads(candidate_id, existing=row, written=written))
@@ -1610,7 +1637,7 @@ def admin_candidate_emails(cid):
 def admin_candidate_information(cid):
     if not require_admin(): abort(403)
     data = request.get_json(silent=True) or {}
-    fields = {"nom", "prenom", "email", "tel", "bts", "mode", "adresse", "cp", "ville", "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "num_secu", "resp_nom", "resp_prenom", "resp_email", "resp_tel", "baccalaureat", "bac_type", "bac_autre", "entreprise_trouvee", "recherches_commencees", "cherche_idf", "souhaite_accompagnement"}
+    fields = {"nom", "prenom", "email", "tel", "bts", "mode", "adresse", "cp", "ville", "sexe", "date_naissance", "ville_naissance", "cp_naissance", "pays_naissance", "nationalite", "num_secu", "resp_nom", "resp_prenom", "resp_email", "resp_tel", "diplome_obtenu", "baccalaureat", "bac_type", "bac_autre", "entreprise_trouvee", "recherches_commencees", "cherche_idf", "souhaite_accompagnement"}
     changes = {key: str(value or "").strip() for key, value in data.items() if key in fields}
     normalize_candidate_names(changes)
     if not changes: return jsonify(ok=False, error="Aucune modification à enregistrer."), 400
@@ -3584,7 +3611,8 @@ from gestionstagiaires_api import register_gestionstagiaires_api
 register_gestionstagiaires_api(app, db, UPLOAD_DIR)
 render_title_journey = register_formation_intake(
     app, db, lambda *args, **kwargs: send_mail(*args, **kwargs), require_admin,
-    validate_application, attach_title_dossier, save_application_draft, admissions_available)
+    validate_application, guided_application_fields, security_dossier_fields, attach_formation_dossier,
+    save_application_draft, admissions_available, lambda: UPLOAD_DIR)
 
 if __name__ == "__main__":
     # Render starts this file with Werkzeug's reloader. Start in the serving

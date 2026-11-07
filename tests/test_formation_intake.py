@@ -1,18 +1,23 @@
 """Real Flask entry points for the two new admission families; all transports are mocked."""
 import hashlib
 import hmac
+import io
 import json
 from datetime import datetime, timezone
 from pathlib import Path
 
 from bs4 import BeautifulSoup
+from PIL import Image
 from test_admissions_2027 import application, auth, client, payload
 
 from training_programs import SECURITY
 
 
 def security_data(client):
-    doc = BeautifulSoup(client.get('/parcoursalternance/candidature').data, 'html.parser')
+    guide = BeautifulSoup(client.get('/parcoursalternance/candidature').data, 'html.parser')
+    assert ['Obligatoire' in item.text for item in guide.select('.document-format')] == [True, True, True, False, False]
+    start = guide.select_one('#start-application')['href']
+    doc = BeautifulSoup(client.get(start).data, 'html.parser')
     form = doc.select_one('#application-form')
     assert form['data-endpoint'] == '/parcoursalternance/candidature'
     return dict(csrf=form['data-csrf'], submission_token=form['data-token'], last_name='EXEMPLE', first_name='Alice',
@@ -20,6 +25,24 @@ def security_data(client):
                 postcode='83480', situation='En études', contact_slot='Le matin', vehicle='planned',
                 motivation='Je souhaite travailler dans les métiers de la sécurité en alternance.',
                 available_year=True, judicial_clear=True, license_b=True, mobile_departments=True, privacy_consent=True)
+
+
+def security_submission(data, *, optional=False):
+    files = payload()
+    form = {key: ('yes' if value else 'no') if isinstance(value, bool) else value for key, value in data.items()}
+    form.update(sexe='Femme', pays_naissance='France', ville_naissance='Paris', cp_naissance='75001',
+                nationalite='Française', adresse='12 rue Test', diplome_obtenu='CAP Agent de sécurité',
+                num_secu='2050575123456' + str(97 - 2050575123456 % 97).zfill(2),
+                projet_objectif='Travailler en protection rapprochée.', projet_passions='Je suis calme et je pratique la natation.')
+    for group in application.PROFILE_GROUPS:
+        form[group['name'] + '[]'] = [value for value, _ in group['options'][:2]]
+    photo = io.BytesIO()
+    Image.new('RGB', (90, 120), 'tan').save(photo, format='PNG')
+    photo.seek(0)
+    form.update(photo=(photo, 'portrait.png'), ci=files['ci'], carte_vitale=files['carte_vitale'])
+    if optional:
+        form.update(ci2=files['ci2'], cv=files['cv'], lm=files['lm'])
+    return form
 
 
 def promotion(client, code):
@@ -37,12 +60,12 @@ def test_security_to_enrollment_and_promotion(client, monkeypatch):
     messages = []
     monkeypatch.setattr(application,'send_mail',lambda *a, **k: messages.append((a,k)) or True)
     data = security_data(client)
-    assert client.post('/parcoursalternance/candidature', json={**data, 'judicial_clear':False}).status_code == 400
-    assert client.post('/parcoursalternance/candidature', json={**data, 'csrf':'wrong'}).status_code == 400
-    answer = client.post('/parcoursalternance/candidature', json=data)
+    assert client.post('/parcoursalternance/candidature', data=security_submission({**data, 'judicial_clear':False})).status_code == 400
+    assert client.post('/parcoursalternance/candidature', data=security_submission({**data, 'csrf':'wrong'})).status_code == 400
+    answer = client.post('/parcoursalternance/candidature', data=security_submission(data))
     assert answer.status_code == 201 and answer.json['email_sent'] and 'ALT' in answer.json['reference']
-    assert client.post('/parcoursalternance/candidature', json=data).json == answer.json
-    assert client.post('/parcoursalternance/candidature', json=security_data(client)).json['reference'] == ''
+    assert client.post('/parcoursalternance/candidature', data=security_submission(data)).json == answer.json
+    assert client.post('/parcoursalternance/candidature', data=security_submission(security_data(client))).json['reference'] == ''
     assert len(messages) == 2
     with application.db() as conn:
         row, = conn.execute('SELECT * FROM candidats').fetchall()
@@ -54,6 +77,13 @@ def test_security_to_enrollment_and_promotion(client, monkeypatch):
     assert page.status_code == 200 and b'EXEMPLE' in page.data
     form = client.get('/admin/candidat/'+cid)
     assert form.status_code == 200 and 'Le matin' in form.text and 'BTS PARCOURS' not in form.text
+    assert all(answer in form.text for answer in ('CAP Agent de sécurité', '12 rue Test', 'Française', 'Paris', '75001',
+        'Travailler en protection rapprochée.', 'je pratique la natation', 'Organisation', 'Je suis méthodique'))
+    documents = client.get('/admin/files/' + cid).json
+    assert {entry['category'] for entry in documents} == {'ci', 'photo', 'carte_vitale'}
+    assert all(client.get(entry['url']).status_code == 200 for entry in documents)
+    assert client.get('/admin/candidat/' + cid + '/photo').mimetype == 'image/jpeg'
+    assert application.app.test_client().get(documents[0]['url']).status_code == 403
     pid=promotion(client,SECURITY)
     with client.session_transaction() as s:
         csrf=s['_promotion_csrf']
@@ -71,6 +101,45 @@ def test_security_to_enrollment_and_promotion(client, monkeypatch):
     with application.app.test_request_context(), application.db() as conn:
         from certificates import certificate_pdf
         assert certificate_pdf(dict(conn.execute('SELECT * FROM candidats WHERE id=?',(cid,)).fetchone())).startswith(b'%PDF')
+
+
+def test_security_rejects_incomplete_dossiers_and_accepts_optional_files(client):
+    path = '/parcoursalternance/candidature'
+    data = security_data(client)
+    assert client.post(path, json=data).status_code == 400
+    for missing in ('photo', 'ci', 'carte_vitale', 'nationalite', 'travail[]', 'projet_objectif', 'diplome_obtenu'):
+        form = security_submission(data)
+        form.pop(missing)
+        assert client.post(path, data=form).status_code == 400
+    assert client.post(path, data=dict(security_submission(data), num_secu='000000000000000')).status_code == 400
+    assert client.post(path, data=dict(security_submission(data), photo=(io.BytesIO(b'invalid'), 'photo.png'))).status_code == 400
+    with application.db() as conn:
+        assert not conn.execute('SELECT 1 FROM candidats').fetchone()
+    assert client.post(path, data=security_submission(data, optional=True)).status_code == 201
+    with application.db() as conn:
+        row = conn.execute('SELECT * FROM candidats').fetchone()
+        for key, count in [('ci', 2), ('photo', 1), ('carte_vitale', 1), ('cv', 1), ('lm', 1)]:
+            paths = json.loads(row['fichiers_' + key])
+            assert len(paths) == count and all(Path(path).is_file() for path in paths)
+
+
+def test_expiring_security_application_removes_only_its_files(client, tmp_path):
+    from formation_intake import expire_submissions
+    auth(client)
+    client.get('/admin/promotions')
+    path = '/parcoursalternance/candidature'
+    for surname in ('ANCIEN', 'INSCRIT'):
+        assert client.post(path, data=security_submission(dict(security_data(client), last_name=surname))).status_code == 201
+    with application.db() as conn:
+        dossiers = {row['nom']: row['id'] for row in conn.execute('SELECT nom,id FROM candidats')}
+        conn.execute("UPDATE formation_submissions SET received_at='2025-01-01'")
+        conn.execute("UPDATE candidats SET statut='confirmee' WHERE nom='INSCRIT'")
+    root = tmp_path / 'uploads'
+    with application.db() as conn:
+        expire_submissions(conn, '2026-01-01', root)
+        assert [row['id'] for row in conn.execute('SELECT id FROM candidats')] == [dossiers['INSCRIT']]
+    assert not (root / dossiers['ANCIEN']).exists()
+    assert any((root / dossiers['INSCRIT']).iterdir())
 
 
 def test_title_uses_full_dossier_and_dated_promotion_independently_of_bts(client, monkeypatch):
@@ -129,7 +198,7 @@ def test_before_opening_only_security_accepts_applications(client, monkeypatch):
     assert guest.post(path, data={}).status_code == 403
     assert guest.post(path+'/brouillon', json={}).status_code == 403
     assert guest.post('/submit', data={}).status_code == 403
-    assert guest.post('/parcoursalternance/candidature', json=security_data(guest)).status_code == 201
+    assert guest.post('/parcoursalternance/candidature', data=security_submission(security_data(guest), optional=True)).status_code == 201
 
 
 def test_title_draft_resumes_correct_session_with_fresh_credentials(client, monkeypatch):
