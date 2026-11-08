@@ -3,7 +3,7 @@ import io
 import json
 import os
 import tempfile
-from datetime import timedelta
+from datetime import date, timedelta
 from unittest.mock import patch
 
 os.environ.setdefault('INTEGRITY_CHECK', '0')
@@ -478,6 +478,38 @@ def test_preview_never_creates_a_dossier_or_draft_even_after_opening(client,monk
     response=client.post('/save_draft',json={'full_form':{'email':'test@example.test','admin_preview':'1'}})
     assert response.status_code==403
     assert not os.path.exists(os.path.join(application.DATA_DIR,'drafts.json'))
+
+
+@pytest.mark.parametrize('program,birth,expected', [
+    ('MCO', '2008-11-09', '17 ans'),
+    ('TP GESTIONNAIRE DE PAIE', '08/11/2008', '18 ans'),
+    ('PARCOURS-SECURITE', '2008-11-07T00:00:00', '18 ans'),
+    ('MOS', None, 'Âge indisponible'),
+    ('MOS', '31/02/2008', 'Âge indisponible'),
+    ('MOS', '2026-11-09', 'Âge indisponible'),
+])
+def test_candidate_age_in_sheet_header(client, monkeypatch, program, birth, expected):
+    from lxml import html
+
+    monkeypatch.setattr(application, 'paris_today', lambda: date(2026, 11, 8))
+    seed(2027, 'age')
+    with application.db() as conn:
+        conn.execute('UPDATE candidats SET bts=?, date_naissance=? WHERE id=?', (program, birth, 'age'))
+    auth(client)
+    response = client.get('/admin/candidat/age?rentree=2027')
+    assert response.status_code == 200
+    page = html.fromstring(response.text)
+    assert page.xpath('//header[.//h1]//span[@class="sheet-age"]/text()') == [expected]
+
+
+def test_candidate_age_after_birth_date_edit_and_leap_day_birthday(client, monkeypatch):
+    seed(2026, 'age')
+    auth(client)
+    monkeypatch.setattr(application, 'paris_today', lambda: date(2026, 2, 28))
+    assert client.post('/admin/candidat/age/informations', json={'date_naissance': '2008-02-29'}).json['ok']
+    assert '<span class="sheet-age">17 ans</span>' in client.get('/admin/candidat/age').text
+    monkeypatch.setattr(application, 'paris_today', lambda: date(2026, 3, 1))
+    assert '<span class="sheet-age">18 ans</span>' in client.get('/admin/candidat/age').text
 
 
 def test_candidate_sheet_retains_legacy_profiles_and_atomic_edits(client):

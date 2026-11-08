@@ -81,7 +81,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-header.css') }}?v=1">
   {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/admin-crm.css') }}?v=1">{% endif %}
   {% if request.endpoint in ['admin_companies', 'admin_company_detail'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-admin.css') }}?v=1">{% endif %}
-{% if request.endpoint in ['admin_candidate_sheet', 'admin'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-editor.css') }}?v=5">{% endif %}
+{% if request.endpoint in ['admin_candidate_sheet', 'admin'] %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-editor.css') }}?v=6">{% endif %}
 {% if is_admin or is_student_portal or is_trainer_portal or (is_company_space and not is_company_auth) %}<link rel="stylesheet" href="{{ url_for('static', filename='css/campus.css') }}?v=2">{% endif %}
 {% if is_admin %}<link rel="stylesheet" href="{{ url_for('static', filename='css/workspace-shell.css') }}?v=2">{% endif %}
 {% if request.endpoint == 'admin_candidate_sheet' or request.path.startswith('/admin/contrats-apprentissage') %}<link rel="stylesheet" href="{{ url_for('static',filename='css/apprenticeship.css') }}?v=2">{% endif %}
