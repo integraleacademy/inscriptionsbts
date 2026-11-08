@@ -7,7 +7,7 @@ import tempfile
 from datetime import datetime, timedelta
 from training_programs import BTS_LABELS as BTS_PROGRAMS, SECURITY, catalog, is_professional_title, program_name
 from admission_options import PROFILE_GROUPS, profile_answers, profile_fields
-from security_intake import dossier_fields as security_identity_fields
+from security_intake import age_on, dossier_fields as security_identity_fields, today as paris_today
 from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
 from candidate_messages import register_candidate_messages
@@ -1596,6 +1596,20 @@ def admin():
     return render_template("admin.html", title="Candidatures · Intégrale Academy", rows=rows, statuts=[s for s in STATUTS + [EMPLOYMENT_STATUS] if s[0] not in ENROLLED])
 
 
+def candidate_birth_date(value):
+    value = str(value or '').strip()
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value).date()
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(value.replace('-', '/'), '%d/%m/%Y').date()
+    except ValueError:
+        return None
+
+
 @app.route("/admin/candidat/<cid>")
 def admin_candidate_sheet(cid):
     if not require_admin():
@@ -1616,7 +1630,18 @@ def admin_candidate_sheet(cid):
             available_promotions = list_promotions(conn, bts=row.get('bts'), rentree_annee=candidate_year(row), active_only=True)
     if not row: abort(404)
     year = candidate_year(row)
-    return render_template("candidate_sheet.html", **school_context, current_promotion=current_promotion, available_promotions=available_promotions, candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None, profile_display=profile_answers(row), title=person_name(row.get('nom'),row.get('prenom'))+' · Plateforme de gestion des BTS', row=row, statuts=STATUTS, year=year, student_card_dates=student_card_dates(row))
+    birth_date = candidate_birth_date(row.get('date_naissance'))
+    today = paris_today()
+    age = age_on(birth_date, today) if birth_date and birth_date <= today else None
+    if birth_date:
+        row['date_naissance'] = birth_date.isoformat()
+    return render_template(
+        'candidate_sheet.html', **school_context, row=row, statuts=STATUTS, year=year,
+        candidate_age=age, current_promotion=current_promotion, available_promotions=available_promotions,
+        candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None,
+        profile_display=profile_answers(row), student_card_dates=student_card_dates(row),
+        title=person_name(row.get('nom'), row.get('prenom')) + ' · Plateforme de gestion des BTS',
+    )
 
 
 @app.get('/admin/candidat/<cid>/emails')
