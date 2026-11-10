@@ -23,10 +23,12 @@ def ask(monkeypatch, client):
         intent.update(action=action, weekdays=[], close_source=False, all_courses=False, whole_period=False)
         intent.update(fields)
 
-        def provider(key, payload):
+        def provider(key, payload, read_timeout=20):
             assert key == 'fixture-only' and not payload['store']
             assert payload['text']['format']['strict']
             data = json.loads(payload['input'])
+            if payload['text']['format']['name'] == 'planning_reponse':
+                return {'output': []}  # Exercise the verified fallback independently of writing quality.
             assert data['page']['page'] == context['page'] and data['demande']
             assert {'salles', 'promotions'} == set(data['catalogue'])
             return {'output': [{'type': 'message', 'content': [{'type': 'output_text', 'text': json.dumps(intent)}]}]}
@@ -71,7 +73,7 @@ def test_availability_question_cannot_reserve_and_checks_all_dates(ask, client, 
     res = ask('availability', ROOMS, from_date='2027-02-10', to_date='2027-03-15')
     assert res.status_code == 200 and res.json['preview_token'] is None
     assert 'Salle r1' in res.json['message'] and 'Salle r2' not in res.json['message']
-    assert '08:00–18:00' in res.json['message'] and '11/02/2027' in res.json['details'][1]
+    assert 'de 8 h à 18 h' in res.json['message'] and 'journées libres' in res.json['details'][1]
     with db() as conn:
         assert conn.execute('SELECT COUNT(*) FROM planning_room_reservations').fetchone()[0] == 1
 
@@ -237,3 +239,91 @@ def test_unsynchronized_ledger_cannot_suggest_a_free_room(client, ask, monkeypat
     assert month(client).status_code == 503
     res = ask('availability', ROOMS, from_date='2027-01-01', to_date='2027-01-31')
     assert res.status_code == 503 and 'synchronisation' in res.json['message']
+
+
+def test_screenshot_week_is_a_conversation_with_checked_facts(client, db, monkeypatch):
+    monkeypatch.setenv('OPENAI_API_KEY', 'fixture-only')
+    monkeypatch.delenv('OPENAI_PLANNING_MODEL', raising=False)
+    with db() as conn:
+        conn.execute("UPDATE planning_rooms SET name='Salle 2B' WHERE id='r1'")
+        conn.execute("UPDATE planning_rooms SET name='Atelier Modulable Paris' WHERE id='r2'")
+        conn.executemany('INSERT INTO planning_rooms VALUES(?,?,1)',
+                         [('dummy','SALLE À DÉFINIR'), ('r3','Salle 1B')])
+    reserve(client, room_id='r3', date='2027-01-07')
+    ctx = dict(page='salles')
+    messages = []
+
+    def real_contract(key, payload, read_timeout=20):
+        assert payload['model'] == 'gpt-6-astra' and payload['reasoning']['effort'] == 'low'
+        assert read_timeout >= 30 and payload['store'] is False
+        params = json.loads(payload['input'])
+        messages.append(params)
+        if payload['text']['format']['name'] == 'planning_intent':
+            assert 'dummy' not in {r['id'] for r in params['catalogue']['salles']}
+            intent = {k:None for k in language.schema()['properties']}
+            intent.update(action='availability', weekdays=[], close_source=False, all_courses=False, whole_period=False)
+            if 'suivante' in params['demande']:
+                assert params['dernier_contexte_verifie']['from_date'] == '2027-01-04'
+                assert params['dernier_contexte_verifie']['weekdays'] == [0,1,2,3,4]
+                intent.update(week_shift=1, location='Paris')
+            else:
+                intent.update(from_date='2027-01-04', to_date='2027-01-10')
+            output = intent
+        else:
+            facts = params['fragments']
+            if 'suivante' in params['demande']:
+                assert facts['periode'] == 'du lundi 11 au vendredi 15 janvier 2027'
+                assert not any('2B' in v for v in facts.values())
+                output = {'reponse':'Oui, à Paris tu peux utiliser [[salle1]] [[periode]], [[horaires]].'}
+            else:
+                assert facts['periode'] == 'du lundi 4 au vendredi 8 janvier 2027'
+                assert facts['horaires'] == 'de 8 h à 18 h'
+                assert facts['salle1'] == '**Salle 2B**'
+                assert facts['salle2'] == '**Atelier Modulable Paris**'
+                output = {'reponse':'Oui, la [[salle1]] est libre [[periode]], [[horaires]].\n\nÀ Paris, tu as aussi l’[[salle2]] sur ces horaires.'}
+        return {'status':'completed','output':[{'type':'message','content':[{'type':'output_text','text':json.dumps(output)}]}]}
+    monkeypatch.setattr(subject_references, 'provider', real_contract)
+    result = call(client, '/assistant', {'message':"Une salle de dispo la semaine du 4 janvier 2027 ?", 'context':ctx})
+    assert result.status_code == 200
+    answer = result.json
+    assert answer['message'].startswith('Oui, la **Salle 2B** est libre du lundi 4 au vendredi 8 janvier 2027')
+    assert "À Paris" in answer['message'] and '[[salle' not in answer['message']
+    assert len(answer['details']) == 3 and 'définir' not in str(answer).casefold()
+    assert answer['conversation_token'] and not answer['preview_token']
+    follow = call(client, '/assistant', {'message':'Et à Paris la semaine suivante ?', 'context':ctx,
+                                         'conversation_token':answer['conversation_token']})
+    assert follow.status_code == 200 and 'du lundi 11 au vendredi 15 janvier' in follow.json['message']
+    assert len(messages) == 4 and follow.json['preview_token'] is None
+    visible = month(client).json
+    assert 'dummy' not in {r['id'] for r in visible['rooms']}
+
+
+def test_virtual_room_is_never_recommended_and_partial_answer_gives_real_times(client, db, ask):
+    setup_school(client)
+    with db() as conn:
+        conn.execute("UPDATE planning_rooms SET name='Salle à définir' WHERE id='r2'")
+    add(client, room_id='r1', start='08:00', end='11:00')
+    read = ask('availability', ROOMS, from_date='2027-01-04', to_date='2027-01-04')
+    assert '11 h à 18 h' in read.json['message'] and 'définir' not in read.json['message']
+    assert '04/01' not in read.json['details'][0] and 'créneau libre' in read.json['details'][0]
+    assert ask('assign_room', room_id='r2').status_code == 400
+    scope = ask('promotion_rooms', ROOMS, promotion_id='p1', period_id='p1:1')
+    assert 'Salle à définir' not in scope.json['message']
+    no_site = ask('availability', ROOMS, location='Puget', from_date='2027-01-04', to_date='2027-01-04')
+    assert 'nom indique' in no_site.json['message'] and not no_site.json['preview_token']
+
+
+def test_untrusted_writer_refs_or_dates_fall_back_to_verified_answer(monkeypatch):
+    evidence = dict(fragments=dict(periode='le lundi 4 janvier', horaires='de 8 h à 18 h', salle1='Salle 2B'),
+                    obligatoires=[['periode'],['horaires'],['salle1']])
+    def provider(reply):
+        return lambda *a,**kw:{'output':[{'type':'message','content':[{'type':'output_text','text':json.dumps({'reponse':reply})}]}]}
+    for invalid in ('Cette salle est libre.', '[[periode]] [[horaires]] [[salle1]] [[inventee]]',
+                    '[[periode]] [[horaires]] [[salle1]] et la salle 9.'):
+        monkeypatch.setattr(subject_references, 'provider', provider(invalid))
+        assert language.compose('fake','question',[],evidence,'réponse vérifiée') == 'réponse vérifiée'
+
+
+def test_followup_without_a_valid_search_cannot_invent_dates_or_apply(client, ask):
+    assert ask('availability', ROOMS, week_shift=1).status_code == 400
+    assert ask('remove_courses', PLAN, week_shift=1, all_courses=True).status_code == 400

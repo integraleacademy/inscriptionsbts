@@ -1,5 +1,5 @@
 <dialog class="planning-tool chat-tool" id="planning-assistant" data-page="{{ assistant_page }}" data-csrf="{{ planning_csrf_token|default(csrf_token, true) }}" aria-labelledby="planning-chat-title">
-  <header class="tool-heading"><div class="chat-heading"><span class="chat-icon">{{ icon('chat') }}</span><div><h2 id="planning-chat-title">Assistant {{ 'salles' if assistant_page == 'salles' else 'planning' }} IA</h2><p id="planning-chat-scope"></p></div></div><button class="tool-close" type="button" aria-label="Fermer le tchat">×</button></header>
+  <header class="tool-heading"><div class="chat-heading"><span class="chat-icon">{{ icon('chat') }}</span><div><h2 id="planning-chat-title">Assistant {{ 'salles' if assistant_page == 'salles' else 'planning' }} IA</h2><p><span class="chat-model">{{ 'GPT-6 Astra' if planning_chat_model == 'gpt-6-astra' else planning_chat_model }}</span><span aria-hidden="true"> · </span><span id="planning-chat-scope"></span></p></div></div><button class="tool-close" type="button" aria-label="Fermer le tchat">×</button></header>
   <div class="chat-scroll">
     <div id="planning-chat-intro"><p>Que souhaitez-vous organiser ?</p><div class="chat-examples">
       {% if assistant_page == 'salles' %}

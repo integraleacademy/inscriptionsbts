@@ -181,7 +181,7 @@ def api_key(app, conn):
     raise PlanningError('Renseignez votre clé API dans Paramètres → OpenAI pour rechercher et analyser les référentiels.', status=503)
 
 
-def provider(key, method='POST', response_id=None, payload=None):
+def provider(key, method='POST', response_id=None, payload=None, *, read_timeout=20):
     """Fixed provider origin, bounded time, no credentials/provider bodies in errors."""
     from planning import PlanningError
     if response_id and not re.fullmatch(r'resp_[A-Za-z0-9_-]{1,200}', response_id):
@@ -191,9 +191,16 @@ def provider(key, method='POST', response_id=None, payload=None):
             headers={'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json'},
             # include on creation does not carry over to a retrieval request.
             params={'include[]': 'web_search_call.action.sources'} if method == 'GET' else None,
-            json=payload, timeout=(5, 20), allow_redirects=False)
+            json=payload, timeout=(5, read_timeout), allow_redirects=False)
     except requests.RequestException:
         raise PlanningError('OpenAI ne répond pas pour le moment. Réessayez dans quelques instants.', status=502)
+    if response.status_code in (400, 403, 404) and isinstance(payload, dict) and payload.get('model'):
+        try:
+            code = response.json()['error']['code']
+        except (TypeError, KeyError, ValueError):
+            code = None
+        if code == 'model_not_found':
+            raise PlanningError(f"Le projet OpenAI associé à cette clé ne donne pas accès au modèle {payload['model']}.", status=502)
     if response.status_code in (401, 403):
         raise PlanningError('OpenAI refuse l’accès. Vérifiez la clé API et les autorisations du projet dans Paramètres → OpenAI.', status=502)
     if response.status_code == 429:

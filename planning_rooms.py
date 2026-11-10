@@ -13,6 +13,8 @@ import os
 import secrets
 from urllib.parse import quote
 
+from planning_import_pdf import normal
+
 import requests
 from flask import request, session, abort, g, has_request_context
 from itsdangerous import BadSignature, SignatureExpired
@@ -120,6 +122,18 @@ def room_conflicts(conn, course, exclude_owner=None, include_courses=False, excl
                          ' · ' + _clock(c['start_min']) + '–' + _clock(c['end_min'])) for c in rows if overlap(course, c)]
 
 
+def is_physical_room(name):
+    # Legacy session imports sometimes registered a pending assignment as a room.
+    label = normal(name)
+    if label.startswith('salle '):
+        label = label[6:]
+    return bool(label) and label not in {
+        'a definir', 'a affecter', 'a attribuer', 'a determiner', 'a preciser', 'a confirmer',
+        'sans salle', 'sans salle attribuee', 'non attribuee', 'non affectee', 'non definie',
+        'non renseignee', 'en attente d affectation',
+    }
+
+
 def available_rooms(conn, courses):
     """Rooms free for every selected slot, excluding only those bookings."""
     from planning import PlanningError
@@ -143,7 +157,7 @@ def available_rooms(conn, courses):
     occupied = {b['room_id'] for b in bookings if b.get('room_id') and any(
         c['start_min'] < b['end_min'] and c['end_min'] > b['start_min'] for c in by_day.get(b['date'], []))}
     return [dict(r) for r in conn.execute('SELECT id,name FROM planning_rooms WHERE active=1 ORDER BY name')
-            if r['id'] not in occupied]
+            if r['id'] not in occupied and is_physical_room(r['name'])]
 
 
 def room_used(conn, room_id):

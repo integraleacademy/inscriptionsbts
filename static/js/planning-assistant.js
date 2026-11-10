@@ -4,7 +4,7 @@
   if (!dialog) return;
   const log = $('planning-chat-history'), form = $('planning-chat-form'), field = $('planning-chat-message');
   const intro = $('planning-chat-intro'), status = $('planning-chat-status'), scroll = dialog.querySelector('.chat-scroll');
-  let conversation = [], activeButton = null, busy = false, lastContext = '';
+  let conversationToken = null, conversation = [], activeButton = null, busy = false, lastContext = '';
   function context() {
     const isPlanning = dialog.dataset.page === 'planning';
     return {page:dialog.dataset.page, promotion_id:isPlanning ? $('planning-promotion')?.value || null : null,
@@ -22,7 +22,16 @@
   }
   function bubble(role, message) {
     const card = node('div', undefined, 'chat-turn ' + role);
-    card.append(node('p', message));
+    // Render emphasis and paragraph breaks only. All model and catalogue text stays in text nodes.
+    for (const paragraph of message.split(/\n\s*\n/)) {
+      const line = node('p');
+      if (role === 'user') line.textContent = paragraph;
+      else for (const part of paragraph.split(/(\*\*[^*\n]+\*\*)/g)) {
+        if (part.startsWith('**') && part.endsWith('**')) line.append(node('strong', part.slice(2, -2)));
+        else line.append(document.createTextNode(part));
+      }
+      card.append(line);
+    }
     log.append(card);
     intro.hidden = true;
     scroll.scrollTop = scroll.scrollHeight;
@@ -51,15 +60,16 @@
     return answer;
   }
   function renderAnswer(answer, scope) {
+    conversationToken = answer.conversation_token || null;
     const card = bubble('assistant', answer.message);
     record('assistant', answer.message);
     if (answer.details?.length) {
       const details = node('details'), list = node('ul');
-      details.append(node('summary', 'Voir le détail (' + answer.details.length + ')'));
+      details.append(node('summary', (answer.detail_label || 'Voir le détail') + ' (' + answer.details.length + ')'));
       for (const line of answer.details) list.append(node('li', line));
       details.append(list);
       card.append(details);
-      details.open = answer.details.length <= 5;
+      details.open = false;
     }
     if (answer.warning) card.append(node('p', answer.warning, 'chat-warning'));
     if (answer.preview_token) {
@@ -76,6 +86,7 @@
         try {
           const saved = await request('/confirmer', {preview_token:answer.preview_token, context:scope});
           resetProposal();
+          conversationToken = null;
           bubble('assistant', saved.message);
           record('assistant', saved.message);
           window.dispatchEvent(new CustomEvent('academy:rooms-changed', {detail:{origin:'assistant'}}));
@@ -96,9 +107,9 @@
     resetProposal();
     field.value = '';
     bubble('user', message); record('user', message);
-    working(true, 'Lecture de votre demande…');
+    working(true, 'Je consulte le planning…');
     try {
-      const answer = await request('', {message, history, context:scope});
+      const answer = await request('', {message, history, context:scope, conversation_token:conversationToken});
       if (JSON.stringify(context()) !== JSON.stringify(scope)) throw new Error('Le planning affiché a changé. Relancez la demande.');
       renderAnswer(answer, scope);
     } catch (error) {
@@ -120,7 +131,7 @@
   for (const button of document.querySelectorAll('[data-open-planning-chat]')) {
     button.addEventListener('click', () => {
       const scope = context(), key = JSON.stringify(scope);
-      if (key !== lastContext) { log.replaceChildren(); conversation = []; resetProposal(); intro.hidden = false; field.value = ''; lastContext = key; }
+      if (key !== lastContext) { log.replaceChildren(); conversation = []; conversationToken = null; resetProposal(); intro.hidden = false; field.value = ''; lastContext = key; }
       const scopeLabel = [$('planning-promotion')?.selectedOptions[0]?.textContent,
         $('planning-school-year')?.selectedOptions[0]?.textContent].filter(Boolean).join(' · ');
       $('planning-chat-scope').textContent = scope.promotion_id ? scopeLabel :

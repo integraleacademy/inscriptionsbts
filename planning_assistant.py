@@ -1,14 +1,11 @@
 """Session-bound, reviewable admin operations on the authoritative planning data."""
 from collections import defaultdict
 from contextlib import closing
-from dataclasses import dataclass, field
 from datetime import date, timedelta
 import hashlib
-import json
-import re
+import os
 import secrets
 import time
-import unicodedata
 
 from itsdangerous import BadData
 import planning_assistant_language as language
@@ -18,22 +15,11 @@ import subject_references
 from planning import (PlanningError, _budget_minutes, _clock, _conflicts, _course, _iso, _load_courses,
                       _minutes, _promotion, _subject_minutes, remove_promotion_courses)
 from planning_room_calendar import apply_room_moves
-from planning_rooms import available_rooms, configured
+from planning_rooms import available_rooms, configured, is_physical_room
+from planning_import_pdf import normal
+from planning_assistant_replies import Answer, at_location, availability_answer, joined, room_options
 
 DAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
-
-
-@dataclass
-class Answer:
-    message: str
-    details: list = field(default_factory=list)
-    stamps: list = field(default_factory=list)
-    confirm_label: str = ''
-    apply: object = None
-
-    def digest(self):
-        data = [self.message, self.details, self.stamps, self.confirm_label]
-        return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
 def french(day):
@@ -53,6 +39,8 @@ def room(conn, rid, label):
     row = conn.execute('SELECT * FROM planning_rooms WHERE id=?', (rid,)).fetchone()
     if not row:
         raise PlanningError('Précisez ' + label + ' avec son nom dans le répertoire.')
+    if not is_physical_room(row['name']):
+        raise PlanningError(f"« {row['name']} » indique une affectation en attente. Choisissez une salle du répertoire.")
     if not row['active']:
         raise PlanningError(f"{row['name']} est inactive. Choisissez une salle active.")
     return dict(row)
@@ -151,25 +139,7 @@ def check_availability(conn, intent):
     if intent['room_id']:
         chosen = room(conn, intent['room_id'], 'la salle à vérifier')
         rooms = [r for r in rooms if r['id'] == chosen['id']]
-    free = [r['name'] for r in rooms if r['free_days'] == len(dates)]
-    days = ', '.join(DAY_NAMES[d] for d in data['weekdays'])
-    if len(free) == 1:
-        summary = f"{free[0]} est libre sur tous les créneaux."
-    elif free:
-        summary = ', '.join(free) + ' sont libres sur tous les créneaux.'
-    else:
-        summary = 'Aucune salle libre sur la totalité des créneaux demandés.'
-    details = []
-    for r in sorted(rooms, key=lambda r: -r['free_days']):
-        other = [french(d) for d in dates if r['days'][d]['state'] != 'free']
-        details.append(f"{r['name']} · {r['free_days']}/{len(dates)} jours entièrement libres" +
-                       (' · occupation le ' + ', '.join(other) if other else ''))
-    return Answer(f"{summary}\nPériode vérifiée {interval(data['first'], data['last'])}, {data['start']}–{data['end']} · {days}.", details)
-
-
-def normal(value):
-    folded = unicodedata.normalize('NFKD', value.casefold())
-    return ' '.join(re.findall(r'[a-z0-9]+', ''.join(c for c in folded if not unicodedata.combining(c))))
+    return availability_answer(data, at_location(rooms, intent.get('location')), intent.get('location'))
 
 
 def resolve_course_filter(courses, value, id_key, name_key, label):
@@ -276,7 +246,7 @@ def move_courses(conn, intent, period, rows, scope, persist):
             persist(conn, new, old['id'])
         return f"Déplacement enregistré pour {len(proposals)} cours."
 
-    return Answer(scope + f"\nDéplacer {len(proposals)} cours.", details, [[c['id'], c['version']] for c in rows],
+    return Answer(f"Je peux déplacer {len(proposals)} cours. Voici les séances à vérifier avant de confirmer.\n{scope}", details, [[c['id'], c['version']] for c in rows],
                   'Confirmer le déplacement', apply)
 
 
@@ -295,7 +265,14 @@ def course_action(conn, intent, context, persist):
     if not rows:
         return Answer(scope + '\nAucun cours programmé ne correspond à ces critères.')
     if action == 'list_courses':
-        return Answer(scope + f"\nNombre de cours programmés · {len(rows)}", [course_label(c) for c in rows])
+        details = [course_label(c) for c in rows]
+        title = f"J’ai trouvé {len(rows)} cours pour cette sélection."
+        fragments = dict(groupe=_promotion(conn, period['promotion_id'])['nom'], nombre=f'{len(rows)} cours',
+                         periode=scope.rsplit(' · ', 1)[-1])
+        for i, line in enumerate(details[:5], 1):
+            fragments[f'cours{i}'] = line
+        return Answer(title + '\n' + scope, details, evidence=dict(resultat='Cours confirmés du planning dans l’ordre chronologique.',
+                      fragments=fragments, obligatoires=[['groupe'], ['nombre'], ['periode']]))
     if (action in ('remove_courses', 'move_courses') and len(rows) > 1 and intent['from_date']
             and intent['from_date'] == intent['to_date'] and not intent['all_courses']):
         return Answer(f"{scope}\nPlusieurs cours correspondent ce jour-là. Précisez l’horaire ou indiquez que la demande concerne tous ces cours.",
@@ -308,21 +285,35 @@ def course_action(conn, intent, context, persist):
             shared = remove_promotion_courses(conn, rows, period['promotion_id'])
             return f"Suppression enregistrée pour {len(rows)} cours de cette promotion." + (f" Les autres promotions gardent leurs cours en commun ({shared})." if shared else '')
         shared = sum(c['is_shared'] for c in rows)
-        message = scope + f"\nRetirer {len(rows)} cours de cette promotion."
+        message = f"Je peux retirer {len(rows)} cours du planning de cette promotion.\n{scope}."
         if shared:
             message += f" Les autres promotions garderont leurs cours partagés ({shared})."
         return Answer(message, [course_label(c) for c in rows], stamps, 'Confirmer la suppression', apply)
 
-    choices = available_rooms(conn, rows)
+    choices = room_options(at_location(available_rooms(conn, rows), intent.get('location')))
     names = ', '.join(r['name'] for r in choices) or 'Aucune salle commune à ces créneaux'
     if action == 'promotion_rooms' and intent['room_id']:
         chosen = room(conn, intent['room_id'], 'la salle à vérifier')
+        if not at_location([chosen], intent.get('location')):
+            return Answer(f"Le nom de {chosen['name']} ne précise pas le site demandé. Voulez-vous vérifier cette salle sur les créneaux de la promotion ?")
         possible = chosen['id'] in {r['id'] for r in choices}
         message = (f"{chosen['name']} peut accueillir les {len(rows)} cours." if possible else
                    f"{chosen['name']} ne peut pas accueillir tous les cours. Autres possibilités : {names}.")
         return Answer(scope + '\n' + message, [course_label(c) for c in rows])
     if action == 'promotion_rooms':
-        return Answer(f"{scope}\nSalles disponibles pour les {len(rows)} cours : {names}.", [course_label(c) for c in rows])
+        if not choices:
+            suffix = f" dont le nom indique « {intent['location']} »" if intent.get('location') else ''
+            return Answer(f"Je ne trouve aucune salle{suffix} qui soit libre pour tous les cours de cette promotion. "
+                          "Tu peux préciser une période plus courte.", [course_label(c) for c in rows])
+        fragments = {'groupe': _promotion(conn, period['promotion_id'])['nom'], 'cours': f"{len(rows)} cours"}
+        for i, choice in enumerate(choices[:8], 1):
+            fragments[f'salle{i}'] = f"**{choice['name']}**"
+        refs = [k for k in fragments if k.startswith('salle')]
+        facts = dict(resultat='Les salles indiquées sont libres sur tous les cours de la sélection.', fragments=fragments,
+                     obligatoires=[['groupe'], ['cours'], refs])
+        names = joined([r['name'] for r in choices])
+        return Answer(f"Pour les {len(rows)} cours de {fragments['groupe']}, tu peux choisir {names}.",
+                      [course_label(c) for c in rows], evidence=facts)
     target = room(conn, intent['room_id'], 'la salle à affecter')
     if target['id'] not in {r['id'] for r in choices}:
         return Answer(f"{scope}\n{target['name']} ne peut pas accueillir tous les cours. Autres possibilités : {names}.")
@@ -345,13 +336,15 @@ def build(conn, intent, context, persist):
     if action == 'replace_room':
         allowed.update(('source_room_id', 'room_id', 'close_source'))
     elif action == 'availability':
-        allowed.update(('room_id', 'start', 'end', 'weekdays'))
+        allowed.update(('room_id', 'location', 'start', 'end', 'weekdays'))
     else:
         allowed.update(('subject', 'trainer', 'start', 'end', 'weekdays', 'whole_period', 'all_courses'))
         if action == 'move_courses':
             allowed.update(('new_start', 'new_end', 'new_date', 'new_weekday'))
         if action in ('assign_room', 'promotion_rooms'):
             allowed.add('room_id')
+        if action == 'promotion_rooms':
+            allowed.add('location')
     if action not in ('availability', 'replace_room'):
         allowed.update(('promotion_id', 'period_id'))
     fields = set(intent) - allowed - {'action', 'question'}
@@ -377,9 +370,46 @@ def page_context(data):
     return result
 
 
+def resolve_relative_week(intent, previous):
+    shift = intent.get('week_shift')
+    if shift is None:
+        return intent
+    if intent['action'] != 'availability' or not previous or previous.get('action') != 'availability':
+        raise PlanningError('De quelle semaine souhaitez-vous partir ? Indiquez une date pour vérifier les salles.')
+    ref = _iso(previous['to_date'] if shift > 0 else previous['from_date'])
+    try:
+        monday = ref + timedelta(days=7*shift - ref.weekday())
+        sunday = monday + timedelta(days=6)
+    except OverflowError:
+        raise PlanningError('Cette semaine dépasse les dates prises en charge.') from None
+    return dict(intent, from_date=monday.isoformat(), to_date=sunday.isoformat(), week_shift=None)
+
+
 def register(app, connect, guard, body, result, fail, transact, csrf, serializer, persist):
+    revision = os.getenv('RENDER_GIT_COMMIT')
+    if revision and revision == os.getenv('PLANNING_CHAT_VERIFY_COMMIT'):
+        from scripts.check_planning_chat import start_release_check
+        start_release_check(app, connect, revision)
+
     def binding():
         return hashlib.sha256(csrf().encode()).hexdigest()
+
+    def previous_search(data, context):
+        token = data.get('conversation_token')
+        if not isinstance(token, str) or len(token) > 12000:
+            return None
+        try:
+            state = serializer.loads(token, max_age=4*3600)
+        except BadData:
+            return None
+        if (isinstance(state, dict) and state.get('action') == 'planning_conversation'
+                and state.get('binding') == binding() and state.get('context') == context):
+            return state.get('search')
+        return None
+
+    @app.context_processor
+    def planning_chat_model():
+        return dict(planning_chat_model=language.model_name())
 
     @app.post('/admin/planning/api/assistant')
     def ask_planning_assistant():
@@ -395,6 +425,8 @@ def register(app, connect, guard, body, result, fail, transact, csrf, serializer
                 not isinstance(item, dict) or item.get('role') not in ('user', 'assistant') or
                 not isinstance(item.get('text'), str) or len(item['text']) > 3000 for item in history):
                 raise PlanningError('La conversation est trop longue. Commencez une nouvelle demande.')
+            history = [{'role': item['role'], 'text': item['text']} for item in history]
+            previous = previous_search(data, context)
             with closing(connect()) as conn:
                 if not subject_references.key_configured(conn):
                     raise PlanningError('Pour activer le tchat, ajoutez la clé OpenAI dans Paramètres → OpenAI.', status=503)
@@ -409,7 +441,8 @@ def register(app, connect, guard, body, result, fail, transact, csrf, serializer
                     raise PlanningError('Vous avez atteint 40 demandes en 10 minutes. Réessayez dans quelques instants.', status=429)
                 conn.execute('INSERT INTO planning_assistant_usage VALUES(?,?)', (binding(), now))
                 conn.commit()
-            intent = language.interpret(key, message.strip(), history, inventory, context)
+            intent = language.interpret(key, message.strip(), history, inventory, context, previous)
+            intent = resolve_relative_week(intent, previous)
             with closing(connect()) as conn:
                 conn.execute('BEGIN')
                 answer = build(conn, intent, context, persist)
@@ -419,8 +452,19 @@ def register(app, connect, guard, body, result, fail, transact, csrf, serializer
             if answer.apply:
                 token = serializer.dumps(dict(action='planning_assistant', binding=binding(), intent=intent,
                                               context=context, digest=answer.digest()))
-            return result(message=answer.message, details=answer.details, warning=warning, preview_token=token,
-                          confirm_label=answer.confirm_label)
+            # The editorial pass uses a finished read-only snapshot and cannot influence any mutation.
+            reply = language.compose(key, message, history, answer.evidence, answer.message) if answer.evidence else answer.message
+            search = previous if intent['action'] == 'clarify' else None
+            if intent['action'] in ('availability', 'promotion_rooms', 'list_courses'):
+                search = {k: v for k, v in intent.items() if v and k != 'question'}
+                search['derniere_reponse'] = reply[:1400]
+                if intent['action'] == 'availability':
+                    search.update(weekdays=intent['weekdays'] or room_view.SCHOOL_DAYS,
+                                  start=intent['start'] or '08:00', end=intent['end'] or '18:00')
+            conversation_token = (serializer.dumps(dict(action='planning_conversation', binding=binding(),
+                                  context=context, search=search)) if search else None)
+            return result(message=reply, details=answer.details, detail_label=answer.detail_label, warning=warning,
+                          preview_token=token, confirm_label=answer.confirm_label, conversation_token=conversation_token)
         except PlanningError as error:
             return fail(error)
 

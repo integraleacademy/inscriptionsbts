@@ -57,12 +57,15 @@
 .chat-examples button { text-align:left; background:var(--wash); border:1px solid var(--line); border-radius:10px; padding:9px 12px; }
 .chat-examples button:hover, .month-nav button:hover { border-color:var(--green); }
 .chat-turn { max-width:94%; padding:11px 14px; border-radius:12px; background:var(--wash); margin:10px 0; overflow-wrap:anywhere; }
+.chat-turn.assistant { max-width:100%; padding:12px 2px; background:transparent; line-height:1.65; }
+.chat-turn.assistant p + p { margin-top:.7em; }
+.chat-turn.assistant strong,.chat-model { font-weight:700; }
 .chat-turn.user { margin-left:auto; background:#e4eee7; }
 .chat-turn p { white-space:pre-line; margin:0; }
 .chat-turn details { margin:9px 0; }
-.chat-turn ul { margin:8px 0; padding-left:18px; max-height:220px; overflow:auto; }
+.chat-turn ul { margin:8px 0; padding-left:18px; }
 .chat-turn li { margin-bottom:5px; }
-.chat-turn summary { cursor:pointer; font-weight:650; }
+.chat-turn summary { cursor:pointer; color:var(--green); font-size:13px; font-weight:650; }
 .chat-turn .chat-warning { color:#7a5015; margin-top:8px; font-size:12px; }
 .chat-composer { padding:14px 20px; border-top:1px solid var(--line); display:grid; grid-template-columns:1fr auto; gap:7px 10px; align-items:center; }
 .chat-composer textarea { width:100%; min-width:0; border:1px solid var(--line); padding:9px 11px; border-radius:9px; resize:vertical; max-height:120px; }
