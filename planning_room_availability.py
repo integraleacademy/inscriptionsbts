@@ -7,7 +7,7 @@ from flask import request
 
 from planning import PlanningError, _clock, _dates, _minutes, _range, _weekdays
 from planning_room_calendar import reservation_slots
-from planning_rooms import configured, external_slots, ready
+from planning_rooms import configured, external_slots, is_physical_room, ready
 
 OPEN_END = date.max.isoformat()
 SCHOOL_DAYS = [0, 1, 2, 3, 4]
@@ -59,7 +59,8 @@ def availability(conn, first, last, start='08:00', end='18:00', weekdays=None):
     if left >= right:
         raise PlanningError('L’heure de fin doit suivre l’heure de début.')
     dates = [d.isoformat() for d in _dates(first_day, last_day) if d.weekday() in days]
-    rooms = [dict(r) for r in conn.execute('SELECT id,name,active FROM planning_rooms ORDER BY name COLLATE NOCASE,id')]
+    rooms = [dict(r) for r in conn.execute('SELECT id,name,active FROM planning_rooms ORDER BY name COLLATE NOCASE,id')
+             if is_physical_room(r['name'])]
     occupied = defaultdict(list)
     for slot in bookings(conn, first, last):
         occupied[slot['room_id'], slot['date']].append((slot['start_min'], slot['end_min']))

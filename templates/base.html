@@ -74,7 +74,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   {% if request.endpoint == 'admin_trainer_detail' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-admin-planning.css') }}?v=4">{% endif %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/academy-vibrant.css') }}?v=1">
   {% if is_company_space and not is_company_auth %}<link rel="stylesheet" href="{{ url_for('static', filename='css/company-space.css') }}?v=2">{% endif %}
-  {% if request.path in ('/admin/planning', '/admin/salles') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-tools.css') }}?v=1">{% endif %}
+  {% if request.path in ('/admin/planning', '/admin/salles') %}<link rel="stylesheet" href="{{ url_for('static', filename='css/planning-tools.css') }}?v=2">{% endif %}
   {% block page_styles %}{% endblock %}
   {% if is_trainer_portal %}<link rel="stylesheet" href="{{ url_for('static', filename='css/trainer-portal.css') }}?v=1">{% endif %}
   {% if has_student_navigation %}<link rel="stylesheet" href="{{ url_for('static', filename='css/student-workspace.css') }}?v=6">{% endif %}
@@ -138,7 +138,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   <footer class="footer-signature"><span>Intégrale Academy · Puget-sur-Argens, Côte d’Azur</span><a href="https://integraleacademy.com" target="_blank" rel="noopener">integraleacademy.com</a>{% if not is_trainer_space and not is_admin and not has_student_navigation %}<a href="/formateur/connexion">Espace formateur</a>{% endif %}<small>Une école Intégrale Group</small></footer>
   <script src="{{ url_for('static', filename='js/workspace-shell.js') }}?v=2" defer></script>
   <script src="{{ url_for('static', filename='js/academy-header.js') }}?v=2" defer></script>
-  {% if request.path in ('/admin/planning', '/admin/salles') %}<script src="{{ url_for('static', filename='js/planning-assistant.js') }}?v=1" defer></script>{% endif %}
+  {% if request.path in ('/admin/planning', '/admin/salles') %}<script src="{{ url_for('static', filename='js/planning-assistant.js') }}?v=2" defer></script>{% endif %}
   {% if request.path == '/admin/salles' %}<script src="{{ url_for('static', filename='js/room-month.js') }}?v=1" defer></script>{% endif %}
   {% if is_planning_admin %}
     <script src="{{ url_for('static', filename='js/planning.js') }}?v=16" defer></script>
