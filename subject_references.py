@@ -163,6 +163,10 @@ def cipher(app):
     return Fernet(base64.urlsafe_b64encode(hashlib.sha256(b'bts-reference-api-key-v1\0' + raw).digest()))
 
 
+def key_configured(conn):
+    return bool(os.environ.get('OPENAI_API_KEY', '').strip()) or bool(conn.execute("SELECT 1 FROM planning_reference_settings WHERE name='openai_key'").fetchone())
+
+
 def api_key(app, conn):
     from planning import PlanningError
     key = os.environ.get('OPENAI_API_KEY', '').strip()
@@ -404,7 +408,7 @@ def register(app, connect, guard, body, result, fail, transact):
                 elif request.method == 'DELETE':
                     conn.execute("DELETE FROM planning_reference_settings WHERE name='openai_key'")
                     conn.commit()
-                configured = bool(os.environ.get('OPENAI_API_KEY', '').strip()) or bool(conn.execute("SELECT 1 FROM planning_reference_settings WHERE name='openai_key'").fetchone())
+                configured = key_configured(conn)
                 return result(configured=configured, managed_by_server=bool(os.environ.get('OPENAI_API_KEY', '').strip()),
                     bts_options=BTS_LABELS, suggested_urls={'MOS': MOS_URL})
         except PlanningError as error:

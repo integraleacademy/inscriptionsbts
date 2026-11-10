@@ -403,11 +403,14 @@
     $('rooms-unavailable-delete').hidden = !block;
     roomOptions(blockForm.elements.room_id, block?.room_id || '');
     blockForm.elements.start_date.value = block?.start_date || $('rooms-date').value;
-    blockForm.elements.end_date.value = block?.end_date || blockForm.elements.start_date.value;
+    blockForm.elements.no_end.checked = block?.end_date === '9999-12-31';
+    blockForm.elements.end_date.value = block && !blockForm.elements.no_end.checked ? block.end_date : blockForm.elements.start_date.value;
+    blockForm.elements.end_date.disabled = blockForm.elements.no_end.checked;
     blockForm.elements.all_day.checked = !block || (block.start === '00:00' && block.end === '24:00');
     if (block) { blockForm.elements.start.value = block.start; blockForm.elements.end.value = block.end === '24:00' ? '23:59' : block.end; blockForm.elements.reason.value = block.reason; }
     blockTimes(); show(blockDialog);
   }
+  blockForm.elements.no_end.addEventListener('change', () => { blockForm.elements.end_date.disabled = blockForm.elements.no_end.checked; });
   blockForm.elements.all_day.addEventListener('change', blockTimes);
   blockForm.elements.start_date.addEventListener('input', () => { if (blockForm.elements.end_date.value < blockForm.elements.start_date.value) blockForm.elements.end_date.value = blockForm.elements.start_date.value; });
   $('rooms-unavailable-add').addEventListener('click', () => openBlock());
@@ -416,7 +419,7 @@
     dialogWork(blockDialog, 'rooms-unavailable-error', async () => {
       const f = blockForm.elements;
       await request('/unavailability' + (editingBlock ? '/' + encodeURIComponent(editingBlock.id) : ''), {
-        room_id: f.room_id.value, start_date: f.start_date.value, end_date: f.end_date.value, reason: f.reason.value,
+        room_id: f.room_id.value, start_date: f.start_date.value, end_date: f.end_date.value, no_end: f.no_end.checked, reason: f.reason.value,
         start: f.all_day.checked ? '00:00' : f.start.value, end: f.all_day.checked ? '24:00' : f.end.value, version: editingBlock?.version
       }, editingBlock ? 'PUT' : 'POST');
       blockDialog.close(); changed();

@@ -65,6 +65,19 @@ def snapshot(conn,start,end):
                 unassigned_count=unassigned,unassigned_sessions=to_assign)
 
 
+def apply_room_moves(conn, selected, rid):
+    owners=set();now=datetime.now(timezone.utc).isoformat()
+    for row in selected:
+        if row['source']=='session':
+            conn.execute('INSERT INTO planning_room_overrides(owner,slot_key,room_id) VALUES(?,?,?) ON CONFLICT(owner,slot_key) DO UPDATE SET room_id=excluded.room_id',
+                         (row['owner'],row['slot_key'],rid));owners.add(row['owner'])
+        elif row['source']=='reservation':
+            conn.execute('UPDATE planning_room_reservations SET room_id=?,version=version+1,updated_at=? WHERE id=?',(rid,now,row['id']))
+        else:
+            conn.execute('UPDATE planning_courses SET room_id=?,version=version+1,updated_at=? WHERE id=?',(rid,now,row['id']))
+    for owner in owners:conn.execute('UPDATE planning_room_owners SET room_version=room_version+1 WHERE owner=?',(owner,))
+
+
 def register(app,connect,guard,result,fail,transact):
     from planning import PlanningError, _iso, _minutes
     from planning_rooms import overlap, ready
@@ -111,16 +124,7 @@ def register(app,connect,guard,result,fail,transact):
                 selected.append(dict(row,room_id=rid))
             issues=issues_for(selected,[r for r in all_rows if r['key'] not in keys])
             if issues:raise PlanningError('Aucune salle modifiée : la sélection comporte un conflit.',issues,409)
-            owners=set();now=datetime.now(timezone.utc).isoformat()
-            for row in selected:
-                if row['source']=='session':
-                    conn.execute('INSERT INTO planning_room_overrides(owner,slot_key,room_id) VALUES(?,?,?) ON CONFLICT(owner,slot_key) DO UPDATE SET room_id=excluded.room_id',
-                                 (row['owner'],row['slot_key'],rid));owners.add(row['owner'])
-                elif row['source']=='reservation':
-                    conn.execute('UPDATE planning_room_reservations SET room_id=?,version=version+1,updated_at=? WHERE id=?',(rid,now,row['id']))
-                else:
-                    conn.execute('UPDATE planning_courses SET room_id=?,version=version+1,updated_at=? WHERE id=?',(rid,now,row['id']))
-            for owner in owners:conn.execute('UPDATE planning_room_owners SET room_version=room_version+1 WHERE owner=?',(owner,))
+            apply_room_moves(conn, selected, rid)
             return dict(count=len(selected),message='La salle a été modifiée pour tous les créneaux sélectionnés.')
         return transact(operation)
 
@@ -170,16 +174,22 @@ def register(app,connect,guard,result,fail,transact):
                 conn.execute('DELETE FROM planning_room_unavailability WHERE id=?',(block_id,))
                 return dict(message='L’indisponibilité a été supprimée.')
             rid=room(conn,payload.get('room_id'))
-            first,last=_iso(payload.get('start_date')),_iso(payload.get('end_date'))
-            if not 0<=(last-first).days<366:raise PlanningError('Choisissez une période de 366 jours au maximum.')
+            from planning_room_availability import OPEN_END, bookings, closures
+            first = _iso(payload.get('start_date'))
+            indefinite = payload.get('no_end') is True
+            last = _iso(OPEN_END if indefinite else payload.get('end_date'))
+            if not indefinite and not 0 <= (last-first).days < 366:raise PlanningError('Choisissez une période de 366 jours au maximum.')
             start,end=_minutes(payload.get('start','00:00')),_minutes(payload.get('end','24:00'),True)
             if start>=end:raise PlanningError('L’heure de fin doit suivre l’heure de début.')
             reason=payload.get('reason')
             if not isinstance(reason,str) or not 1<=len(reason.strip())<=200:raise PlanningError('Indiquez un motif de 1 à 200 caractères.')
-            proposed=[dict(room_id=rid,date=(first+timedelta(days=i)).isoformat(),start_min=start,end_min=end,title=reason.strip()) for i in range((last-first).days+1)]
-            others=[r for r in snapshot(conn,first.isoformat(),last.isoformat())['reservations'] if not (r['source']=='unavailable' and r['id']==block_id)]
-            issues=issues_for(proposed,others)
-            if issues:raise PlanningError('La salle est déjà réservée. Réaffectez ces créneaux avant de la rendre indisponible.',issues,409)
+            bounds = (first.isoformat(), last.isoformat())
+            others = [r for r in bookings(conn, *bounds) if r['room_id'] == rid]
+            others += [r for r in closures(conn, *bounds) if r['room_id'] == rid and r['id'] != block_id]
+            issues = [dict(type='room', date=r.get('date') or max(bounds[0], r['start_date']),
+                           message=r.get('title') or r.get('reason') or 'Salle déjà réservée')
+                      for r in others if start < r['end_min'] and end > r['start_min']]
+            if issues:raise PlanningError('La salle est déjà réservée. Réaffectez ces créneaux avant de la rendre indisponible.',issues[:80],409)
             values=(rid,first.isoformat(),last.isoformat(),start,end,reason.strip())
             if existing:
                 conn.execute('UPDATE planning_room_unavailability SET room_id=?,start_date=?,end_date=?,start_min=?,end_min=?,reason=?,version=version+1 WHERE id=?',(*values,block_id))

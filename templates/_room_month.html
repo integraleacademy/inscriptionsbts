@@ -1,0 +1,24 @@
+<dialog class="planning-tool month-tool" id="room-month" aria-labelledby="room-month-title">
+  <header class="tool-heading"><div><h2 id="room-month-title">Disponibilités des salles</h2><p>Choisissez un mois, puis un jour pour voir les horaires libres de chaque salle.</p></div><button class="tool-close" type="button" aria-label="Fermer les disponibilités">×</button></header>
+  <div class="month-controls">
+    <div class="month-nav"><button type="button" id="room-month-prev" aria-label="Mois précédent">‹</button><label><span class="sr-only">Mois à consulter</span><input type="month" id="room-month-value" required></label><button type="button" id="room-month-next" aria-label="Mois suivant">›</button></div>
+    <label>De <input type="time" id="room-month-start" value="08:00" required></label>
+    <label>À <input type="time" id="room-month-end" value="18:00" required></label>
+    <label class="tool-check"><input type="checkbox" id="room-month-weekends"> Week-ends inclus</label>
+  </div>
+  <div class="month-scroll">
+    <p class="tool-status" id="room-month-status" role="status"></p>
+    <button type="button" class="tool-primary" id="room-month-retry" hidden>Réessayer</button>
+    <div id="room-month-results" hidden>
+      <div class="month-summary"><span class="month-summary-icon" aria-hidden="true">{{ icon('check') }}</span><div><strong>Libres sur toute la période</strong><p id="room-month-free"></p></div></div>
+      <div class="month-layout">
+        <section aria-label="Jours du mois"><h3 id="room-month-heading"></h3>
+          <div class="month-weekdays" aria-hidden="true">{% for day in ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'] %}<span>{{ day }}</span>{% endfor %}</div>
+          <div class="month-grid" id="room-month-days"></div>
+          <div class="month-legend"><span><i class="free"></i>Libre sur tout le créneau</span><span><i class="partial"></i>Libre en partie</span><span><i class="busy"></i>Indisponible</span></div>
+        </section>
+        <section class="month-detail" aria-live="polite"><h3 id="room-month-day"></h3><div id="room-month-list"></div></section>
+      </div>
+    </div>
+  </div>
+</dialog>

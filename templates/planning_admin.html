@@ -3,7 +3,7 @@
 {% block body_class %}planning-admin-page{% endblock %}
 {% block content %}
 <div class="planning-app" data-csrf="{{ csrf_token }}">
-  <header class="planning-heading"><div><p class="planning-kicker">INTÉGRALE ACADEMY · ORGANISATION PÉDAGOGIQUE</p><h1>Le planning <em>qui vous suit.</em></h1><p>Construisez l’année, puis donnez le rythme à chaque semaine.</p></div><div class="planning-heading-actions"><a class="planning-button" href="/admin/promotions">Les promotions</a><button type="button" class="planning-button" id="planning-import-open">{{ icon('file') }} Importer un planning</button><button type="button" class="planning-button" id="planning-export-open">{{ icon('file') }} Exporter en PDF</button></div></header>
+  <header class="planning-heading"><div><p class="planning-kicker">INTÉGRALE ACADEMY · ORGANISATION PÉDAGOGIQUE</p><h1>Le planning <em>qui vous suit.</em></h1><p>Construisez l’année, puis donnez le rythme à chaque semaine.</p></div><div class="planning-heading-actions"><button type="button" class="planning-button primary" data-open-planning-chat aria-haspopup="dialog">{{ icon('chat') }} Assistant IA</button><a class="planning-button" href="/admin/promotions">Les promotions</a><button type="button" class="planning-button" id="planning-import-open">{{ icon('file') }} Importer un planning</button><button type="button" class="planning-button" id="planning-export-open">{{ icon('file') }} Exporter en PDF</button></div></header>
   <div class="planning-notice" id="planning-notice" role="status" aria-live="polite" hidden></div>
 <div id="planning-budget-alert" class="planning-budget-alert" role="alert" hidden></div>
   <section class="planning-promotion-bar"><label>Votre promotion<select id="planning-promotion"><option value="">Choisir une promotion</option>{% for promotion in promotions %}<option value="{{ promotion.id }}" {% if promotion.id|string == selected_promotion|string %}selected{% endif %}>{{ promotion.nom }}{% if not promotion.active %} · Archivée{% endif %}</option>{% endfor %}</select></label><div id="planning-promotion-details"><b>Un planning par année.</b><span>Sélectionnez un groupe pour commencer.</span></div><span class="planning-save-state" id="planning-save-state">{{ icon('check') }} Chaque action est enregistrée</span></section>
@@ -67,4 +67,6 @@
   </div>
 </dialog>
 {% include '_planning_extras.html' %}
+{% set assistant_page = 'planning' %}
+{% include '_planning_assistant.html' %}
 {% endblock %}
