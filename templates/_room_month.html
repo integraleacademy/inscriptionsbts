@@ -1,36 +1,47 @@
 <dialog class="planning-tool month-tool" id="room-month" aria-labelledby="room-month-title">
-  <header class="tool-heading"><div><h2 id="room-month-title">Disponibilités des salles</h2><p>Choisissez un mois, puis un jour pour voir les horaires libres de chaque salle.</p></div><button class="tool-close" type="button" aria-label="Fermer les disponibilités">×</button></header>
-  <div class="month-controls">
-    <div class="month-nav"><button type="button" id="room-month-prev" aria-label="Mois précédent">‹</button><label><span class="sr-only">Mois à consulter</span><input type="month" id="room-month-value" required></label><button type="button" id="room-month-next" aria-label="Mois suivant">›</button></div>
-    <label>De <input type="time" id="room-month-start" value="08:00" required></label>
-    <label>À <input type="time" id="room-month-end" value="18:00" required></label>
-    <label class="tool-check"><input type="checkbox" id="room-month-weekends"> Week-ends inclus</label>
-  </div>
-  <div class="month-scroll">
-    <p class="tool-status" id="room-month-status" role="status"></p>
-    <button type="button" class="tool-primary" id="room-month-retry" hidden>Réessayer</button>
-    <div id="room-month-results" hidden>
-      <section id="room-month-exclusions" class="month-exclusions" aria-label="Filtrer les salles">
-        <div class="month-exclusions-bar">
-          <button type="button" id="room-month-filter-toggle" class="month-exclusions-toggle" aria-expanded="false" aria-controls="room-month-filter-panel">Exclure des salles</button>
-          <span id="room-month-filter-count" class="month-exclusions-count" role="status"></span>
-          <button type="button" id="room-month-filter-reset" class="month-exclusions-reset" hidden>Réafficher toutes les salles</button>
-        </div>
-        <fieldset id="room-month-filter-panel" hidden>
-          <legend>Cochez les salles à exclure des disponibilités</legend>
-          <div class="month-exclusions-choices" id="room-month-filter-choices"></div>
-        </fieldset>
-      </section>
-      <p id="room-month-empty" class="month-filter-empty" role="status" hidden></p>
-      <div id="room-month-calendar">
-        <div class="month-summary"><span class="month-summary-icon" aria-hidden="true">{{ icon('check') }}</span><div><strong>Libres sur toute la période</strong><p id="room-month-free"></p></div></div>
-        <div class="month-layout">
-          <section aria-label="Jours du mois"><h3 id="room-month-heading"></h3>
-            <div class="month-weekdays" aria-hidden="true">{% for day in ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'] %}<span>{{ day }}</span>{% endfor %}</div>
-            <div class="month-grid" id="room-month-days"></div>
-            <div class="month-legend"><span><i class="free"></i>Libre sur tout le créneau</span><span><i class="partial"></i>Libre en partie</span><span><i class="busy"></i>Indisponible</span></div>
+  <div class="month-surface" id="room-month-surface">
+    <header class="tool-heading">
+      <div><h2 id="room-month-title">Disponibilités des salles</h2><p>Choisissez un mois, puis un jour pour voir les horaires libres de chaque salle.</p></div>
+      <div class="month-heading-actions">
+        <button type="button" class="month-fullscreen" id="room-month-fullscreen" aria-pressed="false" aria-controls="room-month-surface"><span aria-hidden="true">⛶</span> <span id="room-month-fullscreen-label">Plein écran</span></button>
+        <button class="tool-close" type="button" aria-label="Fermer les disponibilités">×</button>
+      </div>
+    </header>
+    <div class="month-controls">
+      <div class="month-nav"><button type="button" id="room-month-prev" aria-label="Mois précédent">‹</button><label><span class="sr-only">Mois à consulter</span><input type="month" id="room-month-value" required></label><button type="button" id="room-month-next" aria-label="Mois suivant">›</button></div>
+      <label>De <input type="time" id="room-month-start" value="08:00" required></label>
+      <label>À <input type="time" id="room-month-end" value="18:00" required></label>
+      <label class="tool-check"><input type="checkbox" id="room-month-weekends"> Week-ends inclus</label>
+    </div>
+    <div class="month-body">
+      <p id="room-month-loading" class="month-loading" role="status" hidden></p>
+      <div class="month-scroll">
+        <p class="tool-status" id="room-month-status" role="status"></p>
+        <button type="button" class="tool-primary" id="room-month-retry" hidden>Réessayer</button>
+        <div id="room-month-results" hidden>
+          <section id="room-month-exclusions" class="month-exclusions" aria-label="Filtrer les salles">
+            <div class="month-exclusions-bar">
+              <button type="button" id="room-month-filter-toggle" class="month-exclusions-toggle" aria-expanded="false" aria-controls="room-month-filter-panel">Exclure des salles</button>
+              <span id="room-month-filter-count" class="month-exclusions-count" role="status"></span>
+              <button type="button" id="room-month-filter-reset" class="month-exclusions-reset" hidden>Réafficher toutes les salles</button>
+            </div>
+            <fieldset id="room-month-filter-panel" hidden>
+              <legend>Cochez les salles à exclure des disponibilités</legend>
+              <div class="month-exclusions-choices" id="room-month-filter-choices"></div>
+            </fieldset>
           </section>
-          <section class="month-detail" aria-live="polite"><h3 id="room-month-day"></h3><div id="room-month-list"></div></section>
+          <p id="room-month-empty" class="month-filter-empty" role="status" hidden></p>
+          <div id="room-month-calendar" class="month-layout">
+            <section class="month-dates" aria-label="Jours du mois"><h3 id="room-month-heading"></h3>
+              <div class="month-weekdays" aria-hidden="true">{% for day in ['Lun','Mar','Mer','Jeu','Ven','Sam','Dim'] %}<span>{{ day }}</span>{% endfor %}</div>
+              <div class="month-grid" id="room-month-days" aria-label="Jours du mois"></div>
+              <div class="month-legend"><span><i class="free"></i>Libre sur tout le créneau</span><span><i class="partial"></i>Libre en partie</span><span><i class="busy"></i>Indisponible</span></div>
+            </section>
+            <div class="month-rooms">
+              <div class="month-summary"><span class="month-summary-icon" aria-hidden="true">{{ icon('calendar') }}</span><div><strong>Libres sur toute la période</strong><p id="room-month-free"></p></div></div>
+              <section class="month-detail" aria-live="polite"><h3 id="room-month-day"></h3><div id="room-month-list"></div></section>
+            </div>
+          </div>
         </div>
       </div>
     </div>

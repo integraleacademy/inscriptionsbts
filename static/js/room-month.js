@@ -18,8 +18,48 @@
   const filterToggle = $('room-month-filter-toggle'), filterPanel = $('room-month-filter-panel');
   const choices = $('room-month-filter-choices'), reset = $('room-month-filter-reset');
   const storageKey = 'bts.roomAvailability.excludedRooms.v1';
-  let data = null, selected = '', sequence = 0;
+  const surface = $('room-month-surface'), fullButton = $('room-month-fullscreen');
+  const scrollArea = dialog.querySelector('.month-scroll'), loading = $('room-month-loading');
+  let data = null, preferredDay = null, sequence = 0, pending = null;
+  let ownsNativeFullscreen = false;
   let excluded = readExclusions();
+
+  function displayFullscreen(expanded) {
+    dialog.classList.toggle('month-expanded', expanded);
+    fullButton.setAttribute('aria-pressed', String(expanded));
+    $('room-month-fullscreen-label').textContent = expanded ? 'Quitter le plein écran' : 'Plein écran';
+  }
+  async function leaveFullscreen() {
+    displayFullscreen(false);
+    if (document.fullscreenElement === surface) {
+      try { await document.exitFullscreen(); } catch { /* The browser may already be exiting. */ }
+    }
+  }
+  fullButton.addEventListener('click', async () => {
+    if (dialog.classList.contains('month-expanded')) {
+      await leaveFullscreen();
+      return;
+    }
+    displayFullscreen(true);
+    if (!document.fullscreenElement && surface.requestFullscreen) {
+      try { await surface.requestFullscreen(); } catch { /* The dialog already fills the window. */ }
+    }
+  });
+  document.addEventListener('fullscreenchange', () => {
+    if (document.fullscreenElement === surface) {
+      ownsNativeFullscreen = true;
+      if (!dialog.open || !dialog.classList.contains('month-expanded')) leaveFullscreen();
+    } else if (ownsNativeFullscreen) {
+      ownsNativeFullscreen = false;
+      displayFullscreen(false);
+    }
+  });
+  dialog.addEventListener('cancel', event => {
+    if (dialog.classList.contains('month-expanded')) {
+      event.preventDefault();
+      leaveFullscreen();
+    }
+  });
 
   function readExclusions() {
     try {
@@ -38,7 +78,12 @@
   function visibleRooms() {
     return data.rooms.filter(room => !excluded.has(room.id));
   }
-  function showFilterChoices() {
+  function showFilterChoices(previousRooms) {
+    if (previousRooms && previousRooms.length === data.rooms.length && previousRooms.every((room, i) =>
+      room.id === data.rooms[i].id && room.name === data.rooms[i].name && room.active === data.rooms[i].active)) {
+      for (const input of choices.querySelectorAll('input')) input.checked = excluded.has(input.value);
+      return;
+    }
     const fragment = document.createDocumentFragment();
     for (const room of data.rooms) {
       const label = node('label'), checkbox = node('input');
@@ -89,13 +134,12 @@
     history.replaceState(null, '', url);
   }
   function showDay(day) {
-    selected = day;
     for (const button of $('room-month-days').querySelectorAll('[data-date]')) {
       button.setAttribute('aria-pressed', String(button.dataset.date === day));
     }
     $('room-month-day').textContent = dateLabel(day);
     const list = $('room-month-list');
-    list.replaceChildren();
+    const cards = document.createDocumentFragment();
     const rank = {free:0, partial:1, busy:2};
     const sorted = visibleRooms().sort((a, b) => Number(b.active)-Number(a.active) || rank[a.days[day].state]-rank[b.days[day].state]);
     for (const room of sorted) {
@@ -103,8 +147,17 @@
       const label = !room.active ? 'Inactive' : {free:'Libre', partial:'Partielle', busy:'Indisponible'}[slot.state];
       card.append(node('strong', room.name), node('span', label, 'month-state ' + slot.state));
       if (slot.free.length) card.append(node('small', slot.free.map(([a,b]) => a + '–' + b).join(' · ')));
-      list.append(card);
+      cards.append(card);
     }
+    list.replaceChildren(cards);
+  }
+  function dayToShow(dates) {
+    if (preferredDay === null) {
+      const current = today();
+      return dates.includes(current) ? current : dates[0];
+    }
+    const distance = day => Math.abs(Number(day.slice(-2)) - preferredDay);
+    return dates.reduce((nearest, day) => distance(day) < distance(nearest) ? day : nearest);
   }
   function render() {
     const rooms = visibleRooms();
@@ -131,13 +184,23 @@
     const first = dayDate(data.first);
     $('room-month-heading').textContent = first.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
     const grid = $('room-month-days');
-    grid.replaceChildren();
+    const cells = document.createDocumentFragment();
     const checked = new Set(data.dates), count = Number(data.last.slice(-2));
-    for (let n = 1; n <= count; n++) {
-      const day = month.value + '-' + String(n).padStart(2, '0');
+    const offset = (first.getDay() + 6) % 7;
+    const displayedMonth = data.first.slice(0, 7);
+    for (let cell = 0; cell < 42; cell++) {
+      const n = cell - offset + 1;
+      if (n < 1 || n > count) {
+        const neighborDate = new Date(first.getTime());
+        neighborDate.setDate(n);
+        const neighbor = node('span', String(neighborDate.getDate()), 'month-neighbor');
+        neighbor.setAttribute('aria-hidden', 'true');
+        cells.append(neighbor);
+        continue;
+      }
+      const day = displayedMonth + '-' + String(n).padStart(2, '0');
       const button = node('button');
       button.type = 'button';
-      if (n === 1) button.style.gridColumnStart = String((first.getDay()+6)%7+1);
       button.append(node('b', String(n)));
       if (checked.has(day)) {
         const full = active.filter(r => r.days[day].state === 'free').length;
@@ -147,21 +210,34 @@
         button.dataset.date = day;
         button.setAttribute('aria-label', dateLabel(day) + ', ' + full + ' salle(s) libre(s), ' + partial + ' partiellement libre(s)');
         button.append(node('small', label));
-        button.addEventListener('click', () => showDay(day));
+        button.addEventListener('click', () => {
+          preferredDay = n;
+          showDay(day);
+        });
       } else {
         button.disabled = true;
         button.setAttribute('aria-label', dateLabel(day) + ', hors recherche');
       }
-      grid.append(button);
+      cells.append(button);
     }
-    showDay(checked.has(selected) ? selected : checked.has(today()) ? today() : data.dates[0]);
+    grid.replaceChildren(cells);
+    showDay(dayToShow(data.dates));
+  }
+  function setLoading(label = '') {
+    loading.textContent = label;
+    loading.hidden = !label;
+    results.setAttribute('aria-busy', String(Boolean(label)));
+    $('room-month-calendar').inert = Boolean(label);
   }
   async function load() {
     const ticket = ++sequence;
-    data = null;
-    results.hidden = true;
+    pending?.abort();
+    pending = null;
     $('room-month-retry').hidden = true;
     if (!month.validity.valid || !month.value || !start.value || !end.value || start.value >= end.value) {
+      data = null;
+      results.hidden = true;
+      setLoading();
       status.textContent = 'Choisissez un mois et une heure de fin postérieure au début.';
       return;
     }
@@ -170,20 +246,34 @@
     const last = new Date(y, m, 0).getDate();
     const params = new URLSearchParams({from:month.value+'-01', to:month.value+'-'+last, start:start.value, end:end.value,
       weekdays:weekends.checked ? '0,1,2,3,4,5,6' : '0,1,2,3,4'});
-    status.textContent = 'Recherche des créneaux libres…';
+    const targetMonth = dayDate(month.value + '-01').toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
+    if (!data) status.textContent = '';
+    setLoading('Chargement de ' + targetMonth + '…');
+    const controller = new AbortController();
+    pending = controller;
     try {
-      const response = await fetch('/admin/planning/api/rooms/disponibilites?' + params, {credentials:'same-origin', headers:{Accept:'application/json'}});
+      const response = await fetch('/admin/planning/api/rooms/disponibilites?' + params,
+        {credentials:'same-origin', headers:{Accept:'application/json'}, signal:controller.signal});
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'La disponibilité est temporairement inaccessible.');
       if (ticket !== sequence || !dialog.open) return;
+      const top = scrollArea.scrollTop;
+      const previousRooms = data?.rooms;
       data = payload;
-      showFilterChoices();
+      showFilterChoices(previousRooms);
       status.textContent = data.connected ? '' : 'Liaison avec les sessions externes inactive. Le calendrier couvre les réservations enregistrées.';
       render();
+      scrollArea.scrollTop = top;
     } catch (error) {
+      if (ticket !== sequence || !dialog.open) return;
+      data = null;
+      results.hidden = true;
+      status.textContent = error instanceof SyntaxError ? 'Impossible de charger les salles. Rechargez la page.' : error.message;
+      $('room-month-retry').hidden = false;
+    } finally {
       if (ticket === sequence) {
-        status.textContent = error instanceof SyntaxError ? 'Impossible de charger les salles. Rechargez la page.' : error.message;
-        $('room-month-retry').hidden = false;
+        pending = null;
+        setLoading();
       }
     }
   }
@@ -191,11 +281,21 @@
     const requested = new URL(location.href).searchParams.get('mois');
     month.value = requested && /^\d{4}-(0[1-9]|1[0-2])$/.test(requested) ? requested : month.value || today().slice(0,7);
     if (!dialog.open) dialog.showModal();
+    document.documentElement.classList.add('room-month-open');
     load();
   }
   $('room-month-open').addEventListener('click', event => { event.preventDefault(); open(); });
   dialog.querySelector('.tool-close').addEventListener('click', () => dialog.close());
-  dialog.addEventListener('close', () => { ++sequence; rememberMonth(false); });
+  dialog.addEventListener('close', () => {
+    if (dialog.open) return;
+    ++sequence;
+    pending?.abort();
+    pending = null;
+    setLoading();
+    leaveFullscreen();
+    document.documentElement.classList.remove('room-month-open');
+    rememberMonth(false);
+  });
   $('room-month-retry').addEventListener('click', load);
   for (const field of [month, start, end, weekends]) field.addEventListener('change', load);
   for (const [id, offset] of [['room-month-prev',-1], ['room-month-next',1]]) {
