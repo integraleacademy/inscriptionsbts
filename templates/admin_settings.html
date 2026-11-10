@@ -13,11 +13,11 @@
 <div class="settings-app" data-csrf="{{ csrf_token }}">
   <header class="settings-heading"><p>VOTRE PLATEFORME BTS</p><h1>Les <em>paramètres.</em></h1><span>Gérez les connexions utilisées par votre équipe.</span></header>
   <details class="settings-card" id="openai" aria-labelledby="openai-title">
-    {{ card_summary('openai', 'spark', 'OpenAI', 'Recherche et analyse des référentiels officiels des BTS.', true) }}
+    {{ card_summary('openai', 'spark', 'OpenAI', 'Référentiels BTS, rédaction des e-mails et assistants des salles et du planning.', true) }}
     <div class="settings-content">
       <p id="openai-error" class="settings-message error" role="alert" hidden></p>
       <p id="openai-success" class="settings-message" role="status" hidden></p>
-      <p id="openai-managed" hidden>La clé API est configurée sur le serveur. Votre équipe peut utiliser l’import des matières.</p>
+      <p id="openai-managed" hidden>La clé API est configurée sur le serveur. Votre équipe peut utiliser les outils IA de la plateforme.</p>
       <form id="openai-form" hidden>
         <label for="openai-key">Clé API OpenAI</label>
         <input id="openai-key" type="password" autocomplete="new-password" maxlength="512" placeholder="sk-…" required aria-describedby="openai-key-help">

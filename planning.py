@@ -549,6 +549,22 @@ def validate_trainer_promotions_change(conn,trainer_id,promotion_ids):
     return issues
 
 
+def remove_promotion_courses(conn, courses, pid):
+    detached = 0
+    for course in courses:
+        remaining=[g for g in course['groups'] if g['promotion_id']!=pid]
+        if remaining:
+            conn.execute('DELETE FROM planning_course_groups WHERE course_id=? AND promotion_id=?',(course['id'],pid))
+            primary=next((g for g in remaining if g['promotion_id']==course['promotion_id']),remaining[0])
+            conn.execute('UPDATE planning_courses SET promotion_id=?,subject_id=?,version=version+1,updated_at=? WHERE id=?',
+                (primary['promotion_id'],primary['subject_id'],datetime.now(timezone.utc).isoformat(),course['id']))
+            detached+=1
+        else:
+            conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course['id'],))
+            conn.execute('DELETE FROM planning_courses WHERE id=?',(course['id'],))
+    return detached
+
+
 def register_planning(app,db_connect,require_admin):
     serializer=URLSafeTimedSerializer(app.secret_key,salt='bts-planning-preview-v1')
 
@@ -944,18 +960,7 @@ def register_planning(app,db_connect,require_admin):
             period,courses=deletion_selection(conn,preview['selection'])
             if period!=preview['period'] or {c['id']:c['version'] for c in courses}!=preview['versions']:
                 raise PlanningError('Les cours ont changé depuis la vérification. Aucune suppression effectuée : vérifiez de nouveau la sélection.',status=409)
-            pid=preview['selection']['promotion_id'];detached=0
-            for course in courses:
-                remaining=[g for g in course['groups'] if g['promotion_id']!=pid]
-                if remaining:
-                    conn.execute('DELETE FROM planning_course_groups WHERE course_id=? AND promotion_id=?',(course['id'],pid))
-                    primary=next((g for g in remaining if g['promotion_id']==course['promotion_id']),remaining[0])
-                    conn.execute('UPDATE planning_courses SET promotion_id=?,subject_id=?,version=version+1,updated_at=? WHERE id=?',
-                        (primary['promotion_id'],primary['subject_id'],datetime.now(timezone.utc).isoformat(),course['id']))
-                    detached+=1
-                else:
-                    conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course['id'],))
-                    conn.execute('DELETE FROM planning_courses WHERE id=?',(course['id'],))
+            detached = remove_promotion_courses(conn, courses, preview['selection']['promotion_id'])
             return dict(count=len(courses),detached_count=detached,message=f'{len(courses)} cours retiré(s) de cette année.')
         return transact(operation)
 
@@ -1205,6 +1210,10 @@ def register_planning(app,db_connect,require_admin):
             return dict(item=block,message='Indisponibilité enregistrée.')
         return transact(operation)
 
+    from planning_room_availability import register as register_room_availability
+    from planning_assistant import register as register_assistant
+    register_room_availability(app, connect, guard, result, fail)
+    register_assistant(app, connect, guard, body, result, fail, transact, csrf, serializer, persist)
     import planning_rooms
     planning_rooms.register(app,connect,guard,result,fail,transact,serializer)
     from planning_import import register_planning_import

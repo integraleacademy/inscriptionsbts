@@ -55,6 +55,7 @@
  <form id="rooms-unavailable-form"><div class="catalog-dialog-content">
  <label class="catalog-field">Salle<select name="room_id" required></select></label>
  <div class="room-dialog-grid"><label class="catalog-field">Du<input name="start_date" type="date" required></label><label class="catalog-field">Au (inclus)<input name="end_date" type="date" required></label></div>
+ <label class="room-all-day"><input name="no_end" type="checkbox"> Sans date de fin</label>
  <label class="room-all-day"><input name="all_day" type="checkbox" checked> Toute la journée</label>
  <div class="room-dialog-grid" id="rooms-unavailable-times" hidden><label class="catalog-field">De<input name="start" type="time" value="08:00"></label><label class="catalog-field">À<input name="end" type="time" value="18:00"></label></div>
  <label class="catalog-field">Motif<input name="reason" maxlength="200" placeholder="Travaux, réunion extérieure…" required></label>
