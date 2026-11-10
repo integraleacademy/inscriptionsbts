@@ -17,7 +17,6 @@ from decimal import Decimal, InvalidOperation, localcontext
 import hashlib
 import hmac
 import json
-import os
 from io import BytesIO
 import re
 import secrets
@@ -1212,13 +1211,7 @@ def register_planning(app,db_connect,require_admin):
         return transact(operation)
 
     from planning_room_availability import register as register_room_availability
-    from planning_assistant import register as register_assistant
     register_room_availability(app, connect, guard, result, fail)
-    register_assistant(app, connect, guard, body, result, fail, transact, csrf, serializer, persist)
-    revision = os.getenv('RENDER_GIT_COMMIT')
-    if revision and revision == os.getenv('PLANNING_CHAT_VERIFY_COMMIT'):
-        from scripts.check_planning_chat import start_release_check
-        start_release_check(app, db_connect, revision)
     import planning_rooms
     planning_rooms.register(app,connect,guard,result,fail,transact,serializer)
     from planning_import import register_planning_import

@@ -15,7 +15,68 @@
     if (cls) el.className = cls;
     return el;
   };
+  const filterToggle = $('room-month-filter-toggle'), filterPanel = $('room-month-filter-panel');
+  const choices = $('room-month-filter-choices'), reset = $('room-month-filter-reset');
+  const storageKey = 'bts.roomAvailability.excludedRooms.v1';
   let data = null, selected = '', sequence = 0;
+  let excluded = readExclusions();
+
+  function readExclusions() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+      return new Set(Array.isArray(saved) ? saved.filter(id => typeof id === 'string') : []);
+    } catch {
+      return new Set();
+    }
+  }
+  function saveExclusions() {
+    try {
+      if (excluded.size) localStorage.setItem(storageKey, JSON.stringify([...excluded]));
+      else localStorage.removeItem(storageKey);
+    } catch { /* The selection remains available in this tab when storage is disabled. */ }
+  }
+  function visibleRooms() {
+    return data.rooms.filter(room => !excluded.has(room.id));
+  }
+  function showFilterChoices() {
+    const fragment = document.createDocumentFragment();
+    for (const room of data.rooms) {
+      const label = node('label'), checkbox = node('input');
+      checkbox.type = 'checkbox';
+      checkbox.value = room.id;
+      checkbox.checked = excluded.has(room.id);
+      label.append(checkbox, node('span', room.name + (room.active ? '' : ' (inactive)')));
+      fragment.append(label);
+    }
+    choices.replaceChildren(fragment);
+  }
+  filterToggle.addEventListener('click', () => {
+    filterPanel.hidden = !filterPanel.hidden;
+    filterToggle.setAttribute('aria-expanded', String(!filterPanel.hidden));
+  });
+  choices.addEventListener('change', event => {
+    const input = event.target;
+    if (!data || input.type !== 'checkbox') return;
+    if (input.checked) excluded.add(input.value);
+    else excluded.delete(input.value);
+    saveExclusions();
+    render();
+  });
+  reset.addEventListener('click', () => {
+    excluded.clear();
+    saveExclusions();
+    for (const input of choices.querySelectorAll('input')) input.checked = false;
+    filterToggle.focus();
+    render();
+  });
+  window.addEventListener('storage', event => {
+    if (event.key !== storageKey && event.key !== null) return;
+    excluded = readExclusions();
+    if (data && dialog.open) {
+      for (const input of choices.querySelectorAll('input')) input.checked = excluded.has(input.value);
+      render();
+    }
+  });
   function rememberMonth(open) {
     const url = new URL(location.href);
     if (open) {
@@ -36,8 +97,7 @@
     const list = $('room-month-list');
     list.replaceChildren();
     const rank = {free:0, partial:1, busy:2};
-    const sorted = [...data.rooms].sort((a, b) => Number(b.active)-Number(a.active) || rank[a.days[day].state]-rank[b.days[day].state]);
-    if (!sorted.length) list.append(node('p', 'Aucune salle enregistrée.'));
+    const sorted = visibleRooms().sort((a, b) => Number(b.active)-Number(a.active) || rank[a.days[day].state]-rank[b.days[day].state]);
     for (const room of sorted) {
       const slot = room.days[day], card = node('article');
       const label = !room.active ? 'Inactive' : {free:'Libre', partial:'Partielle', busy:'Indisponible'}[slot.state];
@@ -47,9 +107,27 @@
     }
   }
   function render() {
-    const active = data.rooms.filter(r => r.active);
+    const rooms = visibleRooms();
+    const excludedCount = data.rooms.length - rooms.length;
+    results.hidden = false;
+    $('room-month-exclusions').hidden = !data.rooms.length;
+    $('room-month-filter-count').textContent = excludedCount
+      ? excludedCount + (excludedCount === 1 ? ' salle exclue' : ' salles exclues') + ' sur ' + data.rooms.length
+      : 'Toutes les salles affichées';
+    reset.hidden = !excludedCount;
+    $('room-month-calendar').hidden = !rooms.length;
+    const empty = $('room-month-empty');
+    empty.hidden = Boolean(rooms.length);
+    if (!rooms.length) {
+      empty.textContent = data.rooms.length ? 'Toutes les salles sont exclues. Décochez une salle pour voir ses disponibilités.' : 'Aucune salle enregistrée.';
+      return;
+    }
+    const active = rooms.filter(room => room.active);
     const free = active.filter(r => data.dates.length && r.free_days === data.dates.length);
-    $('room-month-free').textContent = free.length ? free.map(r => r.name).join(' · ') : 'Aucune salle libre sur tous les jours et horaires sélectionnés.';
+    let summary = 'Aucune salle libre sur tous les jours et horaires sélectionnés.';
+    if (!active.length) summary = 'Les salles affichées sont inactives.';
+    if (free.length) summary = free.map(room => room.name).join(' · ');
+    $('room-month-free').textContent = summary;
     const first = dayDate(data.first);
     $('room-month-heading').textContent = first.toLocaleDateString('fr-FR', {month:'long', year:'numeric'});
     const grid = $('room-month-days');
@@ -76,11 +154,11 @@
       }
       grid.append(button);
     }
-    results.hidden = false;
     showDay(checked.has(selected) ? selected : checked.has(today()) ? today() : data.dates[0]);
   }
   async function load() {
     const ticket = ++sequence;
+    data = null;
     results.hidden = true;
     $('room-month-retry').hidden = true;
     if (!month.validity.valid || !month.value || !start.value || !end.value || start.value >= end.value) {
@@ -99,6 +177,7 @@
       if (!response.ok) throw new Error(payload.message || 'La disponibilité est temporairement inaccessible.');
       if (ticket !== sequence || !dialog.open) return;
       data = payload;
+      showFilterChoices();
       status.textContent = data.connected ? '' : 'Liaison avec les sessions externes inactive. Le calendrier couvre les réservations enregistrées.';
       render();
     } catch (error) {

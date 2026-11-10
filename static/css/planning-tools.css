@@ -9,7 +9,7 @@
 .planning-tool [hidden], .planning-tool:not([open]) { display:none!important; }
 .planning-tool::backdrop { background:#17261e88; }
 .planning-tool :focus-visible { outline:3px solid #a48845; outline-offset:2px; }
-.planning-tool button, .planning-tool input, .planning-tool textarea { font:inherit; color:inherit; }
+.planning-tool button, .planning-tool input { font:inherit; color:inherit; }
 .planning-tool button { cursor:pointer; }
 .planning-tool button:disabled { cursor:default; }
 .planning-tool .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); }
@@ -21,16 +21,30 @@
 .tool-status { color:var(--muted); margin:8px 0; }
 .tool-status:empty { display:none; }
 .month-tool { width:1020px; }
-.month-scroll, .chat-scroll { min-height:0; overflow:auto; overscroll-behavior:contain; padding:18px 24px 24px; }
+.month-scroll { min-height:0; overflow:auto; overscroll-behavior:contain; padding:18px 24px 24px; }
 .month-controls { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:14px 24px; background:var(--wash); border-bottom:1px solid var(--line); }
 .month-controls label { display:flex; align-items:center; gap:5px; font-size:13px; font-weight:650; margin:0; }
 .month-nav { display:flex; align-items:center; gap:4px; }
 .month-controls input:not([type=checkbox]) { border:1px solid var(--line); border-radius:8px; background:white; padding:5px 8px; height:36px; }
 .month-controls .tool-check { cursor:pointer; }
-.month-summary, .chat-heading { display:flex; align-items:center; gap:12px; }
+.month-exclusions { margin-bottom:16px; }
+.month-exclusions-bar { display:flex; align-items:center; flex-wrap:wrap; gap:8px 12px; }
+.month-exclusions-toggle { display:inline-flex; align-items:center; gap:8px; border:1px solid var(--line); background:#fff; border-radius:8px; padding:7px 10px; }
+.month-exclusions-toggle[aria-expanded=true] { color:var(--green); border-color:var(--green); }
+.month-exclusions-toggle::after { content:""; width:7px; height:7px; border:solid currentColor; border-width:0 1.5px 1.5px 0; transform:translateY(-2px) rotate(45deg); }
+.month-exclusions-toggle[aria-expanded=true]::after { transform:translateY(2px) rotate(225deg); }
+.month-exclusions-count { font-size:13px; color:var(--muted); }
+.planning-tool .month-exclusions-reset { border:0; background:none; color:var(--green); font-weight:650; text-decoration:underline; padding:4px; }
+.month-exclusions fieldset { min-width:0; margin:12px 0 0; padding:10px; border:1px solid var(--line); border-radius:9px; }
+.month-exclusions legend { padding:0 5px; color:var(--muted); font-size:13px; }
+.month-exclusions-choices { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr)); gap:6px; }
+.month-exclusions-choices label { display:flex; flex-direction:row; align-items:center; gap:8px; padding:7px 8px; margin:0; background:var(--wash); border-radius:6px; cursor:pointer; overflow-wrap:anywhere; }
+.month-exclusions-choices input { flex:none; width:16px; height:16px; margin:0; accent-color:var(--green); }
+.month-filter-empty { margin:8px 0 0; padding:12px 14px; border:1px solid var(--line); border-radius:9px; background:var(--wash); }
+.month-summary { display:flex; align-items:center; gap:12px; }
 .month-summary { margin-bottom:18px; padding:12px 16px; border:1px solid #cddfd4; border-radius:11px; background:#f0f7f2; }
 .month-summary p { margin:2px 0 0; }
-.month-summary-icon, .chat-icon { width:37px; height:37px; flex:none; display:grid; place-items:center; border-radius:10px; background:#dcebe1; color:var(--green); }
+.month-summary-icon { width:37px; height:37px; flex:none; display:grid; place-items:center; border-radius:10px; background:#dcebe1; color:var(--green); }
 .planning-tool .ui-icon { width:21px; height:21px; }
 .month-layout { display:grid; grid-template-columns:minmax(0,1.75fr) minmax(210px,1fr); gap:20px; align-items:start; }
 .month-layout h3 { margin:0 0 10px; font-size:17px; color:var(--ink); }
@@ -51,33 +65,13 @@
 .month-detail article { display:grid; grid-template-columns:1fr auto; gap:3px 8px; align-items:baseline; padding:9px 0; border-top:1px solid var(--line); }
 .month-detail article small { grid-column:1/-1; color:var(--muted); }
 .month-state { font-size:11px; font-weight:700; padding:2px 6px; border-radius:5px; }
-.chat-tool { width:640px; height:min(700px,calc(100dvh - 34px)); }
-.chat-scroll { flex:1; }
-.chat-examples { display:grid; gap:6px; }
-.chat-examples button { text-align:left; background:var(--wash); border:1px solid var(--line); border-radius:10px; padding:9px 12px; }
-.chat-examples button:hover, .month-nav button:hover { border-color:var(--green); }
-.chat-turn { max-width:94%; padding:11px 14px; border-radius:12px; background:var(--wash); margin:10px 0; overflow-wrap:anywhere; }
-.chat-turn.assistant { max-width:100%; padding:12px 2px; background:transparent; line-height:1.65; }
-.chat-turn.assistant p + p { margin-top:.7em; }
-.chat-turn.assistant strong,.chat-model { font-weight:700; }
-.chat-turn.user { margin-left:auto; background:#e4eee7; }
-.chat-turn p { white-space:pre-line; margin:0; }
-.chat-turn details { margin:9px 0; }
-.chat-turn ul { margin:8px 0; padding-left:18px; }
-.chat-turn li { margin-bottom:5px; }
-.chat-turn summary { cursor:pointer; color:var(--green); font-size:13px; font-weight:650; }
-.chat-turn .chat-warning { color:#7a5015; margin-top:8px; font-size:12px; }
-.chat-composer { padding:14px 20px; border-top:1px solid var(--line); display:grid; grid-template-columns:1fr auto; gap:7px 10px; align-items:center; }
-.chat-composer textarea { width:100%; min-width:0; border:1px solid var(--line); padding:9px 11px; border-radius:9px; resize:vertical; max-height:120px; }
-.chat-composer small { color:var(--muted); grid-column:1/-1; }
+.month-nav button:hover { border-color:var(--green); }
 .planning-tool .tool-primary { background:var(--green); border:0; color:white; padding:9px 14px; font-size:13px; font-weight:700; border-radius:8px; }
-.chat-turn .tool-primary { margin-top:7px; }
 .planning-tool .tool-primary:disabled { opacity:.55; }
 @media(max-width:700px) {
   .month-layout { grid-template-columns:1fr; gap:15px; }
-  .month-scroll,.chat-scroll,.tool-heading { padding:14px; }
+  .month-scroll,.tool-heading { padding:14px; }
   .month-controls { padding:10px 14px; gap:6px 10px; }
   .month-grid button { padding:4px; min-height:43px; }
   .month-grid small { font-size:9px; }
-  .chat-composer { padding:10px; }
 }

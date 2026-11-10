@@ -13,7 +13,7 @@
 <div class="settings-app" data-csrf="{{ csrf_token }}">
   <header class="settings-heading"><p>VOTRE PLATEFORME BTS</p><h1>Les <em>paramètres.</em></h1><span>Gérez les connexions utilisées par votre équipe.</span></header>
   <details class="settings-card" id="openai" aria-labelledby="openai-title">
-    {{ card_summary('openai', 'spark', 'OpenAI', 'Référentiels BTS, rédaction des e-mails et assistants des salles et du planning.', true) }}
+    {{ card_summary('openai', 'spark', 'OpenAI', 'Référentiels BTS et rédaction des e-mails.', true) }}
     <div class="settings-content">
       <p id="openai-error" class="settings-message error" role="alert" hidden></p>
       <p id="openai-success" class="settings-message" role="status" hidden></p>
