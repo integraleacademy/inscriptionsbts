@@ -3,7 +3,6 @@ from collections import defaultdict
 from contextlib import closing
 from datetime import date, timedelta
 import hashlib
-import os
 import secrets
 import time
 
@@ -386,11 +385,6 @@ def resolve_relative_week(intent, previous):
 
 
 def register(app, connect, guard, body, result, fail, transact, csrf, serializer, persist):
-    revision = os.getenv('RENDER_GIT_COMMIT')
-    if revision and revision == os.getenv('PLANNING_CHAT_VERIFY_COMMIT'):
-        from scripts.check_planning_chat import start_release_check
-        start_release_check(app, connect, revision)
-
     def binding():
         return hashlib.sha256(csrf().encode()).hexdigest()
 
