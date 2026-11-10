@@ -35,6 +35,59 @@ async function fixture(saved, extraRoom = false) {
   return {w, $, toggle, reads, doc};
 }
 
+async function checkStableNavigation() {
+  const {w, $, doc} = await fixture();
+  const dialog = doc.getElementById('room-month');
+  const originalFetch = w.fetch;
+  const requests = [];
+  w.fetch = (url, options) => new Promise(resolve => {
+    requests.push({signal:options.signal, finish:() => resolve(originalFetch(url, options))});
+  });
+
+  const january = $('days').firstElementChild;
+  assert.equal($('days').children.length, 42);
+  $('next').click();
+  assert.equal($('results').hidden, false);
+  assert.equal($('results').getAttribute('aria-busy'), 'true');
+  assert.equal($('calendar').inert, true);
+  assert.match($('loading').textContent, /février 2027/);
+  assert.equal($('days').firstElementChild, january);
+  assert.match($('heading').textContent, /janvier 2027/);
+  $('next').click();
+  assert.equal(requests[0].signal.aborted, true);
+  requests[1].finish(); await tick();
+  requests[0].finish(); await tick();
+  assert.match($('heading').textContent, /mars 2027/);
+  assert.equal($('calendar').inert, false);
+  assert.equal($('loading').hidden, true);
+  assert.equal($('days').children.length, 42);
+  $('prev').click();
+  requests[2].finish(); await tick();
+  assert.match($('heading').textContent, /février 2027/);
+  assert.equal($('days').children.length, 42);
+  assert.equal($('days').querySelectorAll('button').length, 28);
+
+  // A browser without the Fullscreen API can still expand the dialog and leave with Escape.
+  $('fullscreen').click();
+  assert.equal(dialog.classList.contains('month-expanded'), true);
+  assert.equal($('fullscreen').getAttribute('aria-pressed'), 'true');
+  assert.match($('fullscreen-label').textContent, /Quitter/);
+  const cancel = new w.Event('cancel', {cancelable:true});
+  dialog.dispatchEvent(cancel);
+  assert.equal(cancel.defaultPrevented, true);
+  assert.equal(dialog.open, true);
+  assert.equal($('fullscreen').getAttribute('aria-pressed'), 'false');
+  $('fullscreen').click();
+  $('next').click();
+  dialog.querySelector('.tool-close').click();
+  assert.equal(requests[3].signal.aborted, true);
+  requests[3].finish(); await tick();
+  assert.equal(doc.documentElement.classList.contains('room-month-open'), false);
+  assert.equal(dialog.classList.contains('month-expanded'), false);
+  assert.match($('heading').textContent, /février 2027/);
+  w.close();
+}
+
 (async () => {
   const a = await fixture('not JSON');
   const {w,$,toggle,reads} = a;
@@ -72,5 +125,6 @@ async function fixture(saved, extraRoom = false) {
   assert.equal(w.localStorage.getItem(storageKey), null);
   assert.equal(reads.length, 2);
   w.close();
-  console.log('Disponibilités mensuelles : exclusions, compteurs, horaires, changement de mois, persistance et réinitialisation vérifiés.');
+  await checkStableNavigation();
+  console.log('Disponibilités mensuelles, exclusions, navigation rapide et plein écran vérifiés.');
 })().catch(error => { console.error(error); process.exit(1); });
