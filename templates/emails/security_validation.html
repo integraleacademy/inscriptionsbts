@@ -1,0 +1,52 @@
+<p style="margin:0 0 18px;">Bonjour {{ first }},</p>
+{% if reminder %}
+<p style="margin:0 0 24px;">Votre candidature au <strong>parcours sécurité en alternance</strong> a été validée. Nous vous invitons à prendre contact avec Aurélie pour convenir de votre entretien.</p>
+{% else %}
+<p style="margin:0 0 24px;">Bonne nouvelle : après étude de votre dossier, <strong>votre candidature au parcours sécurité en alternance a été validée</strong> par notre équipe !</p>
+{% endif %}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;background:#eef2eb;border-radius:12px;border:1px solid #dfe6da;">
+  <tr><td style="padding:22px 24px;">
+    <p style="margin:0 0 8px;font-size:10px;font-weight:700;letter-spacing:1.8px;color:#687b5e;">VOTRE PROCHAINE ÉTAPE</p>
+    <h2 style="margin:0 0 10px;font-size:22px;line-height:1.3;color:#29382e;">Un entretien pour parler de votre projet.</h2>
+    <p style="margin:0;font-size:14px;line-height:1.75;">Contactez <strong>Aurélie, notre chargée des relations clients</strong>, par e-mail ou par téléphone pour fixer un rendez-vous. Cet échange permettra de faire connaissance, de préciser votre projet professionnel et de vous présenter les prochaines étapes du parcours.</p>
+  </td></tr>
+</table>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e2e2d8;border-radius:14px;background:#ffffff;">
+  <tr><td style="padding:24px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td width="68" valign="middle" style="width:68px;padding-right:16px;">
+          <img src="{{ avatar_url }}" width="64" height="64" alt="Aurélie" style="display:block;width:64px;height:64px;border:0;border-radius:50%;background:#f1efe8;">
+        </td>
+        <td valign="middle" style="font-family:Arial,Helvetica,sans-serif;">
+          <p style="margin:0 0 3px;font-size:18px;font-weight:700;line-height:1.3;color:#29382e;">Aurélie</p>
+          <p style="margin:0 0 5px;font-size:11px;font-weight:700;letter-spacing:.4px;line-height:1.5;color:#58654f;">BAYARD-CHAUSSEZ</p>
+          <p style="margin:0;font-size:12px;line-height:1.5;color:#75806e;">{{ adviser.role }}</p>
+        </td>
+      </tr>
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;border-top:1px solid #e8eae2;">
+      <tr><td style="padding-top:16px;">
+        <p style="margin:0 0 3px;font-size:11px;color:#75806e;">Adresse e-mail</p>
+        <a href="mailto:{{ adviser.email }}" style="font-size:14px;line-height:1.6;font-weight:700;color:#29382e;text-decoration:none;overflow-wrap:anywhere;word-break:break-word;">{{ adviser.email }}</a>
+      </td></tr>
+      <tr><td style="padding-top:13px;">
+        <p style="margin:0 0 3px;font-size:11px;color:#75806e;">Ligne directe</p>
+        <a href="tel:{{ adviser.phone_link }}" style="font-size:17px;line-height:1.5;font-weight:700;color:#29382e;text-decoration:none;">{{ adviser.phone }}</a>
+      </td></tr>
+      <tr><td style="padding-top:13px;">
+        <p style="margin:0 0 3px;font-size:11px;color:#75806e;">Portable</p>
+        <a href="tel:{{ adviser.mobile_link }}" style="font-size:17px;line-height:1.5;font-weight:700;color:#29382e;text-decoration:none;">{{ adviser.mobile }}</a>
+      </td></tr>
+    </table>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;">
+      <tr><td align="center" style="background:#d6b46d;border-radius:8px;mso-padding-alt:15px 18px;">
+        <a href="{{ contact_url }}" style="display:block;padding:15px 18px;font-size:14px;line-height:1.5;font-weight:700;text-align:center;color:#202722;text-decoration:none;border-radius:8px;">Écrire à Aurélie pour mon entretien</a>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+
+<p style="margin:24px 0 5px;font-size:13px;line-height:1.75;color:#68745f;">Dans votre message, pensez à préciser votre nom, votre prénom et vos disponibilités pour que nous puissions organiser cet échange.</p>

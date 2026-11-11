@@ -4,7 +4,7 @@
     the stored HTML/SMS/PDF bytes once, after checking the dossier is unchanged.
 """
 from person_names import person_name
-from training_programs import BTS_LABELS, program_name
+from training_programs import BTS_LABELS, SECURITY, program_name
 import base64
 import io
 import json
@@ -25,6 +25,7 @@ from candidate_messages import _csrf_token, _equal, _hash, _recipient
 from certificates import certificate_pdf
 from mail_templates import mail_html
 from sms_templates import sms_text
+from security_admission import ADVISER, validation_subject
 from utils import get_mail_context, make_signed_link, new_token
 
 
@@ -117,8 +118,11 @@ def prepare_workflow(row, kind, data):
             subject = 'Votre certificat de scolarité · ' + program_name(row.get('bts'))
         elif kind == 'remind' and action == 'candidature_validee':
             subject = 'Merci de confirmer votre inscription · ' + program_name(row.get('bts'))
+    security_interview = row.get('bts') == SECURITY and action == 'candidature_validee'
+    if security_interview:
+        subject = validation_subject(reminder=kind == 'remind')
     ctx = get_mail_context(row)
-    if action in ('candidature_validee', 'reconfirmation', 'docs_non_conformes'):
+    if action in ('candidature_validee', 'reconfirmation', 'docs_non_conformes') and not security_interview:
         field, route, days = {
             'candidature_validee': ('token_confirm', '/confirm-inscription', 30),
             'reconfirmation': ('token_reconfirm', '/reconfirm-page', 15),
@@ -163,6 +167,8 @@ def prepare_workflow(row, kind, data):
         html = html.replace('</body>', details + '</body>')
     item['messages'].append(dict(type='email', recipient=_recipient(row, 'email'), subject=subject,
                                  html=brand_existing_email(subject, html), copy='gestion@integraleacademy.com'))
+    if security_interview:
+        item['messages'][-1]['reply_to'] = ADVISER['email']
     if sms_template:
         if not str(row.get('tel') or '').strip():
             item['warnings'].append('Téléphone absent : seul l’e-mail sera envoyé.')
@@ -283,7 +289,8 @@ def register_candidate_workflows(app, db_connect, send_mail, send_sms, log_event
                                 path = Path(folder) / Path(file['name']).name
                                 path.write_bytes(base64.b64decode(file['content']))
                                 paths.append(str(path))
-                            provider_id = send_mail(message['recipient'], message['subject'], message['html'], attachments=paths)
+                            mail_options = {'reply_to': message['reply_to']} if message.get('reply_to') else {}
+                            provider_id = send_mail(message['recipient'], message['subject'], message['html'], attachments=paths, **mail_options)
                     else:
                         provider_id = send_sms(message['recipient'], message['body'])
                 except Exception:
