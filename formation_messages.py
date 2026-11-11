@@ -2,7 +2,8 @@
 from html import escape, unescape
 
 from branded_email import render_branded_email
-from training_programs import program_name
+from training_programs import SECURITY, program_name
+from security_admission import validation_notice
 
 NOTICES = {
     'candidature_validee': ('Votre candidature est validée', 'Votre candidature a été retenue. Vous pouvez maintenant confirmer votre inscription.', 'Confirmer mon inscription'),
@@ -19,6 +20,8 @@ NOTICES = {
 
 
 def notice(template, program, first, space, confirmation, *, sms=False):
+    if program == SECURITY and template in ('candidature_validee', 'relance_candidature_validee'):
+        return validation_notice(first, reminder=template == 'relance_candidature_validee', sms=sms)
     if template == 'reconfirmation_demandee':
         template = 'reconfirmation'
     subject, message, action = NOTICES[template]

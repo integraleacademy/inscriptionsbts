@@ -92,7 +92,8 @@ def test_security_to_enrollment_and_promotion(client, monkeypatch):
     with application.app.test_request_context():
         planned = prepare_workflow(dict(row),'status',{'value':'validee'})
         assert all('BTS' not in (item.get('html') or item.get('body','')).split('<body')[-1].replace('inscriptionsbts','') for item in planned['messages'])
-        assert '/confirm-inscription?' in planned['messages'][0]['html']
+        assert 'Écrire à Aurélie pour mon entretien' in planned['messages'][0]['html']
+        assert '/confirm-inscription?' not in planned['messages'][0]['html']
     with application.db() as conn:
         conn.execute("UPDATE candidats SET statut='confirmee' WHERE id=?",(cid,))
     listed=client.get('/admin/inscriptions',query_string={'bts':SECURITY,'promotion':pid})
