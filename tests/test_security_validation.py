@@ -53,6 +53,8 @@ def test_security_validation_and_reminders_use_same_interview_step(kind, data):
         planned = prepare_workflow(candidate(), kind, data)
     email, sms = planned['messages']
     assert email['reply_to'] == ADVISER['email']
+    assert email['cc'] == [ADVISER['email']]
+    assert email['copy'] == 'gestion@integraleacademy.com, aurelie@integraleacademy.com'
     assert 'entretien' in email['html'] and 'entretien' in sms['body']
     assert 'Confirmez votre inscription' not in email['subject']
     assert 'BTS' not in email['subject'] and 'BTS' not in sms['body']
@@ -75,6 +77,7 @@ def test_other_courses_keep_their_confirmation_workflow(program):
     assert '/confirm-inscription?' in sms['body']
     assert planned['changes']['token_confirm']
     assert 'reply_to' not in email
+    assert 'cc' not in email
     assert 'Écrire à Aurélie pour mon entretien' not in email['html']
     assert not planned['files']
 
@@ -110,8 +113,11 @@ def test_status_sends_exact_preview_once_and_keeps_history(client, monkeypatch):
     response = client.post('/admin/update-status', json=confirmation, headers=headers)
     assert response.status_code == 200 and response.json['sent'] == 2
     expected = preview.json['dossiers'][0]['messages'][0]
+    assert expected['cc'] == [ADVISER['email']]
+    assert ADVISER['email'] in expected['copy']
     assert deliveries[0][1] == (expected['recipient'], expected['subject'], expected['html'])
     assert deliveries[0][2]['reply_to'] == ADVISER['email']
+    assert deliveries[0][2]['cc'] == expected['cc']
     assert deliveries[0][2]['attachment_bytes'] == [attachment.data]
     with application.db() as conn:
         saved = dict(conn.execute('SELECT * FROM candidats WHERE id=?', ('security',)).fetchone())
@@ -123,6 +129,7 @@ def test_status_sends_exact_preview_once_and_keeps_history(client, monkeypatch):
     assert sum(event['type'] == 'MAIL_ENVOYE' for event in logs) == 1
     assert any('entretien' in str(event) for event in logs)
     assert any(BROCHURE_NAME in str(event) for event in logs)
+    assert any(event['type'] == 'MAIL_ENVOYE' and 'copie' in str(event) and ADVISER['email'] in str(event) for event in logs)
 
 
 def test_brochure_is_exact_provided_sixteen_page_pdf():

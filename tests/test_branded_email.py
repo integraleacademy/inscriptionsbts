@@ -88,6 +88,22 @@ def test_brevo_transport_brands_raw_mail_and_retains_attachment_and_copy_setting
     assert data['attachment'][0]['content']
     utils.send_mail('student@example.test','Message','<p>Texte.</p>')
     assert {'email':'gestion@integraleacademy.com'} in post.call_args.kwargs['json']['to']
+    assert 'cc' not in post.call_args.kwargs['json']
+
+
+def test_brevo_transport_includes_visible_cc_without_duplicate_recipients(monkeypatch):
+    import utils
+    monkeypatch.setattr(utils,'BREVO_KEY','fake-key-no-real-request')
+    response=Mock(ok=True,text='{}');response.json.return_value={'messageId':'test-id'}
+    post=Mock(return_value=response);monkeypatch.setattr(utils.requests,'post',post)
+    assert utils.send_mail('student@example.test','Candidature validée','<p>Message.</p>',
+        reply_to='aurelie@integraleacademy.com',
+        cc=['aurelie@integraleacademy.com','AURELIE@integraleacademy.com','student@example.test','gestion@integraleacademy.com'])=='test-id'
+    data=post.call_args.kwargs['json']
+    assert data['to']==[{'email':'student@example.test'},{'email':'gestion@integraleacademy.com'}]
+    assert data['cc']==[{'email':'aurelie@integraleacademy.com'}]
+    assert data['replyTo']['email']=='aurelie@integraleacademy.com'
+    assert 'bcc' not in data
 
 
 def test_smtp_has_html_and_plain_alternatives(monkeypatch):

@@ -170,6 +170,8 @@ def prepare_workflow(row, kind, data):
                                  html=brand_existing_email(subject, html), copy='gestion@integraleacademy.com'))
     if security_interview:
         item['messages'][-1]['reply_to'] = ADVISER['email']
+        item['messages'][-1]['cc'] = [ADVISER['email']]
+        item['messages'][-1]['copy'] += ', ' + ADVISER['email']
     if sms_template:
         if not str(row.get('tel') or '').strip():
             item['warnings'].append('Téléphone absent : seul l’e-mail sera envoyé.')
@@ -291,6 +293,8 @@ def register_candidate_workflows(app, db_connect, send_mail, send_sms, log_event
                                 path.write_bytes(base64.b64decode(file['content']))
                                 paths.append(str(path))
                             mail_options = {'reply_to': message['reply_to']} if message.get('reply_to') else {}
+                            if message.get('cc'):
+                                mail_options['cc'] = message['cc']
                             provider_id = send_mail(message['recipient'], message['subject'], message['html'], attachments=paths, **mail_options)
                     else:
                         provider_id = send_sms(message['recipient'], message['body'])
@@ -299,7 +303,8 @@ def register_candidate_workflows(app, db_connect, send_mail, send_sms, log_event
                 event = ('MAIL_ENVOYE' if message['type'] == 'email' else 'SMS_ENVOYE') if provider_id else 'MESSAGE_ECHEC'
                 log_event(row, event, {'type': kind, 'destinataire': message['recipient'], 'objet': message.get('subject', ''),
                                        'message': archived_body(message['html']) if message['type']=='email' else message.get('body', ''), 'message_id': str(provider_id or ''),
-                                       'pieces_jointes': [file['name'] for file in item['files']]})
+                                       'pieces_jointes': [file['name'] for file in item['files']],
+                                       **({'copie': message['cc']} if message.get('cc') else {})})
                 if not provider_id:
                     errors.append(f"{item['name']} : {message['type']}")
                 else:
