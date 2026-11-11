@@ -33,20 +33,20 @@ def validation_brochure():
 
 def validation_subject(*, reminder=False):
     if reminder:
-        return 'Parcours sécurité en alternance · Pensez à programmer votre entretien'
-    return 'Votre candidature est validée · Parcours sécurité en alternance'
+        return 'Parcours sécurité en alternance · Pense à programmer ton entretien'
+    return 'Ta candidature est validée · Parcours sécurité en alternance'
 
 
 def validation_notice(first, *, reminder=False, sms=False):
     first = unescape(first or '')
     if sms:
-        return (f'Intégrale Academy · Bonjour {first}, votre candidature au parcours sécurité en alternance est validée. '
-                f'Contactez Aurélie pour un entretien : {ADVISER["phone"]} ou {ADVISER["mobile"]}. '
-                'Retrouvez ses coordonnées dans le mail reçu.')
+        return (f'Intégrale Academy · Bonjour {first}, ta candidature au parcours sécurité en alternance est validée. '
+                f'Contacte Aurélie pour un entretien : {ADVISER["phone"]} ou {ADVISER["mobile"]}. '
+                'Retrouve ses coordonnées dans le mail reçu.')
     logo = academy_logo_url()
     return _environment.get_template('emails/security_validation.html').render(
         first=first, adviser=ADVISER, reminder=reminder,
-        email_title='Programmons votre entretien.' if reminder else 'Votre candidature est validée.',
+        email_title='Programmons ton entretien.' if reminder else 'Ta candidature est validée.',
         logo_url=logo, hero_url=logo.rsplit('/', 1)[0] + '/emails/security-journey.jpg',
         avatar_url=logo.rsplit('/', 1)[0] + '/' + ADVISER['avatar'],
         contact_url='mailto:' + ADVISER['email'] + '?' + urlencode({
