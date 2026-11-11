@@ -25,7 +25,7 @@ from candidate_messages import _csrf_token, _equal, _hash, _recipient
 from certificates import certificate_pdf
 from mail_templates import mail_html
 from sms_templates import sms_text
-from security_admission import ADVISER, validation_subject
+from security_admission import ADVISER, validation_brochure, validation_subject
 from utils import get_mail_context, make_signed_link, new_token
 
 
@@ -121,6 +121,7 @@ def prepare_workflow(row, kind, data):
     security_interview = row.get('bts') == SECURITY and action == 'candidature_validee'
     if security_interview:
         subject = validation_subject(reminder=kind == 'remind')
+        item['files'].append(validation_brochure())
     ctx = get_mail_context(row)
     if action in ('candidature_validee', 'reconfirmation', 'docs_non_conformes') and not security_interview:
         field, route, days = {
