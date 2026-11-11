@@ -24,7 +24,8 @@ def candidate(**values):
 def test_validation_has_real_clickable_contacts_and_safe_personalization():
     html = mail_html('candidature_validee', program_code=SECURITY, prenom='Camille &lt;img src=x onerror=alert(1)&gt;')
     soup = BeautifulSoup(html, 'html.parser')
-    assert 'Votre candidature est validée.' in soup.h1.text
+    assert soup.h1.get_text(' ', strip=True) == 'Parcours sécurité en alternance'
+    assert 'Ta candidature est validée.' in soup.select_one('.mail-title').text
     assert soup.select_one('a[href="tel:+33487830615"]').text == '04 87 83 06 15'
     assert soup.select_one('a[href="tel:+33769390457"]').text == '07 69 39 04 57'
     assert soup.select_one('a[href="mailto:aurelie@integraleacademy.com"]')
@@ -37,8 +38,8 @@ def test_validation_has_real_clickable_contacts_and_safe_personalization():
     assert 'Confirmer mon inscription' not in html and '/confirm-inscription' not in html
     assert 'Fais le premier pas vers ton futur métier' in soup.text
     assert 'Votre parcours, notre engagement.' not in soup.text
-    for detail in ('Votre projet et vos motivations', 'Votre organisation et vos disponibilités',
-                   'Les prochaines démarches', 'APS', 'A3P', 'SSIAP 1', 'VOTRE BROCHURE EN PIÈCE JOINTE'):
+    for detail in ('Ton projet et tes motivations', 'Ton organisation et tes disponibilités',
+                   'Les prochaines démarches', 'APS', 'A3P', 'SSIAP 1', 'TA BROCHURE EN PIÈCE JOINTE'):
         assert detail in soup.text
 
 
@@ -57,7 +58,7 @@ def test_security_validation_and_reminders_use_same_interview_step(kind, data):
     assert 'BTS' not in email['subject'] and 'BTS' not in sms['body']
     assert '/confirm-inscription' not in email['html'] + sms['body']
     assert 'token_confirm' not in planned['changes']
-    assert ('programmer votre entretien' in email['subject']) == (kind == 'remind')
+    assert ('programmer ton entretien' in email['subject']) == (kind == 'remind')
     assert len(planned['files']) == 1
     assert planned['files'][0]['name'] == BROCHURE_NAME
     assert base64.b64decode(planned['files'][0]['content']) == BROCHURE_PATH.read_bytes()

@@ -13,7 +13,7 @@
     @media only screen and (max-width:640px){
       .mail-outer{padding:12px 8px!important}.mail-card{width:100%!important}
       .mail-pad{padding-left:24px!important;padding-right:24px!important}
-      .mail-title{font-size:34px!important}.mail-logo{width:205px!important;height:auto!important}
+      .mail-program{font-size:34px!important}.mail-title{font-size:21px!important}.mail-logo{width:205px!important;height:auto!important}
       .mail-course{display:block!important;width:100%!important;padding:0 0 10px!important}
       .mail-phone{display:block!important;width:100%!important;padding:0 0 12px!important}
       .mail-tagline{font-size:27px!important}.mail-contact{padding:22px!important}
@@ -22,7 +22,7 @@
   </style>
 </head>
 <body data-academy-email="v1" style="margin:0;padding:0;background:#eeede7;font-family:Arial,Helvetica,sans-serif;color:#28392f;">
-  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">Votre candidature est validée. Rencontrez Aurélie pour préparer la suite. Votre brochure est jointe à ce mail.</div>
+  <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">Ta candidature est validée. Rencontre Aurélie pour préparer la suite. Ta brochure est jointe à ce mail.</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#eeede7;">
     <tr><td class="mail-outer" align="center" style="padding:32px 14px;">
       <!--[if mso]><table role="presentation" width="640" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
@@ -30,9 +30,9 @@
         <tr><td height="5" style="height:5px;background:#d5b16c;font-size:0;line-height:0;">&nbsp;</td></tr>
         <tr><td class="mail-pad" align="left" style="padding:32px 40px 28px;background:#1d2d26;text-align:left;">
           <img class="mail-logo" src="{{ logo_url }}" width="220" height="66" alt="Intégrale Academy" style="display:block;width:220px;height:auto;max-width:100%;color:#ffffff;">
-          <p style="margin:28px 0 12px;color:#bbccba;font-size:10px;font-weight:700;line-height:1.5;letter-spacing:2px;">PARCOURS SÉCURITÉ · ALTERNANCE</p>
-          <h1 class="mail-title" style="margin:0;color:#fffefa;font-size:40px;font-weight:700;line-height:1.12;letter-spacing:-1.2px;">{{ email_title }}</h1>
-          <p style="margin:15px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:25px;font-style:italic;line-height:1.35;color:#e1bf7e;">La suite se construit ensemble.</p>
+          <h1 class="mail-program" style="margin:28px 0 20px;color:#fffefa;font-size:42px;font-weight:700;line-height:1.12;letter-spacing:-1px;">Parcours sécurité<br><span style="color:#e1bf7e;">en alternance</span></h1>
+          <p class="mail-title" style="margin:0;padding:14px 18px;background:#304337;border-left:3px solid #d5b16c;border-radius:0 7px 7px 0;color:#fffefa;font-size:24px;font-weight:700;line-height:1.3;">{{ email_title }}</p>
+          <p style="margin:16px 0 0;font-family:Georgia,'Times New Roman',serif;font-size:22px;font-style:italic;line-height:1.35;color:#e1bf7e;">La suite se construit ensemble.</p>
         </td></tr>
         <tr><td class="mail-pad" align="left" style="padding:0 40px 30px;background:#1d2d26;text-align:left;">
           <img class="mail-hero" src="{{ hero_url }}" width="560" alt="Prévention et sécurité, protection rapprochée et sécurité incendie : les trois domaines du parcours." style="display:block;width:100%;max-width:560px;height:auto;border-radius:10px;">
@@ -41,7 +41,7 @@
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
             <tr>
               <td class="mail-step" width="34%" align="left" style="color:#334a37;font-size:11px;font-weight:700;line-height:1.5;text-align:left;">01 · Candidature validée</td>
-              <td class="mail-step" width="35%" align="center" style="color:#334a37;font-size:11px;font-weight:700;line-height:1.5;text-align:center;">02 · Votre entretien</td>
+              <td class="mail-step" width="35%" align="center" style="color:#334a37;font-size:11px;font-weight:700;line-height:1.5;text-align:center;">02 · Ton entretien</td>
               <td class="mail-step" width="31%" align="right" style="color:#7e8876;font-size:11px;line-height:1.5;text-align:right;">03 · La suite du parcours</td>
             </tr>
           </table>
@@ -49,20 +49,20 @@
         <tr><td class="mail-pad" align="left" style="padding:30px 40px 12px;text-align:left;font-size:15px;line-height:1.8;color:#435047;">
           <p style="margin:0 0 14px;font-size:18px;font-weight:700;color:#293c30;">Bonjour {{ first }},</p>
           {% if reminder %}
-          <p style="margin:0 0 16px;">Votre candidature au <strong>parcours sécurité en alternance</strong> a été validée. Pour poursuivre votre projet, nous vous invitons à convenir d’un entretien avec Aurélie.</p>
+          <p style="margin:0 0 16px;">Ta candidature au <strong>parcours sécurité en alternance</strong> a été validée. Pour poursuivre ton projet, nous t’invitons à convenir d’un entretien avec Aurélie.</p>
           {% else %}
-          <p style="margin:0 0 16px;">Bonne nouvelle : après étude de votre dossier, <strong>notre équipe a validé votre candidature au parcours sécurité en alternance</strong>. Félicitations pour cette première étape !</p>
+          <p style="margin:0 0 16px;">Bonne nouvelle : après étude de ton dossier, <strong>notre équipe a validé ta candidature au parcours sécurité en alternance</strong>. Félicitations pour cette première étape !</p>
           {% endif %}
-          <p style="margin:0;">Vous souhaitez apprendre un métier de terrain, développer vos compétences et acquérir de l’expérience en entreprise. Prenons maintenant le temps de faire connaissance et de préparer la suite avec vous.</p>
+          <p style="margin:0;">Tu souhaites apprendre un métier de terrain, développer tes compétences et acquérir de l’expérience en entreprise. Prenons maintenant le temps de faire connaissance et de préparer la suite avec toi.</p>
         </td></tr>
         <tr><td class="mail-pad" align="left" style="padding:24px 40px 0;text-align:left;">
-          <p style="margin:0 0 9px;color:#8e743e;font-size:10px;font-weight:700;letter-spacing:1.8px;line-height:1.5;">VOTRE PROCHAINE ÉTAPE</p>
-          <h2 style="margin:0 0 16px;font-size:26px;line-height:1.2;letter-spacing:-.6px;color:#283c2f;">Un entretien pour parler de vous.</h2>
-          <p style="margin:0 0 18px;font-size:14px;line-height:1.75;color:#526054;">Contactez <strong>Aurélie, notre chargée des relations clients</strong>, pour fixer un rendez-vous. Cet échange nous permettra de faire le point sur :</p>
+          <p style="margin:0 0 9px;color:#8e743e;font-size:10px;font-weight:700;letter-spacing:1.8px;line-height:1.5;">TA PROCHAINE ÉTAPE</p>
+          <h2 style="margin:0 0 16px;font-size:26px;line-height:1.2;letter-spacing:-.6px;color:#283c2f;">Un entretien pour parler de toi.</h2>
+          <p style="margin:0 0 18px;font-size:14px;line-height:1.75;color:#526054;">Contacte <strong>Aurélie, notre chargée des relations clients</strong>, pour fixer un rendez-vous. Cet échange nous permettra de faire le point sur :</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:14px;line-height:1.6;color:#435047;">
-            <tr><td width="26" valign="top" style="padding:0 8px 11px 0;color:#9a7d43;font-weight:700;">01</td><td style="padding-bottom:11px;"><strong>Votre projet et vos motivations</strong><br>Les métiers qui vous attirent et ce que vous souhaitez construire.</td></tr>
-            <tr><td width="26" valign="top" style="padding:0 8px 11px 0;color:#9a7d43;font-weight:700;">02</td><td style="padding-bottom:11px;"><strong>Votre organisation et vos disponibilités</strong><br>La session envisagée, votre mobilité et votre recherche d’entreprise.</td></tr>
-            <tr><td width="26" valign="top" style="padding:0 8px 0 0;color:#9a7d43;font-weight:700;">03</td><td><strong>Les prochaines démarches</strong><br>Votre dossier, les étapes du parcours et les réponses à vos questions.</td></tr>
+            <tr><td width="26" valign="top" style="padding:0 8px 11px 0;color:#9a7d43;font-weight:700;">01</td><td style="padding-bottom:11px;"><strong>Ton projet et tes motivations</strong><br>Les métiers qui t’attirent et ce que tu souhaites construire.</td></tr>
+            <tr><td width="26" valign="top" style="padding:0 8px 11px 0;color:#9a7d43;font-weight:700;">02</td><td style="padding-bottom:11px;"><strong>Ton organisation et tes disponibilités</strong><br>La session envisagée, ta mobilité et ta recherche d’entreprise.</td></tr>
+            <tr><td width="26" valign="top" style="padding:0 8px 0 0;color:#9a7d43;font-weight:700;">03</td><td><strong>Les prochaines démarches</strong><br>Ton dossier, les étapes du parcours et les réponses à tes questions.</td></tr>
           </table>
         </td></tr>
         <tr><td class="mail-pad" align="left" style="padding:25px 40px 0;text-align:left;">
@@ -97,12 +97,12 @@
                   <a href="{{ contact_url }}" style="display:block;padding:16px 18px;font-size:14px;line-height:1.4;font-weight:700;text-align:center;color:#213027;text-decoration:none;">Écrire à Aurélie pour mon entretien</a>
                 </td></tr>
               </table>
-              <p style="margin:13px 0 0;font-size:11px;line-height:1.6;color:#6f7c65;">Indiquez votre nom, votre prénom et vos disponibilités. Vous pouvez également répondre directement à ce mail.</p>
+              <p style="margin:13px 0 0;font-size:11px;line-height:1.6;color:#6f7c65;">Indique ton nom, ton prénom et tes disponibilités. Tu peux également répondre directement à ce mail.</p>
             </td></tr>
           </table>
         </td></tr>
         <tr><td class="mail-pad" align="left" style="padding:32px 40px 0;text-align:left;">
-          <p style="margin:0 0 9px;color:#8e743e;font-size:10px;font-weight:700;letter-spacing:1.8px;line-height:1.5;">POUR VOUS PROJETER</p>
+          <p style="margin:0 0 9px;color:#8e743e;font-size:10px;font-weight:700;letter-spacing:1.8px;line-height:1.5;">POUR TE PROJETER</p>
           <h2 style="margin:0 0 12px;font-size:26px;line-height:1.2;letter-spacing:-.6px;color:#283c2f;">Trois formations. Un seul parcours.</h2>
           <p style="margin:0 0 19px;font-size:14px;line-height:1.75;color:#526054;">Une année qui associe formation en présentiel à Puget-sur-Argens et expérience en entreprise, autour de trois domaines complémentaires.</p>
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
@@ -134,13 +134,13 @@
         <tr><td class="mail-pad" align="left" style="padding:25px 40px 30px;text-align:left;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #e4d6b8;background:#f7f2e6;border-radius:10px;">
             <tr><td style="padding:23px;text-align:left;">
-              <p style="margin:0 0 8px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#977a3e;">VOTRE BROCHURE EN PIÈCE JOINTE · PDF</p>
+              <p style="margin:0 0 8px;font-size:10px;font-weight:700;letter-spacing:1.5px;color:#977a3e;">TA BROCHURE EN PIÈCE JOINTE · PDF</p>
               <h3 style="margin:0 0 10px;font-size:19px;line-height:1.3;color:#574a2d;">Tout le parcours, à portée de main.</h3>
-              <p style="margin:0;font-size:13px;line-height:1.75;color:#776a4d;">Retrouvez dans la brochure les programmes APS, A3P et SSIAP 1, les calendriers, le fonctionnement de l’alternance et l’accompagnement proposé.</p>
-              <p style="margin:12px 0 0;font-size:13px;line-height:1.75;color:#776a4d;"><strong>Avant l’entretien :</strong> prenez le temps de la parcourir et notez vos questions. Aurélie sera là pour y répondre avec vous.</p>
+              <p style="margin:0;font-size:13px;line-height:1.75;color:#776a4d;">Retrouve dans la brochure les programmes APS, A3P et SSIAP 1, les calendriers, le fonctionnement de l’alternance et l’accompagnement proposé.</p>
+              <p style="margin:12px 0 0;font-size:13px;line-height:1.75;color:#776a4d;"><strong>Avant l’entretien :</strong> prends le temps de la parcourir et note tes questions. Aurélie sera là pour y répondre avec toi.</p>
             </td></tr>
           </table>
-          <p style="margin:24px 0 0;font-size:14px;line-height:1.8;color:#526054;">Nous avons hâte d’échanger avec vous et de vous accompagner dans la construction de votre projet.</p>
+          <p style="margin:24px 0 0;font-size:14px;line-height:1.8;color:#526054;">Nous avons hâte d’échanger avec toi et de t’accompagner dans la construction de ton projet.</p>
           <p style="margin:15px 0 0;font-size:13px;line-height:1.7;font-weight:700;color:#2e4232;">À très bientôt,<br>L’équipe Intégrale Academy</p>
         </td></tr>
         <tr><td class="mail-pad" align="left" style="padding:28px 40px;background:#1d2d26;text-align:left;">
