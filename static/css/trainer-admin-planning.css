@@ -109,6 +109,17 @@
 .tap-editor-actions { display:flex; flex-wrap:wrap; gap:10px; justify-content:flex-end; margin-top:22px; }
 .tap-editor-actions [data-tap-delete] { margin-right:auto; }
 .tap-course-dialog .tap-danger { color:#a63832; background:#fff0ed; border-color:#efc5bf; }
+.tap-absence-confirm { color:#243653; border-color:#dbe3ef; }
+.tap-absence-confirm>p { font-size:13px; line-height:1.6; overflow-wrap:anywhere; }
+.tap-delete-courses { display:grid; gap:10px; margin:18px 0; }
+.tap-delete-course { padding:12px 14px; border:1px solid #e0e6ef; border-radius:10px; background:#f7f9fc; overflow-wrap:anywhere; font-size:13px; }
+.tap-delete-course p { margin:5px 0 0; font-size:12px; line-height:1.5; }
+.tap-delete-course .tap-delete-time { margin:0 0 6px; color:#536581; }
+.tap-absence-confirm .tap-editor-actions { position:sticky; bottom:-24px; padding:14px 0; background:#fff; border-top:1px solid #e0e6ef; }
+.tap-absence-confirm .trainer-button:disabled { opacity:.55; cursor:wait; }
+.tap-absence-confirm .trainer-button { white-space:normal; text-align:center; line-height:1.45; min-width:0; }
+.tap-absence-confirm .tap-danger { background:#b93832; border-color:#b93832; color:#fff; }
+@media(max-width:560px) { .tap-absence-confirm .tap-editor-actions { flex-direction:column-reverse; } .tap-absence-confirm .trainer-button { width:100%; } }
 .tap-shared-notice { padding:12px; border-radius:9px; background:#edf6f0; font-size:12px; line-height:1.6; }
 [data-tap-confirm] { margin-top:16px; border-top:1px solid #eec9be; padding-top:12px; font-size:13px; line-height:1.6; }
 .tw-hero-actions form { margin:0; }

@@ -5,10 +5,28 @@
   const days=new Map(config.state.days.map(day=>[day.date,day]));
   const date=value=>new Date(value+'T12:00:00'),label=value=>date(value).toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const node=(tag,cls,text)=>{const n=document.createElement(tag);if(cls)n.className=cls;if(text!==undefined)n.textContent=text;return n;};
+  const confirmation=$('tap-delete-dialog');let pending=null;
+  function discardPreview(){pending=null;if(confirmation.open)confirmation.close();}
+  function preview(result,payload){
+    pending={...payload,preview_token:result.preview_token,confirm_delete:true};
+    $('tap-delete-dates').textContent=payload.dates.length+' journée(s) à bloquer : '+payload.dates.map(label).join(' · ');
+    $('tap-delete-reason').textContent='Motif : '+payload.reason;
+    $('tap-delete-courses').replaceChildren();
+    for(const course of result.conflicts){
+      const card=node('article','tap-delete-course');
+      card.append(node('p','tap-delete-time',label(course.date)+' · '+course.start+'–'+course.end));
+      card.append(node('strong','',course.title||course.subject_name||'Cours'));
+      card.append(node('p','',(course.shared?'Cours commun · ':'')+(course.promotion_names||[]).join(' / ')));
+      $('tap-delete-courses').append(card);
+    }
+    $('tap-delete-confirm').textContent='Supprimer '+result.conflicts.length+' cours et bloquer les dates';
+    $('tap-delete-status').textContent='Aucun cours ne sera supprimé sans votre confirmation.';
+    if(!confirmation.open)confirmation.showModal();
+  }
   const allowed=key=>days.has(key)&&!days.get(key).public_holiday&&!days.get(key).unavailable;
   function feedback(text,error=false){$('tap-feedback').textContent=text;$('tap-feedback').hidden=!text;$('tap-feedback').classList.toggle('is-error',error);}
-  function update(){app.dataset.dirty=String(selected.size>0);$('tap-selection-count').textContent=selected.size?selected.size+' journée(s) sélectionnée(s)':'Aucune date sélectionnée';$('tap-clear').disabled=busy||!selected.size;$('tap-save').disabled=busy||!selected.size;app.querySelectorAll('[data-day]').forEach(b=>{b.classList.toggle('is-selected',selected.has(b.dataset.day));b.setAttribute('aria-pressed',String(selected.has(b.dataset.day)));});}
-  function toggle(key,value){if(busy||!allowed(key))return;if(value)selected.add(key);else selected.delete(key);update();}
+  function update(){app.dataset.dirty=String(selected.size>0);$('tap-selection-count').textContent=selected.size?selected.size+' journée(s) sélectionnée(s)':'Aucune date sélectionnée';$('tap-clear').disabled=busy||!selected.size;$('tap-save').disabled=busy||!selected.size;$('tap-reason').disabled=busy;$('tap-delete-confirm').disabled=busy||!pending;$('tap-delete-cancel').disabled=busy;app.querySelectorAll('[data-day]').forEach(b=>{b.classList.toggle('is-selected',selected.has(b.dataset.day));b.setAttribute('aria-pressed',String(selected.has(b.dataset.day)));});}
+  function toggle(key,value){if(busy||!allowed(key))return;discardPreview();if(value)selected.add(key);else selected.delete(key);update();}
   for(const monthKey of config.state.months){
     const [year,monthNumber]=monthKey.split('-').map(Number),month=monthNumber-1;
     const card=node('section','tap-month'),head=node('h3','',new Date(year,month,1).toLocaleDateString('fr-FR',{month:'long',year:'numeric'}));card.append(head);
@@ -22,10 +40,34 @@
   $('tap-months').addEventListener('pointerdown',event=>{if(event.pointerType==='touch'||event.button!==0)return;const b=event.target.closest('[data-day]');if(!b||b.disabled||busy||event.shiftKey)return;drag={value:!selected.has(b.dataset.day)};toggle(b.dataset.day,drag.value);anchor=b.dataset.day;});
   $('tap-months').addEventListener('pointerover',event=>{const b=event.target.closest('[data-day]');if(drag&&b)toggle(b.dataset.day,drag.value);});
   window.addEventListener('pointerup',()=>setTimeout(()=>{drag=null;},0));window.addEventListener('pointercancel',()=>{drag=null;});
-  $('tap-clear').addEventListener('click',()=>{selected.clear();anchor=null;update();});
-  async function mutate(url,method,payload){if(busy)return;busy=true;app.setAttribute('aria-busy','true');update();try{const response=await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':app.dataset.csrf},body:JSON.stringify(payload)});const result=await response.json();if(!response.ok||result.ok===false){let message=result.message||'La modification n’a pas été enregistrée.';if(result.conflicts)message+='\n'+result.conflicts.map(c=>label(c.date)+' · '+c.start+'–'+c.end+' · '+c.title).join('\n');throw Error(message);}window.location.reload();}catch(error){feedback(error.message,true);}finally{busy=false;app.setAttribute('aria-busy','false');update();}}
+  $('tap-clear').addEventListener('click',()=>{if(busy)return;discardPreview();selected.clear();anchor=null;feedback('');update();});
+  $('tap-reason').addEventListener('input',()=>{discardPreview();update();});
+  $('tap-delete-cancel').addEventListener('click',()=>{if(!busy){discardPreview();update();}});
+  confirmation.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
+  confirmation.addEventListener('close',()=>{pending=null;update();$('tap-save').focus();});
+  $('tap-delete-confirm').addEventListener('click',()=>{
+    if(busy||!pending)return;
+    $('tap-delete-status').textContent='Suppression des cours et enregistrement des indisponibilités…';
+    mutate(config.save_url,'POST',pending);
+  });
+  async function mutate(url,method,payload){
+    if(busy)return;
+    busy=true;app.setAttribute('aria-busy','true');update();
+    try{
+      const response=await fetch(url,{method,credentials:'same-origin',headers:{'Content-Type':'application/json','X-CSRF-Token':app.dataset.csrf},body:JSON.stringify(payload)});
+      const result=await response.json().catch(()=>({ok:false,message:'La modification n’a pas pu être vérifiée. Actualisez la fiche avant de réessayer.'}));
+      if(!response.ok||result.ok===false){
+        if(result.preview_token&&result.conflicts?.length){feedback(result.message,true);preview(result,payload);return;}
+        let message=result.message||'La modification n’a pas été enregistrée.';
+        if(result.conflicts)message+='\n'+result.conflicts.map(c=>label(c.date)+' · '+c.start+'–'+c.end+' · '+c.title).join('\n');
+        throw Error(message);
+      }
+      selected.clear();discardPreview();feedback(result.message||'Modification enregistrée.');window.location.reload();
+    }catch(error){discardPreview();feedback(error.message,true);}
+    finally{busy=false;app.setAttribute('aria-busy','false');update();if(confirmation.open&&pending)$('tap-delete-cancel').focus({preventScroll:true});}
+  }
   $('tap-save').addEventListener('click',()=>{const reason=$('tap-reason').value.trim();if(!reason){feedback('Précisez le motif de ces indisponibilités.',true);return;}mutate(config.save_url,'POST',{dates:[...selected].sort(),reason,expected_revision:config.state.revision});});
   app.querySelectorAll('[data-remove-block]').forEach(button=>button.addEventListener('click',()=>mutate(config.block_url+encodeURIComponent(button.dataset.removeBlock),'DELETE',{expected_revision:config.state.revision})));
-  window.addEventListener('academy:planning-changed',event=>{if(selected.size||busy||drag){event.preventDefault();feedback('Le planning a changé. Votre sélection est conservée ; les cours seront vérifiés à l’enregistrement.');}});
+  window.addEventListener('academy:planning-changed',event=>{if(selected.size||busy||drag){event.preventDefault();if(!busy)discardPreview();feedback('Le planning a changé. Votre sélection est conservée ; les cours seront vérifiés à l’enregistrement.');update();}});
   window.addEventListener('beforeunload',event=>{if(selected.size&&!busy){event.preventDefault();event.returnValue='';}});update();
 })();

@@ -9,12 +9,14 @@ import json
 import secrets
 from zoneinfo import ZoneInfo
 from flask import abort, jsonify, request, session, send_file
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 from io import BytesIO
 from planning import PlanningError, _iso, _load_courses, _unavailability, ensure_planning_schema
 from planning_holidays import public_holiday_name
 from planning_portal import _requested_day, _date_label, _course_dto
 from trainer_availability import (get_trainer_availability_state, ensure_trainer_availability_schema,
-                                  availability_course_date, availability_day_courses)
+                                  availability_course_date, availability_day_courses,
+                                  _course_summary, _fingerprint, PREVIEW_TTL)
 
 
 def _now():
@@ -116,6 +118,7 @@ def register_admin_trainer_planning(app,db_connect,require_admin):
     # Register the private financial checks alongside the admin trainer panels.
     from trainer_invoices import register_trainer_invoices
     register_trainer_invoices(app, db_connect, require_admin)
+    serializer = URLSafeTimedSerializer(app.secret_key, salt='admin-trainer-absence-delete-v1')
 
     def reply(payload,status=200):
         response=app.make_response((jsonify(payload),status));response.headers['Cache-Control']='private, no-store';response.vary.add('Cookie');return response
@@ -157,7 +160,7 @@ def register_admin_trainer_planning(app,db_connect,require_admin):
     @app.post('/admin/formateurs/<trainer_id>/indisponibilites/jours')
     def admin_trainer_availability_days(trainer_id):
         guard(True);payload=request.get_json(silent=True)
-        if not isinstance(payload,dict) or set(payload)-{'dates','reason','expected_revision'}:abort(400)
+        if not isinstance(payload,dict) or set(payload)-{'dates','reason','expected_revision','preview_token','confirm_delete'}:abort(400)
         try:
             values=payload.get('dates')
             if not isinstance(values,list) or not 1<=len(values)<=740:raise PlanningError('Sélectionnez de 1 à 740 journées.')
@@ -165,19 +168,39 @@ def register_admin_trainer_planning(app,db_connect,require_admin):
             if any(not 1900<=date.fromisoformat(day).year<=2200 for day in dates):raise PlanningError('Choisissez une année de 1900 à 2200.')
             reason=payload.get('reason','Indisponibilité ajoutée par l’équipe')
             if not isinstance(reason,str) or not 1<=len(reason.strip())<=240:raise PlanningError('Précisez un motif de 1 à 240 caractères.')
+            reason=reason.strip()
+            for day in dates:
+                if public_holiday_name(date.fromisoformat(day)):raise PlanningError('Les jours fériés sont déjà bloqués automatiquement.')
             with closing(connect()) as conn:
                 conn.execute('BEGIN IMMEDIATE');trainer_exists(conn,trainer_id)
                 if payload.get('expected_revision')!=_revision(conn,trainer_id):raise PlanningError('Les indisponibilités ont changé. Actualisez la fiche avant de recommencer.',status=409)
                 courses=[c for c in _load_courses(conn,dates[0],dates[-1],trainer_id=trainer_id) if c['date'] in dates]
-                if courses:
-                    return reply(dict(ok=False,message='Des cours sont déjà programmés sur ces journées. Déplacez ou supprimez ces cours dans le planning avant de bloquer les dates.',
-                        conflicts=[dict(date=c['date'],start=c['start'],end=c['end'],title=c['title'] or c['subject_name']) for c in courses]),409)
+                preview=dict(trainer_id=trainer_id, dates=dates, reason=reason,
+                    revision=payload['expected_revision'],
+                    binding=hashlib.sha256(session['_trainer_csrf'].encode()).hexdigest(),
+                    fingerprint=_fingerprint(conn,trainer_id,dates,courses))
+                if 'preview_token' in payload or 'confirm_delete' in payload:
+                    token=payload.get('preview_token')
+                    if not isinstance(token,str) or payload.get('confirm_delete') is not True:
+                        raise PlanningError('Confirmez la suppression des cours affichés avant de bloquer les dates.',status=409)
+                    try:
+                        confirmed=serializer.loads(token,max_age=PREVIEW_TTL)
+                    except BadSignature:
+                        raise PlanningError('Cet aperçu a expiré. Cliquez à nouveau sur « Bloquer les dates » pour vérifier les cours.',status=409)
+                    if confirmed!=preview:
+                        raise PlanningError('Le planning ou la sélection a changé. Aucun cours supprimé. Cliquez à nouveau sur « Bloquer les dates » pour vérifier les cours.',status=409)
+                    for course in courses:
+                        conn.execute('DELETE FROM planning_course_groups WHERE course_id=?',(course['id'],))
+                        conn.execute('DELETE FROM planning_courses WHERE id=? AND trainer_id=?',(course['id'],trainer_id))
+                elif courses:
+                    return reply(dict(ok=False,message='Des cours sont programmés sur ces journées. Vous pouvez les supprimer et bloquer les dates après confirmation.',
+                        conflicts=[_course_summary(c) for c in courses],preview_token=serializer.dumps(preview)),409)
                 for day in dates:
-                    if public_holiday_name(date.fromisoformat(day)):raise PlanningError('Les jours fériés sont déjà bloqués automatiquement.')
                     conn.execute('INSERT INTO planning_trainer_unavailability VALUES(?,?,?,?,?,?,?)',
-                        (secrets.token_urlsafe(20),trainer_id,day,day,'[0,1,2,3,4,5,6]','[]',reason.strip()))
+                        (secrets.token_urlsafe(20),trainer_id,day,day,'[0,1,2,3,4,5,6]','[]',reason))
                 conn.commit()
-            return reply(dict(ok=True,message=f'{len(dates)} journée(s) bloquée(s).'))
+            return reply(dict(ok=True,removed_count=len(courses),message=f'{len(dates)} journée(s) bloquée(s).'+
+                (f' {len(courses)} cours supprimé(s) de tous les plannings concernés.' if courses else '')))
         except PlanningError as error:return reply(dict(ok=False,message=str(error)),error.status)
 
     @app.delete('/admin/formateurs/<trainer_id>/indisponibilites/bloc/<block_id>')
