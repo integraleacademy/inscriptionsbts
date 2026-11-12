@@ -1,0 +1,33 @@
+name: Room calendar checks
+on:
+  pull_request:
+    paths:
+      - 'planning.py'
+      - 'planning_room*.py'
+      - 'templates/_room*.html'
+      - 'templates/planning_rooms.html'
+      - 'templates/base.html'
+      - 'static/js/room-*.js'
+      - 'tests/test_room*.py'
+      - 'tests/test_planning_rooms_events.py'
+      - 'tests/room_calendar_frontend.cjs'
+      - '.github/workflows/room-calendar.yml'
+permissions:
+  contents: read
+jobs:
+  room-calendar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+      - run: python -m pip install -r requirements.txt pytest
+      - run: python -m pytest -q tests/test_room_calendar.py tests/test_room_reservations.py tests/test_room_slot_deletion.py tests/test_room_unassigned.py tests/test_room_month.py tests/test_planning_rooms_events.py tests/test_planning_room_choices.py
+      - run: node --check static/js/room-schedule.js
+      - run: npm install --prefix /tmp/room-calendar-checks --no-audit --no-fund jsdom@26
+      - run: node tests/room_calendar_frontend.cjs
+        env:
+          NODE_PATH: /tmp/room-calendar-checks/node_modules

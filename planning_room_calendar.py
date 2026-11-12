@@ -128,6 +128,28 @@ def register(app,connect,guard,result,fail,transact):
             return dict(count=len(selected),message='La salle a été modifiée pour tous les créneaux sélectionnés.')
         return transact(operation)
 
+    @app.post('/admin/planning/api/rooms/calendar-release')
+    def release_session_room_slot():
+        """Free one linked session reservation without deleting its source lesson."""
+        def operation(conn,payload):
+            if set(payload)-{'key','date','revision','room_version','confirm_release'} or payload.get('confirm_release') is not True:
+                raise PlanningError('Confirmez la libération de la salle pour ce créneau.')
+            if not ready(conn):raise PlanningError('La synchronisation des salles doit être terminée.',status=503)
+            key=payload.get('key')
+            if not isinstance(key,str) or not 1<=len(key)<=400:raise PlanningError('Choisissez un créneau de session.')
+            day=_iso(payload.get('date')).isoformat()
+            row=next((r for r in snapshot(conn,day,day)['reservations'] if r['key']==key),None)
+            if not row or row['source']!='session' or not row['room_id']:
+                raise PlanningError('Ce créneau n’est plus réservé. Actualisez le planning.',status=409)
+            if (row.get('pending') or payload.get('revision')!=row['revision'] or
+                    type(payload.get('room_version')) is not int or payload['room_version']!=row['room_version']):
+                raise PlanningError('Ce créneau a changé. Actualisez le planning avant de libérer la salle.',status=409)
+            # The existing per-slot override survives ordinary source refreshes.
+            # A later explicit assignment of the whole session replaces it.
+            apply_room_moves(conn,[row],'')
+            return dict(message='La salle est libérée pour ce créneau. La session est conservée et le créneau reste à affecter.')
+        return transact(operation)
+
     @app.route('/admin/planning/api/rooms/reservations',methods=['POST'])
     @app.route('/admin/planning/api/rooms/reservations/<reservation_id>',methods=['PUT','DELETE'])
     def room_reservation(reservation_id=None):

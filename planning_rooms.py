@@ -66,7 +66,7 @@ def effective_slots(conn,owner,slots,metadata,current_metadata=None):
     overrides={row['slot_key']:row['room_id'] for row in conn.execute('SELECT * FROM planning_room_overrides WHERE owner=?',(owner,))}
     if current_metadata is not None and metadata.get('assignment','')!=current_metadata.get('assignment',''):
         overrides={}
-    return [dict(slot,slot_key=slot_key(slot),room_id=overrides.get(slot_key(slot),slot['room_id'])) for slot in slots]
+    return [dict(slot,slot_key=slot_key(slot),room_id=overrides.get(slot_key(slot),slot['room_id']) or None) for slot in slots]
 
 
 def external_slots(conn, exclude_owner=None, room_day=None):

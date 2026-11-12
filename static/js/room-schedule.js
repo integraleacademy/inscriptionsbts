@@ -19,6 +19,7 @@
   let reservations = [];
   const selection = new Map();
   const moveDialog = $('rooms-course-dialog'), moveForm = $('rooms-course-form');
+  const slotConfirm = $('rooms-slot-confirm'); let removingSlot = null;
   const blockDialog = $('rooms-unavailable-dialog'), blockForm = $('rooms-unavailable-form');
   const exportDialog = $('rooms-export-dialog'), exportForm = $('rooms-export-form');
   const reservationDialog = $('rooms-reservation-dialog'), reservationForm = $('rooms-reservation-form');
@@ -88,15 +89,15 @@
     sync();
   }
 
-  async function request(path, data, method) {
-    const response = await fetch('/admin/planning/api/rooms' + path, {
+  async function request(path, data, method, base = '/admin/planning/api/rooms') {
+    const response = await fetch(base + path, {
       method: method || (data ? 'POST' : 'GET'), credentials: 'same-origin',
       headers: {Accept: 'application/json', ...(data ? {'Content-Type': 'application/json', 'X-CSRF-Token': csrf} : {})},
       ...(data ? {body: JSON.stringify(data)} : {})
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok || result.ok === false) throw new Error([result.message || 'Chargement impossible.',
-      ...(result.conflicts || []).map(c => (c.date ? frenchDate(c.date) + ' · ' : '') + c.message)].join('\n'));
+      ...(result.conflicts || []).filter(c => c.message).map(c => (c.date ? frenchDate(c.date) + ' · ' : '') + c.message)].join('\n'));
     return result;
   }
   function roomOptions(select, value = select.value) {
@@ -138,7 +139,7 @@
             card.addEventListener('dragstart', event => startDrag(event, b, card));
             card.addEventListener('dragend', endDrag);
           }
-          const action = b.source === 'unavailable' ? 'Modifier l’indisponibilité' : b.source === 'reservation' ? 'Modifier la réservation' : b.room_id ? 'Changer la salle' : 'Affecter une salle';
+          const action = b.source === 'unavailable' ? 'Modifier l’indisponibilité' : b.source === 'reservation' ? 'Modifier ou supprimer' : b.source === 'session' ? 'Changer ou libérer la salle' : 'Modifier ou supprimer';
           card.setAttribute('aria-label', (b.exam ? 'EXAMEN · ' : '') + action + ' · ' + b.title + ' · ' + label(b.date) + ' · ' + b.start + '–' + b.end);
           if (b.exam) card.append(node('span', 'EXAMEN', 'room-exam-badge'));
           card.append(node('strong', b.start === '00:00' && b.end === '24:00' ? 'Journée entière' : b.start + '–' + b.end), node('span', b.title));
@@ -317,20 +318,45 @@
     catch (e) { error(errorId, e.message); }
     finally { delete dialog.dataset.busy; controls.forEach(([n, disabled]) => n.disabled = disabled); }
   }
-  for (const dialog of [moveDialog, blockDialog, exportDialog, reservationDialog, reservationConfirm, sessionsDialog]) {
+  for (const dialog of [moveDialog, slotConfirm, blockDialog, exportDialog, reservationDialog, reservationConfirm, sessionsDialog]) {
     for (const button of dialog.querySelectorAll('[data-room-close]')) button.addEventListener('click', () => { if (!dialog.dataset.busy) dialog.close(); });
     dialog.addEventListener('cancel', e => { if (dialog.dataset.busy) e.preventDefault(); });
     dialog.addEventListener('close', () => (dialog._opener?.isConnected ? dialog._opener : $('rooms-refresh')).focus());
   }
   function openMove(bookings) {
     moving = bookings; error('rooms-course-error', '');
-    $('rooms-course-heading').textContent = bookings.length > 1 ? 'Changer la salle de ' + bookings.length + ' créneaux' : bookings[0].room_id ? 'Changer la salle' : 'Affecter une salle';
+    $('rooms-course-heading').textContent = bookings.length > 1 ? 'Changer la salle de ' + bookings.length + ' créneaux' : 'Modifier le créneau';
+    $('rooms-course-delete').hidden = bookings.length !== 1 || !['bts','event','session'].includes(bookings[0].source);
+    $('rooms-course-delete').textContent = bookings[0].source === 'session' ? 'Libérer la salle pour ce créneau' : 'Supprimer ce créneau';
     $('rooms-course-description').textContent = bookings.slice(0, 8).map(b => b.title + ' · ' + frenchDate(b.date) + ' · ' + b.start + '–' + b.end).join('\n') + (bookings.length > 8 ? '\nEt ' + (bookings.length - 8) + ' autre(s) créneau(x).' : '');
     $('rooms-course-shared').hidden = !bookings.some(b => b.is_shared);
     $('rooms-course-shared').textContent = 'Les cours communs changent de salle pour toutes les promotions concernées.';
     roomOptions(moveForm.elements.room_id, bookings.every(b => b.room_id === bookings[0].room_id) ? bookings[0].room_id || '' : '');
     moveForm.elements.room_id.required = true; show(moveDialog); moveForm.elements.room_id.focus();
   }
+  $('rooms-course-delete').addEventListener('click', () => {
+    if (moving.length !== 1 || moveDialog.dataset.busy) return;
+    removingSlot = moving[0];
+    const linked = removingSlot.source === 'session';
+    const groups = [...new Set((removingSlot.groups || []).map(g => g.promotion_name).filter(Boolean))].join(' / ');
+    $('rooms-slot-confirm-heading').textContent = linked ? 'Libérer la salle pour ce créneau ?' : 'Supprimer ce créneau ?';
+    $('rooms-slot-confirm-description').textContent = removingSlot.title + ' · ' + frenchDate(removingSlot.date) + ' · ' + removingSlot.start + '–' + removingSlot.end + (groups ? '\nPromotions : ' + groups : '');
+    $('rooms-slot-confirm-effect').textContent = linked
+      ? 'Seule la réservation de la salle pour ces horaires sera retirée. La session et ses cours sont conservés ; ce créneau restera à affecter à une salle.'
+      : 'Ce créneau sera supprimé des plannings de toutes les promotions concernées et du formateur. La salle sera libérée et les heures recalculées. Cette suppression est définitive.';
+    $('rooms-slot-confirm-action').textContent = linked ? 'Libérer la salle' : 'Supprimer le créneau';
+    error('rooms-slot-confirm-error', ''); show(slotConfirm); $('rooms-slot-confirm-cancel').focus();
+  });
+  slotConfirm.addEventListener('close', () => { removingSlot = null; });
+  $('rooms-slot-confirm-action').addEventListener('click', () => dialogWork(slotConfirm, 'rooms-slot-confirm-error', async () => {
+    const booking = removingSlot; if (!booking) return;
+    const result = booking.source === 'session'
+      ? await request('/calendar-release', {key:booking.key, date:booking.date, revision:booking.revision, room_version:booking.room_version, confirm_release:true})
+      : await request('/courses/' + encodeURIComponent(booking.id), {version:booking.version}, 'DELETE', '/admin/planning/api');
+    selection.delete(booking.key); updateSelection(); slotConfirm.close(); moveDialog.close(); changed();
+    try { localStorage.setItem('academy-planning-updated', String(Date.now())); } catch (_) {}
+    dragMessage(result.message || 'Le créneau a été supprimé.', 'success');
+  }));
   moveForm.addEventListener('submit', e => {
     e.preventDefault(); if (!moving.length || !moveForm.reportValidity()) return;
     dialogWork(moveDialog, 'rooms-course-error', async () => {

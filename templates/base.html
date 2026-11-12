@@ -147,7 +147,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <script src="{{ url_for('static', filename='js/subject-catalog.js') }}?v=4" defer></script>
     {% else %}
     <script src="{{ url_for('static', filename='js/planning-catalog.js') }}?v=6" defer></script>
-    {% if request.path == '/admin/salles' %}<script src="{{ url_for('static', filename='js/room-schedule.js') }}?v=10" defer></script><script src="{{ url_for('static', filename='js/room-promotions.js') }}?v=2" defer></script>{% endif %}
+    {% if request.path == '/admin/salles' %}<script src="{{ url_for('static', filename='js/room-schedule.js') }}?v=11" defer></script><script src="{{ url_for('static', filename='js/room-promotions.js') }}?v=2" defer></script>{% endif %}
     {% endif %}
   {% elif is_portal_planning %}
     <script src="{{ url_for('static', filename='js/portal-planning.js') }}?v=1" defer></script>

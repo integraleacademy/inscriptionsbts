@@ -47,7 +47,12 @@
 
 <dialog class="catalog-dialog compact" id="rooms-course-dialog" aria-labelledby="rooms-course-heading">
  <header><div><p class="catalog-kicker">AFFECTATION DE SALLE</p><h2 id="rooms-course-heading">Changer la salle</h2></div><button type="button" class="catalog-close" data-room-close aria-label="Fermer">×</button></header>
- <form id="rooms-course-form"><div class="catalog-dialog-content"><p id="rooms-course-description"></p><p id="rooms-course-shared" class="catalog-inline-note" hidden></p><label class="catalog-field">Salle à affecter<select name="room_id"></select></label><p id="rooms-course-error" class="catalog-form-error" role="alert" hidden></p></div><footer><button class="catalog-button" type="button" data-room-close>Annuler</button><button class="catalog-button primary" type="submit">Enregistrer la salle</button></footer></form>
+ <form id="rooms-course-form"><div class="catalog-dialog-content"><p id="rooms-course-description"></p><p id="rooms-course-shared" class="catalog-inline-note" hidden></p><label class="catalog-field">Salle à affecter<select name="room_id"></select></label><p id="rooms-course-error" class="catalog-form-error" role="alert" hidden></p></div><footer><button class="catalog-button danger" id="rooms-course-delete" type="button" hidden>Supprimer ce créneau</button><button class="catalog-button" type="button" data-room-close>Annuler</button><button class="catalog-button primary" type="submit">Enregistrer la salle</button></footer></form>
+</dialog>
+<dialog class="catalog-dialog compact" id="rooms-slot-confirm" aria-labelledby="rooms-slot-confirm-heading" aria-describedby="rooms-slot-confirm-effect">
+ <header><div><p class="catalog-kicker">CONFIRMATION</p><h2 id="rooms-slot-confirm-heading">Supprimer ce créneau ?</h2></div><button type="button" class="catalog-close" data-room-close aria-label="Fermer">×</button></header>
+ <div class="catalog-dialog-content"><p id="rooms-slot-confirm-description"></p><p id="rooms-slot-confirm-effect" class="catalog-inline-note"></p><p id="rooms-slot-confirm-error" class="catalog-form-error" role="alert" hidden></p></div>
+ <footer><button class="catalog-button" id="rooms-slot-confirm-cancel" type="button" data-room-close>Annuler</button><button class="catalog-button danger" id="rooms-slot-confirm-action" type="button">Supprimer le créneau</button></footer>
 </dialog>
 
 <dialog class="catalog-dialog compact" id="rooms-unavailable-dialog" aria-labelledby="rooms-unavailable-heading">
