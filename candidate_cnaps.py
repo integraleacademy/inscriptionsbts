@@ -11,12 +11,11 @@ import json
 import os
 import re
 from contextlib import closing
-from html import escape
 
 import requests
 from flask import abort, jsonify, request, session
 
-from branded_email import render_branded_email
+from branded_email import _environment, academy_logo_url
 from security_admission import ADVISER
 from training_programs import SECURITY
 
@@ -39,32 +38,18 @@ def collection_email(row):
     """Prepare a branded message without contacting a service or changing data."""
     if row.get('bts') != SECURITY:
         raise ValueError('Cette collecte est réservée au parcours sécurité en alternance.')
-    first = escape(str(row.get('prenom') or '').strip())
-    subject = 'Ministère de l’intérieur (CNAPS) · Complète ton dossier'
-    content = (
-        f'<p>Bonjour {first},</p>'
-        '<p>Pour préparer tes démarches auprès du <strong>Ministère de l’intérieur (CNAPS)</strong> dans le cadre de ton '
-        '<strong>parcours sécurité en alternance</strong>, nous avons besoin de tes '
-        'informations et des justificatifs demandés dans notre formulaire.</p>'
-        '<h2>Ton dossier, étape par étape</h2>'
-        '<ol><li>Complète les informations demandées en reprenant les nom et prénom '
-        'de ta pièce d’identité et de ta candidature.</li>'
-        '<li>Dépose les justificatifs indiqués dans le formulaire.</li>'
-        '<li>Valide ton envoi. Notre équipe pourra ensuite suivre ton dossier.</li></ol>'
-        '<p>Si tu as déjà transmis ces éléments, contacte Aurélie avant de créer '
-        'un nouveau dossier.</p>'
-        f'<p>Une question ? Écris à <a href="mailto:{escape(ADVISER["email"], quote=True)}">'
-        f'{escape(ADVISER["email"])}</a> ou appelle le '
-        f'<a href="tel:{escape(ADVISER["phone_link"], quote=True)}">{escape(ADVISER["phone"])}</a>.</p>'
-        '<p>À bientôt,<br><strong>L’équipe Intégrale Academy</strong></p>'
-    )
-    return subject, render_branded_email(
-        'Ton dossier pour le Ministère de l’intérieur (CNAPS)', content,
-        eyebrow='PARCOURS SÉCURITÉ EN ALTERNANCE',
-        accent_title='Préparons ton dossier.',
-        preview_text='Complète tes informations et dépose les justificatifs demandés.',
-        action_url=COLLECTION_URL, action_label='Compléter mon dossier',
-        security_note='Dépose tes justificatifs dans le formulaire prévu à cet effet.',
+    first = str(row.get('prenom') or '').strip()
+    subject = 'Ton autorisation d’entrée en formation · Ministère de l’intérieur (CNAPS)'
+    logo = academy_logo_url()
+    return subject, _environment.get_template('emails/security_cnaps_collection.html').render(
+        first=first, subject=subject, adviser=ADVISER,
+        logo_url=logo, avatar_url=logo.rsplit('/', 1)[0] + '/' + ADVISER['avatar'],
+        collection_url=COLLECTION_URL,
+        official_information_url=(
+            'https://www.cnaps.interieur.gouv.fr/Demarches-en-ligne/'
+            'Vous-etes-un-particulier/Se-former-aux-metiers-de-la-securite-privee/'
+            'Se-former-aux-metiers-de-la-securite-privee'
+        ),
     )
 
 
