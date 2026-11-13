@@ -20,6 +20,7 @@ from candidate_pdf import application_pdf
 from opco_contracts import directory_contracts
 from candidate_statuses import annotate_candidate_statuses, EMPLOYMENT_STATUS
 from candidate_workflows import register_candidate_workflows
+from candidate_cnaps import register_candidate_cnaps
 from candidate_documents import DOC_FIELDS, load_verif_docs, register_candidate_documents, document_preview_response
 from london_mobility import has_mobility_archive, london_context, register_london_mobility
 from student_cards import register_student_cards, student_card_dates
@@ -1107,6 +1108,7 @@ candidate_workflow_response = register_candidate_workflows(
     app, db, lambda *args, **kwargs: send_mail(*args, **kwargs),
     lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event,
     lambda status: campaign_rows(status))
+register_candidate_cnaps(app, db, candidate_workflow_response)
 register_daily_login(app)
 register_promotions(app, db, require_admin)
 register_trainer_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), require_admin, upload_dir=lambda: UPLOAD_DIR)

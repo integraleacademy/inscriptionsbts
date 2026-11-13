@@ -22,6 +22,7 @@ from branded_email import brand_existing_email
 from campaign import candidate_year
 from candidate_email_history import archived_body
 from candidate_messages import _csrf_token, _equal, _hash, _recipient
+from candidate_cnaps import collection_email
 from certificates import certificate_pdf
 from mail_templates import mail_html
 from sms_templates import sms_text
@@ -101,6 +102,13 @@ def prepare_workflow(row, kind, data):
         if row.get('bts') != 'MOS':
             raise ValueError('Ce message concerne le BTS MOS.')
         template, subject = 'demande_aps', 'Formation APS – Documents CNAPS à envoyer'
+    elif kind == 'cnaps':
+        subject, html = collection_email(row)
+        item['messages'].append(dict(
+            type='email', recipient=_recipient(row, 'email'), subject=subject,
+            html=html, copy='gestion@integraleacademy.com', reply_to=ADVISER['email'],
+        ))
+        return item
     elif kind == 'certificate':
         presentiel = row.get('mode') == 'presentiel'
         template = 'certificat_presentiel' if presentiel else 'certificat'
