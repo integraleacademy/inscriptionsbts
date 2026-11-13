@@ -12,7 +12,7 @@ import secrets
 import tempfile
 import time
 from contextlib import closing
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from html import escape
 from pathlib import Path
 
@@ -312,6 +312,7 @@ def register_candidate_workflows(app, db_connect, send_mail, send_sms, log_event
                 log_event(row, event, {'type': kind, 'destinataire': message['recipient'], 'objet': message.get('subject', ''),
                                        'message': archived_body(message['html']) if message['type']=='email' else message.get('body', ''), 'message_id': str(provider_id or ''),
                                        'pieces_jointes': [file['name'] for file in item['files']],
+                                       **({'sent_at': datetime.now(timezone.utc).isoformat()} if kind == 'cnaps' and provider_id else {}),
                                        **({'copie': message['cc']} if message.get('cc') else {})})
                 if not provider_id:
                     errors.append(f"{item['name']} : {message['type']}")

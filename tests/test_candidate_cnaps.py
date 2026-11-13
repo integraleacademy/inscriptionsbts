@@ -83,7 +83,7 @@ def test_preview_then_confirm_sends_exact_mail_once_and_records_date(client, mon
     assert client.post(route, json=confirmation, headers=headers).json['duplicate']
     assert len(calls) == 1
     after = client.get('/admin/candidat/cnaps-candidate/cnaps-tracking?collection_only=1')
-    assert after.json['collection_sent_at']
+    assert after.json['collection_sent_at'].endswith('+00:00')
     assert after.headers['Cache-Control'] == 'private, no-store'
     assert 'Complète tes informations CNAPS' in client.get('/admin/candidat/cnaps-candidate/emails').text
     with application.db() as conn:
