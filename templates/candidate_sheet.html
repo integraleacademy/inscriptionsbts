@@ -6,7 +6,7 @@
 {% block body_class %}admin-page candidate-sheet-page{% endblock %}
 {% block page_styles %}{% if row.bts in bts_codes %}<link rel="stylesheet" href="{{ url_for('static', filename='css/cyclades.css') }}?v=6">{% endif %}{% if row.bts == 'PARCOURS-SECURITE' %}<link rel="stylesheet" href="{{ url_for('static', filename='css/candidate-cnaps.css') }}?v=1">{% endif %}<link rel="stylesheet" href="{{ url_for('static', filename='css/london-mobility.css') }}?v=4"><link rel="stylesheet" href="{{ url_for('static', filename='css/wedof-contracts.css') }}?v=3"><link rel="stylesheet" href="{{ url_for('static', filename='css/school-messaging.css') }}?v=4"><link rel="stylesheet" href="{{ url_for('static', filename='css/message-assistant.css') }}?v=1">{% endblock %}
 {% block content %}<script src="{{ url_for('static', filename='js/london-mobility.js') }}?v=4" defer></script>
-{% if row.bts == 'PARCOURS-SECURITE' %}<script src="{{ url_for('static', filename='js/candidate-cnaps.js') }}?v=1" defer></script>{% endif %}
+{% if row.bts == 'PARCOURS-SECURITE' %}<script src="{{ url_for('static', filename='js/candidate-cnaps.js') }}?v=2" defer></script>{% endif %}
 {% set current_status = namespace(label='Dossier en cours') %}
 {% for key,label,color in statuts %}{% if key == row.statut %}{% set current_status.label = label %}{% endif %}{% endfor %}
 
