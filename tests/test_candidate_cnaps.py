@@ -85,7 +85,7 @@ def test_preview_then_confirm_sends_exact_mail_once_and_records_date(client, mon
     after = client.get('/admin/candidat/cnaps-candidate/cnaps-tracking?collection_only=1')
     assert after.json['collection_sent_at'].endswith('+00:00')
     assert after.headers['Cache-Control'] == 'private, no-store'
-    assert 'Ministère de l’intérieur (CNAPS) · Complète ton dossier' in client.get('/admin/candidat/cnaps-candidate/emails').text
+    assert 'Ton autorisation d’entrée en formation · Ministère de l’intérieur (CNAPS)' in client.get('/admin/candidat/cnaps-candidate/emails').text
     with application.db() as conn:
         assert conn.execute('SELECT statut FROM candidats WHERE id=?', ('cnaps-candidate',)).fetchone()[0] == 'preinscription'
 
