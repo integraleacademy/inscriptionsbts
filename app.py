@@ -1593,6 +1593,9 @@ def admin():
         return redirect(url_for("login"))
 
     rows = _admin_filtered_rows(request.args)
+    for row in rows:
+        row['photo_url'] = (url_for('admin_candidate_photo', cid=row['id'])
+                            if parse_list(row.get('fichiers_photo')) else None)
     return render_template("admin.html", title="Candidatures · Intégrale Academy", rows=rows, statuts=[s for s in STATUTS + [EMPLOYMENT_STATUS] if s[0] not in ENROLLED])
 
 
