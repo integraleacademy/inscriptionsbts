@@ -136,9 +136,16 @@
   }));
   async function metrics(){try{const stats=await api(campaign('/api/kpi'));document.querySelectorAll('[data-metric]').forEach(el=>el.textContent=stats[el.dataset.metric]??0);}catch(e){toast(e.message,true);}}
   let refreshing=false;
-  async function refreshDirectory(){if(refreshing||!$('#directory-rows')||dialog.open||document.querySelector('.directory-tools[open]'))return;refreshing=true;try{const response=await fetch(location.pathname+location.search,{headers:{Accept:'text/html'}});if(!response.ok)throw Error('Actualisation impossible.');const doc=new DOMParser().parseFromString(await response.text(),'text/html'),rows=doc.getElementById('directory-rows');if(!rows)throw Error('Reconnectez-vous pour actualiser les candidatures.');$('#directory-rows').replaceChildren(...rows.childNodes);$('#directory-count').textContent=doc.getElementById('directory-count').textContent;await metrics();}catch(e){toast(e.message,true);}finally{refreshing=false;}}
+  function directoryPhotos(){
+    document.querySelectorAll('#directory-rows [data-candidate-photo]').forEach(image=>{
+      const fallback=()=>image.closest('.candidate-portrait')?.classList.add('photo-unavailable');
+      image.addEventListener('error',fallback,{once:true});
+      if(image.complete&&!image.naturalWidth)fallback();
+    });
+  }
+  async function refreshDirectory(){if(refreshing||!$('#directory-rows')||dialog.open||document.querySelector('.directory-tools[open]'))return;refreshing=true;try{const response=await fetch(location.pathname+location.search,{headers:{Accept:'text/html'}});if(!response.ok)throw Error('Actualisation impossible.');const doc=new DOMParser().parseFromString(await response.text(),'text/html'),rows=doc.getElementById('directory-rows');if(!rows)throw Error('Reconnectez-vous pour actualiser les candidatures.');$('#directory-rows').replaceChildren(...rows.childNodes);directoryPhotos();$('#directory-count').textContent=doc.getElementById('directory-count').textContent;await metrics();}catch(e){toast(e.message,true);}finally{refreshing=false;}}
   if($('#directory-rows')){
-    metrics();$('#directory-refresh').addEventListener('click',()=>{document.querySelector('.directory-tools').open=false;refreshDirectory();});
+    directoryPhotos();metrics();$('#directory-refresh').addEventListener('click',()=>{document.querySelector('.directory-tools').open=false;refreshDirectory();});
     document.addEventListener('click',event=>{const row=event.target.closest('[data-candidate-url]');if(row&&!event.target.closest('a,button,input,select'))location.assign(row.dataset.candidateUrl);});
     setInterval(()=>{if($('#directory-live').checked&&!document.hidden&&!document.activeElement?.matches('input,select'))refreshDirectory();},60000);
   }
