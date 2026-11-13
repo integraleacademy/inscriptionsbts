@@ -34,7 +34,7 @@ def test_collection_preparation_has_no_status_change_or_sms():
     soup = BeautifulSoup(mail['html'], 'html.parser')
     assert soup.select_one('a[href="' + COLLECTION_URL + '"]')
     assert soup.find('script') is None
-    assert 'CNAPS' in mail['subject']
+    assert 'Ministère de l’intérieur (CNAPS)' in mail['subject']
     assert 'cnapsv5' not in mail['html']
 
 
@@ -48,7 +48,7 @@ def test_every_other_course_is_excluded_from_ui_and_routes(client, monkeypatch, 
     monkeypatch.setattr('candidate_cnaps.requests.get', lambda *a, **kw: calls.append(a))
     page = client.get('/admin/candidat/other')
     assert page.status_code == 200
-    assert 'Collecter les informations CNAPS' not in page.text
+    assert 'Collecter les informations pour le Ministère de l’intérieur (CNAPS)' not in page.text
     assert 'candidate-cnaps.js' not in page.text
     assert client.get('/admin/candidat/other/cnaps-tracking').status_code == 404
     assert client.post('/admin/candidat/other/cnaps-request', json={'preview': True}).status_code == 404
@@ -85,7 +85,7 @@ def test_preview_then_confirm_sends_exact_mail_once_and_records_date(client, mon
     after = client.get('/admin/candidat/cnaps-candidate/cnaps-tracking?collection_only=1')
     assert after.json['collection_sent_at'].endswith('+00:00')
     assert after.headers['Cache-Control'] == 'private, no-store'
-    assert 'Complète tes informations CNAPS' in client.get('/admin/candidat/cnaps-candidate/emails').text
+    assert 'Ministère de l’intérieur (CNAPS) · Complète ton dossier' in client.get('/admin/candidat/cnaps-candidate/emails').text
     with application.db() as conn:
         assert conn.execute('SELECT statut FROM candidats WHERE id=?', ('cnaps-candidate',)).fetchone()[0] == 'preinscription'
 

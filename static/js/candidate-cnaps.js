@@ -61,7 +61,7 @@
     collection.classList.toggle('has-sent', !!sent);
     collection.textContent = sent
       ? 'Dernière demande envoyée par e-mail : ' + formattedDate(sent, true) + '.'
-      : 'Aucune demande CNAPS envoyée depuis cette fiche.';
+      : 'Aucune demande d’informations envoyée depuis cette fiche.';
   }
 
   function fact(label, content) {
@@ -80,8 +80,8 @@
     tracking.replaceChildren();
     if (data.found === false) {
       const empty = element('p', undefined, 'candidate-cnaps-empty');
-      empty.append(element('strong', 'Aucun dossier CNAPS retrouvé'),
-        document.createTextNode('Le dossier apparaîtra ici dès qu’il sera retrouvé dans le suivi CNAPS avec le nom et le prénom du candidat.'));
+      empty.append(element('strong', 'Aucun dossier retrouvé'),
+        document.createTextNode('Le dossier apparaîtra ici dès qu’il sera retrouvé dans le suivi partagé avec le nom et le prénom du candidat.'));
       tracking.append(empty);
       return;
     }
@@ -89,7 +89,7 @@
     const status = value(cnaps, 'cnaps_status', 'statut_cnaps', 'status', 'statut') || 'Non renseigné';
     const overview = element('dl', undefined, 'candidate-cnaps-overview');
     overview.append(
-      fact('Statut CNAPS', badge(status)),
+      fact('Statut du dossier', badge(status)),
       fact('NUB', value(data, 'nub') || value(cnaps, 'nub') || 'Non renseigné'),
       fact('Inscription', value(data, 'inscription') || value(data.trainee, 'inscription') || 'Non renseignée'),
     );
@@ -103,7 +103,7 @@
         if (!title || typeof title !== 'object') continue;
         const article = element('article', undefined, 'candidate-cnaps-title');
         const head = element('div', undefined, 'candidate-cnaps-title-head');
-        const name = value(title, 'type', 'title', 'titre', 'name', 'label', 'code') || 'Titre CNAPS';
+        const name = value(title, 'type', 'title', 'titre', 'name', 'label', 'code') || 'Titre ou autorisation';
         const state = value(title, 'state', 'status', 'etat') || 'Non renseigné';
         const expiry = value(title, 'expires_at', 'expiration_date', 'date_expiration', 'valid_until');
         head.append(element('strong', name), badge(state));
@@ -120,10 +120,10 @@
     const checked = value(cnaps, 'last_checked_at', 'last_verification_at', 'date_derniere_verification', 'checked_at');
     tracking.append(element('p', 'Dernière vérification : ' + formattedDate(checked, true), 'candidate-cnaps-checked'));
     if (cnaps.nub_missing === true || cnaps.nub_present === false) {
-      tracking.append(element('p', 'NUB absent : la vérification des titres CNAPS est impossible.', 'candidate-cnaps-warning'));
+      tracking.append(element('p', 'NUB absent : la vérification des titres et autorisations est impossible.', 'candidate-cnaps-warning'));
     }
     if (cnaps.cnaps_unavailable === true) {
-      tracking.append(element('p', 'L’annuaire CNAPS était indisponible lors de la dernière vérification.', 'candidate-cnaps-warning'));
+      tracking.append(element('p', 'L’annuaire du Ministère de l’intérieur (CNAPS) était indisponible lors de la dernière vérification.', 'candidate-cnaps-warning'));
     }
   }
 
@@ -135,7 +135,7 @@
     refresh.textContent = 'Actualisation…';
     tracking.setAttribute('aria-busy', 'true');
     feedback.hidden = true;
-    if (!hasData) tracking.replaceChildren(element('p', 'Chargement du suivi CNAPS…', 'candidate-cnaps-empty'));
+    if (!hasData) tracking.replaceChildren(element('p', 'Chargement du suivi…', 'candidate-cnaps-empty'));
     inFlight = (async () => {
       try {
         const response = await fetch(endpoint + (force ? '?refresh=1' : ''), {
@@ -144,7 +144,7 @@
         const data = await response.json().catch(() => null);
         if (data && typeof data === 'object') renderCollection(data);
         if (!response.ok || !data || data.ok !== true) {
-          const fallback = response.status === 403 ? 'Reconnectez-vous pour consulter le suivi.' : 'Le suivi CNAPS est momentanément indisponible.';
+          const fallback = response.status === 403 ? 'Reconnectez-vous pour consulter le suivi.' : 'Le suivi du dossier est momentanément indisponible.';
           throw new Error(value(data, 'error') || fallback);
         }
         render(data);

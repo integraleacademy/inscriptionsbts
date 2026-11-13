@@ -38,12 +38,12 @@ class TrackingUnavailable(Exception):
 def collection_email(row):
     """Prepare a branded message without contacting a service or changing data."""
     if row.get('bts') != SECURITY:
-        raise ValueError('La collecte CNAPS est réservée au parcours sécurité en alternance.')
+        raise ValueError('Cette collecte est réservée au parcours sécurité en alternance.')
     first = escape(str(row.get('prenom') or '').strip())
-    subject = 'Parcours sécurité en alternance · Complète tes informations CNAPS'
+    subject = 'Ministère de l’intérieur (CNAPS) · Complète ton dossier'
     content = (
         f'<p>Bonjour {first},</p>'
-        '<p>Pour préparer tes démarches CNAPS dans le cadre de ton '
+        '<p>Pour préparer tes démarches auprès du <strong>Ministère de l’intérieur (CNAPS)</strong> dans le cadre de ton '
         '<strong>parcours sécurité en alternance</strong>, nous avons besoin de tes '
         'informations et des justificatifs demandés dans notre formulaire.</p>'
         '<h2>Ton dossier, étape par étape</h2>'
@@ -59,11 +59,11 @@ def collection_email(row):
         '<p>À bientôt,<br><strong>L’équipe Intégrale Academy</strong></p>'
     )
     return subject, render_branded_email(
-        'Tes informations CNAPS', content,
+        'Ton dossier pour le Ministère de l’intérieur (CNAPS)', content,
         eyebrow='PARCOURS SÉCURITÉ EN ALTERNANCE',
         accent_title='Préparons ton dossier.',
         preview_text='Complète tes informations et dépose les justificatifs demandés.',
-        action_url=COLLECTION_URL, action_label='Compléter mes informations CNAPS',
+        action_url=COLLECTION_URL, action_label='Compléter mon dossier',
         security_note='Dépose tes justificatifs dans le formulaire prévu à cet effet.',
     )
 
@@ -90,18 +90,18 @@ def _text(value, length=240):
 def _public_tracking(payload):
     """Allowlist the small display contract, rather than forwarding remote data."""
     if not isinstance(payload, dict) or not isinstance(payload.get('found'), bool):
-        raise TrackingUnavailable('Le suivi CNAPS a renvoyé une réponse inattendue.')
+        raise TrackingUnavailable('Le suivi du dossier a renvoyé une réponse inattendue.')
     freshness = {}
     if payload.get('stale') is True or payload.get('refresh_failed') is True:
         freshness = {
             'stale': True, 'refresh_failed': True,
-            'refresh_error': 'Le suivi CNAPS est momentanément indisponible.',
+            'refresh_error': 'Le suivi du dossier est momentanément indisponible.',
         }
     if payload['found'] is False:
         return {'found': False, **freshness}
     source = payload.get('cnaps')
     if not isinstance(source, dict):
-        raise TrackingUnavailable('Le suivi CNAPS a renvoyé une réponse inattendue.')
+        raise TrackingUnavailable('Le suivi du dossier a renvoyé une réponse inattendue.')
     person = payload.get('person') if isinstance(payload.get('person'), dict) else {}
     nub = _text(payload.get('nub') or source.get('nub') or person.get('nub'), 30)
     titles = []
@@ -109,7 +109,7 @@ def _public_tracking(payload):
         if not isinstance(item, dict):
             continue
         titles.append({
-            'type': _text(item.get('type')) or 'Titre CNAPS',
+            'type': _text(item.get('type')) or 'Titre ou autorisation',
             'state': _text(item.get('state'), 100) or 'INCONNU',
             'expires_at': _text(item.get('expires_at'), 40) or None,
             'expires_before_training': item.get('expires_before_training') is True,
@@ -135,7 +135,7 @@ def _public_tracking(payload):
 def fetch_tracking(cid, *, refresh=False):
     secret = os.getenv('BTS_IMPORT_API_KEY', '').strip()
     if len(secret) < 32:
-        raise TrackingUnavailable('La connexion au suivi CNAPS n’est pas configurée.',
+        raise TrackingUnavailable('La connexion au suivi du dossier n’est pas configurée.',
                                   status=503, reason='not_configured')
     credential = hmac.new(secret.encode(), TRACKING_KEY_CONTEXT, hashlib.sha256).hexdigest()
     try:
@@ -146,24 +146,24 @@ def fetch_tracking(cid, *, refresh=False):
             allow_redirects=False, stream=True,
         ) as response:
             if response.status_code in (401, 403, 503):
-                raise TrackingUnavailable('La connexion au suivi CNAPS doit être vérifiée.',
+                raise TrackingUnavailable('La connexion au suivi du dossier doit être vérifiée.',
                                           status=503, reason='not_configured')
             if response.status_code == 409:
                 raise TrackingUnavailable(
-                    'Le dossier CNAPS ne peut pas être rattaché avec certitude à ce candidat. '
-                    'Vérifiez son identité dans le suivi CNAPS.',
+                    'Le dossier ne peut pas être rattaché avec certitude à ce candidat. '
+                    'Vérifiez son identité dans le suivi partagé.',
                     status=409, reason='ambiguous_match')
             if response.status_code != 200:
-                raise TrackingUnavailable('Le suivi CNAPS est momentanément indisponible. Réessayez dans quelques instants.')
+                raise TrackingUnavailable('Le suivi du dossier est momentanément indisponible. Réessayez dans quelques instants.')
             content = bytearray()
             for chunk in response.iter_content(16384):
                 content.extend(chunk)
                 if len(content) > MAX_RESPONSE_BYTES:
-                    raise TrackingUnavailable('La réponse du suivi CNAPS est trop volumineuse.')
+                    raise TrackingUnavailable('La réponse du suivi du dossier est trop volumineuse.')
             payload = json.loads(content)
     except (requests.RequestException, ValueError, UnicodeError):
         # Never expose a URL, a credential or raw provider errors to the client.
-        raise TrackingUnavailable('Le suivi CNAPS est momentanément indisponible. Réessayez dans quelques instants.') from None
+        raise TrackingUnavailable('Le suivi du dossier est momentanément indisponible. Réessayez dans quelques instants.') from None
     return _public_tracking(payload)
 
 
