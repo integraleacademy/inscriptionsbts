@@ -79,7 +79,7 @@ def collection_sent_at(conn, cid):
         except (ValueError, TypeError):
             continue
         if isinstance(payload, dict) and payload.get('type') == 'cnaps' and payload.get('message_id'):
-            return event['created_at']
+            return payload.get('sent_at') or event['created_at']
     return None
 
 
