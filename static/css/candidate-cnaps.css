@@ -1,0 +1,55 @@
+/* Regulatory follow-up lives only in security apprenticeship candidate records. */
+.candidate-cnaps { border-color:#cbdaf2; overflow:hidden; }
+.candidate-cnaps [hidden] { display:none!important; }
+.candidate-cnaps-heading { display:flex; align-items:flex-start; gap:13px; }
+.candidate-cnaps-icon { display:grid; place-items:center; width:41px; height:44px; flex-shrink:0; color:#285dcc; background:#eaf1ff; border-radius:12px; }
+.candidate-cnaps-icon .ui-icon { width:25px; height:25px; }
+.candidate-cnaps .candidate-cnaps-eyebrow { margin:0 0 5px; color:#3860a1; font-size:9px; font-weight:800; line-height:1.5; letter-spacing:1px; }
+.candidate-cnaps .candidate-cnaps-heading h2 { margin:0 0 5px!important; }
+.candidate-cnaps .candidate-cnaps-intro { margin:0; font-size:12px; line-height:1.7; color:#5b6e88; }
+.candidate-cnaps-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin:19px 0 10px; }
+.candidate-cnaps-toolbar .btn { min-height:39px; font-size:11px; line-height:1.5; white-space:normal; text-align:center; }
+.candidate-cnaps-toolbar .btn:disabled { opacity:.6; cursor:wait; }
+.candidate-cnaps .candidate-cnaps-collection { margin:0; color:#65758e; font-size:11px; line-height:1.7; }
+.candidate-cnaps .candidate-cnaps-collection.has-sent { color:#24714a; }
+.candidate-cnaps-tracking { margin-top:19px; padding-top:18px; border-top:1px solid #e5ebf5; }
+.candidate-cnaps-overview { display:grid; grid-template-columns:minmax(0,1.3fr) repeat(2,minmax(0,1fr)); gap:10px; margin:0 0 18px; }
+.candidate-cnaps-fact { min-width:0; border:1px solid #e0e8f5; border-radius:10px; padding:12px 13px; background:#f7f9fd; }
+.candidate-cnaps-fact dt { margin:0 0 8px; color:#65758e; font-size:10px; line-height:1.5; }
+.candidate-cnaps-fact dd { margin:0; font-size:12px; line-height:1.6; font-weight:700; color:#253852; overflow-wrap:anywhere; }
+.candidate-cnaps-badge { display:inline-flex; align-items:center; border-radius:6px; padding:5px 8px; font-size:10px; font-weight:800; line-height:1.4; background:#edf1f6; color:#52617a; overflow-wrap:anywhere; }
+.candidate-cnaps-badge.is-success { color:#216443; background:#e2f4e9; }
+.candidate-cnaps-badge.is-info { color:#254f98; background:#e7efff; }
+.candidate-cnaps-badge.is-warning { color:#855709; background:#fff1d3; }
+.candidate-cnaps-badge.is-danger { color:#a13c39; background:#fce9e7; }
+.candidate-cnaps .candidate-cnaps-titles-heading { margin:0 0 10px; font-size:12px; font-weight:800; color:#253852; }
+.candidate-cnaps-titles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.candidate-cnaps-title { min-width:0; padding:13px; border:1px solid #e0e8f5; border-radius:10px; }
+.candidate-cnaps-title-head { display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.candidate-cnaps-title-head strong { font-size:12px; line-height:1.6; color:#253852; overflow-wrap:anywhere; }
+.candidate-cnaps-title .candidate-cnaps-expiry { margin:10px 0 0; color:#65758e; font-size:11px; line-height:1.5; }
+.candidate-cnaps .candidate-cnaps-warning { margin:9px 0 0; padding:9px 11px; border-radius:7px; color:#855709; background:#fff5df; font-size:11px; line-height:1.6; }
+.candidate-cnaps .candidate-cnaps-checked { margin:15px 0 0; color:#65758e; font-size:10px; line-height:1.7; }
+.candidate-cnaps .candidate-cnaps-empty { margin:0; color:#65758e; font-size:12px; line-height:1.7; }
+.candidate-cnaps-empty strong { display:block; color:#344c6c; margin-bottom:4px; font-weight:700; }
+.candidate-cnaps-feedback { margin:15px 0 0; padding:11px 13px; border:1px solid #efdcae; border-radius:9px; background:#fff8e9; color:#855709; font-size:11px; line-height:1.7; }
+.candidate-cnaps-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 14px; margin-top:16px; }
+.candidate-cnaps .candidate-cnaps-footer p { margin:0; color:#65758e; font-size:10px; line-height:1.7; }
+.candidate-cnaps-source { display:inline-flex; align-items:center; gap:6px; color:#285dcc; font-size:11px; font-weight:700; line-height:1.6; text-decoration:none; }
+.candidate-cnaps-source:hover { text-decoration:underline; text-underline-offset:3px; }
+.candidate-cnaps-source .ui-icon { width:15px; height:15px; }
+.candidate-cnaps :is(button,a):focus-visible { outline:3px solid #285dcc; outline-offset:3px; }
+@media (max-width:900px) {
+  .candidate-cnaps-overview { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .candidate-cnaps-fact:first-child { grid-column:1/-1; }
+  .candidate-cnaps-titles { grid-template-columns:1fr; }
+}
+@media (max-width:480px) {
+  .candidate-cnaps-heading { gap:10px; }
+  .candidate-cnaps-icon { width:35px; height:39px; border-radius:10px; }
+  .candidate-cnaps .candidate-cnaps-eyebrow { font-size:8px; letter-spacing:.7px; }
+  .candidate-cnaps-toolbar { align-items:stretch; }
+  .candidate-cnaps-toolbar .btn { width:100%; justify-content:center; }
+  .candidate-cnaps-overview { gap:8px; }
+  .candidate-cnaps-fact { padding:10px; }
+}
