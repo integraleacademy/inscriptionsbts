@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from flask import abort, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from cyclades_data import directory_indicators
-from candidate_messages import _equal
+from candidate_messages import _equal, _recipient
 from promotions import assign_candidate_promotion, list_promotions
 from teaching import schema as teaching_schema
 from opco_contracts import directory_contracts
@@ -50,6 +50,10 @@ def enrolled_rows(conn):
         FROM candidats c LEFT JOIN student_promotions s ON s.candidate_id=c.id
         LEFT JOIN promotions p ON p.id=s.promotion_id WHERE c.statut IN (?,?) ORDER BY c.nom,c.prenom''', ENROLLED)]
     for row in rows:
+        try:
+            row['copy_email'] = _recipient(row, 'email')
+        except ValueError:
+            row['copy_email'] = ''
         try:
             photos = json.loads(row.pop('fichiers_photo') or '[]')
         except (TypeError, ValueError):

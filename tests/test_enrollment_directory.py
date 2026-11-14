@@ -72,6 +72,20 @@ def test_discovery_scope_uses_other_filters_before_contract_filter(directory):
     assert directory.get('/admin/inscriptions/donnees?rentree=2026').json['discovery'] == []
 
 
+def test_copy_uses_current_promotion_and_valid_student_addresses(directory):
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET email=? WHERE id='onsite'", ("  O'Neil+promo@example.test  ",))
+        conn.execute("UPDATE candidats SET email='ancienne adresse' WHERE id='remote'")
+    page = directory.get('/admin/inscriptions?promotion=p1').text
+    assert 'data-copy-emails disabled' in page
+    refreshed = directory.get('/admin/inscriptions/donnees?promotion=p1').json['rows_html']
+    for html in (page, refreshed):
+        addresses = dict(re.findall(r'data-select-student value="([^"]+)" data-email="([^"]*)"', html))
+        assert {cid: unescape(email) for cid, email in addresses.items()} == {
+            'onsite': "O'Neil+promo@example.test", 'remote': '',
+        }
+
+
 def test_formation_limits_promotion_choices_and_clears_incompatible_filter(directory):
     def options(query):
         html = directory.get('/admin/inscriptions' + query).text

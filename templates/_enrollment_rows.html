@@ -3,7 +3,7 @@
 {% for r in rows %}
 {% set candidate_url = url_for('admin_candidate_sheet', cid=r.id, return_to=enrollments_return_url) %}
 <tr data-enrollment-id="{{ r.id }}" data-bts="{{ r.bts }}" data-year="{{ r.rentree_annee or 2026 }}">
-  <td><input type="checkbox" data-select-student value="{{ r.id }}" aria-label="Sélectionner {{ person_name(r.nom,r.prenom) }}"></td>
+  <td><input type="checkbox" data-select-student value="{{ r.id }}" data-email="{{ r.copy_email }}" aria-label="Sélectionner {{ person_name(r.nom,r.prenom) }}"></td>
   <td>
     <a class="campus-person" href="{{ candidate_url }}">
       <span class="campus-avatar" aria-hidden="true"><span>{{ person_initials(r.nom,r.prenom) }}</span>{% if r.photo_url %}<img src="{{ r.photo_url }}" alt="" width="40" height="50" loading="lazy" decoding="async" data-student-photo>{% endif %}</span>
