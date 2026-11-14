@@ -4,9 +4,13 @@ const fs = require('node:fs');
 const assert = require('node:assert/strict');
 const code = fs.readFileSync('static/js/campus.js', 'utf8');
 const tick = () => new Promise(resolve => setImmediate(resolve));
-const row = (id, label = 'À vérifier') => `<tr data-enrollment-id="${id}" data-bts="MOS" data-year="2026"><td><input type="checkbox" data-select-student value="${id}"></td><td><span>${label}</span><img data-student-photo src="/photo/${id}"></td><td><select><option value="">Choisir</option><option value="p1">P1</option><option value="p2">P2</option></select><button data-assign-one>Affecter</button></td></tr>`;
+const row = (id, label = 'À vérifier') => `<tr data-enrollment-id="${id}" data-bts="MOS" data-year="2026"><td><input type="checkbox" data-select-student value="${id}" data-email="${id}@example.test"></td><td><span>${label}</span><img data-student-photo src="/photo/${id}"></td><td><select><option value="">Choisir</option><option value="p1">P1</option><option value="p2">P2</option></select><button data-assign-one>Affecter</button></td></tr>`;
+const copyControls = `
+  <button type="button" data-copy-emails disabled>Copier les adresses e-mail</button>
+  <p data-copy-status role="status"></p>
+  <textarea data-copy-list readonly hidden></textarea>`;
 function setup({queue = ['alpha'], failure = false} = {}) {
-  const dom = new JSDOM(`<main data-enrollments data-csrf="campus-token" data-wedof-csrf="wedof-token"><div data-enrollment-stats>Initial</div><p data-contract-feedback></p><button data-check-contracts>Vérifier</button><form class="campus-filters"><select name="mode"><option value="distanciel">Distanciel</option></select></form><strong data-selected-count></strong><select id="bulk-promotion"><option value="">Choisir</option><option value="p1" data-bts="MOS" data-year="2026">P1</option></select><button data-assign-bulk disabled>Affecter</button><p data-enrollment-feedback hidden></p><table><thead><tr><th><input type="checkbox" data-select-all></th></tr></thead><tbody data-enrollment-rows>${row('alpha')}${row('beta')}</tbody></table><script type="application/json" data-contract-discovery>${JSON.stringify(queue)}</script></main>`, {url: 'https://school.example/admin/inscriptions?mode=distanciel&contract=yes', runScripts: 'outside-only'});
+  const dom = new JSDOM(`<main data-enrollments data-csrf="campus-token" data-wedof-csrf="wedof-token"><div data-enrollment-stats>Initial</div><p data-contract-feedback></p><button data-check-contracts>Vérifier</button><form class="campus-filters"><select name="mode"><option value="distanciel">Distanciel</option></select></form><strong data-selected-count></strong>${copyControls}<select id="bulk-promotion"><option value="">Choisir</option><option value="p1" data-bts="MOS" data-year="2026">P1</option></select><button data-assign-bulk disabled>Affecter</button><p data-enrollment-feedback hidden></p><table><thead><tr><th><input type="checkbox" data-select-all></th></tr></thead><tbody data-enrollment-rows>${row('alpha')}${row('beta')}</tbody></table><script type="application/json" data-contract-discovery>${JSON.stringify(queue)}</script></main>`, {url: 'https://school.example/admin/inscriptions?mode=distanciel&contract=yes', runScripts: 'outside-only'});
   const w = dom.window, calls = [];
   let submits = 0;
   w.HTMLFormElement.prototype.requestSubmit = () => {submits++;};
@@ -46,6 +50,52 @@ function setup({queue = ['alpha'], failure = false} = {}) {
   assert.match(c.w.document.querySelector('[data-enrollment-feedback]').textContent, /Échec simulé/);
   c.w.document.querySelector('.campus-filters select').dispatchEvent(new c.w.Event('change', {bubbles: true}));
   assert.equal(c.submits, 1);
+  const copy = c.w.document.querySelector('[data-copy-emails]');
+  const copyStatus = c.w.document.querySelector('[data-copy-status]');
+  const [alpha, beta] = c.w.document.querySelectorAll('[data-select-student]');
+  const copied = [];
+  c.w.navigator.clipboard = {writeText: async value => {copied.push(value);}};
+  copy.click();
+  await tick();
+  assert.deepEqual(copied, ['alpha@example.test'], 'Selection survives a directory refresh');
+  assert.equal(copyStatus.textContent, '1 adresse e-mail copiée.');
+
+  beta.closest('tr').dataset.bts = 'MCO';
+  const all = c.w.document.querySelector('[data-select-all]');
+  assert.equal(all.indeterminate, true);
+  all.click();
+  assert.equal(c.w.document.querySelector('[data-assign-bulk]').disabled, true);
+  const previousCalls = c.calls.length;
+  copy.click();
+  await tick();
+  assert.equal(copied.at(-1), 'alpha@example.test, beta@example.test');
+  assert.equal(copyStatus.textContent, '2 adresses e-mail copiées.');
+
+  beta.dataset.email = 'Alpha@Example.test';
+  copy.click();
+  await tick();
+  assert.equal(copied.at(-1), 'alpha@example.test');
+  assert.equal(copyStatus.textContent, '1 adresse e-mail copiée.');
+  beta.dataset.email = '';
+  copy.click();
+  await tick();
+  assert.match(copyStatus.textContent, /1 étudiant sans adresse valide/);
+
+  c.w.navigator.clipboard.writeText = async () => {throw Error('Permission refusée');};
+  copy.click();
+  await tick();
+  const manualList = c.w.document.querySelector('[data-copy-list]');
+  assert.equal(manualList.hidden, false);
+  assert.equal(manualList.value, 'alpha@example.test');
+  assert.equal(manualList.selectionEnd, manualList.value.length);
+  alpha.click();
+  assert.equal(copy.disabled, true);
+  assert.match(copyStatus.textContent, /Aucune adresse/);
+  assert.equal(manualList.hidden, true);
+  assert.equal(manualList.value, '');
+  beta.click();
+  assert.equal(copyStatus.textContent, '');
+  assert.equal(c.calls.length, previousCalls, 'Copying never posts the selection');
   c.dom.window.close();
 
   const failed = setup({queue: ['alpha', 'beta'], failure: true});
@@ -68,5 +118,5 @@ function setup({queue = ['alpha'], failure = false} = {}) {
   assert.notEqual(focused.w.document.querySelector('[data-enrollment-id="alpha"] select'), selector);
   assert.equal(focused.w.document.querySelector('[data-enrollment-id="alpha"] select').value, 'p2');
   focused.dom.window.close();
-  console.log('Enrollment UI: no automatic discovery, local refresh, photos, assignment and error handling passed.');
+  console.log('Enrollment UI: no automatic discovery, local refresh, photos, assignment, email copying and error handling passed.');
 })().catch(error => {console.error(error); process.exitCode = 1;});

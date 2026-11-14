@@ -4,6 +4,9 @@
   if (!root) return;
   const all = root.querySelector('[data-select-all]');
   const bulk = root.querySelector('[data-assign-bulk]');
+  const copyButton = root.querySelector('[data-copy-emails]');
+  const copyStatus = root.querySelector('[data-copy-status]');
+  const copyList = root.querySelector('[data-copy-list]');
   const target = document.getElementById('bulk-promotion');
   const feedback = root.querySelector('[data-enrollment-feedback]');
   const contractFeedback = root.querySelector('[data-contract-feedback]');
@@ -14,6 +17,7 @@
   const observedPhotos = new WeakSet();
   const checks = () => [...root.querySelectorAll('[data-select-student]')];
   const selected = () => checks().filter(c => c.checked);
+  let copyRevision = 0;
 
   function sync() {
     const chosen = selected(), current = checks();
@@ -21,9 +25,58 @@
     root.querySelector('[data-selected-count]').textContent = chosen.length + ' étudiant' + (chosen.length > 1 ? 's' : '') + ' sélectionné' + (chosen.length > 1 ? 's' : '');
     all.checked = !!current.length && chosen.length === current.length;
     all.indeterminate = !!chosen.length && !all.checked;
+    all.disabled = busy || !current.length;
+    const hasEmail = chosen.some(check => check.dataset.email);
+    copyButton.disabled = busy || !hasEmail;
+    copyRevision++;
+    copyList.hidden = true;
+    copyList.value = '';
+    copyStatus.textContent = chosen.length && !hasEmail ? 'Aucune adresse e-mail valide pour cette sélection.' : '';
     [...target.options].forEach(o => {o.disabled = !!o.value && groups.size > 0 && (groups.size > 1 || !groups.has(o.dataset.bts + '|' + o.dataset.year));});
     if (target.selectedOptions[0]?.disabled) target.value = '';
     bulk.disabled = busy || !chosen.length || groups.size !== 1 || !target.value;
+  }
+
+  async function copySelectedEmails() {
+    const addresses = new Map();
+    let missing = 0;
+    for (const check of selected()) {
+      const email = check.dataset.email;
+      if (!email) {
+        missing++;
+        continue;
+      }
+      const key = email.toLowerCase();
+      if (!addresses.has(key)) addresses.set(key, email);
+    }
+    if (!addresses.size) return;
+
+    const revision = ++copyRevision;
+    const text = [...addresses.values()].join(', ');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      if (revision !== copyRevision) return;
+      copyList.value = text;
+      copyList.hidden = false;
+      copyList.focus();
+      copyList.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch { /* Keep the list selected for manual copying. */ }
+      if (!copied) {
+        copyStatus.textContent = 'Copiez le texte sélectionné ci-dessous avec ⌘C, Ctrl+C ou la commande Copier.';
+        return;
+      }
+    }
+    if (revision !== copyRevision) return;
+    if (!copyList.hidden) {
+      copyList.hidden = true;
+      copyList.value = '';
+      copyButton.focus();
+    }
+    let message = addresses.size === 1 ? '1 adresse e-mail copiée.' : addresses.size + ' adresses e-mail copiées.';
+    if (missing) message += missing === 1 ? ' 1 étudiant sans adresse valide.' : ' ' + missing + ' étudiants sans adresse valide.';
+    copyStatus.textContent = message;
   }
 
   function photos() {
@@ -134,6 +187,7 @@
     if (refreshPending) setTimeout(() => {if (!busy) refresh().catch(() => {});}, 0);
   });
   bulk.addEventListener('click', () => assign(selected().map(c => c.value), target.value));
+  copyButton.addEventListener('click', copySelectedEmails);
   checkContracts.addEventListener('click', refreshContracts);
   // Re-read local links after another tab attaches a contract. No remote polling.
   document.addEventListener('visibilitychange', () => {
