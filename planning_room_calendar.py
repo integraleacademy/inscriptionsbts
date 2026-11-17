@@ -186,6 +186,9 @@ def register(app,connect,guard,result,fail,transact):
             if start>=end:raise PlanningError('L’heure de fin doit suivre l’heure de début.')
             title=payload.get('title')
             if not isinstance(title,str) or not 1<=len(title.strip())<=200:raise PlanningError('Indiquez un intitulé de 1 à 200 caractères.')
+            names = payload.get('trainer_names', existing['trainer_names'] if existing else '')
+            if not isinstance(names, str) or len(names) > 1000:
+                raise PlanningError('La liste des formateurs est limitée à 1 000 caractères.')
             exam=payload.get('exam',False)
             if type(exam) is not bool:raise PlanningError('Indiquez si ce créneau est un examen.')
             proposed=dict(room_id=rid,date=day,start_min=start,end_min=end,title=title.strip())
@@ -193,13 +196,13 @@ def register(app,connect,guard,result,fail,transact):
             issues=issues_for([proposed],others)
             if issues:raise PlanningError('La salle est déjà réservée sur ces horaires. Choisissez une autre salle ou un autre horaire.',issues,409)
             now=datetime.now(timezone.utc).isoformat()
-            values=(rid,day,start,end,title.strip(),int(exam),now)
+            values=(rid,day,start,end,title.strip(),int(exam),names.strip(),now)
             if existing:
                 saved_id=reservation_id
-                conn.execute('UPDATE planning_room_reservations SET room_id=?,date=?,start_min=?,end_min=?,title=?,exam=?,updated_at=?,version=version+1 WHERE id=?',(*values,saved_id))
+                conn.execute('UPDATE planning_room_reservations SET room_id=?,date=?,start_min=?,end_min=?,title=?,exam=?,trainer_names=?,updated_at=?,version=version+1 WHERE id=?',(*values,saved_id))
             else:
                 saved_id=secrets.token_urlsafe(24)
-                conn.execute('INSERT INTO planning_room_reservations(room_id,date,start_min,end_min,title,exam,updated_at,id,created_at) VALUES(?,?,?,?,?,?,?,?,?)',(*values,saved_id,now))
+                conn.execute('INSERT INTO planning_room_reservations(room_id,date,start_min,end_min,title,exam,trainer_names,updated_at,id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)',(*values,saved_id,now))
             return dict(reservation=next(r for r in reservation_slots(conn,day,day) if r['id']==saved_id),message='La réservation a été enregistrée.')
         return transact(operation)
 

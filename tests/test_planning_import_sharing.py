@@ -226,7 +226,7 @@ def test_busy_rooms_allow_import_without_claiming_the_room(client, db, monkeypat
     extracted = analyze(client).json
     with db() as conn:
         if source == 'reservation':
-            conn.execute("INSERT INTO planning_room_reservations VALUES('r','r1','2027-01-04',540,660,'Examen',1,1,'now','now')")
+            conn.execute("INSERT INTO planning_room_reservations(id,room_id,date,start_min,end_min,title,exam,version,created_at,updated_at) VALUES('r','r1','2027-01-04',540,660,'Examen',1,1,'now','now')")
         if source == 'unavailability':
             conn.execute("INSERT INTO planning_room_unavailability VALUES('u','r1','2027-01-04','2027-01-04',540,660,'Travaux',1)")
         if source == 'session':
@@ -273,7 +273,7 @@ def test_shared_session_keeps_its_room_and_reports_preexisting_room_conflict(cli
     configure(db)
     old = existing_session(client)
     with db() as conn:
-        conn.execute("INSERT INTO planning_room_reservations VALUES('r','r1','2027-01-04',540,660,'Examen',1,1,'now','now')")
+        conn.execute("INSERT INTO planning_room_reservations(id,room_id,date,start_min,end_min,title,exam,version,created_at,updated_at) VALUES('r','r1','2027-01-04',540,660,'Examen',1,1,'now','now')")
     reviewed = imported_preview(client, room_id='r2')
     item, = reviewed['items']
     assert item['status'] == 'ready' and item['room_id'] == 'r1' and item['room_warning']

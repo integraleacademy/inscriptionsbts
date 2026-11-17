@@ -30,6 +30,7 @@
  <header><div><p class="catalog-kicker">RÉSERVATION LIBRE</p><h2 id="rooms-reservation-heading">Créer un créneau</h2></div><button type="button" class="catalog-close" data-room-close aria-label="Fermer">×</button></header>
  <form id="rooms-reservation-form"><div class="catalog-dialog-content">
  <label class="catalog-field">Intitulé<input name="title" maxlength="200" placeholder="Examen VTC, réunion…" required></label>
+ <label class="catalog-field">Formateurs<input name="trainer_names" maxlength="1000" placeholder="Noms séparés par des virgules"></label>
  <div class="room-dialog-grid"><label class="catalog-field">Salle<select name="room_id" required></select></label><label class="catalog-field">Date<input name="date" type="date" required></label></div>
  <label class="room-all-day"><input name="all_day" type="checkbox"> Toute la journée</label>
  <div class="room-dialog-grid" id="rooms-reservation-times"><label class="catalog-field">De<input name="start" type="time" value="09:00" required></label><label class="catalog-field">À<input name="end" type="time" value="10:00" required></label></div>

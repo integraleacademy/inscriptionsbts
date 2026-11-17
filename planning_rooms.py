@@ -40,6 +40,8 @@ def schema(conn):
         exam INTEGER NOT NULL DEFAULT 0,version INTEGER NOT NULL DEFAULT 1,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,
         CHECK(start_min>=0 AND start_min<end_min AND end_min<=1440),CHECK(exam IN (0,1)))''')
     conn.execute('CREATE INDEX IF NOT EXISTS planning_room_reservations_date ON planning_room_reservations(date,room_id)')
+    if 'trainer_names' not in {row[1] for row in conn.execute('PRAGMA table_info(planning_room_reservations)')}:
+        conn.execute("ALTER TABLE planning_room_reservations ADD COLUMN trainer_names TEXT NOT NULL DEFAULT ''")
     if not conn.execute("SELECT 1 FROM planning_room_meta WHERE key='sessions_only_v1'").fetchone():
         old=conn.execute("SELECT slots,pending_slots FROM planning_room_owners WHERE owner LIKE 'formation:%'").fetchall()
         counts=dict(owners=len(old),slots=sum(len(json.loads(row['slots'])) for row in old))
@@ -284,6 +286,16 @@ def reconcile_owner(conn,item):
         elif row['revision'] in versions:finish(conn,dict(token=row['pending_token'],commit=False))
         else:raise PlanningError('Une réservation nécessite une réconciliation manuelle.',status=409)
         row=conn.execute('SELECT * FROM planning_room_owners WHERE owner=?',(owner,)).fetchone()
+    if row['revision'] == revision:
+        # The source holds its write lock during reconciliation. Instructor edits
+        # use the same room revision and must preserve central room overrides.
+        supplied = (item.get('metadata') or {}).get('display_trainers')
+        if supplied is not None:
+            current = json.loads(row['metadata'] or '{}')
+            if supplied != current.get('display_trainers', {}):
+                current['display_trainers'] = supplied
+                conn.execute('UPDATE planning_room_owners SET metadata=? WHERE owner=?', (json.dumps(current), owner))
+        return
     if item.get('schema') == 3 and row['revision'] != revision and row['revision'] == item.get('pre_location_revision'):
         # Only the venue metadata was added to this exact projection. Keep the
         # normalized room IDs and per-slot overrides, including renamed rooms.

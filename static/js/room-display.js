@@ -5,17 +5,21 @@
   const dialog = byId('room-tv-dialog');
   const launcher = byId('room-tv-open');
   const list = byId('tv-entries');
+  const sheet = byId('tv-sheet');
+  const viewport = sheet.parentElement;
+  const headings = sheet.querySelector('.tv-headings');
   const empty = byId('tv-empty');
   const notice = byId('tv-notice');
-  const counter = byId('tv-page');
   const fullscreenButton = byId('tv-fullscreen');
   const zone = {timeZone: 'Europe/Paris'};
   const dateKey = new Intl.DateTimeFormat('sv-SE', {...zone, year: 'numeric', month: '2-digit', day: '2-digit'});
   const longDate = new Intl.DateTimeFormat('fr-FR', {...zone, dateStyle: 'full'});
   const clock = new Intl.DateTimeFormat('fr-FR', {...zone, hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23'});
+  const names = Intl.ListFormat && new Intl.ListFormat('fr-FR', {style: 'long', type: 'conjunction'});
   const timers = [];
+  const noon = 12 * 60;
   let active = false, inflight = null, day = '', lastMinute = -1, offset = 0, lastSync = 0;
-  let entries = [], signature = null, pages = [], page = 0, lastUpdate = '';
+  let dayEntries = null, visibleEntries = [], signature = null, lastUpdate = '';
   let hadFullscreen = false;
 
   function span(className, text) {
@@ -47,44 +51,70 @@
     if (entry.exam) topic.append(span('tv-exam', 'Examen'));
     topic.append(span('tv-title', entry.title));
     if (entry.detail) topic.append(span('tv-detail', entry.detail));
+    const teachers = entry.trainers || [];
+    const staff = teachers.length ? 'Avec ' + (names ? names.format(teachers) : teachers.join(', ')) : 'Formateur à confirmer';
+    topic.append(span('tv-trainers', staff));
     row.append(times, topic, span('tv-room', entry.room || 'Salle à confirmer'));
     setState(row, entry, lastMinute);
     return row;
   }
 
-  function showPage(index) {
-    page = Math.min(index, Math.max(0, pages.length - 1));
-    pages.forEach((rows, i) => rows.forEach(row => { row.hidden = i !== page; }));
-    list.scrollTop = 0;
-    counter.hidden = pages.length < 2;
-    counter.textContent = pages.length > 1 ? 'Page ' + (page + 1) + ' / ' + pages.length : '';
+  function setColumns(count) {
+    sheet.style.setProperty('--groups', count);
+    sheet.classList.toggle('tv-multiple', count > 1);
+    while (headings.children.length < count) headings.append(headings.firstElementChild.cloneNode(true));
+    while (headings.children.length > count) headings.lastElementChild.remove();
   }
 
-  function paginate() {
-    if (!active) return;
-    const rows = Array.from(list.children);
-    rows.forEach(row => { row.hidden = false; });
-    const height = list.clientHeight;
-    pages = [];
-    let used = 0;
-    for (const row of rows) {
-      const size = row.getBoundingClientRect().height;
-      if (!pages.length || used + size > height + .5) {
-        pages.push([]);
-        used = 0;
+  function fitSheet() {
+    const width = viewport.clientWidth, height = viewport.clientHeight - 1;
+    if (!active || sheet.hidden || !width || height <= 0) return;
+    const maxColumns = Math.max(1, Math.min(3, visibleEntries.length, Math.floor(width / 520)));
+    let bestSize = 0, bestColumns = 1;
+    sheet.style.transform = '';
+    // Measure the actual wrapped titles and room names. Prefer the largest
+    // readable type, keeping a single column whenever it already fits.
+    for (let columns = 1; columns <= maxColumns; columns++) {
+      setColumns(columns);
+      let low = 0, high = 1;
+      for (let attempt = 0; attempt < 9; attempt++) {
+        const size = attempt === 0 ? 1 : (low + high) / 2;
+        sheet.style.fontSize = size + 'em';
+        if (sheet.scrollHeight <= height && sheet.scrollWidth <= width) {
+          low = size;
+          if (size === 1) break;
+        } else {
+          high = size;
+        }
       }
-      pages[pages.length - 1].push(row);
-      used += size;
+      if (low > bestSize) { bestSize = low; bestColumns = columns; }
+      if (bestSize === 1) break;
     }
-    showPage(page);
+    setColumns(bestColumns);
+    sheet.style.fontSize = (bestSize || 1 / 256) + 'em';
+    // A TV browser can impose a minimum font size even when CSS requests less.
+    const scale = Math.min(1, height / sheet.scrollHeight, width / sheet.scrollWidth);
+    if (scale < 1) sheet.style.transform = 'scale(' + scale + ')';
+  }
+
+  function renderPeriod() {
+    const morning = lastMinute < noon;
+    byId('room-tv-heading').textContent = morning ? 'Cours du matin' : 'Cours de l’après-midi';
+    if (dayEntries === null) return;
+    visibleEntries = dayEntries.filter(entry => morning ? entry.start_min < noon : entry.end_min > noon);
+    list.replaceChildren(...visibleEntries.map(courseRow));
+    sheet.hidden = visibleEntries.length === 0;
+    empty.hidden = !sheet.hidden;
+    empty.textContent = morning ? 'Aucun cours prévu ce matin.' : 'Aucun cours prévu cet après-midi.';
+    fitSheet();
   }
 
   function clear(message) {
-    entries = []; pages = []; page = 0; signature = null; lastUpdate = '';
+    dayEntries = null; visibleEntries = []; signature = null; lastUpdate = '';
     list.replaceChildren();
+    sheet.hidden = true;
     empty.textContent = message;
     empty.hidden = false;
-    counter.hidden = true;
   }
 
   function tick() {
@@ -102,8 +132,10 @@
       refresh();
     }
     if (lastMinute !== minute) {
+      const periodChanged = lastMinute < 0 || (lastMinute < noon) !== (minute < noon);
       lastMinute = minute;
-      entries.forEach((entry, i) => setState(list.children[i], entry, minute));
+      if (periodChanged) renderPeriod();
+      else visibleEntries.forEach((entry, i) => setState(list.children[i], entry, minute));
     }
   }
 
@@ -137,11 +169,8 @@
       const next = JSON.stringify(data.entries);
       if (next !== signature) {
         signature = next;
-        entries = data.entries;
-        list.replaceChildren(...entries.map(courseRow));
-        empty.textContent = 'Aucun cours prévu aujourd’hui.';
-        empty.hidden = entries.length > 0;
-        paginate();
+        dayEntries = data.entries;
+        renderPeriod();
       }
     } catch {
       if (inflight !== controller) return;
@@ -150,10 +179,11 @@
     } finally {
       clearTimeout(timeout);
       if (inflight === controller) inflight = null;
+      if (active && !sync && lastUpdate && !lastSync) refresh(true);
     }
   }
 
-  const resize = window.ResizeObserver ? new ResizeObserver(paginate) : null;
+  const resize = window.ResizeObserver ? new ResizeObserver(fitSheet) : null;
   function start() {
     if (active) return;
     active = true;
@@ -161,8 +191,8 @@
     tick();
     timers.push(setInterval(tick, 1000));
     timers.push(setInterval(() => { if (!document.hidden) refresh(Date.now() - lastSync >= 300000); }, 60000));
-    timers.push(setInterval(() => { if (!document.hidden && pages.length > 1) showPage((page + 1) % pages.length); }, 12000));
-    resize?.observe(list);
+    resize?.observe(viewport);
+    document.fonts?.ready.then(fitSheet);
   }
 
   function stop() {
@@ -189,7 +219,7 @@
   document.addEventListener('fullscreenchange', fullscreenChanged);
   document.addEventListener('webkitfullscreenchange', fullscreenChanged);
   fullscreenButton.addEventListener('click', enterFullscreen);
-  window.addEventListener('resize', paginate);
+  window.addEventListener('resize', fitSheet);
   document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { tick(); refresh(); } });
   fullscreenChanged();
 
