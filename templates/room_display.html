@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cours du jour · Intégrale Academy</title>
+  <link rel="icon" href="{{ url_for('static', filename='logo-integrale.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/room-display.css') }}">
+  <script src="{{ url_for('static', filename='js/room-display.js') }}" defer></script>
+</head>
+<body class="tv-document">
+  <main>{% include '_room_display.html' %}</main>
+</body>
+</html>

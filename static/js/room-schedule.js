@@ -185,6 +185,7 @@
     $('rooms-status').classList.toggle('rooms-error', Boolean(conflicts || (result.connected && !result.ready)));
   }
   async function load(forceSync = false) {
+    if ($('room-tv-dialog')?.open) return;
     if (pointerHeld || dragging || dragBusy) { refreshAfterDrag = true; syncAfterDrag ||= forceSync; return; }
     const dateDisplay = $('rooms-date-display');
     if (!dateDisplay.validity.valid || (document.activeElement === dateDisplay && !dateDisplay.value)) return;

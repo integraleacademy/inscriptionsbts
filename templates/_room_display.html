@@ -1,0 +1,25 @@
+<section id="room-tv" aria-labelledby="room-tv-heading" data-feed="{{ url_for('room_display_today') }}">
+  <header class="tv-masthead">
+    <div class="tv-heading">
+      <img class="tv-brand" src="{{ url_for('static', filename='academy-official-logo.png') }}" width="5906" height="1772" alt="Intégrale Academy">
+      <h1 id="room-tv-heading">Cours du jour</h1>
+      <time id="tv-date"></time>
+    </div>
+    <time id="tv-clock" aria-label="Heure locale"></time>
+  </header>
+  <div class="tv-schedule">
+    <div class="tv-columns" aria-hidden="true"><span>Horaires</span><span>Cours et formations</span><span>Salle</span></div>
+    <div class="tv-body">
+      <p id="tv-empty" role="status">Chargement du planning…</p>
+      <ol id="tv-entries" aria-label="Programme de la journée"></ol>
+    </div>
+  </div>
+  <footer class="tv-footer">
+    <span id="tv-notice" role="status"></span>
+    <span id="tv-page" hidden></span>
+    <nav aria-label="Affichage TV">
+      <button id="tv-fullscreen" type="button" hidden>Plein écran</button>
+      <a id="tv-close" href="{{ url_for('planning_rooms_admin') }}">Quitter</a>
+    </nav>
+  </footer>
+</section>

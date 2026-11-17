@@ -6,8 +6,10 @@ on:
       - 'planning_room*.py'
       - 'templates/_room*.html'
       - 'templates/planning_rooms.html'
+      - 'templates/room_display.html'
       - 'templates/base.html'
       - 'static/js/room-*.js'
+      - 'static/css/room-display.css'
       - 'tests/test_room*.py'
       - 'tests/test_planning_rooms_events.py'
       - 'tests/room_calendar_frontend.cjs'
@@ -25,8 +27,9 @@ jobs:
           python-version: '3.11'
           cache: pip
       - run: python -m pip install -r requirements.txt pytest
-      - run: python -m pytest -q tests/test_room_calendar.py tests/test_room_reservations.py tests/test_room_slot_deletion.py tests/test_room_unassigned.py tests/test_room_month.py tests/test_planning_rooms_events.py tests/test_planning_room_choices.py
+      - run: python -m pytest -q tests/test_room_calendar.py tests/test_room_reservations.py tests/test_room_slot_deletion.py tests/test_room_unassigned.py tests/test_room_month.py tests/test_room_display.py tests/test_planning_rooms_events.py tests/test_planning_room_choices.py
       - run: node --check static/js/room-schedule.js
+      - run: node --check static/js/room-display.js
       - run: npm install --prefix /tmp/room-calendar-checks --no-audit --no-fund jsdom@26
       - run: node tests/room_calendar_frontend.cjs
         env:

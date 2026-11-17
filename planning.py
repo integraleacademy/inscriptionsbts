@@ -673,6 +673,10 @@ def register_planning(app,db_connect,require_admin):
     @app.get('/admin/salles')
     def planning_rooms_admin():return catalog_page('planning_rooms.html','Salles')
 
+    @app.get('/admin/salles/affichage-tv')
+    def planning_room_display():
+        return catalog_page('room_display.html', 'Cours du jour')
+
     @app.get('/admin/parametres')
     def admin_settings():return catalog_page('admin_settings.html','Paramètres')
 
