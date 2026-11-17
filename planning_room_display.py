@@ -57,7 +57,8 @@ def daily_programme(conn, day):
         for slot in effective_slots(conn, owner['owner'], slots, meta):
             # Old director sessions may have no site or room at all. Only show
             # those after the source or a local label identifies their centre.
-            if not location.get('site') and (formation.upper() in ('DESP', 'DIRIGEANT') or normal(title).startswith(('desp', 'dirigeant'))):
+            has_venue = location.get('site') or location.get('venue') or (exam and location.get('exam_venue'))
+            if not has_venue and (formation.upper() in ('DESP', 'DIRIGEANT') or normal(title).startswith(('desp', 'dirigeant'))):
                 identifiers = normal(' '.join([title, location.get('venue', ''), rooms.get(slot['room_id'], '')]))
                 if not any(v in identifiers for v in ('puget', 'cote d azur', 'aurillac', 'arpajon')):
                     continue

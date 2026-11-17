@@ -129,7 +129,11 @@
   #room-tv .tv-columns, #room-tv .tv-row { padding-inline: 6px; gap: 8px; }
 }
 @media (max-width: 460px) {
-  #room-tv { --columns: 5.4em minmax(0, 1fr) minmax(4em, .7fr); }
+  #room-tv { --columns: 5.4em minmax(0, 1fr); }
+  #room-tv .tv-columns > :last-child { display: none; }
+  #room-tv .tv-row { row-gap: .2em; }
+  #room-tv .tv-times { grid-row: span 2; }
+  #room-tv .tv-room { grid-column: 2; font-size: 1em; }
   #tv-clock { font-size: 34px; }
   #tv-date { font-size: 16px; }
   #room-tv .tv-time { font-size: .96em; white-space: normal; }
