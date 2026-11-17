@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% from 'ui_icons.html' import icon %}
-{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/room-display.css') }}">{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/room-display.css') }}?v=2">{% endblock %}
 {% block body_class %}planning-catalog-page rooms-catalog-page{% endblock %}
 {% block content %}
 <div class="catalog-app" data-kind="rooms" data-csrf="{{ planning_csrf_token|default(csrf_token, true) }}" aria-busy="true">
@@ -18,5 +18,5 @@
 <dialog id="room-tv-dialog" aria-labelledby="room-tv-heading">
   {% include '_room_display.html' %}
 </dialog>
-<script src="{{ url_for('static', filename='js/room-display.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/room-display.js') }}?v=2" defer></script>
 {% endblock %}

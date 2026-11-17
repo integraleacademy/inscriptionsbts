@@ -55,7 +55,7 @@ def test_all_room_reservation_sources_are_respected(client, db, source):
                 VALUES('session:example','1',?,?,'Session','')''',
                          (slots if source == 'session' else '[]', slots if source == 'pending_session' else None))
         if source == 'reservation':
-            conn.execute("INSERT INTO planning_room_reservations VALUES('exam','r1','2027-01-04',540,660,'Examen',1,1,'now','now')")
+            conn.execute("INSERT INTO planning_room_reservations(id,room_id,date,start_min,end_min,title,exam,version,created_at,updated_at) VALUES('exam','r1','2027-01-04',540,660,'Examen',1,1,'now','now')")
         if source == 'closure':
             conn.execute("INSERT INTO planning_room_unavailability VALUES('closed','r1','2027-01-04','2027-01-05',540,660,'Travaux',1)")
     assert room_ids(available(client)) == ['r2']
@@ -71,7 +71,7 @@ def test_room_choices_do_not_require_a_prepared_subject_or_school_day(client, db
 def test_end_at_midnight_and_all_rooms_busy(client, db):
     with db() as conn:
         for rid in ('r1', 'r2'):
-            conn.execute('INSERT INTO planning_room_reservations VALUES(?,?,?,?,?,?,0,1,?,?)',
+            conn.execute('INSERT INTO planning_room_reservations(id,room_id,date,start_min,end_min,title,exam,version,created_at,updated_at) VALUES(?,?,?,?,?,?,0,1,?,?)',
                          (rid, rid, '2027-01-04', 23*60, 1440, 'Réservation', 'now', 'now'))
     assert room_ids(available(client, start='22:00', end='24:00')) == []
     assert room_ids(available(client, start='22:00', end='23:00')) == ['r1', 'r2']
@@ -159,7 +159,7 @@ def test_bulk_choices_check_external_bookings_on_later_selected_dates(client, db
                 VALUES('session:example','1',?,?,'Session','')''',
                          (slots if source == 'session' else '[]', slots if source == 'pending_session' else None))
         if source == 'reservation':
-            conn.execute("INSERT INTO planning_room_reservations VALUES('exam','r1','2027-01-05',540,660,'Examen',1,1,'now','now')")
+            conn.execute("INSERT INTO planning_room_reservations(id,room_id,date,start_min,end_min,title,exam,version,created_at,updated_at) VALUES('exam','r1','2027-01-05',540,660,'Examen',1,1,'now','now')")
         if source == 'closure':
             conn.execute("INSERT INTO planning_room_unavailability VALUES('closed','r1','2027-01-05','2027-01-06',540,660,'Travaux',1)")
     assert room_ids(batch_choices(client, [first, second])) == ['r2']

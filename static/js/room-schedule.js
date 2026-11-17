@@ -382,6 +382,7 @@
     $('rooms-reservation-heading').textContent = booking ? 'Modifier le créneau' : 'Créer un créneau';
     $('rooms-reservation-delete').hidden = !booking;
     roomOptions(f.room_id, roomId); f.date.value = day; f.title.value = booking?.title || '';
+    f.trainer_names.value = booking?.trainer_names || '';
     f.all_day.checked = Boolean(booking && booking.start_min === 0 && booking.end_min === 1440);
     f.start.value = booking?.start || '09:00'; f.end.value = booking?.end === '24:00' ? '23:59' : booking?.end || '10:00';
     f.end_at_midnight.checked = Boolean(booking && booking.end_min === 1440 && booking.start_min !== 0);
@@ -403,7 +404,7 @@
     dialogWork(reservationDialog, 'rooms-reservation-error', async () => {
       const f = reservationForm.elements;
       await request('/reservations' + (editingReservation ? '/' + encodeURIComponent(editingReservation.id) : ''), {
-        room_id: f.room_id.value, date: f.date.value, title: f.title.value,
+        room_id: f.room_id.value, date: f.date.value, title: f.title.value, trainer_names: f.trainer_names.value,
         start: f.all_day.checked ? '00:00' : f.start.value, end: f.all_day.checked || f.end_at_midnight.checked ? '24:00' : f.end.value,
         exam: f.exam.checked, version: editingReservation?.version
       }, editingReservation ? 'PUT' : 'POST');

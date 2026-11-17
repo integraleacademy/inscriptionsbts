@@ -26,9 +26,10 @@ def test_television_uses_the_school_day_and_only_display_fields(app, client, db)
     assert response.status_code == 200 and response.headers['Cache-Control'] == 'no-store'
     assert response.json['date'] == DAY and response.json['now'].endswith('+01:00')
     entry, = response.json['entries']
-    assert set(entry) == {'start_min', 'end_min', 'title', 'detail', 'room', 'exam'}
+    assert set(entry) == {'start_min', 'end_min', 'title', 'detail', 'room', 'exam', 'trainers'}
     assert entry['title'] == 'Matière s1' and entry['room'] == 'Salle r1'
     assert 'BTS MCO p1' in entry['detail'] and 'BTS MCO p2' in entry['detail']
+    assert entry['trainers'] == ['Prénom NOM T1']
     with db() as conn:
         assert daily_programme(conn, '2027-01-06') == []
 
@@ -72,3 +73,35 @@ def test_existing_source_gains_site_without_losing_override_or_publishing_pendin
     assert machine(client, 'finish', dict(token=prepared.json['token'], commit=True)).status_code == 200
     with db() as conn:
         assert daily_programme(conn, DAY) == []
+
+
+def test_source_trainers_follow_time_and_original_room_after_move_and_replacement(linked, client, db):
+    old = seed(client, schema=3, metadata={'name': 'APS'}, slots=[
+        dict(room_id='r1', date=DAY, start='09:00', end='12:00'),
+        dict(room_id='r1', date=DAY, start='12:00', end='17:00')])
+    assert move(client, schedule(client), 'r2').status_code == 200
+    with db() as conn:
+        conn.execute("INSERT INTO planning_room_aliases VALUES('salle initiale','r1')")
+    groups = [dict(room_name='Salle initiale', names=['Anne Martin'], spans=[['09:00', '12:00']]),
+              dict(room_id='r1', names=['Léa Vidal'], spans=[['11:00', '17:00']]),
+              dict(room_id='r2', names=['Autre salle'], spans=[['09:00', '17:00']])]
+    old['metadata']['display_trainers'] = {'days': {DAY: groups}}
+    def sync():
+        assert machine(client, 'reconcile', dict(owners=[old], complete=True)).status_code == 200
+        with db() as conn:
+            return [(e['start_min'], e['end_min'], e['trainers'], e['room']) for e in daily_programme(conn, DAY)]
+    assert sync() == [(540, 660, ['Anne Martin'], 'Salle r2'), (660, 720, ['Anne Martin', 'Léa Vidal'], 'Salle r2'),
+                      (720, 1020, ['Léa Vidal'], 'Salle r2')]
+    groups[1]['names'] = ['Camille Roux']
+    assert sync()[-1] == (720, 1020, ['Camille Roux'], 'Salle r2')
+    old['metadata']['display_trainers'] = {}
+    assert sync() == [(540, 1020, [], 'Salle r2')]
+
+
+def test_manual_trainers_can_be_entered_and_are_preserved_by_older_clients(client, db):
+    fields = dict(room_id='r2', date=DAY, title='Atelier VTC', start='10:00', end='12:00')
+    booking = call(client, '/rooms/reservations', dict(fields, trainer_names='Anne Martin, Hugo Petit')).json['reservation']
+    assert call(client, '/rooms/reservations/' + booking['id'], dict(fields, version=booking['version']), 'PUT').status_code == 200
+    with db() as conn:
+        entry, = daily_programme(conn, DAY)
+    assert entry['trainers'] == ['Anne Martin', 'Hugo Petit']
