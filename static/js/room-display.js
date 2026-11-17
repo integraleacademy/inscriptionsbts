@@ -202,13 +202,15 @@
       start();
     });
     byId('tv-close').addEventListener('click', event => { event.preventDefault(); dialog.close(); });
-    dialog.addEventListener('close', () => {
+    dialog.addEventListener('close', async () => {
+      stop();
       if (fullscreen() === board) {
         const exit = document.exitFullscreen || document.webkitExitFullscreen;
-        if (exit) Promise.resolve(exit.call(document)).catch(() => {});
+        if (exit) {
+          try { await exit.call(document); } catch { /* The browser has already exited. */ }
+        }
       }
-      stop();
-      launcher.focus({preventScroll: true});
+      if (!dialog.open) launcher.focus({preventScroll: true});
     });
   } else {
     start();
