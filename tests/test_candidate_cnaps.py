@@ -202,3 +202,55 @@ def test_timeout_and_malformed_remote_are_safe_errors(client, monkeypatch):
     monkeypatch.setattr('candidate_cnaps.requests.get', timeout)
     response = client.get('/admin/candidat/cnaps-candidate/cnaps-tracking')
     assert response.status_code == 502 and 'private remote details' not in response.text
+
+
+def test_directory_shows_cnaps_only_for_security_and_keeps_existing_tags(client, monkeypatch):
+    security_candidate(client)
+    seed(2027, 'mos', 'validee')
+    with application.db() as conn:
+        conn.execute("UPDATE candidats SET bts='MOS' WHERE id='mos'")
+        conn.execute("UPDATE candidats SET label_aps=1 WHERE id='cnaps-candidate'")
+        conn.executemany("INSERT INTO logs(cid,type,payload,created_at) VALUES(?,?,?,?)", [
+            ('cnaps-candidate', 'MAIL_ENVOYE', '{"type":"cnaps","message_id":"ok"}', '2026-11-10'),
+            ('cnaps-candidate', 'MAIL_ENVOYE', 'invalid JSON', '2026-11-11'),
+            ('cnaps-candidate', 'MAIL_ENVOYE', '{"type":"cnaps","message_id":""}', '2026-11-12'),
+            ('cnaps-candidate', 'MESSAGE_ECHEC', '{"type":"cnaps"}', '2026-11-13'),
+        ])
+    monkeypatch.setattr('candidate_cnaps.fetch_tracking', lambda *a, **kw: pytest.fail('remote lookup in directory HTML'))
+    page = BeautifulSoup(client.get('/admin?rentree=all').data, 'html.parser')
+    link, = page.select('#directory-rows [data-cnaps-url]')
+    assert link.find_parent('tr')['data-id'] == 'cnaps-candidate'
+    assert link['href'] == '/admin/candidat/cnaps-candidate?rentree=all#documents'
+    assert link['data-cnaps-url'] == '/admin/candidat/cnaps-candidate/cnaps-tracking?summary=1'
+    assert 'Collecte envoyée le 10/11/2026' in link.get_text(' ', strip=True)
+    assert link.parent.select_one('.dossier-tags').get_text(strip=True) == 'APS'
+    assert page.select_one('tr[data-id="mos"] [data-cnaps-url]') is None
+    assert 'data-cnaps-url' not in client.get('/admin?bts=MOS').text
+    assert client.get('/admin/candidat/mos/cnaps-tracking?summary=1').status_code == 404
+
+
+@pytest.mark.parametrize('status,expected,tone', [
+    ('TRANSMIS', 'Demande transmise', 'info'), ('ACCEPTÉ', 'Demande acceptée', 'success'),
+    ('REFUSÉ', 'Demande refusée', 'danger'), ('INSTRUCTION', 'En instruction', 'info'),
+    ('ENREGISTRÉ', 'Demande enregistrée', 'info'), ('', 'Dossier retrouvé', 'neutral'),
+    ('DOCS COMPLEMENTAIRES', 'Pièces complémentaires demandées', 'warning'),
+    ('Nouvelle étape', 'Nouvelle étape', 'neutral'),
+])
+def test_directory_returns_only_the_request_status(client, monkeypatch, status, expected, tone):
+    remote_setup(client, monkeypatch, {'found': True, 'nub': '1234567', 'stale': True,
+                 'cnaps': {'cnaps_status': status, 'titles': [{'type': 'AP SH', 'state': 'ACTIF'}]}})
+    response = client.get('/admin/candidat/cnaps-candidate/cnaps-tracking?summary=1')
+    summary = {'label': expected, 'tone': tone, 'stale': True}
+    if not status:
+        summary['note'] = 'Statut non renseigné'
+    assert response.json == {'ok': True, 'found': True, 'collection_sent_at': None, 'summary': summary}
+    assert response.headers['Cache-Control'] == 'private, no-store'
+
+
+def test_directory_distinguishes_missing_dossier_from_unavailable_tracking(client, monkeypatch):
+    remote_setup(client, monkeypatch, {'found': False})
+    endpoint = '/admin/candidat/cnaps-candidate/cnaps-tracking?summary=1'
+    assert client.get(endpoint).json['summary']['label'] == 'Aucun dossier retrouvé'
+    monkeypatch.setattr('candidate_cnaps.requests.get', lambda *a, **kw: RemoteResponse({}, 502))
+    response = client.get(endpoint)
+    assert response.status_code == 502 and 'summary' not in response.json

@@ -20,7 +20,7 @@ from candidate_pdf import application_pdf
 from opco_contracts import directory_contracts
 from candidate_statuses import annotate_candidate_statuses, EMPLOYMENT_STATUS
 from candidate_workflows import register_candidate_workflows
-from candidate_cnaps import register_candidate_cnaps
+from candidate_cnaps import collection_sent_dates, register_candidate_cnaps
 from candidate_documents import DOC_FIELDS, load_verif_docs, register_candidate_documents, document_preview_response
 from london_mobility import has_mobility_archive, london_context, register_london_mobility
 from student_cards import register_student_cards, student_card_dates
@@ -1598,7 +1598,14 @@ def admin():
     for row in rows:
         row['photo_url'] = (url_for('admin_candidate_photo', cid=row['id'])
                             if parse_list(row.get('fichiers_photo')) else None)
-    return render_template("admin.html", title="Candidatures · Intégrale Academy", rows=rows, statuts=[s for s in STATUTS + [EMPLOYMENT_STATUS] if s[0] not in ENROLLED])
+    security_ids = [row['id'] for row in rows if row.get('bts') == SECURITY]
+    cnaps_collections = {}
+    if security_ids:
+        with closing(db()) as conn:
+            cnaps_collections = collection_sent_dates(conn, security_ids)
+    return render_template("admin.html", title="Candidatures · Intégrale Academy", rows=rows,
+                           security_program=SECURITY, cnaps_collections=cnaps_collections,
+                           statuts=[s for s in STATUTS + [EMPLOYMENT_STATUS] if s[0] not in ENROLLED])
 
 
 def candidate_birth_date(value):
