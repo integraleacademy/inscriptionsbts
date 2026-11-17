@@ -277,12 +277,19 @@ def reconcile_owner(conn,item):
                          (owner,revision,json.dumps(slots),title,url,json.dumps(item.get('metadata') or {})))
         return
     versions={revision,item.get('legacy_revision')}
-    if item.get('schema')==3:versions.add(item.get('compat_revision'))
+    if item.get('schema')==3:
+        versions.update(filter(None, (item.get('compat_revision'), item.get('pre_location_revision'))))
     if row['pending_token']:
         if row['pending_revision'] in versions:finish(conn,dict(token=row['pending_token'],commit=True))
         elif row['revision'] in versions:finish(conn,dict(token=row['pending_token'],commit=False))
         else:raise PlanningError('Une réservation nécessite une réconciliation manuelle.',status=409)
         row=conn.execute('SELECT * FROM planning_room_owners WHERE owner=?',(owner,)).fetchone()
+    if item.get('schema') == 3 and row['revision'] != revision and row['revision'] == item.get('pre_location_revision'):
+        # Only the venue metadata was added to this exact projection. Keep the
+        # normalized room IDs and per-slot overrides, including renamed rooms.
+        conn.execute('UPDATE planning_room_owners SET revision=?,metadata=?,room_version=room_version+1 WHERE owner=?',
+                     (revision, json.dumps(item['metadata']), owner))
+        return
     if item.get('schema') in (2,3) and row['revision']!=revision and row['revision'] in versions:
         # Upgrade only from an exact legacy checksum. Keep existing room
         # overrides and surface historical conflicts without losing real slots.

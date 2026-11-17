@@ -1,0 +1,142 @@
+.tv-document { margin: 0; }
+#room-tv-dialog {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+#room-tv-dialog::backdrop { background: #103d30; }
+#room-tv, #room-tv * { box-sizing: border-box; }
+#room-tv [hidden] { display: none !important; }
+#room-tv {
+  --gutter: clamp(18px, 3.6vw, 84px);
+  --columns: minmax(8em, .95fr) minmax(0, 2.7fr) minmax(0, 1.25fr);
+  --ink: #153d30;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: #f6f5ee;
+  color: var(--ink);
+  text-align: left;
+  font: 500 clamp(15px, 1.23vw, 28px)/1.35 Manrope, Arial, sans-serif;
+}
+#room-tv .tv-masthead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  padding: clamp(15px, 2.7vh, 42px) var(--gutter);
+  color: #fffef9;
+  background: #103d30;
+  border-bottom: 4px solid #efbd5b;
+}
+#room-tv .tv-brand { display: block; width: clamp(125px, 10vw, 230px); height: auto; margin: 0 0 .55em; }
+#room-tv h1 {
+  margin: 0;
+  color: inherit;
+  font: 750 clamp(32px, 3.5vw, 80px)/1.06 Manrope, Arial, sans-serif;
+  letter-spacing: -.04em;
+}
+#tv-date { display: block; margin-top: .2em; font-size: clamp(18px, 1.8vw, 42px); color: #d6e8d7; }
+#tv-date::first-letter { text-transform: uppercase; }
+#tv-clock {
+  color: #fffef9;
+  font-size: clamp(40px, 6.9vw, 175px);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -.055em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+#room-tv .tv-schedule {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 0 var(--gutter);
+}
+#room-tv .tv-columns, #room-tv .tv-row {
+  display: grid;
+  grid-template-columns: var(--columns);
+  align-items: center;
+  gap: clamp(10px, 2vw, 46px);
+  padding-inline: clamp(10px, 1.1vw, 26px);
+}
+#room-tv .tv-columns {
+  padding-block: .85em .6em;
+  color: #52685d;
+  font-weight: 700;
+  border-bottom: 2px solid #a4b7a6;
+}
+#room-tv .tv-body { position: relative; min-height: 0; }
+#tv-entries { width: 100%; height: 100%; overflow-y: auto; margin: 0; padding: 0; list-style: none; }
+#room-tv .tv-row {
+  min-height: clamp(66px, 8.3vh, 132px);
+  padding-block: clamp(8px, 1.25vh, 20px);
+  border-bottom: 1px solid #cbd6c9;
+  box-shadow: inset 4px 0 transparent;
+}
+#room-tv .tv-row.current { background: #e0efe3; box-shadow: inset 4px 0 #176b50; }
+#room-tv .tv-times, #room-tv .tv-topic { display: grid; align-content: center; gap: .15em; }
+#room-tv .tv-time { font-variant-numeric: tabular-nums; font-size: 1.32em; font-weight: 750; white-space: nowrap; }
+#room-tv .tv-state { font-size: .86em; color: #53695c; }
+#room-tv .current .tv-state { color: #075639; font-weight: 750; }
+#room-tv .tv-title, #room-tv .tv-room { font-size: clamp(21px, 2.05vw, 54px); font-weight: 730; line-height: 1.12; overflow-wrap: anywhere; }
+#room-tv .tv-room { color: #105d45; }
+#room-tv .tv-detail { color: #50675a; overflow-wrap: anywhere; }
+#room-tv .tv-exam { font-weight: 750; color: #855611; }
+#tv-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: var(--ink);
+  text-align: center;
+  font-size: clamp(22px, 2.3vw, 55px);
+}
+#room-tv .tv-footer {
+  display: flex;
+  align-items: center;
+  gap: 1em;
+  min-height: 2.8em;
+  padding: .4em var(--gutter);
+  border-top: 1px solid #cbd6c9;
+  color: #4c6657;
+  font-size: clamp(13px, 1vw, 23px);
+}
+#tv-notice { flex: 1; }
+#tv-page { font-variant-numeric: tabular-nums; white-space: nowrap; }
+#room-tv .tv-footer nav { display: flex; gap: .6em; }
+#room-tv .tv-footer a, #room-tv .tv-footer button {
+  display: inline-block; margin: 0; padding: .32em .65em;
+  background: transparent; border: 1px solid #9aac9c; border-radius: .4em;
+  color: #385746; font: inherit; text-decoration: none; cursor: pointer; white-space: nowrap;
+}
+#room-tv :focus-visible { outline: 3px solid #a16d17; outline-offset: 2px; }
+@media (max-width: 700px) {
+  #room-tv { --gutter: 14px; --columns: 7.1em minmax(0, 1fr) minmax(4.8em, .66fr); }
+  #room-tv .tv-brand { width: 104px; }
+  #room-tv .tv-time { font-size: 1.05em; }
+  #room-tv .tv-title, #room-tv .tv-room { font-size: 1.15em; }
+  #room-tv .tv-columns, #room-tv .tv-row { padding-inline: 6px; gap: 8px; }
+}
+@media (max-width: 460px) {
+  #room-tv { --columns: 5.4em minmax(0, 1fr) minmax(4em, .7fr); }
+  #tv-clock { font-size: 34px; }
+  #tv-date { font-size: 16px; }
+  #room-tv .tv-time { font-size: .96em; white-space: normal; }
+}
+@media (max-height: 520px) and (min-width: 600px) {
+  #room-tv .tv-heading { display: grid; grid-template-columns: auto 1fr; column-gap: 16px; }
+  #room-tv .tv-brand { grid-row: span 2; align-self: center; margin: 0; }
+  #room-tv h1 { font-size: 30px; }
+  #tv-clock { font-size: 48px; }
+}

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 from io import BytesIO
 import json
 import secrets
+from zoneinfo import ZoneInfo
 
 from flask import request, send_file
 
@@ -81,6 +82,24 @@ def apply_room_moves(conn, selected, rid):
 def register(app,connect,guard,result,fail,transact):
     from planning import PlanningError, _iso, _minutes
     from planning_rooms import overlap, ready
+
+    @app.get('/admin/planning/api/rooms/affichage-tv')
+    def room_display_today():
+        from planning_room_display import daily_programme
+        from planning_rooms import configured, remote
+        guard()
+        sync_delayed = False
+        if request.args.get('sync') == '1' and configured():
+            try:
+                remote('/sessions')
+            except PlanningError:
+                sync_delayed = True
+        now = datetime.now(ZoneInfo('Europe/Paris'))
+        day = now.date().isoformat()
+        with closing(connect()) as conn:
+            conn.execute('BEGIN')
+            return result(dict(date=day, now=now.isoformat(), entries=daily_programme(conn, day),
+                               sync_delayed=sync_delayed or not ready(conn)))
 
     def room(conn,rid):
         if not isinstance(rid,str) or not conn.execute('SELECT 1 FROM planning_rooms WHERE id=? AND active=1',(rid,)).fetchone():
