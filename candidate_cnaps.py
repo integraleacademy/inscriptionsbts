@@ -10,6 +10,7 @@ import hmac
 import json
 import os
 import re
+import unicodedata
 from contextlib import closing
 
 import requests
@@ -53,19 +54,53 @@ def collection_email(row):
     )
 
 
-def collection_sent_at(conn, cid):
-    """Only confirmed deliveries count; a preview or a failed send never does."""
-    for event in conn.execute(
-        "SELECT payload,created_at FROM logs WHERE (candidat_id=? OR cid=?) "
-        "AND type='MAIL_ENVOYE' ORDER BY created_at DESC", (cid, cid)
-    ):
-        try:
-            payload = json.loads(event['payload'] or '{}')
-        except (ValueError, TypeError):
-            continue
-        if isinstance(payload, dict) and payload.get('type') == 'cnaps' and payload.get('message_id'):
-            return payload.get('sent_at') or event['created_at']
-    return None
+def collection_sent_dates(conn, candidate_ids):
+    """Last confirmed collection email per candidate, including legacy log IDs."""
+    ids = list(candidate_ids)
+    dates = {}
+    for offset in range(0, len(ids), 400):
+        batch = ids[offset:offset + 400]
+        marks = ','.join('?' for _ in batch)
+        events = conn.execute(f"""
+            SELECT candidat_id, cid, COALESCE(NULLIF(json_extract(payload, '$.sent_at'), ''), created_at) AS sent_at
+            FROM logs WHERE type='MAIL_ENVOYE' AND (candidat_id IN ({marks}) OR cid IN ({marks}))
+            AND CASE WHEN json_valid(payload) THEN
+                json_extract(payload, '$.type') = 'cnaps' AND COALESCE(json_extract(payload, '$.message_id'), '') NOT IN ('', 0)
+            END ORDER BY created_at DESC
+        """, batch + batch)
+        wanted = set(batch)
+        for event in events:
+            for cid in (event['candidat_id'], event['cid']):
+                if cid in wanted:
+                    dates.setdefault(cid, event['sent_at'])
+    return dates
+
+
+def directory_status(payload):
+    """Only the application status is needed in the admissions list."""
+    if not payload['found']:
+        return {'label': 'Aucun dossier retrouvé', 'tone': 'neutral', 'stale': bool(payload.get('stale'))}
+
+    status = payload['cnaps']['status'].strip()
+    key = ''.join(c for c in unicodedata.normalize('NFD', status.upper()) if not unicodedata.combining(c))
+    labels = {
+        'ACCEPTE': ('Demande acceptée', 'success'),
+        'REFUSE': ('Demande refusée', 'danger'),
+        'TRANSMIS': ('Demande transmise', 'info'),
+        'ENREGISTRE': ('Demande enregistrée', 'info'),
+        'INSTRUCTION': ('En instruction', 'info'),
+        'EN INSTRUCTION': ('En instruction', 'info'),
+        'DOCS COMPLEMENTAIRES': ('Pièces complémentaires demandées', 'warning'),
+        'EN ATTENTE': ('En attente', 'warning'),
+        'CARTE PROFESSIONNELLE OK': ('Carte professionnelle OK', 'success'),
+        'ANNULE': ('Demande annulée', 'neutral'),
+        'INCONNU': ('Dossier retrouvé', 'neutral'),
+    }
+    label, tone = labels.get(key, (status or 'Statut non renseigné', 'neutral'))
+    summary = {'label': label, 'tone': tone, 'stale': bool(payload.get('stale'))}
+    if key == 'INCONNU':
+        summary['note'] = 'Statut non renseigné'
+    return summary
 
 
 def _text(value, length=240):
@@ -165,7 +200,7 @@ def register_candidate_cnaps(app, db_connect, workflow_response):
             row = dict(row)
             if row.get('bts') != SECURITY:
                 abort(404)
-            sent_at = collection_sent_at(conn, cid)
+            sent_at = collection_sent_dates(conn, [cid]).get(cid)
         return row, sent_at
 
     @app.get('/admin/candidat/<cid>/cnaps-tracking')
@@ -178,6 +213,8 @@ def register_candidate_cnaps(app, db_connect, workflow_response):
             payload = fetch_tracking(cid, refresh=request.args.get('refresh') == '1')
         except TrackingUnavailable as exc:
             return jsonify(ok=False, error=str(exc), reason=exc.reason, collection_sent_at=sent_at), exc.status
+        if request.args.get('summary') == '1':
+            return jsonify(ok=True, found=payload['found'], summary=directory_status(payload), collection_sent_at=sent_at)
         return jsonify(ok=True, **payload, collection_sent_at=sent_at)
 
     @app.post('/admin/candidat/<cid>/cnaps-request')
