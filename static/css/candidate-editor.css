@@ -1,4 +1,18 @@
 /* Candidate record: a compact reading layout using the administration palette. */
+.candidate-upload-form { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); align-items:end; gap:12px 18px; margin:18px 0; padding:16px; border:1px solid #dce3ed; border-radius:12px; }
+.candidate-upload-form input[type=file] { width:100%; min-width:0; }
+.candidate-upload-form small { color:#53647a; line-height:1.5; }
+.candidate-upload-form button { justify-self:start; }
+.candidate-upload-form [role=status] { grid-column:1/-1; margin:0; }
+.project-answer { margin-top:14px; }
+.project-profile { padding:12px 0; border-bottom:1px solid #dce3ed; }
+.project-profile:last-child { border-bottom:0; }
+.project-profile summary { cursor:pointer; font-weight:650; }
+.project-profile summary small { display:block; margin:6px 0 0 16px; font-weight:400; color:#53647a; }
+.project-profile-choices { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:10px 16px; margin-top:14px; }
+.project-profile-choices label { display:flex; align-items:baseline; gap:8px; font-size:13px; }
+.project-profile-choices input { width:auto; }
+@media (max-width:640px) { .candidate-upload-form { grid-template-columns:minmax(0,1fr); } }
 .student-card-section .sheet-section-heading p { font-size:12px; line-height:1.6; color:#65758e; margin:0; }
 .student-card-fields { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; max-width:480px; }
 .student-card-fields .sheet-field { min-width:0; }

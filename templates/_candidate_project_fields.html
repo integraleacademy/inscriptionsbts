@@ -1,0 +1,64 @@
+{% macro project_choice(name, label) %}
+  {% set choices = project_choices[name] %}
+  {% set current = project_values.get(name) or '' %}
+  <label class="sheet-field"><span>{{ label }}</span>
+    <select name="{{ name }}">
+      <option value="">Non renseigné</option>
+      {% if current and current not in choices %}<option value="{{ current }}" selected>{{ current }}</option>{% endif %}
+      {% for key, caption in choices.items() %}<option value="{{ key }}"{% if current == key %} selected{% endif %}>{{ caption }}</option>{% endfor %}
+    </select>
+  </label>
+{% endmacro %}
+<form id="candidate-project-form" action="{{ url_for('admin_candidate_project', cid=row.id) }}" method="post">
+  <section class="sheet-card">
+    <div class="sheet-section-heading"><h2>Parcours & alternance</h2><button class="btn primary" type="submit">Enregistrer le projet</button></div>
+    <div class="sheet-fields">
+      {{ project_choice('baccalaureat', 'Baccalauréat') }}
+      {{ project_choice('bac_type', 'Type de bac') }}
+      {{ field('Précisions sur le bac', 'bac_autre') }}
+      {{ project_choice('permis_b', 'Permis B') }}
+      {{ project_choice('entreprise_trouvee', 'Entreprise trouvée') }}
+      {{ project_choice('recherches_commencees', 'Recherches commencées') }}
+      {{ project_choice('cherche_idf', 'Recherche en Île-de-France') }}
+      {{ project_choice('souhaite_accompagnement', 'Accompagnement souhaité') }}
+      {% if row.bts == 'MOS' %}
+        {{ project_choice('mos_parcours', 'Parcours MOS') }}
+        {{ project_choice('aps_souhaitee', 'Formation APS souhaitée') }}
+        {{ field('Session APS', 'aps_session') }}
+        {{ field('Solution envisagée pour l’APS', 'raison_aps') }}
+      {% endif %}
+    </div>
+  </section>
+  {% if row.bts == 'PARCOURS-SECURITE' %}
+    <section class="sheet-card"><h2>Candidature au parcours sécurité</h2>
+      <div class="sheet-fields">
+        {{ project_choice('available_year', 'Disponibilité annuelle') }}
+        {{ project_choice('mobile_departments', 'Mobilité Var et Alpes-Maritimes') }}
+        {{ project_choice('situation', 'Situation') }}
+        {{ project_choice('vehicle', 'Véhicule') }}
+        {{ project_choice('contact_slot', 'Créneau de contact') }}
+      </div>
+      {% if intake_reference %}<p>Ancienne référence · {{ intake_reference }} · {{ project_values.legacy_status }}</p>{% endif %}
+    </section>
+  {% endif %}
+  <section class="sheet-card"><h2>Projet motivé</h2>
+    {% for label, key in [('Motivations pour la formation','projet_pourquoi'),('Objectifs après la formation','projet_objectif'),('Personnalité et passions','projet_passions')] %}
+      <label class="sheet-field project-answer"><span>{{ label }}</span><textarea name="{{ key }}" rows="3" maxlength="5000">{{ row.get(key) or '' }}</textarea></label>
+    {% endfor %}
+  </section>
+  <section class="sheet-card"><h2>Le profil en quelques mots</h2>
+    {% for group in profile_groups %}
+      {% set selected = profile_display[group.name] %}
+      <details class="project-profile" data-profile-group="{{ group.name }}">
+        <summary>{{ group.title }}<small>{{ selected|join(' · ') or 'Non renseigné' }}</small></summary>
+        <div class="project-profile-choices">
+          {% for code, label in group.options %}<label><input type="checkbox" name="{{ group.name }}" value="{{ code }}"{% if label in selected %} checked{% endif %}> {{ label }}</label>{% endfor %}
+          {% set known = group.options|map(attribute=1)|list %}
+          {% for label in selected if label not in known %}<label><input type="checkbox" name="{{ group.name }}" value="{{ label }}" checked> {{ label }}</label>{% endfor %}
+        </div>
+      </details>
+    {% endfor %}
+  </section>
+  <button class="btn primary" type="submit">Enregistrer le projet</button>
+  <p data-save-status role="status" hidden></p>
+</form>

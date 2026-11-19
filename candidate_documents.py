@@ -1,16 +1,24 @@
 """Private dossier documents and browser previews without automatic downloads."""
 from contextlib import closing
+from datetime import datetime
+from hashlib import sha256
 from io import BytesIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from uuid import uuid4
 import base64
 import json
 import os
 import re
 import zipfile
 
-from flask import abort, make_response, render_template, request, send_file, url_for
+from flask import abort, jsonify, make_response, render_template, request, send_file, session, url_for
 from PIL import Image, ImageOps, UnidentifiedImageError
 from docx.opc.exceptions import PackageNotFoundError
 from lxml.etree import XMLSyntaxError
+from werkzeug.utils import secure_filename
+
+from candidate_messages import _equal
 
 DOC_FIELDS = {
     "ci": ("fichiers_ci", "🪪 Carte d’identité / Passeport"),
@@ -18,8 +26,99 @@ DOC_FIELDS = {
     "carte_vitale": ("fichiers_carte_vitale", "💳 Carte Vitale"),
     "cv": ("fichiers_cv", "📄 CV"),
     "lm": ("fichiers_lm", "🖋️ Lettre de motivation"),
+    "autre": ("fichiers_autres", "📎 Autre document"),
 }
 DOCUMENT_FIELDS = tuple(column for column, _ in DOC_FIELDS.values())
+DOCUMENT_LIMIT = 8 * 1024 * 1024
+ADMIN_DOCUMENT_NAME = re.compile(r'^Depot-(?:ci|carte_vitale|cv|lm|autre)-[0-9a-f]{32}-(.+)$')
+
+
+def document_name(filename):
+    match = ADMIN_DOCUMENT_NAME.fullmatch(filename)
+    return match.group(1) if match else filename
+
+
+def _stage_upload(upload, kind, staging):
+    name = secure_filename(upload.filename)
+    stem, ext = os.path.splitext(name)
+    ext = ext.lower()
+    allowed = {'.pdf', '.jpg', '.jpeg', '.png'}
+    if kind in ('cv', 'lm', 'autre'):
+        allowed.add('.docx')
+    if ext not in allowed:
+        raise ValueError('Format non accepté pour cette catégorie de document.')
+    content = upload.stream.read(DOCUMENT_LIMIT + 1)
+    if not content or len(content) > DOCUMENT_LIMIT:
+        raise ValueError('Chaque fichier doit être non vide et peser au maximum 8 Mo.')
+    if ext == '.pdf':
+        if not content.startswith(b'%PDF-'):
+            raise ValueError('Le fichier sélectionné n’est pas un PDF lisible.')
+    elif ext == '.docx':
+        try:
+            with zipfile.ZipFile(BytesIO(content)) as archive:
+                entries = archive.infolist()
+                if (len(entries) > 2000 or sum(item.file_size for item in entries) > 60 * 1024 * 1024
+                        or not {'word/document.xml', '[Content_Types].xml'} <= set(archive.namelist())):
+                    raise ValueError
+        except (zipfile.BadZipFile, ValueError):
+            raise ValueError('Le document Word est illisible ou trop volumineux.') from None
+    else:
+        try:
+            with Image.open(BytesIO(content)) as picture:
+                expected = 'PNG' if ext == '.png' else 'JPEG'
+                if picture.format != expected or picture.width * picture.height > 40_000_000:
+                    raise ValueError
+                picture.verify()
+        except (OSError, ValueError, SyntaxError, Image.DecompressionBombError):
+            raise ValueError('Choisissez une image JPG ou PNG lisible de 40 mégapixels maximum.') from None
+
+    digest = sha256(content).hexdigest()[:32]
+    path = staging / f'Depot-{kind}-{digest}-{stem[:120]}{ext}'
+    path.write_bytes(content)
+    return path
+
+
+def _attach_uploads(conn, cid, folder, kind, staged):
+    column, label = DOC_FIELDS[kind]
+    conn.execute('BEGIN IMMEDIATE')
+    row = conn.execute('SELECT * FROM candidats WHERE id=?', (cid,)).fetchone()
+    if row is None or folder.resolve() != folder:
+        abort(404)
+    row = dict(row)
+    paths = json.loads(row.get(column) or '[]')
+    if not isinstance(paths, list):
+        raise ValueError('La liste des pièces de ce dossier est illisible.')
+    names = {os.path.basename(path) for path in paths if isinstance(path, str)}
+    checks = load_verif_docs(row)
+    stored = []
+    added = []
+    try:
+        for source in staged:
+            target = folder / source.name
+            if target.is_symlink() or (target.exists() and not target.is_file()):
+                abort(404)
+            if not target.exists():
+                source.replace(target)
+                stored.append(target)
+            if target.name in names:
+                continue
+            paths.append(str(target))
+            names.add(target.name)
+            checks[target.name] = {'etat': 'en_attente', 'label': label}
+            added.append(document_name(target.name))
+        if added:
+            now = datetime.now().isoformat()
+            conn.execute(f'UPDATE candidats SET {column}=?, verif_docs=?, updated_at=? WHERE id=?',
+                         (json.dumps(paths), json.dumps(checks, ensure_ascii=False), now, cid))
+            conn.execute('INSERT INTO logs (id,candidat_id,numero_dossier,type,payload,created_at) VALUES (?,?,?,?,?,?)',
+                         (uuid4().hex, cid, row.get('numero_dossier'), 'DOCUMENTS_AJOUTES',
+                          json.dumps({'pièces': ', '.join(added)}, ensure_ascii=False), now))
+        conn.commit()
+    except Exception:
+        for path in stored:
+            path.unlink(missing_ok=True)
+        raise
+    return len(added)
 
 
 def load_verif_docs(row):
@@ -166,6 +265,34 @@ def document_preview_response(path, *, title=None, download_url=None):
 
 def register_candidate_documents(app, db_connect, upload_dir, require_admin):
     """upload_dir is a callable so runtime/test directory changes are respected."""
+    @app.post('/admin/candidat/<cid>/documents')
+    def admin_candidate_documents_upload(cid):
+        if not require_admin():
+            abort(403)
+        if not _equal(request.headers.get('X-CSRF-Token'), session.get('_candidate_message_csrf')):
+            return jsonify(ok=False, error='La session a expiré. Rechargez la fiche.'), 400
+        kind = request.form.get('category')
+        if kind not in DOC_FIELDS or kind == 'photo':
+            return jsonify(ok=False, error='Choisissez une catégorie de document.'), 400
+        uploads = request.files.getlist('documents')
+        if not uploads or any(not file.filename for file in uploads):
+            return jsonify(ok=False, error='Sélectionnez au moins un fichier.'), 400
+        root = Path(upload_dir()).resolve()
+        folder = root / cid
+        if folder.parent != root or folder.resolve() != folder:
+            abort(404)
+        with closing(db_connect()) as conn:
+            if not conn.execute('SELECT 1 FROM candidats WHERE id=?', (cid,)).fetchone():
+                abort(404)
+            folder.mkdir(parents=True, exist_ok=True)
+            with TemporaryDirectory(dir=folder) as temporary:
+                try:
+                    staged = [_stage_upload(file, kind, Path(temporary)) for file in uploads]
+                    added = _attach_uploads(conn, cid, folder, kind, staged)
+                except ValueError as exc:
+                    return jsonify(ok=False, error=str(exc)), 400
+        return _private(jsonify(ok=True, added=added))
+
     @app.get('/admin/candidat/<cid>/document/<filename>')
     def admin_candidate_document(cid, filename):
         if not require_admin():
@@ -176,7 +303,7 @@ def register_candidate_documents(app, db_connect, upload_dir, require_admin):
             abort(404)
         path = _resolve_document(dict(row), filename, upload_dir())
         if request.args.get('download') == '1':
-            return _private(send_file(path, as_attachment=True, download_name=filename))
+            return _private(send_file(path, as_attachment=True, download_name=document_name(filename)))
         with open(path, 'rb') as source:
             signature = source.read(5)
         if signature == b'%PDF-':
