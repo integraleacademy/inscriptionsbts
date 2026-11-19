@@ -5,7 +5,7 @@
   const $=selector=>document.querySelector(selector);
   const text=(tag,content,cls)=>{const el=document.createElement(tag);el.textContent=content;if(cls)el.className=cls;return el;};
   function toast(message,bad=false){clearTimeout(toastTimer);toastBox.textContent=message;toastBox.classList.toggle('error',bad);toastBox.hidden=false;toastTimer=setTimeout(()=>toastBox.hidden=true,5000);}
-  async function api(path,options={}){const response=await fetch(path,{...options,headers:{Accept:'application/json',...(options.body?{'Content-Type':'application/json'}:{}),...options.headers}});const data=await response.json().catch(()=>({}));if(!response.ok||data.ok===false)throw Error(data.error||`Action impossible (${response.status}).`);return data;}
+  async function api(path,options={}){const response=await fetch(path,{...options,headers:{Accept:'application/json',...(options.body && !(options.body instanceof FormData)?{'Content-Type':'application/json'}:{}),...options.headers}});const data=await response.json().catch(()=>({}));if(!response.ok||data.ok===false)throw Error(data.error||`Action impossible (${response.status}).`);return data;}
   const post=(path,data={})=>api(path,{method:'POST',headers:{'X-CSRF-Token':dialog.dataset.messageCsrf},body:JSON.stringify(data)});
   const campaign=path=>{const url=new URL(path,location.origin);url.searchParams.set('rentree',new URLSearchParams(location.search).get('rentree')||sheet?.dataset.year||'2027');return url.pathname+url.search;};
   function modal(heading,description,action,options={}){
@@ -74,7 +74,7 @@
   async function loadHistory(){
     if(document.getElementById('panel-emails')?.hidden===false)loadEmails();
     const list=$('#candidate-history');if(!list)return;list.replaceChildren(text('li','Chargement de l’historique…'));
-    try{const entries=await api(`/admin/logs/${encodeURIComponent(cid)}`);list.replaceChildren();const labels={FIELD_UPDATE:'Information modifiée',FICHE_MODIFIEE:'Fiche mise à jour',STATUT_CHANGE:'Statut modifié',STATUT_MODIFIE:'Statut modifié',MAIL_ENVOYE:'E-mail envoyé',SMS_ENVOYE:'SMS envoyé',DOC_MARK:'Contrôle d’un document',DOC_GENERE:'Document généré',PDF_GENERE:'Fiche PDF générée',RELANCE_ENVOYEE:'Relance envoyée'};for(const entry of entries){const item=document.createElement('li');item.append(text('b',labels[entry.type]||entry.type.replaceAll('_',' ').toLowerCase()),text('time',formatDate(entry.created_at)),text('p',entry.payload||''));list.append(item);}if(!entries.length)list.append(text('li','Aucune action enregistrée pour le moment.'));}catch(e){list.replaceChildren(text('li',e.message));}
+    try{const entries=await api(`/admin/logs/${encodeURIComponent(cid)}`);list.replaceChildren();const labels={FIELD_UPDATE:'Information modifiée',FICHE_MODIFIEE:'Fiche mise à jour',STATUT_CHANGE:'Statut modifié',STATUT_MODIFIE:'Statut modifié',MAIL_ENVOYE:'E-mail envoyé',SMS_ENVOYE:'SMS envoyé',DOC_MARK:'Contrôle d’un document',DOCUMENTS_AJOUTES:'Ajout de pièces au dossier',DOC_GENERE:'Document généré',PDF_GENERE:'Fiche PDF générée',RELANCE_ENVOYEE:'Relance envoyée'};for(const entry of entries){const item=document.createElement('li');item.append(text('b',labels[entry.type]||entry.type.replaceAll('_',' ').toLowerCase()),text('time',formatDate(entry.created_at)),text('p',entry.payload||''));list.append(item);}if(!entries.length)list.append(text('li','Aucune action enregistrée pour le moment.'));}catch(e){list.replaceChildren(text('li',e.message));}
   }
   async function loadEmails(){
     const list=$('#email-history');
@@ -88,9 +88,91 @@
   function formatDate(value){if(!value)return'—';const d=new Date(value);return Number.isNaN(d.getTime())?value:d.toLocaleString('fr-FR',{dateStyle:'medium',timeStyle:'short'});}
   async function loadFiles(){
     const list=$('#candidate-files');if(!list)return;list.replaceChildren(text('p','Chargement des pièces…'));
-    try{const files=await api(`/admin/files/${encodeURIComponent(cid)}`);list.replaceChildren();for(const file of files){const item=document.createElement('article');item.className='sheet-document';const info=document.createElement('div');info.append(text('b',file.label||'Pièce justificative'));const link=text('a',file.filename);link.href=file.url||`/admin/candidat/${encodeURIComponent(cid)}/document/${encodeURIComponent(file.filename)}`;link.target='_blank';link.rel='noopener';info.append(link,text('small',({conforme:'Conforme',non_conforme:'Non conforme',nouveau:'Nouveau document',en_attente:'À contrôler'})[file.status]||'À contrôler'));if(file.horodatage)info.append(text('small',file.horodatage));item.append(info);const actions=document.createElement('div');actions.className='document-decisions';if(file.type!=='nouveau'){for(const [decision,label]of [['conforme','Conforme'],['non_conforme','Non conforme']]){const button=text('button',label,'btn');button.type='button';button.disabled=file.status===decision;button.addEventListener('click',()=>{const execute=async()=>{await post('/admin/files/mark',{id:cid,filename:file.filename,decision});if(decision==='non_conforme')setStatus('docs_non_conformes');await loadFiles();toast('Décision enregistrée.');};if(decision==='non_conforme')modal('Marquer la pièce non conforme',`La pièce « ${file.filename} » sera retirée du dossier. Vous pourrez ensuite demander son remplacement au candidat.`,execute,{label:'Marquer non conforme'});else busy(button,execute);});actions.append(button);}}else actions.append(text('span','À enregistrer dans les pièces','new-document'));item.append(actions);list.append(item);}if(!files.length)list.append(text('p','Aucun justificatif disponible pour ce dossier.'));}catch(e){list.replaceChildren(text('p',e.message));}
+    try{const files=await api(`/admin/files/${encodeURIComponent(cid)}`);list.replaceChildren();for(const file of files){const item=document.createElement('article');item.className='sheet-document';const info=document.createElement('div');info.append(text('b',file.label||'Pièce justificative'));const link=text('a',file.display_name||file.filename);link.href=file.url||`/admin/candidat/${encodeURIComponent(cid)}/document/${encodeURIComponent(file.filename)}`;link.target='_blank';link.rel='noopener';info.append(link,text('small',({conforme:'Conforme',non_conforme:'Non conforme',nouveau:'Nouveau document',en_attente:'À contrôler'})[file.status]||'À contrôler'));if(file.horodatage)info.append(text('small',file.horodatage));item.append(info);const actions=document.createElement('div');actions.className='document-decisions';if(file.type!=='nouveau'){for(const [decision,label]of [['conforme','Conforme'],['non_conforme','Non conforme']]){const button=text('button',label,'btn');button.type='button';button.disabled=file.status===decision;button.addEventListener('click',()=>{const execute=async()=>{await post('/admin/files/mark',{id:cid,filename:file.filename,decision});if(decision==='non_conforme')setStatus('docs_non_conformes');await loadFiles();toast('Décision enregistrée.');};if(decision==='non_conforme')modal('Marquer la pièce non conforme',`La pièce « ${file.display_name || file.filename} » sera retirée du dossier. Vous pourrez ensuite demander son remplacement au candidat.`,execute,{label:'Marquer non conforme'});else busy(button,execute);});actions.append(button);}}else actions.append(text('span','À enregistrer dans les pièces','new-document'));item.append(actions);list.append(item);}if(!files.length)list.append(text('p','Aucun justificatif disponible pour ce dossier.'));}catch(e){list.replaceChildren(text('p',e.message));}
   }
   async function busy(button,work){button.disabled=true;try{await work();}catch(e){toast(e.message,true);}finally{button.disabled=false;}}
+  function setupDocumentUpload(form) {
+    const category = form.elements.category, files = form.elements.documents;
+    const help = $('#document-upload-help'), status = form.querySelector('[data-upload-status]');
+    const button = form.querySelector('[type=submit]');
+    function updateFormats() {
+      const photo = category.value === 'photo';
+      const word = ['cv', 'lm', 'autre'].includes(category.value);
+      if (photo && files.files.length > 1) files.value = '';
+      files.multiple = !photo;
+      files.accept = photo ? '.jpg,.jpeg,.png' : '.pdf,.jpg,.jpeg,.png' + (word ? ',.docx' : '');
+      help.textContent = photo ? 'Photo du portrait · JPG ou PNG · 10 Mo maximum.'
+        : (word ? 'PDF, JPG, PNG ou Word (.docx)' : 'PDF, JPG ou PNG') + ' · 8 Mo par fichier. Vous pouvez en sélectionner plusieurs.';
+    }
+    category.addEventListener('change', updateFormats);
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      if (button.disabled) return;
+      const photo = category.value === 'photo';
+      const limit = photo ? 10 : 8;
+      status.hidden = false;
+      if (Array.from(files.files).some(file => file.size === 0 || file.size > limit * 1024 * 1024)) {
+        status.textContent = 'Chaque fichier doit être non vide et peser au maximum ' + limit + ' Mo.';
+        return;
+      }
+      const data = photo ? new FormData() : new FormData(form);
+      if (photo) data.set('photo', files.files[0]);
+      button.disabled = files.disabled = category.disabled = true;
+      status.textContent = 'Enregistrement en cours…';
+      try {
+        const result = await api(photo ? form.dataset.photoUrl : form.action, {
+          method: 'POST', body: data, headers: {'X-CSRF-Token': sheet.dataset.messageCsrf}
+        });
+        if (!result.ok) throw Error('Rechargez la fiche puis réessayez.');
+        if (photo) { location.reload(); return; }
+        files.value = '';
+        status.textContent = result.added > 1 ? result.added + ' documents ajoutés au dossier.'
+          : result.added === 1 ? 'Document ajouté au dossier.' : 'Ces fichiers figurent déjà dans le dossier.';
+        await loadFiles();
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        button.disabled = files.disabled = category.disabled = false;
+      }
+    });
+    updateFormats();
+  }
+  function answers(form) {
+    const data = new FormData(form), values = Object.fromEntries(data);
+    for (const group of form.querySelectorAll('[data-profile-group]')) {
+      const key = group.dataset.profileGroup;
+      values[key] = data.getAll(key);
+    }
+    return values;
+  }
+  function saveEdits(form, onSaved) {
+    let original = answers(form);
+    const status = form.querySelector('[data-save-status]');
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      const current = answers(form), changes = {};
+      for (const [name, value] of Object.entries(current)) {
+        if (JSON.stringify(value) !== JSON.stringify(original[name])) changes[name] = value;
+      }
+      status.hidden = false;
+      if (!Object.keys(changes).length) { status.textContent = 'Aucune modification à enregistrer.'; return; }
+      const buttons = form.querySelectorAll('[type=submit]');
+      buttons.forEach(button => { button.disabled = true; });
+      status.textContent = 'Enregistrement en cours…';
+      try {
+        await post(form.action, changes);
+        original = current;
+        status.textContent = 'Modifications enregistrées.';
+        onSaved();
+      } catch (error) {
+        status.textContent = error.message;
+        toast(error.message, true);
+      } finally {
+        buttons.forEach(button => { button.disabled = false; });
+      }
+    });
+    return () => { original = answers(form); status.hidden = true; };
+  }
   function tab(key,updateURL=true){
     if(!sheet||!document.getElementById('panel-'+key))return;
     sheet.querySelectorAll('.sheet-panel').forEach(panel=>panel.hidden=panel.id!=='panel-'+key);
@@ -111,9 +193,19 @@
     $('#save-candidate-comment').addEventListener('click',event=>busy(event.currentTarget,async()=>{await post('/admin/update-field',{id:cid,field:'commentaires',value:$('#candidate-comment').value});toast('Note enregistrée.');}));
     const form=$('#candidate-information-form'),fields=$('#candidate-information-fields'),edit=$('#edit-candidate'),controls=$('#candidate-edit-actions');
     const editing=value=>{fields.disabled=!value;edit.hidden=value;controls.hidden=!value;};
-    edit.addEventListener('click',()=>{editing(true);fields.querySelector('select,input')?.focus();});
-    $('#cancel-edit').addEventListener('click',()=>{form.reset();editing(false);});
-    form.addEventListener('submit',async event=>{event.preventDefault();const button=controls.querySelector('[type=submit]');await busy(button,async()=>{await post(`/admin/candidat/${encodeURIComponent(cid)}/informations`,Object.fromEntries(new FormData(form)));toast('Fiche enregistrée.');location.reload();});});
+    const beginEdit = saveEdits(form, () => location.reload());
+    edit.addEventListener('click',()=>{editing(true);beginEdit();fields.querySelector('select,input')?.focus();});
+    $('#cancel-edit').addEventListener('click',()=>{form.reset();editing(false);form.querySelector('[data-save-status]').hidden=true;});
+    const project = $('#candidate-project-form');
+    saveEdits(project, () => {
+      for (const group of project.querySelectorAll('[data-profile-group]')) {
+        const checked = Array.from(group.querySelectorAll('input:checked'), input => input.labels[0].textContent.trim());
+        group.querySelector('summary small').textContent = checked.join(' · ') || 'Non renseigné';
+      }
+      toast('Projet et parcours enregistrés.');
+    });
+    setupDocumentUpload($('#candidate-documents-form'));
+    $('[data-focus-documents]').addEventListener('click', () => $('#candidate-documents-form select').focus());
     document.querySelectorAll('[data-certificate]').forEach(button=>button.addEventListener('click',()=>previewModal('Envoyer le certificat de scolarité','Le certificat PDF et son e-mail sont préparés à partir du parcours actuel de l’étudiant.',`/admin/send_certificat/${encodeURIComponent(cid)}`)));
     document.querySelectorAll('[data-change-mode]').forEach(button=>button.addEventListener('click',()=>modal('Changer le parcours','Le certificat et les prochains messages utiliseront ce parcours. Aucun message ne sera envoyé par ce changement.',async container=>{await post(`/admin/candidat/${encodeURIComponent(cid)}/parcours`,{mode:container.querySelector('select').value});location.reload();},{label:'Enregistrer le parcours',build:container=>{selectField(container,'Parcours suivi',[['presentiel','Présentiel'],['distanciel','Distanciel']],'mode').value=sheet.dataset.mode;}})));
   }

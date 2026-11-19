@@ -2,6 +2,27 @@
 import json
 
 
+MOS_PATHS = {
+    'bac_ms': 'Bac pro Métiers de la sécurité obtenu',
+    'bac_ms_en_cours': 'Bac pro Métiers de la sécurité en préparation',
+    'bac_pro_ms': 'Bac pro Métiers de la sécurité obtenu',
+    'bac_pro_ms_en_cours': 'Bac pro Métiers de la sécurité en préparation',
+    'carte_cnaps': 'Carte professionnelle CNAPS valide',
+    'autre': 'Autre situation',
+}
+
+
+def answer(value):
+    """Distinguish an explicit negative from an unanswered or nonstandard legacy value."""
+    text = str(value).strip() if value is not None else ''
+    normalized = text.casefold()
+    if normalized in ('oui', '1', 'true', 'on', 'yes'):
+        return 'Oui'
+    if normalized in ('non', '0', 'false', 'off', 'no'):
+        return 'Non'
+    return text
+
+
 PROFILE_GROUPS = [{'name': 'qualites',
   'title': 'Tes principales qualités',
   'options': [('rigoureux', 'Rigueur'),

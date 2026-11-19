@@ -6,7 +6,7 @@ import fcntl
 import tempfile
 from datetime import datetime, timedelta
 from training_programs import BTS_LABELS as BTS_PROGRAMS, SECURITY, catalog, is_professional_title, program_name
-from admission_options import PROFILE_GROUPS, profile_answers, profile_fields
+from admission_options import PROFILE_GROUPS, profile_fields
 from security_intake import age_on, dossier_fields as security_identity_fields, today as paris_today
 from place_search import register_place_search
 from candidate_access import register_candidate_access, get_authenticated_student
@@ -16,12 +16,13 @@ from formation_intake import admission_titles, open_title_promotions, ensure_sch
 from candidate_email_history import archived_body, history as candidate_email_history
 from candidate_csv_import import register_candidate_import
 from candidate_creation import register_candidate_creation
+from candidate_project import project_context, register_candidate_project
 from candidate_pdf import application_pdf
 from opco_contracts import directory_contracts
 from candidate_statuses import annotate_candidate_statuses, EMPLOYMENT_STATUS
 from candidate_workflows import register_candidate_workflows
 from candidate_cnaps import collection_sent_dates, register_candidate_cnaps
-from candidate_documents import DOC_FIELDS, load_verif_docs, register_candidate_documents, document_preview_response
+from candidate_documents import DOC_FIELDS, document_name, load_verif_docs, register_candidate_documents, document_preview_response
 from london_mobility import has_mobility_archive, london_context, register_london_mobility
 from student_cards import register_student_cards, student_card_dates
 from student_documents import register_student_documents
@@ -99,6 +100,8 @@ def run_startup_integrity_checks():
         "candidate_documents.py",
         "candidate_photos.py",
         "candidate_creation.py",
+        "candidate_project.py",
+        "templates/_candidate_project_fields.html",
         "candidate_statuses.py",
         "templates/candidate_create.html",
         "static/css/candidate-create.css",
@@ -389,6 +392,7 @@ FILE_PREFIX = {
     "carte_vitale": "CarteVitale",
     "cv": "CV",
     "lm": "LettreMotivation",
+    "autre": "Complement",
 }
 
 
@@ -742,13 +746,14 @@ def ensure_schema():
     import sqlite3
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+    cur.execute('BEGIN IMMEDIATE')
 
     # Vérifie les colonnes existantes
     cur.execute("PRAGMA table_info(candidats)")
     cols = [r[1] for r in cur.fetchall()]
 
     expected_cols = [
-        "nationalite", "raison_aps", "diplome_obtenu",
+        "nationalite", "raison_aps", "diplome_obtenu", "fichiers_autres", "infos_parcours_securite",
         "projet_qualites", "projet_motivation", "projet_recherche", "projet_travail",
         "verif_docs", "nouveau_doc", "replace_token", "replace_token_exp", "replace_meta",
         "label_ypareo", "label_carte_etudiante",
@@ -1099,6 +1104,7 @@ register_place_search(app)
 register_candidate_access(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), log_event)
 register_candidate_messages(app, db, lambda *args, **kwargs: send_mail(*args, copy_admin=False, **kwargs), lambda *args, **kwargs: send_sms_brevo(*args, **kwargs), log_event)
 register_candidate_documents(app, db, lambda: UPLOAD_DIR, require_admin)
+register_candidate_project(app, db, require_admin, log_event)
 register_candidate_photos(app, db, lambda: UPLOAD_DIR, require_admin, log_event)
 register_candidate_creation(app, db, require_admin, normalize_candidate_names, log_event)
 register_candidate_import(app, db, require_admin, normalize_candidate_names)
@@ -1631,7 +1637,7 @@ def admin_candidate_sheet(cid):
         if row:
             school_context = sheet_context(conn, cid)
             intake = conn.execute('SELECT details,legacy_ref FROM formation_submissions WHERE candidate_id=?',(cid,)).fetchone()
-            school_context['intake_details'] = json.loads(intake['details']) if intake else {}
+            school_context.update(project_context(row, json.loads(intake['details']) if intake else {}))
             school_context['intake_reference'] = intake['legacy_ref'] if intake else ''
             school_context['enrollments_return_url'] = enrollment_return_url(request.args.get('return_to'))
             if row.get('bts') in BTS_LABELS:
@@ -1651,7 +1657,7 @@ def admin_candidate_sheet(cid):
         'candidate_sheet.html', **school_context, row=row, statuts=STATUTS, year=year,
         candidate_age=age, current_promotion=current_promotion, available_promotions=available_promotions,
         candidate_photo_url=url_for('admin_candidate_photo', cid=cid) if parse_list(row.get('fichiers_photo')) else None,
-        profile_display=profile_answers(row), student_card_dates=student_card_dates(row),
+        student_card_dates=student_card_dates(row),
         title=person_name(row.get('nom'), row.get('prenom')) + ' · Plateforme de gestion des BTS',
     )
 
@@ -1684,17 +1690,30 @@ def admin_candidate_information(cid):
         row = get_candidat(conn, cid)
         if not row: abort(404)
         merged = {**row, **changes}
-        if merged.get("bts") not in catalog(conn) or merged.get("mode") not in ("presentiel", "distanciel"):
+        if (("bts" in changes and merged.get("bts") not in catalog(conn))
+                or ("mode" in changes and merged.get("mode") not in ("presentiel", "distanciel"))):
             return jsonify(ok=False, error="Vérifiez la formation et son mode de suivi."), 400
         placement = get_candidate_promotion(conn, cid)
-        if placement and merged.get('bts') != placement['bts']:
+        if "bts" in changes and placement and merged.get('bts') != placement['bts']:
             return jsonify(ok=False, error="Retirez d’abord la promotion de cet étudiant avant de changer sa formation, puis affectez-lui une promotion correspondante."), 409
-        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", merged.get("email") or "") or (merged.get("tel") and not re.fullmatch(r"(?:0[1-9]\d{8}|\+[1-9]\d{7,14})", merged["tel"])):
-            return jsonify(ok=False, error="Vérifiez l’e-mail et le téléphone."), 400
+        for key in ('email', 'resp_email'):
+            if key in changes and (key == 'email' or changes[key]) and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", changes[key]):
+                return jsonify(ok=False, error="Vérifiez l’adresse e-mail."), 400
+        for key in ('tel', 'resp_tel'):
+            if key in changes and changes[key]:
+                changes[key] = re.sub(r'[ .()\-]', '', changes[key])
+                if not re.fullmatch(r"(?:0[1-9]\d{8}|\+[1-9]\d{7,14})", changes[key]):
+                    return jsonify(ok=False, error="Vérifiez le numéro de téléphone."), 400
+        if 'date_naissance' in changes:
+            birth = candidate_birth_date(changes['date_naissance'])
+            today = paris_today()
+            if changes['date_naissance'] and (birth is None or birth.year < 1900 or birth > today):
+                return jsonify(ok=False, error="Vérifiez la date de naissance."), 400
+            changes['est_mineur'] = int(birth is not None and age_on(birth, today) < 18)
         if {"num_secu", "date_naissance", "sexe"}.intersection(changes) and merged.get("num_secu") and merged["num_secu"] != "123456789123456":
             ok, message = validate_nir(merged["num_secu"], merged.get("date_naissance"), merged.get("sexe"))
             if not ok: return jsonify(ok=False, error=message), 400
-        changed = {key: value for key, value in changes.items() if str(row.get(key) or "") != value}
+        changed = {key: value for key, value in changes.items() if row.get(key) != value and not (row.get(key) is None and value == '')}
         if changed:
             conn.execute("UPDATE candidats SET " + ", ".join(key + "=?" for key in changed) + ", updated_at=? WHERE id=?", [*changed.values(), datetime.now().isoformat(), cid])
             conn.commit()
@@ -2139,6 +2158,7 @@ def admin_files(cid):
         abort(404)
     files = candidate_file_inventory(row)
     for item in files:
+        item['display_name'] = document_name(item['filename'])
         item['url'] = url_for('admin_candidate_document', cid=cid, filename=item['filename'])
     return jsonify(files)
 
@@ -2203,6 +2223,7 @@ def admin_files_mark():
         return jsonify({"ok": False, "error": "paramètres invalides"}), 400
 
     conn = db()
+    conn.execute('BEGIN IMMEDIATE')
     row = get_candidat(conn, cid)
     if not row:
         conn.close()
@@ -2276,6 +2297,7 @@ def admin_files_merge():
         return jsonify({"ok": False, "error": "id manquant"}), 400
 
     conn = db()
+    conn.execute('BEGIN IMMEDIATE')
     row = get_candidat(conn, cid)
     if not row:
         conn.close()
@@ -2334,7 +2356,6 @@ def admin_files_merge():
         "UPDATE candidats SET nouveau_doc=0, replace_meta=?, verif_docs=?, updated_at=? WHERE id=?",
         ("{}", json.dumps(verif, ensure_ascii=False), datetime.now().isoformat(), cid)
     )
-    conn.commit()
 
     # 🔄 Recharger la fiche pour nettoyage
     cur.execute("SELECT * FROM candidats WHERE id=?", (cid,))

@@ -9,31 +9,10 @@ from zoneinfo import ZoneInfo
 from flask import current_app, render_template
 from werkzeug.exceptions import NotFound
 
-from admission_options import profile_answers
+from admission_options import MOS_PATHS, answer, profile_answers
 from campaign import candidate_year
 from candidate_documents import DOC_FIELDS, _resolve_document, load_verif_docs
 from candidate_photos import load_candidate_portrait
-
-
-MOS_PATHS = {
-    'bac_ms': 'Bac pro Métiers de la sécurité obtenu',
-    'bac_ms_en_cours': 'Bac pro Métiers de la sécurité en préparation',
-    'bac_pro_ms': 'Bac pro Métiers de la sécurité obtenu',
-    'bac_pro_ms_en_cours': 'Bac pro Métiers de la sécurité en préparation',
-    'carte_cnaps': 'Carte professionnelle CNAPS valide',
-    'autre': 'Autre situation',
-}
-
-
-def answer(value):
-    """Distinguish an explicit negative from an unanswered or nonstandard legacy value."""
-    text = str(value).strip() if value is not None else ''
-    normalized = text.casefold()
-    if normalized in ('oui', '1', 'true', 'on', 'yes'):
-        return 'Oui'
-    if normalized in ('non', '0', 'false', 'off', 'no'):
-        return 'Non'
-    return text
 
 
 def _portrait(row, upload_dir, db_connect):
@@ -80,6 +59,8 @@ def _documents(row, upload_dir, inventory):
 
     result = []
     for kind, states in groups.items():
+        if kind == 'autre' and not states:
+            continue
         count = sum(states.values()) - states['Refus antérieur'] - states['Indisponible']
         result.append(dict(label=labels[kind], count=count, checks=states))
     return result

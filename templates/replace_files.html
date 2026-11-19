@@ -19,6 +19,9 @@
       {% if "photo d’identité" in pl or "photo d'identité" in pl or pl.startswith("📸") or " photo " in pl %}
         {% set type_piece = "photo" %}
 
+      {% elif pl.startswith("📎") or "autre document" in pl %}
+        {% set type_piece = "autre" %}
+
       {# CI / PASSEPORT #}
       {% elif "carte d’identité" in pl or "carte d'identité" in pl or "passeport" in pl or pl.startswith("🪪") %}
         {% set type_piece = "ci" %}
