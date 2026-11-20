@@ -12,12 +12,14 @@ import os
 import re
 import unicodedata
 from contextlib import closing
+from datetime import datetime
 
 import requests
 from flask import abort, jsonify, request, session
 
 from branded_email import _environment, academy_logo_url
 from security_admission import ADVISER
+from security_intake import today as paris_today
 from training_programs import SECURITY
 
 
@@ -76,13 +78,18 @@ def collection_sent_dates(conn, candidate_ids):
     return dates
 
 
+def _label_key(value):
+    letters = unicodedata.normalize('NFD', value.upper())
+    return ' '.join(''.join(c for c in letters if not unicodedata.combining(c)).split())
+
+
 def directory_status(payload):
     """Only the application status is needed in the admissions list."""
     if not payload['found']:
         return {'label': 'Aucun dossier retrouvé', 'tone': 'neutral', 'stale': bool(payload.get('stale'))}
 
     status = payload['cnaps']['status'].strip()
-    key = ''.join(c for c in unicodedata.normalize('NFD', status.upper()) if not unicodedata.combining(c))
+    key = _label_key(status)
     labels = {
         'ACCEPTE': ('Demande acceptée', 'success'),
         'REFUSE': ('Demande refusée', 'danger'),
@@ -107,6 +114,15 @@ def _text(value, length=240):
     return str(value)[:length] if isinstance(value, (str, int, float)) and not isinstance(value, bool) else ''
 
 
+def _expiry_date(value):
+    for date_format in ('%Y-%m-%d', '%d/%m/%Y'):
+        try:
+            return datetime.strptime(value[:10], date_format).date()
+        except ValueError:
+            continue
+    return None
+
+
 def _public_tracking(payload):
     """Allowlist the small display contract, rather than forwarding remote data."""
     if not isinstance(payload, dict) or not isinstance(payload.get('found'), bool):
@@ -124,14 +140,27 @@ def _public_tracking(payload):
         raise TrackingUnavailable('Le suivi du dossier a renvoyé une réponse inattendue.')
     person = payload.get('person') if isinstance(payload.get('person'), dict) else {}
     nub = _text(payload.get('nub') or source.get('nub') or person.get('nub'), 30)
+    status = _text(source.get('cnaps_status') or source.get('status'), 120) or 'INCONNU'
+    today = paris_today()
     titles = []
     for item in (source.get('titles') if isinstance(source.get('titles'), list) else [])[:100]:
         if not isinstance(item, dict):
             continue
+        title_type = _text(item.get('type')) or 'Titre ou autorisation'
+        state = _text(item.get('state'), 100) or 'INCONNU'
+        expires_at = _text(item.get('expires_at'), 40).strip()
+        if (_label_key(state) in {'ACTIF', 'ACTIVE'}
+                and re.match(r'^(?:AP|AUTORISATION PREALABLE)\b', _label_key(title_type))):
+            expires = _expiry_date(expires_at) if expires_at else None
+            if expires and expires < today:
+                state = 'EXPIRÉ'
+            else:
+                state = 'ACTIF'
+                status = 'ACCEPTÉ'
         titles.append({
-            'type': _text(item.get('type')) or 'Titre ou autorisation',
-            'state': _text(item.get('state'), 100) or 'INCONNU',
-            'expires_at': _text(item.get('expires_at'), 40) or None,
+            'type': title_type,
+            'state': state,
+            'expires_at': expires_at or None,
             'expires_before_training': item.get('expires_before_training') is True,
         })
     return {
@@ -141,7 +170,7 @@ def _public_tracking(payload):
         'inscription': _text(payload.get('inscription')),
         'source_url': TRACKING_SOURCE_URL,
         'cnaps': {
-            'status': _text(source.get('cnaps_status') or source.get('status'), 120) or 'INCONNU',
+            'status': status,
             'nub': nub,
             'nub_missing': not bool(nub),
             'nub_present': bool(nub),

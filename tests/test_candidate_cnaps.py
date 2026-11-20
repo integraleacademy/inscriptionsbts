@@ -2,6 +2,7 @@
 import hashlib
 import hmac
 import json
+from datetime import date
 
 import pytest
 import requests
@@ -236,15 +237,45 @@ def test_directory_shows_cnaps_only_for_security_and_keeps_existing_tags(client,
     ('DOCS COMPLEMENTAIRES', 'Pièces complémentaires demandées', 'warning'),
     ('Nouvelle étape', 'Nouvelle étape', 'neutral'),
 ])
-def test_directory_returns_only_the_request_status(client, monkeypatch, status, expected, tone):
+def test_directory_uses_recorded_status_without_an_active_ap(client, monkeypatch, status, expected, tone):
     remote_setup(client, monkeypatch, {'found': True, 'nub': '1234567', 'stale': True,
-                 'cnaps': {'cnaps_status': status, 'titles': [{'type': 'AP SH', 'state': 'ACTIF'}]}})
+                 'cnaps': {'cnaps_status': status, 'titles': [{'type': 'AP SH', 'state': 'INACTIF'},
+                                                             {'type': 'CP SH', 'state': 'ACTIF'}]}})
     response = client.get('/admin/candidat/cnaps-candidate/cnaps-tracking?summary=1')
     summary = {'label': expected, 'tone': tone, 'stale': True}
     if not status:
         summary['note'] = 'Statut non renseigné'
     assert response.json == {'ok': True, 'found': True, 'collection_sent_at': None, 'summary': summary}
     assert response.headers['Cache-Control'] == 'private, no-store'
+
+
+@pytest.mark.parametrize('title_type,state,expiry,expected_state,accepted', [
+    ('AP SH', 'ACTIF', '2027-05-20', 'ACTIF', True),
+    ('Autorisation préalable - Surveillance humaine ou gardiennage', 'active', '20/11/2026', 'ACTIF', True),
+    (' ap   a3p ', ' actif ', None, 'ACTIF', True),
+    ('AP SH', 'ACTIF', '2026-11-19', 'EXPIRÉ', False),
+    ('AP SH', 'EXPIRÉ', None, 'EXPIRÉ', False),
+    ('AP SH', 'NON ACTIF', None, 'NON ACTIF', False),
+    ('AP SH', 'INACTIF', '2027-05-20', 'INACTIF', False),
+    ('APS', 'ACTIF', None, 'ACTIF', False),
+])
+def test_sheet_and_directory_agree_on_active_ap(client, monkeypatch, title_type, state, expiry, expected_state, accepted):
+    monkeypatch.setattr('candidate_cnaps.paris_today', lambda: date(2026, 11, 20))
+    remote_setup(client, monkeypatch, {
+        'found': True, 'nub': '1234567', 'cnaps': {'cnaps_status': 'TRANSMIS', 'titles': [
+            {'type': 'CP SH', 'state': 'ACTIF'},
+            {'type': title_type, 'state': state, 'expires_at': expiry},
+            {'type': 'AP SH', 'state': 'INACTIF'},
+        ]},
+    })
+    endpoint = '/admin/candidat/cnaps-candidate/cnaps-tracking'
+    sheet = client.get(endpoint + '?refresh=1').json['cnaps']
+    assert sheet['status'] == ('ACCEPTÉ' if accepted else 'TRANSMIS')
+    assert sheet['titles'][1]['state'] == expected_state
+    assert sheet['titles'][1]['expires_at'] == expiry
+    summary = client.get(endpoint + '?summary=1').json['summary']
+    assert summary == {'label': 'Demande acceptée' if accepted else 'Demande transmise',
+                       'tone': 'success' if accepted else 'info', 'stale': False}
 
 
 def test_directory_distinguishes_missing_dossier_from_unavailable_tracking(client, monkeypatch):
