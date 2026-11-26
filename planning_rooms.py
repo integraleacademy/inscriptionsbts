@@ -564,6 +564,13 @@ def register(app, connect, guard, result, fail, transact, serializer):
 
     def selection(conn, payload):
         rid = payload.get('room_id')
+        if payload.get('action') == 'release':
+            if rid is not None:
+                raise PlanningError('Choisissez une mise en attente ou une salle.')
+            courses = selected_courses(conn, payload)
+            if any(not c['room_id'] for c in courses):
+                raise PlanningError('Un cours sélectionné est déjà sans salle. Actualisez la sélection.', status=409)
+            return [dict(c, room_id=None) for c in courses]
         if not isinstance(rid,str) or not conn.execute('SELECT 1 FROM planning_rooms WHERE id=? AND active=1', (rid,)).fetchone():
             raise PlanningError('Choisissez une salle active.')
         selected = [dict(c, room_id=rid) for c in selected_courses(conn, payload)]
@@ -612,6 +619,10 @@ def register(app, connect, guard, result, fail, transact, serializer):
             now = datetime.now(timezone.utc).isoformat()
             for c in courses:
                 conn.execute('UPDATE planning_courses SET room_id=?,version=version+1,updated_at=? WHERE id=?', (c['room_id'], now, c['id']))
+            if signed['payload'].get('action') == 'release':
+                conn.executemany("INSERT OR IGNORE INTO planning_room_releases(source,slot_id) VALUES('course',?)",
+                                 [(c['id'],) for c in courses])
+                return dict(count=len(courses), released=True, message='Les cours figurent dans « Salles à affecter ».')
             return dict(count=len(courses), message='Salle affectée à tous les cours sélectionnés.')
         return transact(operation)
 

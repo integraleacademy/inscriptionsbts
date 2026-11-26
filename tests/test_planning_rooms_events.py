@@ -128,6 +128,33 @@ def test_bulk_updates_all_selected_once_without_touching_times(client, db):
     assert call(client, '/rooms/bulk-commit', dict(token=preview.json['token'])).status_code == 409
 
 
+def test_bulk_release_preserves_the_course_and_queues_it_until_reassigned(client, db):
+    setup_school(client)
+    shared = add(client, shared=[dict(promotion_id='p2', subject_id='s2')])
+    unused = add(client, date='2027-01-05', room_id=None)
+    schedule = BASE + '/rooms/schedule?start=2027-01-04&end=2027-01-05'
+    selection = bulk([shared], room_id=None, promotion_id='p2', period_id='p2:1')
+    assert call(client, '/rooms/bulk-preview', selection).status_code == 400
+    assert call(client, '/rooms/bulk-preview', bulk([shared], action='release')).status_code == 400
+    mixed = bulk([shared, unused], action='release', room_id=None)
+    assert call(client, '/rooms/bulk-preview', mixed).status_code == 409
+
+    preview = call(client, '/rooms/bulk-preview', dict(selection, action='release')).json
+    assert preview['shared'] == 1
+    assert not client.get(schedule).json['unassigned_local']
+    assert call(client, '/rooms/bulk-commit', dict(token=preview['token'])).json['released']
+    assert call(client, '/rooms/bulk-commit', dict(token=preview['token'])).status_code == 409
+    assert [row['id'] for row in client.get(schedule).json['unassigned_local']] == [shared['id']]
+    with db() as conn:
+        saved, = planning._load_courses(conn, promotion_id='p2')
+    assert saved['room_id'] is None
+    for key in ('id', 'groups', 'date', 'start', 'end', 'trainer_id'):
+        assert saved[key] == shared[key]
+    preview = call(client, '/rooms/bulk-preview', bulk([saved])).json
+    assert call(client, '/rooms/bulk-commit', dict(token=preview['token'])).status_code == 200
+    assert not client.get(schedule).json['unassigned_local']
+
+
 def test_bulk_conflict_or_stale_preview_leaves_every_course_unchanged(client, db):
     setup_school(client)
     a, b = add(client), add(client, date='2027-01-05')

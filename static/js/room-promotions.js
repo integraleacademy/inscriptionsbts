@@ -4,6 +4,7 @@
   if (!form) return;
   const $ = id => document.getElementById(id);
   const field = name => form.elements[name];
+  const releaseOption = 'action:release';
   const csrf = document.querySelector('.catalog-app').dataset.csrf;
   const state = {promotions: [], rooms: [], courses: [], selected: new Set(), token: null, busy: false, loaded: false};
   const node = (tag, text, cls) => {
@@ -46,6 +47,9 @@
     for (const id of ['rooms-promotion-all', 'rooms-promotion-none']) $(id).disabled = state.busy || !visible().length;
     $('rooms-promotion-check').disabled = state.busy || !state.selected.size || !field('room_id').value;
     $('rooms-promotion-save').disabled = state.busy || !state.token;
+    const releasing = field('room_id').value === releaseOption;
+    $('rooms-promotion-check').textContent = releasing ? 'Vérifier la mise en attente' : 'Vérifier les disponibilités';
+    $('rooms-promotion-save').textContent = releasing ? 'Confirmer la mise en attente' : 'Confirmer l’affectation';
     form.setAttribute('aria-busy', String(state.busy));
   }
   function invalidate() {
@@ -70,7 +74,7 @@
       check.type = 'checkbox'; check.value = course.id; check.checked = state.selected.has(course.id);
       check.addEventListener('change', () => {
         check.checked ? state.selected.add(course.id) : state.selected.delete(course.id);
-        invalidate(); count();
+        count(); invalidate();
       });
       row.append(check, node('span', frenchDate(course.date) + ' · ' + course.start + '–' + course.end),
         node('span', course.display_subject_name || course.subject_name || course.title),
@@ -84,10 +88,13 @@
     count(); controls();
   }
   function updateRooms() {
-    const dates = state.courses.filter(c => state.selected.has(c.id)).map(c => c.date).sort();
+    const selected = state.courses.filter(c => state.selected.has(c.id));
+    const dates = selected.map(c => c.date).sort();
     const day = dates.at(-1) || field('to').value || today();
     const choices = state.rooms.filter(r => (!r.valid_from || day >= r.valid_from) && (!r.valid_before || day < r.valid_before));
-    options(field('room_id'), choices.map(r => [r.id, r.name]), 'Choisir une salle', field('room_id').value);
+    const entries = choices.map(r => [r.id, r.name]);
+    if (selected.length && selected.every(c => c.room_id)) entries.push([releaseOption, 'Remettre dans « Salles à affecter »']);
+    options(field('room_id'), entries, 'Choisir une salle', field('room_id').value);
   }
   function count() { updateRooms(); $('rooms-promotion-count').textContent = state.selected.size + ' créneau(x) sélectionné(s) sur ' + visible().length; }
   function resetCourses() { state.courses = []; state.selected.clear(); state.loaded = false; invalidate(); renderCourses(); }
@@ -149,13 +156,16 @@
   form.addEventListener('submit', event => {
     event.preventDefault();
     if (!form.reportValidity() || !state.selected.size) return;
-    const payload = {promotion_id: promotion().id, period_id: period().id, room_id: field('room_id').value,
+    const releasing = field('room_id').value === releaseOption;
+    const payload = {promotion_id: promotion().id, period_id: period().id,
+      ...(releasing ? {action: 'release'} : {room_id: field('room_id').value}),
       courses: state.courses.filter(c => state.selected.has(c.id)).map(c => ({id: c.id, version: c.version}))};
     work(async () => {
       invalidate();
       const result = await request('/bulk-preview', payload); state.token = result.token;
       message('rooms-promotion-preview', result.count + ' créneau(x) vérifié(s) pour « ' + promotion().name + ' ».' +
-        (result.shared ? ' Attention : ' + result.shared + ' cours commun(s), toutes leurs promotions changeront de salle.' : '') + ' Vous pouvez confirmer l’affectation.');
+        (result.shared ? ' La modification concerne toutes les promotions de ' + result.shared + ' cours commun(s).' : '') +
+        (releasing ? ' Les cours seront conservés et leurs salles libérées.' : ' Vous pouvez confirmer l’affectation.'));
     });
   });
   $('rooms-promotion-save').addEventListener('click', () => {
@@ -164,7 +174,8 @@
     work(async () => {
       invalidate();
       const result = await request('/bulk-commit', {token});
-      message('rooms-promotion-success', result.count + ' créneau(x) affecté(s) à la salle choisie.');
+      message('rooms-promotion-success', result.released ? result.count + ' créneau(x) remis dans « Salles à affecter ».' :
+        result.count + ' créneau(x) affecté(s) à la salle choisie.');
       window.dispatchEvent(new CustomEvent('academy:rooms-changed', {detail: {origin: 'promotions'}}));
       await loadCourses();
     });
