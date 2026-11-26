@@ -10,7 +10,7 @@ const script = fs.readFileSync(path.join(root, 'static/js/room-schedule.js'), 'u
 const tick = async () => { for (let i = 0; i < 5; i++) await new Promise(setImmediate); };
 const base = (key, day, room, extra = {}) => ({key, id: key.split(':')[1], date: '2027-01-' + day, room_id: room, title: key,
   source: 'bts', formation: 'BTS', start_min: 540, end_min: 660, start: '09:00', end: '11:00', version: 1, ...extra});
-async function fixture(unassigned = false) {
+async function fixture(unassigned = false, dated = false) {
   const dom = new JSDOM('<main class="catalog-app" data-csrf="test-token">' + template + '</main>', {
     url: 'https://school.example.test/admin/salles', runScripts: 'outside-only'});
   const {window: w} = dom, doc = w.document;
@@ -19,6 +19,12 @@ async function fixture(unassigned = false) {
     base('course:untouched', '07', 'r1'), base('course:next-week', '11', 'r2'),
     base('unavailable:closed', '05', 'r3', {source: 'unavailable', formation: 'UNAVAILABLE', title: 'Travaux'})];
   const rooms = ['r1', 'r2', 'r3', 'r4', 'r5'].map(id => ({id, name: 'Salle ' + id, active: id !== 'r4'}));
+  if (dated) {
+    rooms.push({id:'old',name:'Annexe Vernèdes',active:true,valid_before:'2027-01-01'},
+      {id:'paris',name:'Atelier Modulable Paris',active:true,valid_before:'2027-01-01'},
+      {id:'paris',name:'34 rue Poissonnière',active:true,valid_from:'2027-01-01'});
+    rows.push(base('course:pi','05',null,{promotion_name:'BTS PI'}));
+  }
   if (unassigned) rows.push(base('session:roomless', '04', null, {source: 'session', formation: 'DESP', owner: 'session:new', revision: 'new-revision', room_version: 2}));
   const sessions = [
     {owner: 'session:one', name: 'APS JANVIER 2027', start: '2027-01-05', assigned: true, assigned_count: 2, unassigned_count: 0, generated: true},
@@ -36,6 +42,7 @@ async function fixture(unassigned = false) {
       const visible = rows.filter(r => r.date >= query.get('start') && r.date <= query.get('end'));
       const unassignedCount = visible.filter(r => !r.room_id).length;
       return {ok: true, json: async () => ({rooms: unassignedCount ? [{id: null, name: 'À affecter', unassigned: true, active: true}, ...rooms] : rooms,
+        room_periods: rooms, unassigned_local: dated ? rows.filter(r => r.key === 'course:pi' && !r.room_id) : [],
         reservations: structuredClone(visible), unassigned_count: unassignedCount,
         unassigned_sessions: unassigned ? sessions.filter(s => s.unassigned_count || s.needs_schedule) : [], connected: true, ready: true})};
     }
@@ -260,6 +267,22 @@ async function run() {
     assert.ok(f.card('session:c'),'another slot of the same session stays assigned');
     f.select('course:a','course:untouched');f.$('rooms-move-selected').click();
     assert.ok(f.$('rooms-course-delete').hidden,'bulk move must not expose single-slot deletion');
+  } finally { f.close(); }
+  f = await fixture(false,true);
+  try {
+    await f.week('2026-12-28');
+    assert.ok(f.cell('old','2026-12-31'));
+    assert.equal(f.cell('old','2027-01-01'),null);
+    f.$('rooms-unassigned-sessions').click(); await tick();
+    const choice=f.$('rooms-released-choice');
+    assert.match(choice.options[1].textContent,/05\/01\/2027.*BTS PI/);
+    choice.value='course:pi';choice.dispatchEvent(new f.w.Event('change'));f.$('rooms-released-assign').click();
+    const form=f.$('rooms-course-form');
+    assert.equal(form.elements.room_id.querySelector('[value="old"]'),null);
+    assert.equal(form.elements.room_id.querySelector('[value="paris"]').textContent,'34 rue Poissonnière');
+    form.elements.room_id.value='r5';form.dispatchEvent(new f.w.Event('submit',{cancelable:true}));await tick();
+    assert.equal(f.posts[0].slots[0].date,'2027-01-05');
+    assert.ok(f.$('rooms-released-panel').hidden);
   } finally { f.close(); }
   console.log('Room calendar: drag, fullscreen, bookings, confirmed single-course deletion, shared groups, stale versions, session release and unassigned sessions passed.');
 }

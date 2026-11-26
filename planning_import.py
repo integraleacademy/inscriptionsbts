@@ -248,7 +248,8 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
                 subjects = new_subjects.choices(conn, promotion, period)
                 trainers = _trainers(conn, promotion['id'])
                 known_trainers = [dict(r) for r in conn.execute('SELECT id,nom,prenom,active FROM trainers')]
-                rooms = [dict(row) for row in conn.execute('SELECT id,name FROM planning_rooms WHERE active=1 ORDER BY name')]
+                from planning_room_changes import during, periods
+                room_periods = periods(conn)
             try:
                 document = parse_ypareo_pdf(upload.stream.read(MAX_BYTES + 1), period)
             except ImportPDFError as error:
@@ -256,6 +257,8 @@ def register_planning_import(app, guard, connect, csrf, result, fail, transact, 
             except Exception:
                 app.logger.exception('Unable to read Ypareo planning PDF')
                 raise p.PlanningError('Le PDF est illisible ou son format n’est pas reconnu. Exportez un planning groupe hebdomadaire depuis Yparéo.', status=422) from None
+            latest = max((r['date'] for r in document['rows']), default=period['start_date'])
+            rooms = [dict(id=r['id'], name=r['name']) for r in during(room_periods,latest,latest) if r['active']]
             separate_subject_trainers(document)
             source = dict(promotion_id=promotion['id'], period_id=period['id'],
                 start_date=period['start_date'], end_date=period['end_date'], rows=document['rows'])

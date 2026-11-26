@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
+from planning_room_changes import during
 from planning_pdf import _fonts, _paragraph
 
 PALETTE={'A3P':('#e7f5eb','#236b3a'),'APS':('#eaf2ff','#2458a3'),
@@ -67,10 +68,10 @@ def build_pdf(data):
 
     while week<=last:
         days=[week+timedelta(days=i) for i in range(7)];new_page(days)
-        for room in data['rooms']:
+        for room in during(data['rooms'], max(first, days[0]).isoformat(), min(last, days[-1]).isoformat()):
             columns=[]
             for day in days:
-                rows=sorted((r for r in data['reservations'] if r['room_id']==room['id'] and r['date']==day.isoformat()),key=lambda r:r['start_min'])
+                rows=sorted((r for r in data['reservations'] if r['room_id']==room['id'] and r['date']==day.isoformat() and during([room],r['date'],r['date'])),key=lambda r:r['start_min'])
                 columns.append([card(r) for r in rows])
             continued=False
             while True:

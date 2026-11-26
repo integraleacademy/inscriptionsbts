@@ -30,6 +30,7 @@ from planning_holidays import public_holiday_name
 import subject_references
 import subject_catalog
 import planning_years
+import planning_room_changes as room_changes
 
 KINDS={'school','company','holiday','closed'}
 MAX_BATCH=500
@@ -196,8 +197,13 @@ def _load_courses(conn,start=None,end=None,promotion_id=None,trainer_id=None):
     def promotion_info(pid):
         if pid not in promotion_rows:promotion_rows[pid]=conn.execute('SELECT nom,active FROM promotions WHERE id=?',(pid,)).fetchone()
         return promotion_rows[pid]
+    history = {r['room_id']: r for r in conn.execute('SELECT * FROM planning_room_changes')} if _has_table(conn,'planning_room_changes') else {}
     for row in conn.execute(sql,args):
-        item=dict(row);item['start']=_clock(item['start_min']);item['end']=_clock(item['end_min'])
+        item=dict(row)
+        change=history.get(item['room_id'])
+        if change and item['date']<change['effective_from']:
+            item['room_name']=change['previous_name']
+        item['start']=_clock(item['start_min']);item['end']=_clock(item['end_min'])
         item.setdefault('kind','course');is_event=item['kind']=='event'
         item['duration_minutes']=item['end_min']-item['start_min']
         item['trainer_name']=person_name(item.pop('trainer_nom'),item.pop('trainer_prenom'))
@@ -313,9 +319,11 @@ def get_planning_catalog(conn):
     if _has_table(conn,'trainers'):
         for row in conn.execute('SELECT id,nom,prenom,email,active FROM trainers WHERE active=1 ORDER BY nom,prenom'):
             item=dict(row);item['promotion_ids']=[grant[0] for grant in conn.execute('SELECT promotion_id FROM trainer_promotions WHERE trainer_id=?',(item['id'],))];trainers.append(item)
+    periods = room_changes.periods(conn)
+    today = room_changes.paris_today()
     return dict(promotions=list_promotions(conn),subjects=_subjects(conn),trainers=trainers,
                 subject_catalog=subject_catalog.subjects(conn),diplomas=subject_catalog.BTS_LABELS,
-                rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms ORDER BY name')])
+                rooms=room_changes.during(periods, today, today), room_periods=periods)
 
 
 def _calendar_version(conn,promotion_id):
@@ -352,7 +360,7 @@ def get_planning_snapshot(conn,promotion_id,start=None,end=None,period_id=None):
     if _has_table(conn,'trainers'):
         trainers=[dict(row) for row in conn.execute('SELECT t.id,t.nom,t.prenom,t.email FROM trainers t JOIN trainer_promotions a ON a.trainer_id=t.id WHERE a.promotion_id=? AND t.active=1 ORDER BY t.nom,t.prenom',(promotion_id,))]
     return dict(promotion=promotion,cohort=cohort,period=period,periods=choices,study_year=subject_catalog.study_year(cohort,period),outside_courses=outside,days=days,rules=rules,exceptions=exceptions,subjects=subjects,
-                rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms ORDER BY name')],trainers=trainers,
+                rooms=room_changes.during(room_changes.periods(conn), end or room_changes.paris_today(), end or room_changes.paris_today()),trainers=trainers,
                 courses=courses,scheduled_days=scheduled_days,calendar_configured=bool(rules or exceptions),calendar_revision=_period_revision(conn,period),
                 catalog=get_planning_catalog(conn),start=start,end=end)
 
@@ -386,7 +394,7 @@ def _course(conn,data,existing=None,*,pending_trainer_assignments=(),pending_tra
     if existing and kind!=existing.get('kind','course'):raise PlanningError('Le type d’un créneau existant ne peut pas changer.')
     if kind=='event':
         from planning_events import build
-        return build(conn,merged)
+        return build(conn,merged,new=not existing)
     promotion_id=merged.get('promotion_id');_promotion(conn,promotion_id,ready=True)
     if not isinstance(merged.get('subject_id'),str):raise PlanningError('Choisissez une matière valide.')
     subject=conn.execute('SELECT * FROM planning_subjects WHERE id=? AND promotion_id=?',(merged.get('subject_id'),promotion_id)).fetchone()
@@ -418,6 +426,8 @@ def _course(conn,data,existing=None,*,pending_trainer_assignments=(),pending_tra
     if room_id and not conn.execute('SELECT 1 FROM planning_rooms WHERE id=? AND active=1',(room_id,)).fetchone():raise PlanningError('Choisissez une salle active.')
     day=_iso(merged.get('date'));start=_minutes(merged.get('start'));end=_minutes(merged.get('end'),end=True)
     if end<=start:raise PlanningError('L’heure de fin doit être postérieure à l’heure de début.')
+    if not existing:
+        room_id=room_changes.default_mos_room(conn,day.isoformat(),groups,room_id)
     from student_course_details import zoom_url
     try:
         meeting = zoom_url(merged.get('zoom_url'))
@@ -812,6 +822,7 @@ def register_planning(app,db_connect,require_admin):
             if request.method=='DELETE':
                 reject([dict(type='room_used',message='Cette salle est utilisée par des cours existants. Réaffectez-les avant de la supprimer.')] if conn.execute('SELECT 1 FROM planning_courses WHERE room_id=? LIMIT 1',(room_id,)).fetchone() else [])
                 conn.execute('DELETE FROM planning_room_aliases WHERE room_id=?',(room_id,))
+                conn.execute('DELETE FROM planning_room_changes WHERE room_id=?',(room_id,))
                 conn.execute('DELETE FROM planning_rooms WHERE id=?',(room_id,));return dict(message='Salle supprimée.')
             name=_text(payload.get('name',old['name'] if old else ''),'le nom de la salle',100,True)
             active=payload.get('active',old['active'] if old else 1)

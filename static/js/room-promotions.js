@@ -5,7 +5,7 @@
   const $ = id => document.getElementById(id);
   const field = name => form.elements[name];
   const csrf = document.querySelector('.catalog-app').dataset.csrf;
-  const state = {promotions: [], courses: [], selected: new Set(), token: null, busy: false, loaded: false};
+  const state = {promotions: [], rooms: [], courses: [], selected: new Set(), token: null, busy: false, loaded: false};
   const node = (tag, text, cls) => {
     const element = document.createElement(tag);
     if (text !== undefined) element.textContent = text;
@@ -83,7 +83,13 @@
       'Aucun cours planifié sur cette période. Ajoutez ou importez les cours dans le planning de la promotion.'));
     count(); controls();
   }
-  function count() { $('rooms-promotion-count').textContent = state.selected.size + ' créneau(x) sélectionné(s) sur ' + visible().length; }
+  function updateRooms() {
+    const dates = state.courses.filter(c => state.selected.has(c.id)).map(c => c.date).sort();
+    const day = dates.at(-1) || field('to').value || today();
+    const choices = state.rooms.filter(r => (!r.valid_from || day >= r.valid_from) && (!r.valid_before || day < r.valid_before));
+    options(field('room_id'), choices.map(r => [r.id, r.name]), 'Choisir une salle', field('room_id').value);
+  }
+  function count() { updateRooms(); $('rooms-promotion-count').textContent = state.selected.size + ' créneau(x) sélectionné(s) sur ' + visible().length; }
   function resetCourses() { state.courses = []; state.selected.clear(); state.loaded = false; invalidate(); renderCourses(); }
   function planningLink() {
     const params = new URLSearchParams();
@@ -127,7 +133,7 @@
     const requested = new URLSearchParams(location.search).get('promotion_id');
     const selected = state.promotions.some(p => p.id === old) ? old : state.promotions.some(p => p.id === requested) ? requested : '';
     options(field('promotion_id'), state.promotions.map(p => [p.id, p.name]), state.promotions.length ? 'Choisir une promotion BTS' : 'Aucune promotion active', selected);
-    options(field('room_id'), result.rooms.map(r => [r.id, r.name]), 'Choisir une salle', field('room_id').value);
+    state.rooms = result.rooms;
     await changePromotion();
     if (!state.promotions.length) message('rooms-promotion-help', 'Aucune promotion BTS active. Créez ou réactivez une promotion depuis sa fiche.');
   }

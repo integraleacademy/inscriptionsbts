@@ -14,6 +14,7 @@ import secrets
 from urllib.parse import quote
 
 from planning_import_pdf import normal
+import planning_room_changes as changes
 
 import requests
 from flask import request, session, abort, g, has_request_context
@@ -49,6 +50,7 @@ def schema(conn):
         # Genuine sessions, BTS courses and the physical-room catalogue stay intact.
         conn.execute("DELETE FROM planning_room_owners WHERE owner LIKE 'formation:%'")
         conn.execute("INSERT INTO planning_room_meta(key,value) VALUES('sessions_only_v1',?)",(json.dumps(counts),))
+    changes.schema(conn)
 
 
 
@@ -112,6 +114,8 @@ def room_conflicts(conn, course, exclude_owner=None, include_courses=False, excl
     from planning_room_calendar import unavailable_slots, reservation_slots
     if not course.get('room_id'):
         return []
+    if changes.retired_on(conn, course['room_id'], course['date']):
+        return [dict(type='room', date=course['date'], message='Cette salle est fermée à cette date.')]
     if not ready(conn):
         return [dict(type='room_sync', message='La liaison des salles est en cours d’initialisation. Réessayez après la synchronisation des sessions.')]
     rows = external_slots(conn, exclude_owner, (course['room_id'],course['date']))
@@ -158,8 +162,8 @@ def available_rooms(conn, courses):
     bookings += reservation_slots(conn, start, end)
     occupied = {b['room_id'] for b in bookings if b.get('room_id') and any(
         c['start_min'] < b['end_min'] and c['end_min'] > b['start_min'] for c in by_day.get(b['date'], []))}
-    return [dict(r) for r in conn.execute('SELECT id,name FROM planning_rooms WHERE active=1 ORDER BY name')
-            if r['id'] not in occupied and is_physical_room(r['name'])]
+    return [dict(id=r['id'], name=r['name']) for r in changes.during(changes.periods(conn), end, end)
+            if r['active'] and r['id'] not in occupied and is_physical_room(r['name'])]
 
 
 def room_used(conn, room_id):
@@ -194,6 +198,8 @@ def normalize(conn, raw, bootstrap=False, allow_unassigned=False):
         if not unassigned and (not isinstance(rid,str) or not rid or rid not in rooms or not rooms[rid]['active']):
             raise PlanningError('Salle inconnue ou inactive : ' + name + '. Choisissez-la dans le planning commun.')
         day = _iso(item.get('date')).isoformat()
+        if bootstrap and rid and changes.retired_on(conn, rid, day):
+            rid = None  # A legacy source refresh cannot reopen a retired venue.
         start, end = _minutes(item.get('start')), _minutes(item.get('end'), True)
         if start >= end:
             raise PlanningError('Les horaires de réservation sont invalides.')
@@ -532,7 +538,7 @@ def register(app, connect, guard, result, fail, transact, serializer):
         with closing(connect()) as conn:
             return result(promotions=[dict(id=p['id'],name=p['nom'],periods=planning_years.periods(p))
                                       for p in list_promotions(conn,active_only=True)],
-                          rooms=[dict(row) for row in conn.execute('SELECT * FROM planning_rooms WHERE active=1 ORDER BY name')])
+                          rooms=[r for r in changes.periods(conn) if r['active']])
 
     def selected_courses(conn, payload):
         pid = payload.get('promotion_id'); _promotion(conn, pid, ready=True)

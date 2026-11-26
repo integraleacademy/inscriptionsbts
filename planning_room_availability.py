@@ -7,6 +7,7 @@ from flask import request
 
 from planning import PlanningError, _clock, _dates, _minutes, _range, _weekdays
 from planning_room_calendar import reservation_slots
+from planning_room_changes import during, periods
 from planning_rooms import configured, external_slots, is_physical_room, ready
 
 OPEN_END = date.max.isoformat()
@@ -59,8 +60,7 @@ def availability(conn, first, last, start='08:00', end='18:00', weekdays=None):
     if left >= right:
         raise PlanningError('L’heure de fin doit suivre l’heure de début.')
     dates = [d.isoformat() for d in _dates(first_day, last_day) if d.weekday() in days]
-    rooms = [dict(r) for r in conn.execute('SELECT id,name,active FROM planning_rooms ORDER BY name COLLATE NOCASE,id')
-             if is_physical_room(r['name'])]
+    rooms = [r for r in during(periods(conn), first, last) if is_physical_room(r['name'])]
     occupied = defaultdict(list)
     for slot in bookings(conn, first, last):
         occupied[slot['room_id'], slot['date']].append((slot['start_min'], slot['end_min']))
@@ -71,7 +71,7 @@ def availability(conn, first, last, start='08:00', end='18:00', weekdays=None):
     for room in rooms:
         cells = {}
         for day in dates:
-            free = free_intervals(occupied[room['id'], day], left, right) if room['active'] else []
+            free = free_intervals(occupied[room['id'], day], left, right) if room['active'] and during([room], day, day) else []
             cells[day] = dict(state='free' if free == [[start, end]] else 'partial' if free else 'busy', free=free)
         room.update(days=cells, free_days=sum(c['state'] == 'free' for c in cells.values()))
     return dict(rooms=rooms, dates=dates, first=first, last=last, start=start, end=end, weekdays=days, connected=configured())
