@@ -36,6 +36,20 @@ button.room-booking{width:100%;text-align:left;font:inherit;font-size:12px;curso
 @media(max-width:760px){.room-planner-actions{justify-content:flex-start}.room-fullscreen-dialog.room-planner{padding:10px}.room-fullscreen-dialog .room-planner-heading h2{font-size:17px}.room-fullscreen-dialog .room-planner-actions{flex-wrap:nowrap}.room-fullscreen-dialog .room-planner-actions .catalog-button{font-size:11px;padding:8px}.room-fullscreen-dialog .room-planner-controls{flex-wrap:nowrap;overflow-x:auto;min-height:40px}.room-fullscreen-dialog .room-planner-controls>*{flex-shrink:0;white-space:nowrap!important}.room-fullscreen-dialog .room-legend{flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px}.room-fullscreen-dialog .room-legend>*{flex-shrink:0}}
 .rooms-session-dialog{width:min(820px,calc(100vw - 24px))}.rooms-session-dialog .room-planner{border:0;padding:0;margin:0}.rooms-session-dialog #rooms-session-panel{border:0;padding:0;margin:12px 0 0}.rooms-session-dialog #rooms-session-panel>summary{display:none}.rooms-session-dialog .room-session-fields{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}@media(max-width:600px){.rooms-session-dialog .room-session-fields{grid-template-columns:1fr}}
 
-.room-planner #rooms-unassigned-sessions{display:inline-flex;align-items:center;justify-content:center;gap:8px}
-.room-planner #rooms-session-count{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-width:20px;height:20px;padding:0 5px;border-radius:999px;background:#c62843;color:#fff;font-size:11px;font-weight:800;line-height:1;flex-shrink:0}
-.room-planner #rooms-session-count[hidden]{display:none}
+.room-planner #rooms-unassigned-sessions{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap}
+.room-planner .room-pending-count{padding:4px 7px;border-radius:999px;background:#fbe9ed;color:#97263d;font-size:11px;font-weight:750;white-space:nowrap}
+.room-pending-count[hidden],.room-pending-content [hidden]{display:none}
+.room-pending-content{display:grid;gap:20px}
+.room-pending-content p,.room-pending-content h3{margin:0}
+.room-pending-content h3{margin-bottom:8px;font-size:15px}
+.room-pending-list,.room-pending-children{list-style:none;margin:0;padding:0}
+.room-pending-list{max-height:36vh;overflow-y:auto;border:1px solid #d4dce6;border-radius:10px}
+.room-pending-list li+li{border-top:1px solid #e2e7ed}
+.room-pending-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;padding:10px 14px;text-align:left;border:0;background:#fff;color:#253753;cursor:pointer;font:inherit}
+.room-pending-row:hover,.room-pending-row:focus-visible{background:#f0f5fc}
+.room-pending-row:focus-visible{outline:2px solid #365a8c;outline-offset:-2px}
+.room-pending-row strong,.room-pending-row small{display:block;overflow-wrap:anywhere}
+.room-pending-row strong{font-size:13px}
+.room-pending-row small{margin-top:3px;font-size:12px;color:#52647a}
+.room-pending-action{color:#34557e;font-size:12px;font-weight:700}
+.room-pending-children{margin-left:18px;border-left:2px solid #d4dce6}

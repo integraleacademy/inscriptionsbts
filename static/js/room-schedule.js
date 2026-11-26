@@ -13,7 +13,8 @@
   const label = d => date(d).toLocaleDateString('fr-FR', {weekday: 'short'}) + ' ' + frenchDate(d);
   const error = (id, msg) => { $(id).textContent = msg || ''; $(id).hidden = !msg; };
   const changed = () => window.dispatchEvent(new CustomEvent('academy:rooms-changed', {detail: {origin: 'calendar'}}));
-  let rooms = [], roomPeriods = [], released = [], sessions = [], sequence = 0, fingerprint = '', lastSync = 0, sessionsPromise = null;
+  let rooms = [], roomPeriods = [], sessions = [], sequence = 0, fingerprint = '', lastSync = 0, sessionsPromise = null;
+  let pendingFingerprint = '';
   let multiple = false, moving = [], editingBlock = null;
   let dragging = null, dragBusy = false, pointerHeld = false, refreshAfterDrag = false, syncAfterDrag = false, suppressClickUntil = 0;
   let reservations = [];
@@ -24,7 +25,7 @@
   const exportDialog = $('rooms-export-dialog'), exportForm = $('rooms-export-form');
   const reservationDialog = $('rooms-reservation-dialog'), reservationForm = $('rooms-reservation-form');
   const reservationConfirm = $('rooms-reservation-confirm');
-  const sessionsDialog = $('rooms-sessions-dialog'), sessionPanel = $('rooms-session-panel');
+  const sessionsDialog = $('rooms-sessions-dialog'), sessionEditor = $('rooms-session-editor'), sessionPanel = $('rooms-session-panel');
   const sessionsOnlyUnassigned = $('rooms-sessions-only-unassigned');
   let sessionPlaceholder = null, sessionPanelWasOpen = false;
   const fullDialog = $('rooms-fullscreen-dialog'), plannerView = $('rooms-planner-view'), fullButton = $('rooms-fullscreen');
@@ -118,24 +119,67 @@
       if (multiple) card.setAttribute('aria-pressed', String(selected)); else card.removeAttribute('aria-pressed');
     }
   }
+  function pendingRow(key, title, description, openEditor) {
+    const item = node('li'), button = node('button', undefined, 'room-pending-row');
+    button.type = 'button'; button.dataset.pendingKey = key;
+    const text = node('span');
+    text.append(node('strong', title), node('small', description));
+    button.append(text, node('span', 'Affecter', 'room-pending-action'));
+    button.addEventListener('click', openEditor);
+    item.append(button);
+    return item;
+  }
+  function slotRow(booking) {
+    const description = [frenchDate(booking.date), booking.start + '–' + booking.end, booking.promotion_name].filter(Boolean).join(' · ');
+    return pendingRow(booking.key, booking.title, description, () => openMove([booking]));
+  }
+  function renderPending(result) {
+    const sessions = result.unassigned_sessions || [], local = result.unassigned_local || [], linked = result.unassigned_session_slots || [];
+    const next = JSON.stringify([sessions, local, linked]);
+    if (next === pendingFingerprint) return;
+    pendingFingerprint = next;
+    const sessionLabel = sessions.length + (sessions.length > 1 ? ' sessions' : ' session');
+    const btsOnly = local.length && local.every(slot => slot.source === 'bts');
+    const slotLabel = local.length + (local.length > 1 ? ' créneaux' : ' créneau') + (btsOnly ? ' BTS' : '');
+    const badge = $('rooms-session-count'), slotsBadge = $('rooms-released-count');
+    badge.textContent = sessionLabel; badge.hidden = !sessions.length;
+    slotsBadge.textContent = slotLabel; slotsBadge.hidden = !local.length;
+    $('rooms-pending-sessions-heading').textContent = sessionLabel + ' de formation';
+    $('rooms-released-heading').textContent = slotLabel;
+    $('rooms-pending-sessions-panel').hidden = !sessions.length;
+    $('rooms-released-panel').hidden = !local.length;
+    $('rooms-pending-status').textContent = 'Aucune affectation en attente.';
+    $('rooms-pending-status').hidden = Boolean(sessions.length || local.length);
+
+    const sessionList = $('rooms-pending-sessions-list'), slotList = $('rooms-released-list');
+    const focused = document.activeElement?.dataset.pendingKey;
+    const byDate = (a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start) || a.title.localeCompare(b.title);
+    const sessionRows = [...sessions].sort((a, b) => (a.start || '9999').localeCompare(b.start || '9999') || a.name.localeCompare(b.name)).map(session => {
+      const description = session.start ? 'Présentiel à partir du ' + frenchDate(session.start) : 'Présentiel à préciser';
+      const row = pendingRow(session.owner, session.name, description, () => editPendingSession(session.owner));
+      const slots = linked.filter(slot => slot.owner === session.owner);
+      if (slots.length) {
+        const children = node('ul', undefined, 'room-pending-children');
+        children.setAttribute('aria-label', 'Créneaux de cette session à réaffecter');
+        children.append(...slots.sort(byDate).map(slotRow));
+        row.append(children);
+      }
+      return row;
+    });
+    sessionList.replaceChildren(...sessionRows);
+    slotList.replaceChildren(...[...local].sort(byDate).map(slotRow));
+    if (focused && sessionsDialog.open) {
+      const buttons = [...sessionsDialog.querySelectorAll('[data-pending-key]')];
+      (buttons.find(button => button.dataset.pendingKey === focused) || buttons[0] || $('rooms-browse-sessions')).focus({preventScroll: true});
+    }
+  }
   function render(result, start) {
     rooms = result.rooms.filter(r => r.id);
     roomPeriods = result.room_periods || rooms;
     reservations = result.reservations.filter(b => b.room_id);
     roomOptions(form.elements.room_id, form.elements.room_id.value, form.elements.presence_end.value || selectedSession()?.end || start);
     window.dispatchEvent(new CustomEvent('academy:room-week', {detail: {day: start}}));
-    const local = result.unassigned_local || [];
-    released = [...local, ...(result.unassigned_session_slots || [])].sort((a, b) =>
-      a.date.localeCompare(b.date) || a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
-    const choice = $('rooms-released-choice'), previous = choice.value;
-    choice.replaceChildren(new Option('Choisir un créneau', ''));
-    for (const b of released) {
-      const name = [frenchDate(b.date) + ' · ' + b.start + '–' + b.end, b.promotion_name, b.title].filter(Boolean).join(' · ');
-      choice.add(new Option(name, b.key));
-    }
-    choice.value = previous;
-    $('rooms-released-assign').disabled = !choice.value;
-    $('rooms-released-panel').hidden = !released.length;
+    renderPending(result);
     table.replaceChildren();
     const head = node('thead'), header = node('tr'); header.append(node('th', 'Salle'));
     for (let i = 0; i < 7; i++) header.append(node('th', label(add(start, i))));
@@ -191,13 +235,6 @@
     table.append(body); updateSelection();
     const conflicts = reservations.filter(b => b.conflict).length;
     let status = new Set(rooms.map(r => r.id)).size + ' salle(s) · ' + reservations.length + ' réservation(s) · du ' + frenchDate(start) + ' au ' + frenchDate(add(start, 6)) + '.';
-    const toAssign = result.unassigned_sessions?.length || 0;
-    const sessionCount = $('rooms-session-count');
-    sessionCount.textContent = String(toAssign + local.length); sessionCount.hidden = !toAssign && !local.length;
-    let pendingLabel = toAssign ? toAssign + (toAssign > 1 ? ' sessions en attente' : ' session en attente') : 'aucune session en attente';
-    if (local.length) pendingLabel += ' · ' + local.length + (local.length === 1 ? ' créneau à réaffecter' : ' créneaux à réaffecter');
-    $('rooms-unassigned-sessions').setAttribute('aria-label', 'Sessions à affecter : ' + pendingLabel);
-    $('rooms-unassigned-sessions').title = pendingLabel;
     if (conflicts) status += ' ⚠ ' + conflicts + ' réservation(s) en chevauchement à corriger.';
     if (!result.connected) status += ' Liaison avec les sessions non configurée.';
     else if (!result.ready) status += ' Première synchronisation des sessions nécessaire.';
@@ -218,9 +255,15 @@
       const result = await request('/schedule?' + new URLSearchParams({start, end: add(start, 6), sync: sync ? '1' : '0'}));
       if (seq !== sequence || pointerHeld || dragging || dragBusy) return;
       error('rooms-error', result.sync_warning);
+      error('rooms-pending-error', result.sync_warning);
       const next = JSON.stringify(result);
       if (next !== fingerprint) { render(result, start); fingerprint = next; }
-    } catch (e) { if (seq === sequence) error('rooms-error', e.message); }
+    } catch (e) {
+      if (seq === sequence) {
+        error('rooms-error', e.message); error('rooms-pending-error', e.message);
+        if (!pendingFingerprint) $('rooms-pending-status').hidden = true;
+      }
+    }
     finally { if (seq === sequence) table.removeAttribute('aria-busy'); }
   }
 
@@ -341,10 +384,13 @@
     catch (e) { error(errorId, e.message); }
     finally { delete dialog.dataset.busy; controls.forEach(([n, disabled]) => n.disabled = disabled); }
   }
-  for (const dialog of [moveDialog, slotConfirm, blockDialog, exportDialog, reservationDialog, reservationConfirm, sessionsDialog]) {
+  for (const dialog of [moveDialog, slotConfirm, blockDialog, exportDialog, reservationDialog, reservationConfirm, sessionsDialog, sessionEditor]) {
     for (const button of dialog.querySelectorAll('[data-room-close]')) button.addEventListener('click', () => { if (!dialog.dataset.busy) dialog.close(); });
     dialog.addEventListener('cancel', e => { if (dialog.dataset.busy) e.preventDefault(); });
-    dialog.addEventListener('close', () => (dialog._opener?.isConnected ? dialog._opener : $('rooms-refresh')).focus());
+    dialog.addEventListener('close', () => {
+      const fallback = sessionsDialog.open ? $('rooms-browse-sessions') : $('rooms-refresh');
+      (dialog._opener?.isConnected ? dialog._opener : fallback).focus();
+    });
   }
   function openMove(bookings) {
     moving = bookings; error('rooms-course-error', '');
@@ -514,7 +560,7 @@
     for (const input of form.querySelectorAll('[name=weekdays]')) input.checked = (s?.config?.weekdays || [0, 1, 2, 3, 4]).includes(Number(input.value));
   }
   function renderSessionOptions(preferred = form.elements.owner.value) {
-    const filtered = sessionsDialog.open && sessionsOnlyUnassigned.checked;
+    const filtered = sessionEditor.open && sessionsOnlyUnassigned.checked;
     const choices = filtered ? sessions.filter(s => s.unassigned_count > 0 || s.needs_schedule || (!s.assigned && s.unassigned_count === undefined)) : sessions;
     form.elements.owner.replaceChildren(new Option(choices.length ? 'Choisir une session' : filtered ? 'Aucune session à affecter' : 'Aucune session à partir du 26/10/2026', ''));
     for (const s of choices) {
@@ -523,23 +569,26 @@
     }
     form.elements.owner.value = preferred; details();
   }
-  $('rooms-unassigned-sessions').addEventListener('click', async () => {
+  $('rooms-unassigned-sessions').addEventListener('click', () => {
     if (form.dataset.busy || dragging || dragBusy) return;
+    show(sessionsDialog); load();
+  });
+  async function editPendingSession(owner = '') {
+    if (form.dataset.busy || sessionEditor.open) return;
     sessionPanelWasOpen = sessionPanel.open;
     sessionPlaceholder = document.createComment('room-session-position'); sessionPanel.before(sessionPlaceholder);
-    $('rooms-sessions-host').append(sessionPanel); sessionsOnlyUnassigned.checked = true;
-    form.elements.owner.value = ''; details(); show(sessionsDialog); sessionPanel.open = true;
-    await loadSessions(); if (sessionsDialog.open) form.elements.owner.focus();
-  });
-  $('rooms-released-choice').addEventListener('change', e => { $('rooms-released-assign').disabled = !e.target.value; });
-  $('rooms-released-assign').addEventListener('click', () => {
-    const booking = released.find(b => b.key === $('rooms-released-choice').value);
-    if (booking) openMove([booking]);
-  });
+    $('rooms-sessions-host').append(sessionPanel); sessionsOnlyUnassigned.checked = Boolean(owner);
+    show(sessionEditor); renderSessionOptions(owner); sessionPanel.open = true;
+    if (!await loadSessions() || !sessionEditor.open) return;
+    renderSessionOptions(owner);
+    if (owner && form.elements.owner.value !== owner) error('rooms-session-error', 'Cette session ne figure plus dans la liste des sessions à affecter.');
+    (form.elements.owner.value ? form.elements.room_id : form.elements.owner).focus();
+  }
+  $('rooms-browse-sessions').addEventListener('click', () => editPendingSession());
   form.elements.presence_end.addEventListener('change', () =>
     roomOptions(form.elements.room_id, form.elements.room_id.value, form.elements.presence_end.value || form.elements.presence_start.value));
   sessionsOnlyUnassigned.addEventListener('change', () => renderSessionOptions());
-  sessionsDialog.addEventListener('close', () => {
+  sessionEditor.addEventListener('close', () => {
     if (!sessionPlaceholder) return;
     sessionPlaceholder.replaceWith(sessionPanel); sessionPlaceholder = null;
     sessionPanel.open = sessionPanelWasOpen; renderSessionOptions();
@@ -560,14 +609,14 @@
   $('rooms-sessions-reload').addEventListener('click', loadSessions); form.elements.owner.addEventListener('change', details);
   form.addEventListener('submit', async e => {
     e.preventDefault(); const s = selectedSession(); if (!s || !form.reportValidity() || form.dataset.busy) return;
-    error('rooms-session-error', ''); form.dataset.busy = '1'; sessionsDialog.dataset.busy = '1'; sessionsOnlyUnassigned.disabled = true;
+    error('rooms-session-error', ''); form.dataset.busy = '1'; sessionEditor.dataset.busy = '1'; sessionsOnlyUnassigned.disabled = true;
     const f = form.elements, payload = {owner: s.owner, revision: s.revision, room_id: f.room_id.value, start: f.start.value, end: f.end.value,
       presence_start: f.presence_start.value, presence_end: f.presence_end.value, weekdays: [...form.querySelectorAll('[name=weekdays]:checked')].map(n => Number(n.value))};
     const controls = [...form.elements].map(n => [n, n.disabled]); controls.forEach(([n]) => n.disabled = true);
     try { const result = await request('/sessions', payload); await loadSessions(); changed(); $('rooms-session-detail').textContent = result.message; }
     catch (e) { error('rooms-session-error', e.message); }
     finally {
-      delete form.dataset.busy; delete sessionsDialog.dataset.busy; sessionsOnlyUnassigned.disabled = false;
+      delete form.dataset.busy; delete sessionEditor.dataset.busy; sessionsOnlyUnassigned.disabled = false;
       controls.forEach(([n, disabled]) => n.disabled = disabled);
       $('rooms-session-fallback').disabled = !selectedSession() || selectedSession().generated;
     }
