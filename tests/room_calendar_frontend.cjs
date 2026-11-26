@@ -42,7 +42,8 @@ async function fixture(unassigned = false, dated = false) {
       const visible = rows.filter(r => r.date >= query.get('start') && r.date <= query.get('end'));
       const unassignedCount = visible.filter(r => !r.room_id).length;
       return {ok: true, json: async () => ({rooms: unassignedCount ? [{id: null, name: 'À affecter', unassigned: true, active: true}, ...rooms] : rooms,
-        room_periods: rooms, unassigned_local: dated ? rows.filter(r => r.key === 'course:pi' && !r.room_id) : [],
+        room_periods: rooms, unassigned_local: dated ? rows.filter(r => r.source === 'bts' && !r.room_id) : [],
+        unassigned_session_slots: rows.filter(r => r.released && r.source === 'session' && !r.room_id),
         reservations: structuredClone(visible), unassigned_count: unassignedCount,
         unassigned_sessions: unassigned ? sessions.filter(s => s.unassigned_count || s.needs_schedule) : [], connected: true, ready: true})};
     }
@@ -76,7 +77,7 @@ async function fixture(unassigned = false, dated = false) {
   const start = key => event(card(key), 'dragstart');
   const drop = async (room, date) => { event(cell(room, date), 'dragover'); event(cell(room, date), 'drop'); await tick(); };
   const select = (...keys) => { if ($('rooms-multiple').getAttribute('aria-pressed') !== 'true') $('rooms-multiple').click(); keys.forEach(key => card(key).click()); };
-  return {w, doc, rows, posts, reads, deletions, $, week, card, cell, start, drop, select, event,
+  return {w, doc, rows, sessions, posts, reads, deletions, $, week, card, cell, start, drop, select, event,
     finishSessions: () => { sessions.forEach(s => { s.unassigned_count = 0; s.needs_schedule = false; s.assigned = true; }); rows.filter(r => !r.room_id).forEach(r => r.room_id = 'r5'); },
     reject: () => { fail = true; }, hold: () => { release = true; }, release: () => release(), close: () => dom.window.close()};
 }
@@ -196,28 +197,33 @@ async function run() {
     assert.equal(f.cell(''), null, 'no virtual room row');
     assert.match(f.$('rooms-status').textContent, /5 salle\(s\) · 5 réservation\(s\)/);
     assert.ok(!f.$('rooms-status').textContent.includes('sans salle'));
-    assert.equal(f.$('rooms-session-count').textContent, '2');
+    assert.equal(f.$('rooms-session-count').textContent, '2 sessions');
     assert.ok(!f.$('rooms-session-count').hidden);
-    assert.equal(f.$('rooms-unassigned-sessions').getAttribute('aria-label'), 'Sessions à affecter : 2 sessions en attente');
+    assert.ok(f.$('rooms-released-count').hidden);
     await f.week('2027-01-11');
-    assert.equal(f.$('rooms-session-count').textContent, '2', 'count covers all pending sessions, not only the displayed week');
+    assert.equal(f.$('rooms-session-count').textContent, '2 sessions', 'count covers all pending sessions, not only the displayed week');
     f.$('rooms-fullscreen').click();
     const panel = f.$('rooms-session-panel'), parent = panel.parentNode;
     f.$('rooms-unassigned-sessions').click(); await tick();
     assert.ok(f.$('rooms-sessions-dialog').open && f.$('rooms-fullscreen-dialog').open);
+    const pendingSessions = f.$('rooms-pending-sessions-list');
+    assert.equal(pendingSessions.children.length, 2);
+    pendingSessions.querySelector('[data-pending-key="session:missing"]').click(); await tick();
+    assert.ok(f.$('rooms-session-editor').open);
     const form = f.$('rooms-session-form');
     assert.deepEqual([...form.elements.owner.options].map(n => n.value), ['', 'session:new', 'session:missing']);
-    form.elements.owner.value = 'session:missing'; form.elements.owner.dispatchEvent(new f.w.Event('change'));
+    assert.equal(form.elements.owner.value, 'session:missing');
     assert.ok(!f.$('rooms-session-fallback').hidden && !f.$('rooms-session-fallback').disabled);
     assert.match(f.$('rooms-session-detail').textContent, /01\/02\/2027.*compléter/);
     f.$('rooms-sessions-only-unassigned').checked = false; f.$('rooms-sessions-only-unassigned').dispatchEvent(new f.w.Event('change'));
     assert.equal(form.elements.owner.options.length, 5);
+    f.$('rooms-session-editor').close(); await tick();
     f.$('rooms-sessions-dialog').close(); await tick();
     assert.equal(panel.parentNode, parent);
     assert.ok(f.$('rooms-fullscreen-dialog').open);
     f.finishSessions(); await f.week('2027-01-04');
     assert.ok(f.$('rooms-session-count').hidden, 'notification disappears automatically when no sessions remain');
-    assert.equal(f.$('rooms-unassigned-sessions').getAttribute('aria-label'), 'Sessions à affecter : aucune session en attente');
+    assert.ok(!f.$('rooms-pending-status').hidden && f.$('rooms-pending-sessions-panel').hidden);
     assert.equal(f.card('session:roomless').closest('td').dataset.roomId, 'r5');
     assert.equal(f.posts.length, 0, 'opening the list never assigns a room');
   } finally { f.close(); }
@@ -274,9 +280,9 @@ async function run() {
     assert.ok(f.cell('old','2026-12-31'));
     assert.equal(f.cell('old','2027-01-01'),null);
     f.$('rooms-unassigned-sessions').click(); await tick();
-    const choice=f.$('rooms-released-choice');
-    assert.match(choice.options[1].textContent,/05\/01\/2027.*BTS PI/);
-    choice.value='course:pi';choice.dispatchEvent(new f.w.Event('change'));f.$('rooms-released-assign').click();
+    const slot=f.$('rooms-released-list').querySelector('button');
+    assert.match(slot.textContent,/05\/01\/2027.*BTS PI/);
+    slot.click();
     const form=f.$('rooms-course-form');
     assert.equal(form.elements.room_id.querySelector('[value="old"]'),null);
     assert.equal(form.elements.room_id.querySelector('[value="paris"]').textContent,'34 rue Poissonnière');
@@ -284,6 +290,38 @@ async function run() {
     assert.equal(f.posts[0].slots[0].date,'2027-01-05');
     assert.ok(f.$('rooms-released-panel').hidden);
   } finally { f.close(); }
-  console.log('Room calendar: drag, fullscreen, bookings, confirmed single-course deletion, shared groups, stale versions, session release and unassigned sessions passed.');
+  f = await fixture(true, true);
+  try {
+    const missing = f.sessions.find(s => s.owner === 'session:missing');
+    missing.needs_schedule = false;
+    missing.assigned = true;
+    for (let i = 1; i < 72; i++) {
+      f.rows.push(base('course:pi-' + i, '06', null, {title: 'Cours ' + i, promotion_name: 'BTS PI'}));
+    }
+    await f.week('2026-11-23');
+    f.$('rooms-unassigned-sessions').click(); await tick();
+    const grouped = f.$('rooms-pending-sessions-list'), slots = f.$('rooms-released-list');
+    assert.ok(!f.$('rooms-pending-sessions-panel').hidden && !f.$('rooms-released-panel').hidden);
+    assert.equal(f.$('rooms-session-count').textContent, '1 session');
+    assert.equal(f.$('rooms-released-count').textContent, '72 créneaux BTS');
+    assert.equal(grouped.children.length, 1); assert.equal(slots.children.length, 72);
+    assert.equal(f.posts.length, 0, 'showing all 73 pending items does not assign anything');
+    slots.querySelector('[data-pending-key="course:pi-71"]').click();
+    const form = f.$('rooms-course-form');
+    form.elements.room_id.value = 'r5'; form.dispatchEvent(new f.w.Event('submit', {cancelable: true})); await tick();
+    assert.equal(f.posts[0].slots[0].key, 'course:pi-71');
+    assert.equal(f.$('rooms-released-count').textContent, '71 créneaux BTS');
+    assert.equal(slots.children.length, 71); assert.equal(grouped.children.length, 1);
+    assert.ok(!slots.querySelector('[data-pending-key="course:pi-71"]'));
+    f.rows.find(r => r.key === 'session:roomless').released = true;
+    await f.week('2026-12-28');
+    assert.ok(grouped.querySelector('li ul [data-pending-key="session:roomless"]'));
+    assert.equal(f.$('rooms-session-count').textContent, '1 session', 'a released slot of that session is nested');
+    assert.equal(slots.children.length, 71);
+    f.$('rooms-browse-sessions').click(); await tick();
+    assert.ok(f.$('rooms-session-editor').open && !f.$('rooms-sessions-only-unassigned').checked);
+    assert.equal(f.$('rooms-session-form').elements.owner.options.length, 5);
+  } finally { f.close(); }
+  console.log('Room calendar: booking, drag, fullscreen, single and grouped moves, and assignment lists passed.');
 }
 run().catch(error => { console.error(error); process.exitCode = 1; });
