@@ -13,7 +13,7 @@
   const label = d => date(d).toLocaleDateString('fr-FR', {weekday: 'short'}) + ' ' + frenchDate(d);
   const error = (id, msg) => { $(id).textContent = msg || ''; $(id).hidden = !msg; };
   const changed = () => window.dispatchEvent(new CustomEvent('academy:rooms-changed', {detail: {origin: 'calendar'}}));
-  let rooms = [], sessions = [], sequence = 0, fingerprint = '', lastSync = 0, sessionsPromise = null;
+  let rooms = [], roomPeriods = [], released = [], sessions = [], sequence = 0, fingerprint = '', lastSync = 0, sessionsPromise = null;
   let multiple = false, moving = [], editingBlock = null;
   let dragging = null, dragBusy = false, pointerHeld = false, refreshAfterDrag = false, syncAfterDrag = false, suppressClickUntil = 0;
   let reservations = [];
@@ -100,9 +100,10 @@
       ...(result.conflicts || []).filter(c => c.message).map(c => (c.date ? frenchDate(c.date) + ' · ' : '') + c.message)].join('\n'));
     return result;
   }
-  function roomOptions(select, value = select.value) {
+  const validOn = (r, day) => (!r.valid_from || day >= r.valid_from) && (!r.valid_before || day < r.valid_before);
+  function roomOptions(select, value = select.value, day = $('rooms-date').value) {
     select.replaceChildren(new Option('Choisir une salle', ''));
-    for (const r of rooms.filter(r => r.id && r.active)) select.add(new Option(r.name, r.id));
+    for (const r of roomPeriods.filter(r => r.id && r.active && validOn(r, day))) select.add(new Option(r.name, r.id));
     select.value = value;
   }
   function updateSelection() {
@@ -118,7 +119,23 @@
     }
   }
   function render(result, start) {
-    rooms = result.rooms.filter(r => r.id); reservations = result.reservations.filter(b => b.room_id); roomOptions(form.elements.room_id);
+    rooms = result.rooms.filter(r => r.id);
+    roomPeriods = result.room_periods || rooms;
+    reservations = result.reservations.filter(b => b.room_id);
+    roomOptions(form.elements.room_id, form.elements.room_id.value, form.elements.presence_end.value || selectedSession()?.end || start);
+    window.dispatchEvent(new CustomEvent('academy:room-week', {detail: {day: start}}));
+    const local = result.unassigned_local || [];
+    released = [...local, ...(result.unassigned_session_slots || [])].sort((a, b) =>
+      a.date.localeCompare(b.date) || a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
+    const choice = $('rooms-released-choice'), previous = choice.value;
+    choice.replaceChildren(new Option('Choisir un créneau', ''));
+    for (const b of released) {
+      const name = [frenchDate(b.date) + ' · ' + b.start + '–' + b.end, b.promotion_name, b.title].filter(Boolean).join(' · ');
+      choice.add(new Option(name, b.key));
+    }
+    choice.value = previous;
+    $('rooms-released-assign').disabled = !choice.value;
+    $('rooms-released-panel').hidden = !released.length;
     table.replaceChildren();
     const head = node('thead'), header = node('tr'); header.append(node('th', 'Salle'));
     for (let i = 0; i < 7; i++) header.append(node('th', label(add(start, i))));
@@ -127,6 +144,9 @@
       const row = node('tr'), heading = node('th', room.name + (room.active ? '' : ' · inactive')); heading.scope = 'row'; row.append(heading);
       for (let i = 0; i < 7; i++) {
         const cell = node('td'), day = add(start, i);
+        if (!validOn(room, day)) {
+          cell.append(node('span', '—', 'room-free')); row.append(cell); continue;
+        }
         cell.dataset.roomId = room.id || ''; cell.dataset.date = day;
         const bookings = reservations.filter(b => b.room_id === room.id && b.date === day).sort((a, b) => a.start_min - b.start_min);
         for (const b of bookings) {
@@ -170,11 +190,12 @@
     }
     table.append(body); updateSelection();
     const conflicts = reservations.filter(b => b.conflict).length;
-    let status = rooms.length + ' salle(s) · ' + reservations.length + ' réservation(s) · du ' + frenchDate(start) + ' au ' + frenchDate(add(start, 6)) + '.';
+    let status = new Set(rooms.map(r => r.id)).size + ' salle(s) · ' + reservations.length + ' réservation(s) · du ' + frenchDate(start) + ' au ' + frenchDate(add(start, 6)) + '.';
     const toAssign = result.unassigned_sessions?.length || 0;
     const sessionCount = $('rooms-session-count');
-    sessionCount.textContent = String(toAssign); sessionCount.hidden = !toAssign;
-    const pendingLabel = toAssign ? toAssign + (toAssign > 1 ? ' sessions en attente' : ' session en attente') : 'aucune session en attente';
+    sessionCount.textContent = String(toAssign + local.length); sessionCount.hidden = !toAssign && !local.length;
+    let pendingLabel = toAssign ? toAssign + (toAssign > 1 ? ' sessions en attente' : ' session en attente') : 'aucune session en attente';
+    if (local.length) pendingLabel += ' · ' + local.length + (local.length === 1 ? ' créneau à réaffecter' : ' créneaux à réaffecter');
     $('rooms-unassigned-sessions').setAttribute('aria-label', 'Sessions à affecter : ' + pendingLabel);
     $('rooms-unassigned-sessions').title = pendingLabel;
     if (conflicts) status += ' ⚠ ' + conflicts + ' réservation(s) en chevauchement à corriger.';
@@ -211,10 +232,11 @@
   }
   function dropTarget(cell) {
     const booking = dragging?.booking, bookings = dragging?.bookings;
-    const room = rooms.find(r => r.id && r.id === cell?.dataset.roomId);
+    const room = rooms.find(r => r.id && r.id === cell?.dataset.roomId && validOn(r, cell.dataset.date));
     if (!booking || !room?.active) return {message: 'Choisissez une salle active.'};
     if (cell.dataset.date !== booking.date) return {message: 'Restez dans la colonne du ' + frenchDate(booking.date) + ' pour changer uniquement la salle.'};
     if (bookings.every(b => b.room_id === room.id)) return {message: (bookings.length > 1 ? 'Tous ces créneaux sont déjà affectés à ' : 'Ce créneau est déjà affecté à ') + room.name + '.'};
+    if (bookings.some(b => !roomPeriods.some(r => r.id === room.id && validOn(r, b.date)))) return {message: 'Cette salle est fermée pour une partie de la sélection.'};
     const others = reservations.filter(r => r.room_id === room.id && !dragging.keys.has(r.key));
     for (let i = 0; i < bookings.length; i++) {
       const b = bookings[i];
@@ -327,12 +349,12 @@
   function openMove(bookings) {
     moving = bookings; error('rooms-course-error', '');
     $('rooms-course-heading').textContent = bookings.length > 1 ? 'Changer la salle de ' + bookings.length + ' créneaux' : 'Modifier le créneau';
-    $('rooms-course-delete').hidden = bookings.length !== 1 || !['bts','event','session'].includes(bookings[0].source);
+    $('rooms-course-delete').hidden = !bookings[0].room_id || bookings.length !== 1 || !['bts','event','session'].includes(bookings[0].source);
     $('rooms-course-delete').textContent = bookings[0].source === 'session' ? 'Libérer la salle pour ce créneau' : 'Supprimer ce créneau';
     $('rooms-course-description').textContent = bookings.slice(0, 8).map(b => b.title + ' · ' + frenchDate(b.date) + ' · ' + b.start + '–' + b.end).join('\n') + (bookings.length > 8 ? '\nEt ' + (bookings.length - 8) + ' autre(s) créneau(x).' : '');
     $('rooms-course-shared').hidden = !bookings.some(b => b.is_shared);
     $('rooms-course-shared').textContent = 'Les cours communs changent de salle pour toutes les promotions concernées.';
-    roomOptions(moveForm.elements.room_id, bookings.every(b => b.room_id === bookings[0].room_id) ? bookings[0].room_id || '' : '');
+    roomOptions(moveForm.elements.room_id, bookings.every(b => b.room_id === bookings[0].room_id) ? bookings[0].room_id || '' : '', bookings.map(b => b.date).sort().at(-1));
     moveForm.elements.room_id.required = true; show(moveDialog); moveForm.elements.room_id.focus();
   }
   $('rooms-course-delete').addEventListener('click', () => {
@@ -381,7 +403,7 @@
     const f = reservationForm.elements;
     $('rooms-reservation-heading').textContent = booking ? 'Modifier le créneau' : 'Créer un créneau';
     $('rooms-reservation-delete').hidden = !booking;
-    roomOptions(f.room_id, roomId); f.date.value = day; f.title.value = booking?.title || '';
+    roomOptions(f.room_id, roomId, day); f.date.value = day; f.title.value = booking?.title || '';
     f.trainer_names.value = booking?.trainer_names || '';
     f.all_day.checked = Boolean(booking && booking.start_min === 0 && booking.end_min === 1440);
     f.start.value = booking?.start || '09:00'; f.end.value = booking?.end === '24:00' ? '23:59' : booking?.end || '10:00';
@@ -393,6 +415,7 @@
     const cell = event.target.closest?.('td.room-can-create');
     if (cell && table.contains(cell)) openReservation(cell.dataset.roomId, cell.dataset.date);
   });
+  reservationForm.elements.date.addEventListener('change', () => roomOptions(reservationForm.elements.room_id, reservationForm.elements.room_id.value, reservationForm.elements.date.value));
   reservationForm.elements.all_day.addEventListener('change', reservationTimes);
   reservationForm.elements.end_at_midnight.addEventListener('change', reservationTimes);
   reservationForm.elements.exam.addEventListener('change', () => { examTouched = true; });
@@ -429,7 +452,7 @@
     editingBlock = block; blockForm.reset(); error('rooms-unavailable-error', '');
     $('rooms-unavailable-heading').textContent = block ? 'Modifier l’indisponibilité' : 'Indiquer une indisponibilité';
     $('rooms-unavailable-delete').hidden = !block;
-    roomOptions(blockForm.elements.room_id, block?.room_id || '');
+    roomOptions(blockForm.elements.room_id, block?.room_id || '', block?.end_date || $('rooms-date').value);
     blockForm.elements.start_date.value = block?.start_date || $('rooms-date').value;
     blockForm.elements.no_end.checked = block?.end_date === '9999-12-31';
     blockForm.elements.end_date.value = block && !blockForm.elements.no_end.checked ? block.end_date : blockForm.elements.start_date.value;
@@ -439,6 +462,8 @@
     blockTimes(); show(blockDialog);
   }
   blockForm.elements.no_end.addEventListener('change', () => { blockForm.elements.end_date.disabled = blockForm.elements.no_end.checked; });
+  for (const field of ['start_date','end_date','no_end']) blockForm.elements[field].addEventListener('change', () =>
+    roomOptions(blockForm.elements.room_id, blockForm.elements.room_id.value, blockForm.elements.no_end.checked ? '9999-12-31' : blockForm.elements.end_date.value || blockForm.elements.start_date.value));
   blockForm.elements.all_day.addEventListener('change', blockTimes);
   blockForm.elements.start_date.addEventListener('input', () => { if (blockForm.elements.end_date.value < blockForm.elements.start_date.value) blockForm.elements.end_date.value = blockForm.elements.start_date.value; });
   $('rooms-unavailable-add').addEventListener('click', () => openBlock());
@@ -483,7 +508,7 @@
       (s.needs_schedule ? ' · Présentiel à compléter avant l’affectation de toute la session.' : '') : '';
     $('rooms-session-complete').hidden = !(s?.needs_schedule && s.generated);
     if (s) $('rooms-session-complete').href = 'https://plateformegestion.onrender.com/sessions/' + encodeURIComponent(s.owner.slice(8));
-    form.elements.room_id.value = s?.config?.room_id || '';
+    roomOptions(form.elements.room_id, s?.config?.room_id || '', s?.end || s?.start || $('rooms-date').value);
     form.elements.presence_start.value = s?.start || ''; form.elements.presence_end.value = s?.end || '';
     form.elements.start.value = s?.config?.start || '08:00'; form.elements.end.value = s?.config?.end || '18:00';
     for (const input of form.querySelectorAll('[name=weekdays]')) input.checked = (s?.config?.weekdays || [0, 1, 2, 3, 4]).includes(Number(input.value));
@@ -506,6 +531,13 @@
     form.elements.owner.value = ''; details(); show(sessionsDialog); sessionPanel.open = true;
     await loadSessions(); if (sessionsDialog.open) form.elements.owner.focus();
   });
+  $('rooms-released-choice').addEventListener('change', e => { $('rooms-released-assign').disabled = !e.target.value; });
+  $('rooms-released-assign').addEventListener('click', () => {
+    const booking = released.find(b => b.key === $('rooms-released-choice').value);
+    if (booking) openMove([booking]);
+  });
+  form.elements.presence_end.addEventListener('change', () =>
+    roomOptions(form.elements.room_id, form.elements.room_id.value, form.elements.presence_end.value || form.elements.presence_start.value));
   sessionsOnlyUnassigned.addEventListener('change', () => renderSessionOptions());
   sessionsDialog.addEventListener('close', () => {
     if (!sessionPlaceholder) return;
@@ -547,7 +579,9 @@
   window.addEventListener('academy:rooms-changed', () => load());
   window.addEventListener('focus', () => load());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
-  $('rooms-date').value = today(); load();
+  const requestedDate = new URLSearchParams(location.search).get('date');
+  $('rooms-date').value = /^\d{4}-\d{2}-\d{2}$/.test(requestedDate || '') ? requestedDate : today();
+  load();
   if (new URLSearchParams(location.search).has('session_id')) $('rooms-session-panel').open = true;
   setInterval(() => { if (!document.hidden) load(); }, 20000);
 })();

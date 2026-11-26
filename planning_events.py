@@ -1,7 +1,7 @@
 """One-off school events, with ordinary resource checks but no subject budget."""
 
 
-def build(conn, data):
+def build(conn, data, *, new=True):
     from planning import PlanningError, _promotion, _text, _iso, _minutes, _clock, _has_table
     promotion = _promotion(conn, data.get('promotion_id'), ready=True)
     title = _text(data.get('title', ''), 'le nom de l’événement', 160, True)
@@ -22,6 +22,9 @@ def build(conn, data):
     if end <= start:
         raise PlanningError('L’heure de fin doit être postérieure à l’heure de début.')
     group = dict(promotion_id=promotion['id'], subject_id='', promotion_name=promotion['nom'], subject_name=title, color='#7c3aed')
+    if new:
+        from planning_room_changes import default_mos_room
+        room = default_mos_room(conn, day, [group], room)
     return dict(kind='event', promotion_id=promotion['id'], subject_id='', trainer_id=trainer, room_id=room,
                 date=day, start=_clock(start), end=_clock(end), start_min=start, end_min=end, title=title,
                 zoom_url='', groups=[group], shared=[], promotion_ids=[promotion['id']], is_shared=False)

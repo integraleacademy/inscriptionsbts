@@ -22,7 +22,10 @@
 
 <dialog class="catalog-dialog rooms-session-dialog" id="rooms-sessions-dialog" aria-labelledby="rooms-sessions-heading">
  <header><div><p class="catalog-kicker">AFFECTATION DES SESSIONS</p><h2 id="rooms-sessions-heading">Sessions à affecter</h2></div><button type="button" class="catalog-close" data-room-close aria-label="Fermer">×</button></header>
- <div class="catalog-dialog-content"><p>Toutes les sessions à affecter, y compris celles dont le présentiel reste à préciser. Choisissez une session pour lui attribuer une salle.</p><label class="room-all-day"><input id="rooms-sessions-only-unassigned" type="checkbox" checked> Afficher uniquement les sessions à affecter</label><div class="room-planner" id="rooms-sessions-host"></div></div>
+ <div class="catalog-dialog-content"><section id="rooms-released-panel" hidden>
+  <label class="catalog-field">Créneaux à réaffecter<select id="rooms-released-choice"></select></label>
+  <button type="button" class="catalog-button" id="rooms-released-assign" disabled>Choisir une salle pour ce créneau</button>
+ </section><p>Toutes les sessions à affecter, y compris celles dont le présentiel reste à préciser. Choisissez une session pour lui attribuer une salle.</p><label class="room-all-day"><input id="rooms-sessions-only-unassigned" type="checkbox" checked> Afficher uniquement les sessions à affecter</label><div class="room-planner" id="rooms-sessions-host"></div></div>
  <footer><button type="button" class="catalog-button" data-room-close>Fermer</button></footer>
 </dialog>
 

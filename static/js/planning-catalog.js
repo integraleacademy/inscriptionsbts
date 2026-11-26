@@ -5,7 +5,7 @@
   if (!app) return;
   const $ = id => document.getElementById(id), isSubjects = app.dataset.kind === 'subjects';
   const API = '/admin/planning/api', form = $('catalog-form'), editor = $('catalog-editor'), confirm = $('catalog-confirm');
-  const state = {data: null, editing: null, deleting: null, loading: true, sequence: 0};
+  const state = {data: null, roomDay: null, editing: null, deleting: null, loading: true, sequence: 0};
   const active = value => ![false, 0, '0', 'false'].includes(value);
   const ready = promotion => !!promotion && active(promotion.active) && !!promotion.date_debut && !!promotion.date_fin;
   const normal = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('fr');
@@ -89,7 +89,10 @@
   function roomCard(item) {
     const enabled = active(item.active), card = el('article', 'catalog-room-card' + (enabled ? '' : ' inactive'));
     const top = el('div', 'catalog-card-top'), symbol = el('span', 'catalog-room-icon'); symbol.append(icon()); top.append(symbol, el('span', 'catalog-state' + (enabled ? '' : ' inactive'), enabled ? 'Active' : 'Inactive'));
-    card.append(top, el('h3', '', item.name), el('p', 'catalog-room-description', enabled ? 'Proposée pour les nouveaux créneaux de toutes les promotions.' : 'Conservée dans le répertoire, sans être proposée pour les nouveaux créneaux.'));
+    const effective = item.valid_before?.split('-').reverse().join('/');
+    const note = effective ? (item.next_name ? 'Devient « ' + item.next_name + ' » le ' : 'Fermeture le ') + effective + '.' :
+      enabled ? 'Proposée pour les nouveaux créneaux de toutes les promotions.' : 'Conservée dans le répertoire, sans être proposée pour les nouveaux créneaux.';
+    card.append(top, el('h3', '', item.name), el('p', 'catalog-room-description', note));
     const edit = action('Modifier la salle', () => openEditor(item)); edit.dataset.catalogEdit = item.id; edit.setAttribute('aria-label', 'Modifier la salle ' + item.name); card.append(edit); return card;
   }
   function render() {
@@ -107,8 +110,10 @@
       const note = $('catalog-budget-note'); note.hidden = !missing; note.textContent = missing + ' matière' + (missing > 1 ? 's n’ont' : ' n’a') + ' pas encore de volume annuel. Complétez ce volume avant de planifier de nouveaux cours.';
     } else {
       const filter = $('catalog-room-filter').value;
-      items = state.data.rooms.filter(item => normal(item.name).includes(query) && (!filter || active(item.active) === (filter === 'active')));
-      $('catalog-stat-one').textContent = number(state.data.rooms.length); $('catalog-stat-two').textContent = number(state.data.rooms.filter(item => active(item.active)).length); $('catalog-stat-three').textContent = number(state.data.rooms.filter(item => !active(item.active)).length);
+      const rooms = state.roomDay && state.data.room_periods ? state.data.room_periods.filter(r =>
+        (!r.valid_from || r.valid_from <= state.roomDay) && (!r.valid_before || state.roomDay < r.valid_before)) : state.data.rooms;
+      items = rooms.filter(item => normal(item.name).includes(query) && (!filter || active(item.active) === (filter === 'active')));
+      $('catalog-stat-one').textContent = number(rooms.length); $('catalog-stat-two').textContent = number(rooms.filter(item => active(item.active)).length); $('catalog-stat-three').textContent = number(rooms.filter(item => !active(item.active)).length);
     }
     const singular = isSubjects ? 'matière' : 'salle'; $('catalog-count').textContent = items.length + ' ' + singular + (items.length === 1 ? '' : 's') + ' affichée' + (items.length === 1 ? '' : 's');
     $('catalog-grid').replaceChildren(...items.map(isSubjects ? subjectCard : roomCard));
@@ -137,7 +142,7 @@
     state.editing = item; form.reset(); errorAt('catalog-form-error', ''); $('catalog-delete').hidden = !item;
     $('catalog-editor-title').textContent = (item ? 'Modifier la ' : 'Ajouter une ') + (isSubjects ? 'matière' : 'salle');
     $('catalog-save').textContent = item ? 'Enregistrer les modifications' : 'Créer la ' + (isSubjects ? 'matière' : 'salle');
-    $('catalog-save').disabled = false; form.elements.name.value = item?.name || '';
+    $('catalog-save').disabled = false; form.elements.name.value = item?.next_name || item?.name || '';
     if (isSubjects) {
       const selected = item?.promotion_id || $('catalog-promotion-filter').value;
       const select = form.elements.promotion_id; select.disabled = false; optionList(select, state.data.promotions, promotion => promotion.nom + (!active(promotion.active) ? ' · Archivée' : !ready(promotion) ? ' · Dates à compléter' : ''), 'Choisir une promotion', selected);
@@ -178,6 +183,11 @@
       } catch (_) { source.hidden = true; }
     }
   }
+  window.addEventListener('academy:room-week', event => {
+    if (state.roomDay === event.detail.day) return;
+    state.roomDay = event.detail.day;
+    if (state.data && !isSubjects) render();
+  });
   window.addEventListener('catalog:reload', event => {
     if (isSubjects && event.detail?.promotion_id) { $('catalog-promotion-filter').value = event.detail.promotion_id; rootPromotion(event.detail.promotion_id); }
     load(event.detail?.message || 'Catalogue actualisé.');

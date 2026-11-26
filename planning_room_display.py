@@ -5,6 +5,7 @@ import re
 from planning import _load_courses, _minutes
 from planning_import_pdf import normal
 from planning_room_calendar import reservation_slots
+from planning_room_changes import during, periods
 from planning_rooms import effective_slots, is_physical_room
 
 
@@ -43,7 +44,7 @@ def teaching_periods(slot, staff, room_ids, exam):
 
 
 def daily_programme(conn, day):
-    rooms = {r['id']: r['name'] for r in conn.execute('SELECT id, name FROM planning_rooms')}
+    rooms = {r['id']: r['name'] for r in during(periods(conn), day, day)}
     aliases = {r['name']: r['room_id'] for r in conn.execute('SELECT name, room_id FROM planning_room_aliases')}
     room_ids = {name.strip().casefold(): rid for rid, name in rooms.items()}
     room_ids.update(aliases)

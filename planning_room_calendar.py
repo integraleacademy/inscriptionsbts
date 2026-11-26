@@ -8,12 +8,18 @@ from zoneinfo import ZoneInfo
 
 from flask import request, send_file
 
+import planning_room_changes as changes
+
 
 def unavailable_slots(conn, start, end):
     rows=[]
-    for row in conn.execute('SELECT * FROM planning_room_unavailability WHERE start_date<=? AND end_date>=?',(end,start)):
+    for row in conn.execute('''SELECT u.*, c.effective_from AS closed_from FROM planning_room_unavailability u
+            LEFT JOIN planning_room_changes c ON c.room_id=u.room_id AND c.retired=1
+            WHERE u.start_date<=? AND u.end_date>=?''',(end,start)):
         first=max(date.fromisoformat(start),date.fromisoformat(row['start_date']))
         last=min(date.fromisoformat(end),date.fromisoformat(row['end_date']))
+        if row['closed_from']:
+            last=min(last,date.fromisoformat(row['closed_from'])-timedelta(days=1))
         for offset in range((last-first).days+1):
             day=(first+timedelta(days=offset)).isoformat()
             rows.append(dict(row, date=day,key='unavailable:'+row['id']+':'+day,
@@ -29,7 +35,8 @@ def reservation_slots(conn,start,end):
 def snapshot(conn,start,end):
     from planning import _load_courses, _clock
     from planning_rooms import external_slots, configured, ready, overlap
-    rooms=[dict(r) for r in conn.execute('SELECT * FROM planning_rooms ORDER BY name')]
+    periods = changes.periods(conn)
+    rooms = changes.during(periods, start, end)
     rows=[]
     for c in _load_courses(conn,start,end):
         rows.append(dict(c,key='course:'+c['id'],source='event' if c['kind']=='event' else 'bts',
@@ -51,19 +58,21 @@ def snapshot(conn,start,end):
     counts={}
     for slot in sessions:
         if not slot['room_id']:counts[slot['owner']]=counts.get(slot['owner'],0)+1
+    released_sessions = changes.released_session_slots(conn, sessions)
+    released_owners = {s['owner'] for s in released_sessions}
     for owner in conn.execute("SELECT owner,metadata,title FROM planning_room_owners WHERE owner LIKE 'session:%'"):
         metadata=json.loads(owner['metadata'] or '{}')
         since=metadata.get('start') or metadata.get('formation_start')
         if metadata.get('deleted'):continue
         try:
-            if since and date.fromisoformat(since)<date(2026,10,26):continue
+            if owner['owner'] not in released_owners and since and date.fromisoformat(since)<date(2026,10,26):continue
         except (ValueError,TypeError):continue
-        if not since and not metadata.get('needs_schedule'):continue
+        if not since and not metadata.get('needs_schedule') and owner['owner'] not in released_owners:continue
         if counts.get(owner['owner']) or metadata.get('needs_schedule'):
             to_assign.append(dict(owner=owner['owner'],name=metadata.get('name') or owner['title'],start=metadata.get('start'),
                                   needs_schedule=bool(metadata.get('needs_schedule')),count=counts.get(owner['owner'],0)))
-    return dict(rooms=rooms,reservations=rows,connected=configured(),ready=ready(conn),start=start,end=end,
-                unassigned_count=unassigned,unassigned_sessions=to_assign)
+    return dict(rooms=rooms,room_periods=periods,unassigned_local=changes.released_local_slots(conn),reservations=rows,connected=configured(),ready=ready(conn),start=start,end=end,
+                unassigned_count=unassigned,unassigned_sessions=to_assign,unassigned_session_slots=released_sessions)
 
 
 def apply_room_moves(conn, selected, rid):
@@ -107,6 +116,10 @@ def register(app,connect,guard,result,fail,transact):
         if not ready(conn):raise PlanningError('La synchronisation des salles doit être terminée.',status=503)
         return rid
 
+    def require_open(conn, rid, day):
+        if changes.retired_on(conn, rid, day):
+            raise PlanningError('Cette salle est fermée à cette date.', status=409)
+
     def issues_for(proposed,others):
         issues=[]
         for i,item in enumerate(proposed):
@@ -129,6 +142,7 @@ def register(app,connect,guard,result,fail,transact):
             dates=[_iso(i.get('date')).isoformat() for i in items]
             if (date.fromisoformat(max(dates))-date.fromisoformat(min(dates))).days>366:
                 raise PlanningError('Sélectionnez des créneaux sur un an au maximum.')
+            require_open(conn,rid,max(dates))
             all_rows=snapshot(conn,min(dates),max(dates))['reservations']
             lookup={r['key']:r for r in all_rows}; selected=[]
             for item in items:
@@ -182,6 +196,7 @@ def register(app,connect,guard,result,fail,transact):
                 return dict(message='La réservation a été supprimée.')
             rid=room(conn,payload.get('room_id'))
             day=_iso(payload.get('date')).isoformat()
+            require_open(conn,rid,day)
             start,end=_minutes(payload.get('start')),_minutes(payload.get('end'),True)
             if start>=end:raise PlanningError('L’heure de fin doit suivre l’heure de début.')
             title=payload.get('title')
@@ -228,6 +243,7 @@ def register(app,connect,guard,result,fail,transact):
             reason=payload.get('reason')
             if not isinstance(reason,str) or not 1<=len(reason.strip())<=200:raise PlanningError('Indiquez un motif de 1 à 200 caractères.')
             bounds = (first.isoformat(), last.isoformat())
+            require_open(conn,rid,bounds[1])
             others = [r for r in bookings(conn, *bounds) if r['room_id'] == rid]
             others += [r for r in closures(conn, *bounds) if r['room_id'] == rid and r['id'] != block_id]
             issues = [dict(type='room', date=r.get('date') or max(bounds[0], r['start_date']),
